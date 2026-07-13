@@ -130,16 +130,18 @@ impl From<NetError> for RecursorError {
             return Self::Net(e);
         };
 
-        if let Some(ns) = no_records.ns {
-            Self::ForwardNS(ns)
-        } else {
-            Self::Negative(AuthorityData {
+        // An NXDOMAIN answer denies the whole subtree below the queried name (RFC 8020), so NS
+        // records in its authority section are not a referral to follow.
+        let nx_domain = matches!(no_records.response_code, ResponseCode::NXDomain);
+        match no_records.ns {
+            Some(ns) if !nx_domain => Self::ForwardNS(ns),
+            _ => Self::Negative(AuthorityData {
                 query: no_records.query,
                 soa: no_records.soa,
                 no_records_found: true,
-                nx_domain: matches!(no_records.response_code, ResponseCode::NXDomain),
+                nx_domain,
                 authorities: no_records.authorities,
-            })
+            }),
         }
     }
 }

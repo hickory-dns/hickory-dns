@@ -20,8 +20,9 @@ mod handlers;
 use handlers::{
     BogusNoDataInsteadOfCname, DropRrsetHandler, bad_case_handler, bad_txid_handler,
     bailiwick_handler, base_handler, cname_loop_handler, empty_response_handler,
-    nsec3_nocover_handler, packet_loss_handler, parent_ns_in_authority_handler,
-    qr_not_response_force_tcp_handler, qr_not_response_handler, truncated_response_handler,
+    nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
+    parent_ns_in_authority_handler, qr_not_response_force_tcp_handler, qr_not_response_handler,
+    truncated_response_handler,
 };
 mod zone_file;
 
@@ -75,6 +76,7 @@ enum HandlerArg {
     CnameLoop,
     EmptyResponse,
     Nsec3Nocover,
+    NxdomainWithNsAuthority,
     ParentNsInAuthority,
     PacketLoss,
     TruncatedResponse,
@@ -100,6 +102,9 @@ impl HandlerArg {
             Self::CnameLoop => &(cname_loop_handler as HandlerMessageFnPtr),
             Self::EmptyResponse => &(empty_response_handler as HandlerMessageFnPtr),
             Self::Nsec3Nocover => &(nsec3_nocover_handler as HandlerMessageFnPtr),
+            Self::NxdomainWithNsAuthority => {
+                &(nxdomain_with_ns_authority_handler as HandlerMessageFnPtr)
+            }
             Self::ParentNsInAuthority => &(parent_ns_in_authority_handler as HandlerMessageFnPtr),
             Self::PacketLoss => &(packet_loss_handler as HandlerBytesFnPtr),
             Self::TruncatedResponse => &(truncated_response_handler as HandlerMessageFnPtr),

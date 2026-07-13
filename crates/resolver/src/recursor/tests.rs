@@ -535,6 +535,84 @@ async fn cache_negative_responses() -> Result<(), NetError> {
     Ok(())
 }
 
+#[tokio::test]
+async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
+    subscribe();
+
+    let no_exist_name = Name::from_ascii("www.doesnotexist.hickory-dns.testing.")?;
+    let no_exist_cut = Name::from_ascii("doesnotexist.hickory-dns.testing.")?;
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
+    let bogus_ns = Name::from_ascii("ns.doesnotexist.hickory-dns.testing.")?;
+
+    let responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
+        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
+            .with_query_name(&leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        // The zone cut probe gets an NXDOMAIN whose authority section carries NS records
+        // alongside the SOA.
+        MockRecord::soa(LEAF_IP, &leaf_ns, &leaf_zone, &leaf_ns)
+            .with_query_name(&no_exist_cut)
+            .with_query_type(RecordType::NS)
+            .with_ttl(3600),
+        MockRecord::ns(LEAF_IP, &leaf_zone, &bogus_ns)
+            .with_query_name(&no_exist_cut)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Authority),
+    ];
+
+    let cut = no_exist_cut.clone();
+    let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+        move |_destination: IpAddr, _protocol: Protocol, message: &mut Message| {
+            if message.queries[0].name == cut {
+                message.metadata.response_code = ResponseCode::NXDomain;
+            }
+        },
+    ));
+
+    let provider = MockProvider::new(handler);
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(), // We use addresses in the default deny filters.
+            ..RecursorOptions::default()
+        },
+        provider.clone(),
+    )?;
+
+    let error = recursor
+        .resolve(
+            Query::new(no_exist_name.clone(), RecordType::A),
+            Instant::now(),
+            false,
+        )
+        .await
+        .unwrap_err();
+    assert!(error.is_nx_domain());
+
+    // Per RFC 8020 nothing below the NXDOMAIN name exists, so no further probe is made.
+    assert_eq!(
+        provider
+            .queries(&LEAF_IP)
+            .iter()
+            .filter(|x| x.name == no_exist_name)
+            .count(),
+        0,
+    );
+
+    Ok(())
+}
+
 #[test]
 fn is_subzone_test() {
     use core::str::FromStr;
