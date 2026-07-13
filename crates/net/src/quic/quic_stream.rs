@@ -200,7 +200,7 @@ impl QuicStream {
         // bytes.  This maximum size is enforced by the use of a 2-octet message length field in DNS
         // over TCP [RFC1035] and DoT [RFC7858], and by the definition of the
         // "application/dns-message" for DoH [RFC8484].  DoQ enforces the same restriction.
-        let mut bytes = BytesMut::with_capacity(len);
+        let mut bytes = BytesMut::with_capacity(512);
         let mut left = len;
         while left > 0 {
             match self.receive_stream.read_chunk(left, true).await {
