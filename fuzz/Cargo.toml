@@ -26,3 +26,10 @@ path = "fuzz_targets/preserve_rdata.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "zone_file"
+path = "fuzz_targets/zone_file.rs"
+test = false
+doc = false
+bench = false
