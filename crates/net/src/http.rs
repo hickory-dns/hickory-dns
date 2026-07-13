@@ -164,7 +164,7 @@ pub async fn fetch_body<E: Into<NetError>>(
     mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
     length: Option<usize>,
 ) -> Result<BytesMut, NetError> {
-    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4_096));
+    let mut bytes = BytesMut::with_capacity(512);
     loop {
         match stream.next().await {
             Some(Ok(frame)) => match bytes.len() + frame.remaining() > MAX_REQUEST_SIZE {
