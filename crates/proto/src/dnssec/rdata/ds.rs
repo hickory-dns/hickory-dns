@@ -93,10 +93,9 @@ impl DS {
         name: &Name,
         digest_type: DigestType,
     ) -> Result<Self, DnsSecError> {
-        let tag = key_tag(public_key.public_bytes());
         let dnskey = DNSKEY::from_key(public_key);
         Ok(Self::new(
-            tag,
+            dnskey.calculate_key_tag()?,
             public_key.algorithm(),
             digest_type,
             dnskey.to_digest(name, digest_type)?.as_ref().to_owned(),
@@ -373,72 +372,6 @@ impl Display for DS {
     }
 }
 
-/// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
-///
-/// ```text
-/// RFC 2535                DNS Security Extensions               March 1999
-///
-/// 4.1.6 Key Tag Field
-///
-///  The "key Tag" is a two octet quantity that is used to efficiently
-///  select between multiple keys which may be applicable and thus check
-///  that a public key about to be used for the computationally expensive
-///  effort to check the signature is possibly valid.  For algorithm 1
-///  (MD5/RSA) as defined in [RFC 2537], it is the next to the bottom two
-///  octets of the public key modulus needed to decode the signature
-///  field.  That is to say, the most significant 16 of the least
-///  significant 24 bits of the modulus in network (big endian) order. For
-///  all other algorithms, including private algorithms, it is calculated
-///  as a simple checksum of the KEY RR as described in Appendix C.
-///
-/// Appendix C: Key Tag Calculation
-///
-///  The key tag field in the SIG RR is just a means of more efficiently
-///  selecting the correct KEY RR to use when there is more than one KEY
-///  RR candidate available, for example, in verifying a signature.  It is
-///  possible for more than one candidate key to have the same tag, in
-///  which case each must be tried until one works or all fail.  The
-///  following reference implementation of how to calculate the Key Tag,
-///  for all algorithms other than algorithm 1, is in ANSI C.  It is coded
-///  for clarity, not efficiency.  (See section 4.1.6 for how to determine
-///  the Key Tag of an algorithm 1 key.)
-///
-///  /* assumes int is at least 16 bits
-///     first byte of the key tag is the most significant byte of return
-///     value
-///     second byte of the key tag is the least significant byte of
-///     return value
-///     */
-///
-///  int keytag (
-///
-///          unsigned char key[],  /* the RDATA part of the KEY RR */
-///          unsigned int keysize, /* the RDLENGTH */
-///          )
-///  {
-///  long int    ac;    /* assumed to be 32 bits or larger */
-///
-///  for ( ac = 0, i = 0; i < keysize; ++i )
-///      ac += (i&1) ? key[i] : key[i]<<8;
-///  ac += (ac>>16) & 0xFFFF;
-///  return ac & 0xFFFF;
-///  }
-/// ```
-fn key_tag(public_key: &[u8]) -> u16 {
-    let mut ac = 0;
-
-    for (i, k) in public_key.iter().enumerate() {
-        ac += if i & 0x0001 == 0x0001 {
-            *k as usize
-        } else {
-            (*k as usize) << 8
-        };
-    }
-
-    ac += (ac >> 16) & 0xFFFF;
-    (ac & 0xFFFF) as u16 // this is unnecessary, no?
-}
-
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
@@ -469,6 +402,31 @@ mod tests {
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = DS::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_from_key() {
+        // The key signing key for `no.` and the matching DS record published in the root zone.
+        let public_key = PublicKeyBuf::new(
+            data_encoding::BASE64
+                .decode(b"m0YDL7YHCgqY5BPOy+UaYc6cqvGYlXA7rTnJPNzHHy7fK65XVWKLyhVpnK0zsw0XSCz4DiGgVKPjHDCFmtnjqQ==")
+                .unwrap(),
+            Algorithm::ECDSAP256SHA256,
+        );
+        let name = Name::parse("no.", None).unwrap();
+
+        let ds = DS::from_key(&public_key, &name, DigestType::SHA256).unwrap();
+        assert_eq!(ds.key_tag(), 38032);
+        assert_eq!(
+            ds.key_tag(),
+            DNSKEY::from_key(&public_key).calculate_key_tag().unwrap()
+        );
+        assert_eq!(
+            ds.digest(),
+            data_encoding::HEXUPPER
+                .decode(b"6D374D769D1E4388B1A549A6DA2F7D89371DB6ABAA53D20EEC70844DB4062E51")
+                .unwrap()
+        );
     }
 
     #[test]
