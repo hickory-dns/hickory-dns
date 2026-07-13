@@ -36,10 +36,7 @@ impl<'a> Lexer<'a> {
         let mut char_data_vec: Option<Vec<String>> = None;
         let mut char_data: Option<String> = None;
 
-        for i in 0..4_096 {
-            // max chars in a single lex, helps with issues in the lexer...
-            assert!(i < 4095); // keeps the bounds of the loop defined (nothing lasts forever)
-
+        loop {
             // This is to get around mutability rules such that we can peek at the iter without moving next...
             let ch: Option<char> = self.peek();
 
@@ -258,8 +255,6 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
-
-        unreachable!("The above match statement should have found a terminal state");
     }
 
     fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
