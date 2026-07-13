@@ -552,6 +552,41 @@ pub(crate) fn parent_ns_in_authority_handler(
     Ok(msg)
 }
 
+/// This handler answers every query with NXDOMAIN, and puts an SOA plus an NS record (with A glue)
+/// in the authority section. It is the authoritative server from
+/// <https://github.com/hickory-dns/hickory-dns/issues/3565>. An NXDOMAIN response that also
+/// carries NS records is a valid but uncommon shape, and per RFC 8020 the NS records are not a
+/// referral to follow. The glue address is unrouteable TEST-NET-1, so following the referral would
+/// surface as a query to an unreachable server.
+pub(crate) fn nxdomain_with_ns_authority_handler(
+    request: Message,
+    _transport: Transport,
+) -> Result<Message> {
+    let mut msg = request.into_response();
+
+    let zone = Name::from_ascii("nxcut.example.testing.")?;
+    let ns_name = Name::from_ascii("ns.nxcut.example.testing.")?;
+
+    msg.metadata.authoritative = true;
+    msg.metadata.recursion_desired = false;
+    msg.metadata.response_code = ResponseCode::NXDomain;
+
+    let soa = rdata::SOA::new(ns_name.clone(), ns_name.clone(), 1, 3600, 600, 604800, 300);
+    msg.add_authority(Record::from_rdata(zone.clone(), 300, RData::SOA(soa)));
+    msg.add_authority(Record::from_rdata(
+        zone,
+        300,
+        RData::NS(rdata::NS(ns_name.clone())),
+    ));
+    msg.add_additional(Record::from_rdata(
+        ns_name,
+        300,
+        RData::A(rdata::A([192, 0, 2, 254].into())),
+    ));
+
+    Ok(msg)
+}
+
 /// This handler generates a response with QR=0 (Query type instead of Response type).
 /// Such responses should be rejected by resolvers as invalid.
 pub(crate) fn qr_not_response_handler(request: Message, _transport: Transport) -> Result<Message> {
