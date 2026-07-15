@@ -524,7 +524,7 @@ mod tests {
             Arc::from("dns.google"),
             Arc::from("/dns-query"),
             &build_fn,
-            3,
+            5,
         )
         .await
         .expect("h3 connect failed");
@@ -574,7 +574,7 @@ mod tests {
             Arc::from(google.ip().to_string()),
             Arc::from("/dns-query"),
             &build_fn,
-            3,
+            5,
         )
         .await
         .expect("h3 connect failed");
@@ -627,7 +627,7 @@ mod tests {
             Arc::from("cloudflare-dns.com"),
             Arc::from("/dns-query"),
             &build_fn,
-            3,
+            5,
         )
         .await
         .expect("h3 connect failed");
@@ -750,7 +750,8 @@ mod tests {
                 }
                 Err(e) => {
                     if attempt < max_retries - 1 {
-                        tokio::time::sleep(Duration::from_millis(100 * (attempt as u64 + 1))).await;
+                        let delay_ms = 200 * (2_u64.pow(attempt as u32));
+                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
                     }
                     last_err = Some(e);
                 }
