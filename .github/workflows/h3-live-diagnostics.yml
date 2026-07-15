@@ -168,6 +168,45 @@ jobs:
 
           exit "${failed}"
 
+      - name: Summarize retry statistics
+        if: always()
+        shell: bash
+        run: |
+          echo "=== H3 Test Retry Statistics ==="
+          echo "Total attempts: ${REPETITIONS}"
+
+          if [ -d "h3-live-logs" ]; then
+            total_retries_0=0
+            total_retries_1=0
+            total_retries_2=0
+            total_with_retries=0
+
+            for log in h3-live-logs/*.log; do
+              if grep -q "RETRY_COUNT: 1" "$log"; then
+                total_retries_1=$((total_retries_1 + 1))
+                total_with_retries=$((total_with_retries + 1))
+              elif grep -q "RETRY_COUNT: 2" "$log"; then
+                total_retries_2=$((total_retries_2 + 1))
+                total_with_retries=$((total_with_retries + 1))
+              else
+                total_retries_0=$((total_retries_0 + 1))
+              fi
+            done
+
+            echo "Succeeded on first try (0 retries): $total_retries_0"
+            echo "Needed 1 retry: $total_retries_1"
+            echo "Needed 2 retries: $total_retries_2"
+            echo "Total needing retries: $total_with_retries"
+            echo ""
+
+            if [ "$total_with_retries" -gt 0 ]; then
+              retry_pct=$((total_with_retries * 100 / REPETITIONS))
+              echo "Retry rate: ${retry_pct}%"
+            fi
+          else
+            echo "No logs directory found"
+          fi
+
       - name: Upload H3 logs
         if: always() && !env.ACT
         uses: actions/upload-artifact@v4

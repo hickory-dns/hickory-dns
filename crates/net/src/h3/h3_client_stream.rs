@@ -738,12 +738,19 @@ mod tests {
         for attempt in 0..max_retries {
             let builder = H3ClientStream::builder();
             let builder = build_fn(builder);
-            match builder.build(name_server, server_name.clone(), path.clone()).await {
-                Ok(stream) => return Ok(stream),
+            match builder
+                .build(name_server, server_name.clone(), path.clone())
+                .await
+            {
+                Ok(stream) => {
+                    if attempt > 0 {
+                        println!("RETRY_COUNT: {}", attempt);
+                    }
+                    return Ok(stream);
+                }
                 Err(e) => {
                     if attempt < max_retries - 1 {
-                        tokio::time::sleep(Duration::from_millis(100 * (attempt as u64 + 1)))
-                            .await;
+                        tokio::time::sleep(Duration::from_millis(100 * (attempt as u64 + 1))).await;
                     }
                     last_err = Some(e);
                 }
