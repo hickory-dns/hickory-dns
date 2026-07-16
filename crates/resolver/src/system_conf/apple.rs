@@ -1,6 +1,6 @@
 use std::{borrow::Cow, net::IpAddr, str::FromStr};
 
-use hickory_proto::{ProtoError, rr::Name};
+use hickory_proto::ProtoError;
 use system_configuration::{
     core_foundation::{
         array::CFArray,
@@ -12,6 +12,7 @@ use system_configuration::{
 };
 use tracing::warn;
 
+use super::sanitize::parse_search_domains;
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 
 pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> {
@@ -67,7 +68,9 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
 
         let mut search_domains = Vec::with_capacity(search_domains_cf.len() as usize);
         for s in &*search_domains_cf {
-            search_domains.push(Name::from_str(&Cow::from(&*s))?);
+            for domain in parse_search_domains(&Cow::from(&*s)) {
+                search_domains.push(domain?);
+            }
         }
         search_domains
     } else {
