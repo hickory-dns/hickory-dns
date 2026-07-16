@@ -56,7 +56,6 @@ impl FromStr for DNSClass {
     /// assert_eq!(DNSClass::IN, var);
     /// ```
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        debug_assert!(str.chars().all(|x| !char::is_ascii_lowercase(&x)));
         match str {
             "IN" => Ok(Self::IN),
             "CH" => Ok(Self::CH),
