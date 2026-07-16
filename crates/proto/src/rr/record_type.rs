@@ -213,8 +213,6 @@ impl FromStr for RecordType {
     /// assert_eq!(RecordType::A, var);
     /// ```
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        // TODO missing stuff?
-        debug_assert!(str.chars().all(|x| !char::is_ascii_lowercase(&x)));
         match str {
             "A" => Ok(Self::A),
             "AAAA" => Ok(Self::AAAA),
