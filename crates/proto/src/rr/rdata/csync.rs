@@ -307,4 +307,12 @@ mod tests {
         assert!(CSYNC::from_tokens(vec!["NS"].into_iter()).is_err());
         assert!(CSYNC::from_tokens(vec![].into_iter()).is_err());
     }
+
+    #[test]
+    fn lowercase_type() {
+        assert!(matches!(
+            CSYNC::from_tokens(vec!["1", "1", "p"].into_iter()).unwrap_err(),
+            ParseError::Proto(ProtoError::Decode(DecodeError::UnknownRecordTypeStr(_))),
+        ));
+    }
 }
