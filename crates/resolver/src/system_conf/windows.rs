@@ -13,6 +13,7 @@ use std::str::FromStr;
 use ipconfig::computer::{get_domain, get_search_list};
 use ipconfig::get_adapters;
 
+use super::sanitize::parse_search_domains;
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::proto::ProtoError;
 use crate::proto::rr::Name;
@@ -40,7 +41,7 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
     let search_list = get_search_list()
         .map_err(|e| format!("ipconfig::get_search_list() failed: {e}"))?
         .iter()
-        .map(|x| Name::from_str(x))
+        .flat_map(|x| parse_search_domains(x))
         .collect::<Result<Vec<_>, _>>()?;
 
     let domain = match get_domain().map_err(|e| format!("ipconfig::get_domain() failed: {e}"))? {

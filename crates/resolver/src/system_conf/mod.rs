@@ -43,3 +43,61 @@ mod apple;
 #[cfg(target_vendor = "apple")]
 #[cfg(feature = "system-config")]
 pub use self::apple::read_system_conf;
+
+#[cfg(all(feature = "system-config", any(windows, target_vendor = "apple")))]
+mod sanitize {
+    use std::str::FromStr;
+
+    use crate::proto::{ProtoError, rr::Name};
+
+    pub(super) fn parse_search_domains(
+        raw: &str,
+    ) -> impl Iterator<Item = Result<Name, ProtoError>> + '_ {
+        raw.split(|c: char| c.is_whitespace() || c == '\0')
+            .filter(|domain| !domain.is_empty())
+            .map(Name::from_str)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::str::FromStr;
+
+        use crate::proto::rr::Name;
+
+        use super::parse_search_domains;
+
+        fn names(domains: &[&str]) -> Vec<Name> {
+            domains
+                .iter()
+                .map(|d| Name::from_str(d).expect("test domain must parse"))
+                .collect()
+        }
+
+        #[test]
+        fn test_parse_search_domains() {
+            let cases: &[(&str, &[&str])] = &[
+                ("example.com", &["example.com"]),
+                ("example.com. example.net", &["example.com.", "example.net"]),
+                ("a.com\tb.com\r\nc.com", &["a.com", "b.com", "c.com"]),
+                ("test.com\0something.net", &["test.com", "something.net"]),
+                ("", &[]),
+            ];
+            for (input, expected) in cases {
+                assert_eq!(
+                    parse_search_domains(input)
+                        .collect::<Result<Vec<_>, _>>()
+                        .expect("test domains must parse"),
+                    names(expected),
+                    "input: {input:?}"
+                );
+            }
+
+            let invalid = format!("{}.com valid.com", "a".repeat(64));
+            assert!(
+                parse_search_domains(&invalid)
+                    .collect::<Result<Vec<_>, _>>()
+                    .is_err()
+            );
+        }
+    }
+}
