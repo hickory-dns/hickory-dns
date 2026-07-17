@@ -734,6 +734,7 @@ mod tests {
         F: Fn(H3ClientStreamBuilder) -> H3ClientStreamBuilder,
     {
         let mut last_err = None;
+        let mut delay_ms = 100u64;
 
         for attempt in 0..max_retries {
             let builder = H3ClientStream::builder();
@@ -750,8 +751,8 @@ mod tests {
                 }
                 Err(e) => {
                     if attempt < max_retries - 1 {
-                        let delay_ms = 200 * (2_u64.pow(attempt as u32));
                         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                        delay_ms *= 2;
                     }
                     last_err = Some(e);
                 }
