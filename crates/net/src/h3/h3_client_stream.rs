@@ -434,7 +434,7 @@ impl H3ClientStreamBuilder {
             Ok(connection) => connection?,
             Err(elapsed) => {
                 return Err(NetError::from(format!(
-                    "h3 QUIC connect timed out after {:?}: server={name_server}, server_name={server_name}, local_addr={local_addr:?}, elapsed={elapsed}",
+                    "h3 QUIC connect Timeout after {:?}: server={name_server}, server_name={server_name}, local_addr={local_addr:?}, elapsed={elapsed}",
                     self.connect_timeout,
                 )));
             }
@@ -451,7 +451,7 @@ impl H3ClientStreamBuilder {
             }
             Err(_) => {
                 return Err(NetError::from(format!(
-                    "h3 HTTP/3 setup timed out after {:?}: server={name_server}, server_name={server_name}, path={path}",
+                    "h3 HTTP/3 setup Timeout after {:?}: server={name_server}, server_name={server_name}, path={path}",
                     self.connect_timeout
                 )));
             }
