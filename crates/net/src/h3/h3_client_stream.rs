@@ -723,6 +723,8 @@ mod tests {
         DnsRequest::new(request, DnsRequestOptions::default())
     }
 
+    // Retries H3 connection up to max_retries times with exponential backoff delays.
+    // Useful for flaky network conditions in tests. Use --nocapture to see retry details.
     async fn connect_h3_with_retries<F>(
         name_server: SocketAddr,
         server_name: Arc<str>,
@@ -745,12 +747,13 @@ mod tests {
             {
                 Ok(stream) => {
                     if attempt > 0 {
-                        println!("RETRY_COUNT: {}", attempt);
+                        println!("H3 connection succeeded after {attempt} retries");
                     }
                     return Ok(stream);
                 }
                 Err(e) => {
                     if attempt < max_retries - 1 {
+                        println!("H3 connection attempt {attempt} failed: {e}; retrying in {delay_ms}ms");
                         tokio::time::sleep(Duration::from_millis(delay_ms)).await;
                         delay_ms *= 2;
                     }
