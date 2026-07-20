@@ -475,6 +475,21 @@ impl ProtocolConfig {
         }
     }
 
+    /// Returns the TLS server name, if the protocol uses TLS.
+    pub fn server_name(&self) -> Option<&Arc<str>> {
+        match self {
+            ProtocolConfig::Udp | ProtocolConfig::Tcp => None,
+            #[cfg(feature = "__tls")]
+            ProtocolConfig::Tls { server_name } => Some(server_name),
+            #[cfg(feature = "__https")]
+            ProtocolConfig::Https { server_name, .. } => Some(server_name),
+            #[cfg(feature = "__quic")]
+            ProtocolConfig::Quic { server_name } => Some(server_name),
+            #[cfg(feature = "__h3")]
+            ProtocolConfig::H3 { server_name, .. } => Some(server_name),
+        }
+    }
+
     /// Default port for the protocol.
     pub fn default_port(&self) -> u16 {
         match self {

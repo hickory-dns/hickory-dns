@@ -307,6 +307,14 @@ impl<P: ConnectionProvider> NameServer<P> {
         self.config.ip
     }
 
+    /// Returns the TLS server name identifying this server's provider, if any.
+    pub(super) fn provider(&self) -> Option<&Arc<str>> {
+        self.config
+            .connections
+            .iter()
+            .find_map(|conn| conn.protocol.server_name())
+    }
+
     pub(crate) fn decayed_srtt(&self) -> f64 {
         self.server_srtt.current()
     }
