@@ -117,12 +117,13 @@ impl ResponseCache {
             .positive_response_ttl_bounds(query_type)
             .into_inner();
 
-        // Derive cache duration from the minimum TTL of records whose type
-        // matches the query, across all sections.  This avoids letting
-        // unrelated authority/additional records skew the cache lifetime.
+        // Derive cache duration from the minimum TTL of records whose type matches the
+        // query (or CNAME records, see RFC2181 sections 5.4.1 and 10.1.1), across all
+        // sections. This avoids letting unrelated authority/additional records skew
+        // the cache lifetime.
         let min_ttl = message
             .all_sections()
-            .filter(|r| r.record_type() == query_type)
+            .filter(|r| r.record_type() == query_type || r.record_type() == RecordType::CNAME)
             .map(|r| Duration::from_secs(r.ttl.into()))
             .min();
 
@@ -477,6 +478,7 @@ mod tests {
         time::{Duration, Instant},
     };
 
+    use hickory_proto::rr::rdata::CNAME;
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
@@ -1036,6 +1038,44 @@ mod tests {
         assert_eq!(
             cache.cache.get(&query_txt).unwrap().valid_until,
             now + Duration::from_secs(7)
+        );
+    }
+
+    #[test]
+    fn cname_alias_bounds_cache_lifetime() {
+        let now = Instant::now();
+        let cname = Name::from_ascii("cname-record.com.").unwrap();
+        let a = Name::from_ascii("a-record.com.").unwrap();
+
+        let query = Query::new(cname.clone(), RecordType::A);
+
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(query.clone());
+
+        // Short-TTL CNAME alias
+        message.add_answer(Record::from_rdata(cname, 5, RData::CNAME(CNAME(a.clone()))));
+
+        // Terminal A record with 24hr TTL.
+        message.add_answer(Record::from_rdata(
+            a,
+            86_400,
+            RData::A(A::new(51, 34, 100, 105)),
+        ));
+
+        let cache = ResponseCache::new(1, TtlConfig::default());
+        cache.insert(query.clone(), Ok::<Message, NetError>(message), now);
+
+        // Immediately after insert the response is a cache hit.
+        assert!(
+            cache.get(&query, now).is_some(),
+            "freshly inserted response should be a cache hit"
+        );
+
+        // At t=6s — just past the 5s CNAME TTL — the entry MUST be a cache miss so a
+        // re-resolution occurs.
+        assert!(
+            cache.get(&query, now + Duration::from_secs(6)).is_none(),
+            "response served past the 5s CNAME TTL"
         );
     }
 
