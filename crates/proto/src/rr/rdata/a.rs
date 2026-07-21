@@ -55,7 +55,7 @@ use crate::{
 pub struct A(pub Ipv4Addr);
 
 impl A {
-    /// Construct a new AAAA record with the 32 bits of IPv4 address
+    /// Construct a new A record with the 32 bits of IPv4 address
     pub const fn new(a: u8, b: u8, c: u8, d: u8) -> Self {
         Self(Ipv4Addr::new(a, b, c, d))
     }
