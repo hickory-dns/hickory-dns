@@ -1,0 +1,129 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-3.2"
+
+# Delegation Records
+#
+#    In Section 4.2.1 of RFC 1034, this text appears (keep in mind that
+#    the "should" in the quotation predates [BCP14], cf. Section 1.1):
+# 
+#       The RRs that describe cuts ... should be exactly the same as the
+#       corresponding RRs in the top node of the subzone.
+# 
+#    There has been some controversy over this statement and the impact on
+#    which NS resource records are included in a zone transfer.
+# 
+#    The phrase "that describe cuts" is a reference to the NS set and
+#    applicable glue records.  It does not mean that the cut point and
+#    apex resource records are identical.  For example, the SOA resource
+#    record is only found at the apex.  The discussion here is restricted
+#    to just the NS resource record set and glue, as these "describe
+#    cuts".
+# 
+#    DNSSEC resource records have special specifications regarding their
+#    occurrence at a zone cut and the apex of a zone.  This was first
+#    described in Sections 5.3 ff. and 6.2 of RFC 2181 (for the initial
+#    specification of DNSSEC), which parts of RFC 2181 now in fact are
+#    historical.  The current DNSSEC core document set (see second bullet
+#    in Section 2 above) gives the full details for DNSSEC(bis) resource
+#    record placement, and Section 3.1.5 of RFC 4035 normatively specifies
+#    their treatment during AXFR; the alternate NSEC3 resource record
+#    defined later in RFC 5155 behaves identically to the NSEC RR, for the
+#    purpose of AXFR.
+# 
+#    Informally:
+# 
+#    o  The DS RRSet only occurs at the parental side of a zone cut and is
+#       authoritative data in the parent zone, not the secure child zone.
+# 
+#    o  The DNSKEY RRSet only occurs at the apex of a signed zone and is
+#       part of the authoritative data of the zone it serves.
+# 
+#    o  Independent RRSIG RRSets occur at the signed parent side of a zone
+#       cut and at the apex of a signed zone; they are authoritative data
+#       in the respective zone; simple queries for RRSIG resource records
+#       may return both RRSets at once if the same server is authoritative
+#       for the parent zone and the child zone (Section 3.1.5 of RFC 4035
+#       describes how to distinguish these RRs); this seeming ambiguity
+#       does not occur for AXFR, since each such RRSIG RRset belongs to a
+#       single zone.
+# 
+#    o  Different NSEC [RFC4034] (or NSEC3 [RFC5155]) resource records
+#       equally may occur at the parental side of a zone cut and at the
+#       apex of a zone; each such resource record belongs to exactly one
+#       of these zones and is to be included in the AXFR of that zone.
+# 
+#    One issue is that in operations there are times when the NS resource
+#    records for a zone might be different at a cut point in the parent
+#    and at the apex of a zone.  Sometimes this is the result of an error,
+#    and sometimes it is part of an ongoing change in name servers.  The
+#    DNS protocol is robust enough to overcome inconsistencies up to (but
+#    not including) there being no parent-indicated NS resource record
+#    referencing a server that is able to serve the child zone.  This
+#    robustness is one quality that has fueled the success of the DNS.
+#    Still, the inconsistency is an error state, and steps need to be
+#    taken to make it apparent (if it is unplanned).
+# 
+#    Another issue is that the AXFR server could be authoritative for a
+#    different set of zones than the AXFR client.  It is possible that the
+#    AXFR server be authoritative for both halves of an inconsistent cut
+#    point and that the AXFR client is authoritative for just the parent
+#    side of the cut point.
+# 
+#    When facing a situation in which a cut point's NS resource records do
+#    not match the authoritative set, the question arises whether an AXFR
+#    server responds with the NS resource record set that is in the zone
+#    being transferred or the one that is at the authoritative location.
+# 
+#    The AXFR response MUST contain the cut point NS resource record set
+#    registered with the zone whether it agrees with the authoritative set
+#    or not.  "Registered with" can be widely interpreted to include data
+#    residing in the zone file of the zone for the particular serial
+#    number (in zone file environments) or as any data configured to be in
+#    the zone (database), statically or dynamically.
+# 
+#    The reasons for this requirement are:
+# 
+#    1) The AXFR server might not be able to determine that there is an
+#       inconsistency given local data; hence, requiring consistency would
+#       mean a lot more needed work and even network retrieval of data.
+#       An authoritative server ought not be required to perform any
+#       queries.
+# 
+#    2) By transferring the inconsistent NS resource records from a server
+#       that is authoritative for both the cut point and the apex to a
+#       client that is not authoritative for both, the error is exposed.
+#       For example, an authorized administrator can manually request the
+#       AXFR and inspect the results to see the inconsistent records.  (A
+#       server authoritative for both halves would otherwise always answer
+#       from the more authoritative set, concealing the error.)
+# 
+#    3) The inconsistent NS resource record set might indicate a problem
+#       in a registration database.
+# 
+#    4) This requirement is necessary to ensure that retrieving a given
+#       (zone, serial) pair by AXFR yields the exact same set of resource
+#       records, no matter which of the zone's authoritative servers is
+#       chosen as the source of the transfer.
+# 
+#    If an AXFR server were allowed to respond with the authoritative NS
+#    RRset of a child zone instead of a parent-side NS RRset in the zone
+#    being transferred, the set of records returned could vary depending
+#    on whether or not the server happened to be authoritative for the
+#    child zone as well.
+# 
+#    The property that a given (zone, serial) pair corresponds to a
+#    single, well-defined set of records is necessary for the correct
+#    operation of incremental transfer protocols such as IXFR [RFC1995].
+#    For example, a client may retrieve a zone by AXFR from one server,
+#    and then apply an incremental change obtained by IXFR from a
+#    different server.  If the two servers have different ideas of the
+#    zone contents, the client can end up attempting to incrementally add
+#    records that already exist or to delete records that do not exist.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The AXFR response MUST contain the cut point NS resource record set
+registered with the zone whether it agrees with the authoritative set
+or not.
+'''
+

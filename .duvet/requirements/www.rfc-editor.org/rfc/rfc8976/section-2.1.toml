@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-2.1"
+
+# Non-apex ZONEMD Records
+#
+#    This document specifies ZONEMD RRs located at the zone apex.  Non-
+#    apex ZONEMD RRs are not forbidden, but have no meaning in this
+#    specification.  Non-apex ZONEMD RRs MUST NOT be used for
+#    verification.
+# 
+#    During digest calculation, non-apex ZONEMD RRs are treated as
+#    ordinary RRs.  They are digested as is, and the RR is not replaced by
+#    a placeholder RR.
+# 
+#    Unless explicitly stated otherwise, "ZONEMD" always refers to apex
+#    records throughout this document.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Non-apex ZONEMD RRs MUST NOT be used for
+verification.
+'''
+

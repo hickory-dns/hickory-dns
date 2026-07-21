@@ -1,0 +1,115 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.3.1"
+
+# Checking the RRSIG RR Validity
+#
+#    A security-aware resolver can use an RRSIG RR to authenticate an
+#    RRset if all of the following conditions hold:
+# 
+#    o  The RRSIG RR and the RRset MUST have the same owner name and the
+#       same class.
+# 
+#    o  The RRSIG RR's Signer's Name field MUST be the name of the zone
+#       that contains the RRset.
+# 
+#    o  The RRSIG RR's Type Covered field MUST equal the RRset's type.
+# 
+#    o  The number of labels in the RRset owner name MUST be greater than
+#       or equal to the value in the RRSIG RR's Labels field.
+# 
+#    o  The validator's notion of the current time MUST be less than or
+#       equal to the time listed in the RRSIG RR's Expiration field.
+# 
+#    o  The validator's notion of the current time MUST be greater than or
+#       equal to the time listed in the RRSIG RR's Inception field.
+# 
+#    o  The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST
+#       match the owner name, algorithm, and key tag for some DNSKEY RR in
+#       the zone's apex DNSKEY RRset.
+# 
+#    o  The matching DNSKEY RR MUST be present in the zone's apex DNSKEY
+#       RRset, and MUST have the Zone Flag bit (DNSKEY RDATA Flag bit 7)
+#       set.
+# 
+#    It is possible for more than one DNSKEY RR to match the conditions
+#    above.  In this case, the validator cannot predetermine which DNSKEY
+#    RR to use to authenticate the signature, and it MUST try each
+#    matching DNSKEY RR until either the signature is validated or the
+#    validator has run out of matching public keys to try.
+# 
+#    Note that this authentication process is only meaningful if the
+#    validator authenticates the DNSKEY RR before using it to validate
+#    signatures.  The matching DNSKEY RR is considered to be authentic if:
+# 
+#    o  the apex DNSKEY RRset containing the DNSKEY RR is considered
+#       authentic; or
+# 
+#    o  the RRset covered by the RRSIG RR is the apex DNSKEY RRset itself,
+#       and the DNSKEY RR either matches an authenticated DS RR from the
+#       parent zone or matches a trust anchor.
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The RRSIG RR and the RRset MUST have the same owner name and the
+same class.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The RRSIG RR's Signer's Name field MUST be the name of the zone
+that contains the RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The RRSIG RR's Type Covered field MUST equal the RRset's type.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The number of labels in the RRset owner name MUST be greater than
+or equal to the value in the RRSIG RR's Labels field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The validator's notion of the current time MUST be less than or
+equal to the time listed in the RRSIG RR's Expiration field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The validator's notion of the current time MUST be greater than or
+equal to the time listed in the RRSIG RR's Inception field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST
+match the owner name, algorithm, and key tag for some DNSKEY RR in
+the zone's apex DNSKEY RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The matching DNSKEY RR MUST be present in the zone's apex DNSKEY
+RRset, and MUST have the Zone Flag bit (DNSKEY RDATA Flag bit 7)
+set.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this case, the validator cannot predetermine which DNSKEY
+RR to use to authenticate the signature, and it MUST try each
+matching DNSKEY RR until either the signature is validated or the
+validator has run out of matching public keys to try.
+'''
+

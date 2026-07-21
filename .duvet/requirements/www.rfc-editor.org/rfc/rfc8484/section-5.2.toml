@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-5.2"
+
+# HTTP/2
+#
+#    HTTP/2 [RFC7540] is the minimum RECOMMENDED version of HTTP for use
+#    with DoH.
+# 
+#    The messages in classic UDP-based DNS [RFC1035] are inherently
+#    unordered and have low overhead.  A competitive HTTP transport needs
+#    to support reordering, parallelism, priority, and header compression
+#    to achieve similar performance.  Those features were introduced to
+#    HTTP in HTTP/2 [RFC7540].  Earlier versions of HTTP are capable of
+#    conveying the semantic requirements of DoH but may result in very
+#    poor performance.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+HTTP/2 [RFC7540] is the minimum RECOMMENDED version of HTTP for use
+with DoH.
+'''
+

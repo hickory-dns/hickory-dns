@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-6"
+
+# Mandatory-to-Implement Features
+#
+#    TLS clients conforming to this specification MUST be able to
+#    correctly interpret TLSA records with certificate usages 0, 1, 2,
+#    and 3.  TLS clients conforming to this specification MUST be able to
+#    compare a certificate association with a certificate from the TLS
+#    handshake using selector types 0 and 1, and matching type 0 (no hash
+#    used) and matching type 1 (SHA-256), and SHOULD be able to make such
+#    comparisons with matching type 2 (SHA-512).
+
+[[spec]]
+level = "MUST"
+quote = '''
+TLS clients conforming to this specification MUST be able to
+correctly interpret TLSA records with certificate usages 0, 1, 2,
+and 3.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+TLS clients conforming to this specification MUST be able to
+compare a certificate association with a certificate from the TLS
+handshake using selector types 0 and 1, and matching type 0 (no hash
+used) and matching type 1 (SHA-256), and SHOULD be able to make such
+comparisons with matching type 2 (SHA-512).
+'''
+

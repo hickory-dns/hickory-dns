@@ -1,0 +1,72 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.5.3"
+
+# Using 0-RTT and Session Resumption
+#
+#    Using 0-RTT for DoQ has many compelling advantages.  Clients can
+#    establish connections and send queries without incurring a connection
+#    delay.  Servers can thus negotiate low values of the connection
+#    timers, which reduces the total number of connections that they need
+#    to manage.  They can do that because the clients that use 0-RTT will
+#    not incur latency penalties if new connections are required for a
+#    query.
+# 
+#    Session resumption and 0-RTT data transmission create privacy risks
+#    detailed in Sections 7.1 and 7.2.  The following recommendations are
+#    meant to reduce the privacy risks while enjoying the performance
+#    benefits of 0-RTT data, subject to the restrictions specified in
+#    Section 4.5.
+# 
+#    Clients SHOULD use resumption tickets only once, as specified in
+#    Appendix C.4 of [RFC8446].  By default, clients SHOULD NOT use
+#    session resumption if the client's connectivity has changed.
+# 
+#    Clients could receive address validation tokens from the server using
+#    the NEW_TOKEN mechanism; see Section 8 of [RFC9000].  The associated
+#    tracking risks are mentioned in Section 7.3.  Clients SHOULD only use
+#    the address validation tokens when they are also using session
+#    resumption thus avoiding additional tracking risks.
+# 
+#    Servers SHOULD issue session resumption tickets with a sufficiently
+#    long lifetime (e.g., 6 hours), so that clients are not tempted to
+#    either keep the connection alive or frequently poll the server to
+#    renew session resumption tickets.  Servers SHOULD implement the anti-
+#    replay mechanisms specified in Section 8 of [RFC8446].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD use resumption tickets only once, as specified in
+Appendix C.4 of [RFC8446].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+By default, clients SHOULD NOT use
+session resumption if the client's connectivity has changed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD only use
+the address validation tokens when they are also using session
+resumption thus avoiding additional tracking risks.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD issue session resumption tickets with a sufficiently
+long lifetime (e.g., 6 hours), so that clients are not tempted to
+either keep the connection alive or frequently poll the server to
+renew session resumption tickets.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD implement the anti-
+replay mechanisms specified in Section 8 of [RFC8446].
+'''
+

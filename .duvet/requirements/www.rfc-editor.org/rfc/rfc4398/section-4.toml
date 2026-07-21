@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc4398#section-4"
+
+# Performance Considerations
+#
+#    The Domain Name System (DNS) protocol was designed for small
+#    transfers, typically below 512 octets.  While larger transfers will
+#    perform correctly and work is underway to make larger transfers more
+#    efficient, it is still advisable at this time that every reasonable
+#    effort be made to minimize the size of certificates stored within the
+#    DNS.  Steps that can be taken may include using the fewest possible
+#    optional or extension fields and using short field values for
+#    necessary variable-length fields.
+# 
+#    The RDATA field in the DNS protocol may only hold data of size 65535
+#    octets (64kb) or less.  This means that each CERT RR MUST NOT contain
+#    more than 64kb of payload, even if the corresponding certificate or
+#    certificate revocation list is larger.  This document addresses this
+#    by defining "indirect" data types for each normal type.
+# 
+#    Deploying CERT RRs to support digitally signed email changes the
+#    access patterns of DNS lookups from per-domain to per-user.  If
+#    digitally signed email and a key/certificate lookup based on CERT RRs
+#    are deployed on a wide scale, this may lead to an increased DNS load,
+#    with potential performance and cache effectiveness consequences.
+#    Whether or not this load increase will be noticeable is not known.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This means that each CERT RR MUST NOT contain
+more than 64kb of payload, even if the corresponding certificate or
+certificate revocation list is larger.
+'''
+

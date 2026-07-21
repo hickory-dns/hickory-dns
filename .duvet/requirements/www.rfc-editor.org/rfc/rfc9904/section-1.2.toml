@@ -1,0 +1,78 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#section-1.2"
+
+# Updating Algorithm Requirement Levels
+#
+#    By the time a DNSSEC cryptographic algorithm is made mandatory to
+#    implement, it should already be available in most implementations.
+#    This document defines an IANA registration modification to allow
+#    future documents to specify the implementation recommendations for
+#    each algorithm, as the recommendation status of each DNSSEC
+#    cryptographic algorithm is expected to change over time.  For
+#    example, there is no guarantee that newly introduced algorithms will
+#    become mandatory to implement in the future.  Likewise, published
+#    algorithms are continuously subjected to cryptographic attack and may
+#    become too weak, or even be completely broken, and will require
+#    deprecation in the future.
+# 
+#    It is expected that the deprecation of an algorithm will be performed
+#    gradually.  This provides time for implementations to update their
+#    implemented algorithms while remaining interoperable.  Unless there
+#    are strong security reasons, an algorithm is expected to be
+#    downgraded from MUST to NOT RECOMMENDED or MAY, instead of directly
+#    from MUST to MUST NOT.  Similarly, an algorithm that has not been
+#    mentioned as mandatory to implement is expected to be first
+#    introduced as RECOMMENDED instead of a MUST.
+# 
+#    Since the effect of using an unknown DNSKEY algorithm is that the
+#    zone is treated as insecure, it is recommended that algorithms that
+#    have been downgraded to NOT RECOMMENDED or lower not be used by
+#    authoritative nameservers and DNSSEC signers to create new DNSKEYs.
+#    This ensures that the use of deprecated algorithms decreases over
+#    time.  Once an algorithm has reached a sufficiently low level of
+#    deployment, it can be marked as MUST NOT, so that recursive resolvers
+#    can remove support for validating it.
+# 
+#    Validating recursive resolvers are encouraged to retain support for
+#    all algorithms not marked as MUST NOT.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Unless there
+are strong security reasons, an algorithm is expected to be
+downgraded from MUST to NOT RECOMMENDED or MAY, instead of directly
+from MUST to MUST NOT.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Similarly, an algorithm that has not been
+mentioned as mandatory to implement is expected to be first
+introduced as RECOMMENDED instead of a MUST.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Since the effect of using an unknown DNSKEY algorithm is that the
+zone is treated as insecure, it is recommended that algorithms that
+have been downgraded to NOT RECOMMENDED or lower not be used by
+authoritative nameservers and DNSSEC signers to create new DNSKEYs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once an algorithm has reached a sufficiently low level of
+deployment, it can be marked as MUST NOT, so that recursive resolvers
+can remove support for validating it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Validating recursive resolvers are encouraged to retain support for
+all algorithms not marked as MUST NOT.
+'''
+

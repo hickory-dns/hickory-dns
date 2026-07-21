@@ -1,0 +1,62 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-5.2"
+
+# Generating and Using Incomplete Responses
+#
+#    When following the procedure in Section 4.2, recursive resolvers MAY
+#    terminate the procedure early and produce a reply that omits some of
+#    the associated RRsets.  This is REQUIRED when the chain length limit
+#    is reached (Step 1 in Section 4.2) but might also be appropriate when
+#    the maximum response size is reached or when responding before fully
+#    chasing dependencies would improve performance.  When omitting
+#    certain RRsets, recursive resolvers SHOULD prioritize information for
+#    smaller-SvcPriority records.
+# 
+#    As discussed in Section 3, clients MUST be able to fetch additional
+#    information that is required to use a SVCB record, if it is not
+#    included in the initial response.  As a performance optimization, if
+#    some of the SVCB records in the response can be used without
+#    requiring additional DNS queries, the client MAY prefer those
+#    records, regardless of their priorities.
+
+[[spec]]
+level = "MAY"
+quote = '''
+When following the procedure in Section 4.2, recursive resolvers MAY
+terminate the procedure early and produce a reply that omits some of
+the associated RRsets.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This is REQUIRED when the chain length limit
+is reached (Step 1 in Section 4.2) but might also be appropriate when
+the maximum response size is reached or when responding before fully
+chasing dependencies would improve performance.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When omitting
+certain RRsets, recursive resolvers SHOULD prioritize information for
+smaller-SvcPriority records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As discussed in Section 3, clients MUST be able to fetch additional
+information that is required to use a SVCB record, if it is not
+included in the initial response.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+As a performance optimization, if
+some of the SVCB records in the response can be used without
+requiring additional DNS queries, the client MAY prefer those
+records, regardless of their priorities.
+'''
+

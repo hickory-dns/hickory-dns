@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.2"
+
+# Name Error Responses
+#
+#    To prove the nonexistence of QNAME, a closest encloser proof and an
+#    NSEC3 RR covering the (nonexistent) wildcard RR at the closest
+#    encloser MUST be included in the response.  This collection of (up
+#    to) three NSEC3 RRs proves both that QNAME does not exist and that a
+#    wildcard that could have matched QNAME also does not exist.
+# 
+#    For example, if "gamma.example." is the closest provable encloser to
+#    QNAME, then an NSEC3 RR covering "*.gamma.example." is included in
+#    the authority section of the response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To prove the nonexistence of QNAME, a closest encloser proof and an
+NSEC3 RR covering the (nonexistent) wildcard RR at the closest
+encloser MUST be included in the response.
+'''
+

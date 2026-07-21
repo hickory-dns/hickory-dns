@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.6"
+
+# Processing Queries in Parallel
+#
+#    As specified in Section 7 of [RFC7766] "DNS Transport over TCP -
+#    Implementation Requirements", resolvers are RECOMMENDED to support
+#    the preparing of responses in parallel and sending them out of order.
+#    In DoQ, they do that by sending responses on their specific stream as
+#    soon as possible, without waiting for availability of responses for
+#    previously opened streams.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As specified in Section 7 of [RFC7766] "DNS Transport over TCP -
+Implementation Requirements", resolvers are RECOMMENDED to support
+the preparing of responses in parallel and sending them out of order.
+'''
+

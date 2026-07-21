@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.2"
+
+# Unknown DS Message Digest Algorithms
+#
+#    Section 5.2 of [RFC4035] includes rules for how to handle delegations
+#    to zones that are signed with entirely unsupported public key
+#    algorithms, as indicated by the key algorithms shown in those zones'
+#    DS RRsets.  It does not explicitly address how to handle DS records
+#    that use unsupported message digest algorithms.  In brief, DS records
+#    using unknown or unsupported message digest algorithms MUST be
+#    treated the same way as DS records referring to DNSKEY RRs of unknown
+#    or unsupported public key algorithms.
+# 
+#    The existing text says:
+# 
+#       If the validator does not support any of the algorithms listed in
+#       an authenticated DS RRset, then the resolver has no supported
+#       authentication path leading from the parent to the child.  The
+#       resolver should treat this case as it would the case of an
+#       authenticated NSEC RRset proving that no DS RRset exists, as
+#       described above.
+# 
+#    In other words, when determining the security status of a zone, a
+#    validator disregards any authenticated DS records that specify
+#    unknown or unsupported DNSKEY algorithms.  If none are left, the zone
+#    is treated as if it were unsigned.
+# 
+#    This document modifies the above text to additionally disregard
+#    authenticated DS records using unknown or unsupported message digest
+#    algorithms.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In brief, DS records
+using unknown or unsupported message digest algorithms MUST be
+treated the same way as DS records referring to DNSKEY RRs of unknown
+or unsupported public key algorithms.
+'''
+

@@ -1,0 +1,395 @@
+
+
+
+
+
+
+Internet Engineering Task Force (IETF)                           O. Sury
+Request for Comments: 8080                                        CZ.NIC
+Category: Standards Track                                     R. Edmonds
+ISSN: 2070-1721                                                   Fastly
+                                                           February 2017
+
+
+      Edwards-Curve Digital Security Algorithm (EdDSA) for DNSSEC
+
+Abstract
+
+   This document describes how to specify Edwards-curve Digital Security
+   Algorithm (EdDSA) keys and signatures in DNS Security (DNSSEC).  It
+   uses EdDSA with the choice of two curves: Ed25519 and Ed448.
+
+Status of This Memo
+
+   This is an Internet Standards Track document.
+
+   This document is a product of the Internet Engineering Task Force
+   (IETF).  It represents the consensus of the IETF community.  It has
+   received public review and has been approved for publication by the
+   Internet Engineering Steering Group (IESG).  Further information on
+   Internet Standards is available in Section 2 of RFC 7841.
+
+   Information about the current status of this document, any errata,
+   and how to provide feedback on it may be obtained at
+   http://www.rfc-editor.org/info/rfc8080.
+
+Copyright Notice
+
+   Copyright (c) 2017 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+
+
+
+
+
+
+
+
+Sury & Edmonds               Standards Track                    [Page 1]
+
+RFC 8080                    EdDSA for DNSSEC               February 2017
+
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   2
+   2.  Requirements Language . . . . . . . . . . . . . . . . . . . .   2
+   3.  DNSKEY Resource Records . . . . . . . . . . . . . . . . . . .   2
+   4.  RRSIG Resource Records  . . . . . . . . . . . . . . . . . . .   3
+   5.  Algorithm Number for DS, DNSKEY, and RRSIG Resource Records .   3
+   6.  Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .   3
+     6.1.  Ed25519 Examples  . . . . . . . . . . . . . . . . . . . .   3
+     6.2.  Ed448 Examples  . . . . . . . . . . . . . . . . . . . . .   4
+   7.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   5
+   8.  Security Considerations . . . . . . . . . . . . . . . . . . .   5
+   9.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   6
+     9.1.  Normative References  . . . . . . . . . . . . . . . . . .   6
+     9.2.  Informative References  . . . . . . . . . . . . . . . . .   7
+   Acknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .   7
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .   7
+
+1.  Introduction
+
+   DNSSEC, which is broadly defined in [RFC4033], [RFC4034], and
+   [RFC4035], uses cryptographic keys and digital signatures to provide
+   authentication of DNS data.  Currently, the most popular signature
+   algorithm in use is RSA.  GOST [RFC5933] and NIST-specified elliptic
+   curve cryptography [RFC6605] are also standardized.
+
+   [RFC8032] describes the elliptic curve signature system Edwards-curve
+   Digital Signature Algorithm (EdDSA) and recommends two curves,
+   Ed25519 and Ed448.
+
+   This document defines the use of DNSSEC's DS, DNSKEY, and RRSIG
+   resource records (RRs) with a new signing algorithm, EdDSA, using a
+   choice of two curves: Ed25519 and Ed448.
+
+2.  Requirements Language
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+3.  DNSKEY Resource Records
+
+   An Ed25519 public key consists of a 32-octet value, which is encoded
+   into the Public Key field of a DNSKEY resource record as a simple bit
+   string.  The generation of a public key is defined in Section 5.1.5
+   of [RFC8032].
+
+
+
+
+
+Sury & Edmonds               Standards Track                    [Page 2]
+
+RFC 8080                    EdDSA for DNSSEC               February 2017
+
+
+   An Ed448 public key consists of a 57-octet value, which is encoded
+   into the Public Key field of a DNSKEY resource record as a simple bit
+   string.  The generation of a public key is defined in Section 5.2.5
+   of [RFC8032].
+
+4.  RRSIG Resource Records
+
+   An Ed25519 signature consists of a 64-octet value, which is encoded
+   into the Signature field of an RRSIG resource record as a simple bit
+   string.  The Ed25519 signature algorithm and verification of the
+   Ed25519 signature are described in Sections 5.1.6 and 5.1.7 of
+   [RFC8032], respectively.
+
+   An Ed448 signature consists of a 114-octet value, which is encoded
+   into the Signature field of an RRSIG resource record as a simple bit
+   string.  The Ed448 signature algorithm and verification of the Ed448
+   signature are described in Sections 5.2.6 and 5.2.7 of [RFC8032],
+   respectively.
+
+5.  Algorithm Number for DS, DNSKEY, and RRSIG Resource Records
+
+   The algorithm number associated with the use of Ed25519 in DS,
+   DNSKEY, and RRSIG resource records is 15.  The algorithm number
+   associated with the use of Ed448 in DS, DNSKEY, and RRSIG resource
+   records is 16.  This registration is fully defined in the IANA
+   Considerations section.
+
+6.  Examples
+
+6.1.  Ed25519 Examples
+
+Private-key-format: v1.2
+Algorithm: 15 (ED25519)
+PrivateKey: ODIyNjAzODQ2MjgwODAxMjI2NDUxOTAyMDQxNDIyNjI=
+
+example.com. 3600 IN DNSKEY 257 3 15 (
+             l02Woi0iS8Aa25FQkUd9RMzZHJpBoRQwAQEX1SxZJA4= )
+
+example.com. 3600 IN DS 3613 15 2 (
+             3aa5ab37efce57f737fc1627013fee07bdf241bd10f3b1964ab55c78e79
+             a304b )
+
+example.com. 3600 IN MX 10 mail.example.com.
+
+example.com. 3600 IN RRSIG MX 3 3600 (
+             1440021600 1438207200 3613 example.com. (
+             Edk+IB9KNNWg0HAjm7FazXyrd5m3Rk8zNZbvNpAcM+eysqcUOMIjWoevFkj
+             H5GaMWeG96GUVZu6ECKOQmemHDg== )
+
+
+
+Sury & Edmonds               Standards Track                    [Page 3]
+
+RFC 8080                    EdDSA for DNSSEC               February 2017
+
+
+Private-key-format: v1.2
+Algorithm: 15 (ED25519)
+PrivateKey: DSSF3o0s0f+ElWzj9E/Osxw8hLpk55chkmx0LYN5WiY=
+
+example.com. 3600 IN DNSKEY 257 3 15 (
+             zPnZ/QwEe7S8C5SPz2OfS5RR40ATk2/rYnE9xHIEijs= )
+
+example.com. 3600 IN DS 35217 15 2 (
+             401781b934e392de492ec77ae2e15d70f6575a1c0bc59c5275c04ebe80c
+             6614c )
+
+example.com. 3600 IN MX 10 mail.example.com.
+
+example.com. 3600 IN RRSIG MX 3 3600 (
+             1440021600 1438207200 35217 example.com. (
+             5LL2obmzdqjWI+Xto5eP5adXt/T5tMhasWvwcyW4L3SzfcRawOle9bodhC+
+             oip9ayUGjY9T/rL4rN3bOuESGDA== )
+
+6.2.  Ed448 Examples
+
+Private-key-format: v1.2
+Algorithm: 16 (ED448)
+PrivateKey: xZ+5Cgm463xugtkY5B0Jx6erFTXp13rYegst0qRtNsOYnaVpMx0Z/c5EiA9x
+            8wWbDDct/U3FhYWA
+
+example.com. 3600 IN DNSKEY 257 3 16 (
+             3kgROaDjrh0H2iuixWBrc8g2EpBBLCdGzHmn+G2MpTPhpj/OiBVHHSfPodx
+             1FYYUcJKm1MDpJtIA )
+
+example.com. 3600 IN DS 9713 16 2 (
+             6ccf18d5bc5d7fc2fceb1d59d17321402f2aa8d368048db93dd811f5cb2
+             b19c7 )
+
+example.com. 3600 IN MX 10 mail.example.com.
+
+example.com. 3600 IN RRSIG MX 3 3600 (
+             1440021600 1438207200 9713 example.com. (
+             Nmc0rgGKpr3GKYXcB1JmqqS4NYwhmechvJTqVzt3jR+Qy/lSLFoIk1L+9e3
+             9GPL+5tVzDPN3f9kAwiu8KCuPPjtl227ayaCZtRKZuJax7n9NuYlZJIusX0
+             SOIOKBGzG+yWYtz1/jjbzl5GGkWvREUCUA )
+
+
+
+
+
+
+
+
+
+
+
+Sury & Edmonds               Standards Track                    [Page 4]
+
+RFC 8080                    EdDSA for DNSSEC               February 2017
+
+
+Private-key-format: v1.2
+Algorithm: 16 (ED448)
+PrivateKey: WEykD3ht3MHkU8iH4uVOLz8JLwtRBSqiBoM6fF72+Mrp/u5gjxuB1DV6NnPO
+            2BlZdz4hdSTkOdOA
+
+example.com. 3600 IN DNSKEY 257 3 16 (
+             kkreGWoccSDmUBGAe7+zsbG6ZAFQp+syPmYUurBRQc3tDjeMCJcVMRDmgcN
+             Lp5HlHAMy12VoISsA )
+
+example.com. 3600 IN DS 38353 16 2 (
+             645ff078b3568f5852b70cb60e8e696cc77b75bfaaffc118cf79cbda1ba
+             28af4 )
+
+example.com. 3600 IN MX 10 mail.example.com.
+
+example.com. 3600 IN RRSIG MX 3 3600 (
+             1440021600 1438207200 38353 example.com. (
+             +JjANio/LIzp7osmMYE5XD3H/YES8kXs5Vb9H8MjPS8OAGZMD37+LsCIcjg
+             5ivt0d4Om/UaqETEAsJjaYe56CEQP5lhRWuD2ivBqE0zfwJTyp4WqvpULbp
+             vaukswvv/WNEFxzEYQEIm9+xDlXj4pMAMA )
+
+7.  IANA Considerations
+
+   This document updates the IANA registry "Domain Name System Security
+   (DNSSEC) Algorithm Numbers".  The following entries have been added
+   to the registry:
+
+                  +--------------+----------+----------+
+                  | Number       | 15       | 16       |
+                  | Description  | Ed25519  | Ed448    |
+                  | Mnemonic     | ED25519  | ED448    |
+                  | Zone Signing | Y        | Y        |
+                  | Trans. Sec.  | *        | *        |
+                  | Reference    | RFC 8080 | RFC 8080 |
+                  +--------------+----------+----------+
+
+    * There has been no determination of standardization of the use of
+                 this algorithm with Transaction Security.
+
+8.  Security Considerations
+
+   The security considerations of [RFC8032] and [RFC7748] are inherited
+   in the usage of Ed25519 and Ed448 in DNSSEC.
+
+   Ed25519 is intended to operate at around the 128-bit security level
+   and Ed448 at around the 224-bit security level.  A sufficiently large
+   quantum computer would be able to break both.  Reasonable projections
+   of the abilities of classical computers conclude that Ed25519 is
+
+
+
+Sury & Edmonds               Standards Track                    [Page 5]
+
+RFC 8080                    EdDSA for DNSSEC               February 2017
+
+
+   perfectly safe.  Ed448 is provided for those applications with
+   relaxed performance requirements and where there is a desire to hedge
+   against analytical attacks on elliptic curves.
+
+   These assessments could, of course, change in the future if new
+   attacks that work better than the ones known today are found.
+
+   A private key used for a DNSSEC zone MUST NOT be used for any other
+   purpose than for that zone.  Otherwise, cross-protocol or cross-
+   application attacks are possible.
+
+9.  References
+
+9.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <http://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC4033]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
+              Rose, "DNS Security Introduction and Requirements",
+              RFC 4033, DOI 10.17487/RFC4033, March 2005,
+              <http://www.rfc-editor.org/info/rfc4033>.
+
+   [RFC4034]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
+              Rose, "Resource Records for the DNS Security Extensions",
+              RFC 4034, DOI 10.17487/RFC4034, March 2005,
+              <http://www.rfc-editor.org/info/rfc4034>.
+
+   [RFC4035]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
+              Rose, "Protocol Modifications for the DNS Security
+              Extensions", RFC 4035, DOI 10.17487/RFC4035, March 2005,
+              <http://www.rfc-editor.org/info/rfc4035>.
+
+   [RFC7748]  Langley, A., Hamburg, M., and S. Turner, "Elliptic Curves
+              for Security", RFC 7748, DOI 10.17487/RFC7748, January
+              2016, <http://www.rfc-editor.org/info/rfc7748>.
+
+   [RFC8032]  Josefsson, S. and I. Liusvaara, "Edwards-Curve Digital
+              Signature Algorithm (EdDSA)", RFC 8032,
+              DOI 10.17487/RFC8032, January 2017,
+              <http://www.rfc-editor.org/info/rfc8032>.
+
+
+
+
+
+
+
+
+Sury & Edmonds               Standards Track                    [Page 6]
+
+RFC 8080                    EdDSA for DNSSEC               February 2017
+
+
+9.2.  Informative References
+
+   [RFC5933]  Dolmatov, V., Ed., Chuprina, A., and I. Ustinov, "Use of
+              GOST Signature Algorithms in DNSKEY and RRSIG Resource
+              Records for DNSSEC", RFC 5933, DOI 10.17487/RFC5933, July
+              2010, <http://www.rfc-editor.org/info/rfc5933>.
+
+   [RFC6605]  Hoffman, P. and W. Wijngaards, "Elliptic Curve Digital
+              Signature Algorithm (DSA) for DNSSEC", RFC 6605,
+              DOI 10.17487/RFC6605, April 2012,
+              <http://www.rfc-editor.org/info/rfc6605>.
+
+Acknowledgements
+
+   Some of the material in this document is copied liberally from
+   [RFC6605].
+
+   The authors of this document wish to thank Jan Vcelak, Pieter Lexis,
+   Kees Monshouwer, Simon Josefsson, Paul Hoffman, and others for a
+   review of this document.
+
+Authors' Addresses
+
+   Ondrej Sury
+   CZ.NIC
+   Milesovska 1136/5
+   Praha  130 00
+   Czech Republic
+
+   Email: ondrej.sury@nic.cz
+
+
+   Robert Edmonds
+   Fastly
+   Atlanta, Georgia
+   United States of America
+
+   Email: edmonds@mycre.ws
+
+
+
+
+
+
+
+
+
+
+
+
+
+Sury & Edmonds               Standards Track                    [Page 7]
+

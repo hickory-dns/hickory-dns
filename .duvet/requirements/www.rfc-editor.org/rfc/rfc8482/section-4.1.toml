@@ -1,0 +1,54 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-4.1"
+
+# Answer with a Subset of Available RRsets
+#
+#    A DNS responder that receives an ANY query MAY decline to provide a
+#    conventional ANY response or MAY instead send a response with a
+#    single RRset (or a larger subset of available RRsets) in the answer
+#    section.
+# 
+#    The RRsets returned in the answer section of the response MAY consist
+#    of a single RRset owned by the name specified in the QNAME.  Where
+#    multiple RRsets exist, the responder SHOULD choose a small subset of
+#    those available to reduce the amplification potential of the
+#    response.
+# 
+#    If the zone is signed, appropriate RRSIG records MUST be included in
+#    the answer.
+# 
+#    Note that this mechanism does not provide any signaling to indicate
+#    to a client that an incomplete subset of the available RRsets has
+#    been returned.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS responder that receives an ANY query MAY decline to provide a
+conventional ANY response or MAY instead send a response with a
+single RRset (or a larger subset of available RRsets) in the answer
+section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The RRsets returned in the answer section of the response MAY consist
+of a single RRset owned by the name specified in the QNAME.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Where
+multiple RRsets exist, the responder SHOULD choose a small subset of
+those available to reduce the amplification potential of the
+response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the zone is signed, appropriate RRSIG records MUST be included in
+the answer.
+'''
+

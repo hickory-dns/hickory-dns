@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.8.1"
+
+# Recommendation
+#
+#    Dynamic update agents SHOULD send SOA or NS queries to progressively
+#    higher-level names to find the closest enclosing zone for a given
+#    name to update.  Only after the appropriate zone is found should the
+#    client send an UPDATE message to one of the zone's authoritative
+#    servers.  Update clients SHOULD NOT "probe" using UPDATE messages by
+#    walking up the tree to progressively higher-level zones.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Dynamic update agents SHOULD send SOA or NS queries to progressively
+higher-level names to find the closest enclosing zone for a given
+name to update.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Update clients SHOULD NOT "probe" using UPDATE messages by
+walking up the tree to progressively higher-level zones.
+'''
+

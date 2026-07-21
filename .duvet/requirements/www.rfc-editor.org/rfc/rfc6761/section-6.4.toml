@@ -1,0 +1,115 @@
+target = "https://www.rfc-editor.org/rfc/rfc6761#section-6.4"
+
+# Domain Name Reservation Considerations for "invalid."
+#
+#    The domain "invalid." and any names falling within ".invalid." are
+#    special in the ways listed below.  In the text below, the term
+#    "invalid" is used in quotes to signify such names, as opposed to
+#    names that may be invalid for other reasons (e.g., being too long).
+# 
+#    1.  Users are free to use "invalid" names as they would any other
+#        domain names.  Users MAY assume that queries for "invalid" names
+#        will always return NXDOMAIN responses.
+# 
+#    2.  Application software MAY recognize "invalid" names as special or
+#        MAY pass them to name resolution APIs as they would for other
+#        domain names.
+# 
+#    3.  Name resolution APIs and libraries SHOULD recognize "invalid"
+#        names as special and SHOULD always return immediate negative
+#        responses.  Name resolution APIs SHOULD NOT send queries for
+#        "invalid" names to their configured caching DNS server(s).
+# 
+#    4.  Caching DNS servers SHOULD recognize "invalid" names as special
+#        and SHOULD NOT attempt to look up NS records for them, or
+#        otherwise query authoritative DNS servers in an attempt to
+#        resolve "invalid" names.  Instead, caching DNS servers SHOULD
+#        generate immediate NXDOMAIN responses for all such queries.  This
+#        is to avoid unnecessary load on the root name servers and other
+#        name servers.
+# 
+#    5.  Authoritative DNS servers SHOULD recognize "invalid" names as
+#        special and handle them as described above for caching DNS
+#        servers.
+# 
+#    6.  DNS server operators SHOULD be aware that the effective RDATA for
+#        "invalid" names is defined by protocol specification to be
+#        nonexistent and cannot be modified by local configuration.
+# 
+#    7.  DNS Registries/Registrars MUST NOT grant requests to register
+#        "invalid" names in the normal way to any person or entity.  These
+#        "invalid" names are defined by protocol specification to be
+#        nonexistent, and they fall outside the set of names available for
+#        allocation by registries/registrars.  Attempting to allocate a
+#        "invalid" name as if it were a normal DNS domain name will
+#        probably not work as desired, for reasons 2, 3, 4, and 5 above.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Users MAY assume that queries for "invalid" names
+will always return NXDOMAIN responses.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Application software MAY recognize "invalid" names as special or
+MAY pass them to name resolution APIs as they would for other
+domain names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs and libraries SHOULD recognize "invalid"
+names as special and SHOULD always return immediate negative
+responses.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs SHOULD NOT send queries for
+"invalid" names to their configured caching DNS server(s).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD recognize "invalid" names as special
+and SHOULD NOT attempt to look up NS records for them, or
+otherwise query authoritative DNS servers in an attempt to
+resolve "invalid" names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Instead, caching DNS servers SHOULD
+generate immediate NXDOMAIN responses for all such queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authoritative DNS servers SHOULD recognize "invalid" names as
+special and handle them as described above for caching DNS
+servers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS server operators SHOULD be aware that the effective RDATA for
+"invalid" names is defined by protocol specification to be
+nonexistent and cannot be modified by local configuration.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Registries/Registrars MUST NOT grant requests to register
+"invalid" names in the normal way to any person or entity.
+'''
+

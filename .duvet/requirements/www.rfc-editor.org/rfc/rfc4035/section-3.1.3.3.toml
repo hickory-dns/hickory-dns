@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.3.3"
+
+# Including NSEC RRs: Wildcard Answer Response
+#
+#    If the zone does not contain any RRsets that exactly match <SNAME,
+#    SCLASS> but does contain an RRset that matches <SNAME, SCLASS, STYPE>
+#    via wildcard name expansion, the name server MUST include the
+# 
+#    wildcard-expanded answer and the corresponding wildcard-expanded
+#    RRSIG RRs in the Answer section and MUST include in the Authority
+#    section an NSEC RR and associated RRSIG RR(s) proving that the zone
+#    does not contain a closer match for <SNAME, SCLASS>.  If space does
+#    not permit inclusion of the answer, NSEC and RRSIG RRs, the name
+#    server MUST set the TC bit (see Section 3.1.1).
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the zone does not contain any RRsets that exactly match <SNAME,
+SCLASS> but does contain an RRset that matches <SNAME, SCLASS, STYPE>
+via wildcard name expansion, the name server MUST include the
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+wildcard-expanded answer and the corresponding wildcard-expanded
+RRSIG RRs in the Answer section and MUST include in the Authority
+section an NSEC RR and associated RRSIG RR(s) proving that the zone
+does not contain a closer match for <SNAME, SCLASS>.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does
+not permit inclusion of the answer, NSEC and RRSIG RRs, the name
+server MUST set the TC bit (see Section 3.1.1).
+'''
+

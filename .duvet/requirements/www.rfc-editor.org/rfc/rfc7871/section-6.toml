@@ -1,0 +1,82 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-6"
+
+# Option Format
+#
+#    This protocol uses an EDNS0 [RFC6891] option to include client
+#    address information in DNS messages.  The option is structured as
+#    follows:
+# 
+#                 +0 (MSB)                            +1 (LSB)
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    0: |                          OPTION-CODE                          |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    2: |                         OPTION-LENGTH                         |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    4: |                            FAMILY                             |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    6: |     SOURCE PREFIX-LENGTH      |     SCOPE PREFIX-LENGTH       |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    8: |                           ADDRESS...                          /
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+# 
+#    o  (Defined in [RFC6891]) OPTION-CODE, 2 octets, for ECS is 8 (0x00
+#       0x08).
+# 
+#    o  (Defined in [RFC6891]) OPTION-LENGTH, 2 octets, contains the
+#       length of the payload (everything after OPTION-LENGTH) in octets.
+# 
+#    o  FAMILY, 2 octets, indicates the family of the address contained in
+#       the option, using address family codes as assigned by IANA in
+#       Address Family Numbers [Address_Family_Numbers].
+# 
+#    The format of the address part depends on the value of FAMILY.  This
+#    document only defines the format for FAMILY 1 (IPv4) and FAMILY 2
+#    (IPv6), which are as follows:
+# 
+#    o  SOURCE PREFIX-LENGTH, an unsigned octet representing the leftmost
+#       number of significant bits of ADDRESS to be used for the lookup.
+#       In responses, it mirrors the same value as in the queries.
+# 
+#    o  SCOPE PREFIX-LENGTH, an unsigned octet representing the leftmost
+#       number of significant bits of ADDRESS that the response covers.
+#       In queries, it MUST be set to 0.
+# 
+#    o  ADDRESS, variable number of octets, contains either an IPv4 or
+#       IPv6 address, depending on FAMILY, which MUST be truncated to the
+#       number of bits indicated by the SOURCE PREFIX-LENGTH field,
+#       padding with 0 bits to pad to the end of the last octet needed.
+# 
+#    o  A server receiving an ECS option that uses either too few or too
+#       many ADDRESS octets, or that has non-zero ADDRESS bits set beyond
+#       SOURCE PREFIX-LENGTH, SHOULD return FORMERR to reject the packet,
+#       as a signal to the software developer making the request to fix
+#       their implementation.
+# 
+#    All fields are in network byte order ("big-endian", per [RFC1700],
+#    Data Notation).
+
+[[spec]]
+level = "MUST"
+quote = '''
+In queries, it MUST be set to 0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  ADDRESS, variable number of octets, contains either an IPv4 or
+IPv6 address, depending on FAMILY, which MUST be truncated to the
+number of bits indicated by the SOURCE PREFIX-LENGTH field,
+padding with 0 bits to pad to the end of the last octet needed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  A server receiving an ECS option that uses either too few or too
+many ADDRESS octets, or that has non-zero ADDRESS bits set beyond
+SOURCE PREFIX-LENGTH, SHOULD return FORMERR to reject the packet,
+as a signal to the software developer making the request to fix
+their implementation.
+'''
+

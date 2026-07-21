@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.5"
+
+# Wildcard No Data Responses
+#
+#    If there is a wildcard match for QNAME, but QTYPE is not present at
+#    that name, the response MUST include a closest encloser proof for
+#    QNAME and MUST include the NSEC3 RR that matches the wildcard.  This
+#    combination proves both that QNAME itself does not exist and that a
+#    wildcard that matches QNAME does exist.  Note that the closest
+#    encloser to QNAME MUST be the immediate ancestor of the wildcard RR
+#    (if this is not the case, then something has gone wrong).
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is a wildcard match for QNAME, but QTYPE is not present at
+that name, the response MUST include a closest encloser proof for
+QNAME and MUST include the NSEC3 RR that matches the wildcard.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Note that the closest
+encloser to QNAME MUST be the immediate ancestor of the wildcard RR
+(if this is not the case, then something has gone wrong).
+'''
+

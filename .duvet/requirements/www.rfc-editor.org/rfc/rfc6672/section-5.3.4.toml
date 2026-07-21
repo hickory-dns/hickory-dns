@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-5.3.4"
+
+# Validators Must Understand DNAME
+#
+#    Below are examples of why DNSSEC validators MUST understand DNAME.
+#    In the examples, SOA records, wildcard denial NSECs, and other
+#    material not under discussion have been omitted or shortened.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Below are examples of why DNSSEC validators MUST understand DNAME.
+'''
+

@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-7"
+
+# Security Considerations
+#
+#    This document specifies two ways for a client to signal its
+#    trust anchor knowledge to a cache or server.  The goal of these
+#    optional mechanisms is to signal new trust anchor uptake in clients
+#    to allow zone administrators to know when it is possible to complete
+#    a key rollover in a DNSSEC-signed zone.
+# 
+#    There is a possibility that an eavesdropper or server could infer the
+#    validator in use by a client by the Key Tag list seen.  This may
+#    allow an attacker to find validators using old, possibly broken,
+#    keys.  It could also be used to identify the validator or to narrow
+#    down the possible validator implementations in use by a client; the
+#    validator used by the client could have a known vulnerability that
+#    could be exploited by the attacker.
+# 
+#    Consumers of data collected from the mechanisms described in this
+#    document are advised that provided Key Tag values might be "made up"
+#    by some DNS clients with malicious, or at least mischievous,
+#    intentions.  For example, an attacker with sufficient resources might
+#    try to generate large numbers of queries including only old Key Tag
+#    values, with the intention of delaying the completion of a key
+#    rollover.
+# 
+#    DNSSEC does not require keys in a zone to have unique Key Tags.
+#    During a rollover, there is a small possibility that an old key and a
+#    new key will have identical Key Tag values.  Zone operators relying
+#    on the edns-key-tag mechanism SHOULD take care to ensure that new
+#    keys have unique Key Tag values.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Zone operators relying
+on the edns-key-tag mechanism SHOULD take care to ensure that new
+keys have unique Key Tag values.
+'''
+

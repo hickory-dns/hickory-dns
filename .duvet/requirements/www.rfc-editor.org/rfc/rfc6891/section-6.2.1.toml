@@ -1,0 +1,12 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.2.1"
+
+# Cache Behaviour
+#
+#    The OPT record MUST NOT be cached.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The OPT record MUST NOT be cached.
+'''
+

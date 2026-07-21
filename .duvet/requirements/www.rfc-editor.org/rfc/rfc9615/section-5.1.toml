@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-5.1"
+
+# Child DNS Operator
+#
+#    It is possible to add CDS/CDNSKEY records and corresponding signaling
+#    records to a zone without the domain owner's explicit knowledge.  To
+#    spare domain owners from being caught off guard by the ensuing DS
+#    changes, child DNS operators following this practice are advised to
+#    make that transparent, such as by informing the domain owner during
+#    zone creation (e.g., in a GUI) or by notifying them via email.
+# 
+#    When transferring a zone to another DNS operator, the old and new
+#    child DNS operators need to cooperate to achieve a smooth transition,
+#    e.g., by using the multi-signer protocols described in [RFC8901].  If
+#    all else fails, the domain owner might have to request the removal of
+#    all DS records and have the transfer performed insecurely (see
+#    [INSEC]).
+# 
+#    Signaling domains SHOULD be delegated as standalone zones, so that
+#    the signaling zone's apex coincides with the signaling domain (such
+#    as _signal.ns1.example.net).  While it is permissible for the
+#    signaling domain to be contained in a signaling zone of fewer labels
+#    (such as example.net), a zone cut ensures that bootstrapping
+#    activities do not require modifications of the zone containing the
+#    nameserver hostname.
+# 
+#    Once a child DNS operator determines that specific signaling record
+#    sets have been processed (e.g., by seeing the result in the parent
+#    zone), they are advised to remove them.  This will reduce the size of
+#    the signaling zone and facilitate more efficient bulk processing
+#    (such as via zone transfers).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Signaling domains SHOULD be delegated as standalone zones, so that
+the signaling zone's apex coincides with the signaling domain (such
+as _signal.ns1.example.net).
+'''
+

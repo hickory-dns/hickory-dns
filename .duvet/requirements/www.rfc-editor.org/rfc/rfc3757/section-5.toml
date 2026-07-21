@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc3757#section-5"
+
+# Security Considerations
+#
+#    As stated in Section 3 the flag is not to be used in the resolution
+#    protocol or to determine the security status of a key.  The flag is
+#    to be used for administrative purposes only.
+# 
+#    No trust in a key should be inferred from this flag - trust MUST be
+#    inferred from an existing chain of trust or an out-of-band exchange.
+# 
+#    Since this flag might be used for automating public key exchanges, we
+#    think the following consideration is in place.
+# 
+#    Automated mechanisms for roll over of the DS RR might be vulnerable
+#    to a class of replay attacks.  This might happen after a public key
+#    exchange where a DNSKEY RR set, containing two DNSKEY RRs with the
+#    SEP flag set, is sent to the parent.  The parent verifies the DNSKEY
+#    RR set with the existing trust relation and creates the new DS RR
+#    from the DNSKEY RR that the current DS RR is not pointing to.  This
+#    key exchange might be replayed.  Parents are encouraged to implement
+#    a replay defense.  A simple defense can be based on a registry of
+#    keys that have been used to generate DS RRs during the most recent
+#    roll over.  These same considerations apply to entities that
+#    configure keys in resolvers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+No trust in a key should be inferred from this flag - trust MUST be
+inferred from an existing chain of trust or an out-of-band exchange.
+'''
+

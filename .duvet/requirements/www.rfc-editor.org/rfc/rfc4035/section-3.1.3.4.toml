@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.3.4"
+
+# Including NSEC RRs: Wildcard No Data Response
+#
+#    This case is a combination of the previous cases.  The zone does not
+#    contain an exact match for <SNAME, SCLASS>, and although the zone
+#    does contain RRsets that match <SNAME, SCLASS> via wildcard
+#    expansion, none of those RRsets matches STYPE.  The name server MUST
+#    include the following NSEC RRs in the Authority section, along with
+#    their associated RRSIG RRs:
+# 
+#    o  An NSEC RR proving that there are no RRsets matching STYPE at the
+#       wildcard owner name that matched <SNAME, SCLASS> via wildcard
+#       expansion.
+# 
+#    o  An NSEC RR proving that there are no RRsets in the zone that would
+#       have been a closer match for <SNAME, SCLASS>.
+# 
+#    In some cases, a single NSEC RR may prove both of these points.  If
+#    it does, the name server SHOULD only include the NSEC RR and its
+#    RRSIG RR(s) once in the Authority section.
+# 
+#    The owner names of these NSEC and RRSIG RRs are not subject to
+#    wildcard name expansion when these RRs are included in the Authority
+#    section of the response.
+# 
+#    If space does not permit inclusion of these NSEC and RRSIG RRs, the
+#    name server MUST set the TC bit (see Section 3.1.1).
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name server MUST
+include the following NSEC RRs in the Authority section, along with
+their associated RRSIG RRs:
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If
+it does, the name server SHOULD only include the NSEC RR and its
+RRSIG RR(s) once in the Authority section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does not permit inclusion of these NSEC and RRSIG RRs, the
+name server MUST set the TC bit (see Section 3.1.1).
+'''
+

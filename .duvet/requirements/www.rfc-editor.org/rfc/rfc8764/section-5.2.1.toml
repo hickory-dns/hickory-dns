@@ -1,0 +1,109 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-5.2.1"
+
+# Setup Request
+#
+#    A request for an LLQ is formatted like a standard DNS query but with
+#    an OPT pseudo-RR containing LLQ metadata in its Additional section.
+#    LLQ Setup Requests are identified by the LLQ-SETUP opcode and a
+#    zero-valued LLQ-ID.
+# 
+#    The request MAY contain multiple questions to set up multiple LLQs.
+#    A Setup Request consisting of multiple questions MUST contain
+#    multiple LLQ OPTIONS, one per question, with the LLQ OPTIONS in the
+#    same order as the questions they correspond to (i.e., the first LLQ
+#    OPTION corresponds to the first question, the second LLQ OPTION
+#    corresponds to the second question, etc.).  If requesting multiple
+#    LLQs, clients SHOULD request the same LLQ-LEASE for each LLQ.
+#    Requests over UDP MUST NOT contain multiple questions if doing so
+#    would cause the message to exceed a single IP packet.
+# 
+#    A client MUST NOT request multiple identical LLQs (i.e., containing
+#    the same qname/type/class) from the same source IP address and port.
+#    This requirement is to avoid unnecessary load on servers.  In the
+#    case of multiple independent client implementations that may run on
+#    the same device without knowledge of each other, it is allowable if
+#    they by chance send LLQ requests for the same qname/type/class.
+#    These independent implementations on the same client will be using
+#    different source ports.  Likewise, to the server, multiple
+#    independent clients behind the same NAT gateway will appear as if
+#    they were multiple independent clients using different ports on the
+#    same host, and this is also allowable.
+# 
+#    The query MUST NOT be for record type ANY (255), class ANY (255), or
+#    class NONE (0).
+# 
+#      +---------------+------------+---------------------------------+
+#      | Field Name    | Field Type | Description                     |
+#      +===============+============+=================================+
+#      | OPTION-CODE   | u_int16_t  | LLQ (1)                         |
+#      +---------------+------------+---------------------------------+
+#      | OPTION-LENGTH | u_int16_t  | Length of following fields (18) |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-VERSION   | u_int16_t  | Version of LLQ protocol         |
+#      |               |            | implemented by requester (1)    |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-OPCODE    | u_int16_t  | LLQ-SETUP (1)                   |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-ERROR     | u_int16_t  | NO-ERROR (0)                    |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-ID        | u_int64_t  | 0                               |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-LEASE     | u_int32_t  | Desired life of LLQ request     |
+#      +---------------+------------+---------------------------------+
+# 
+#                  Table 4: Setup Request LLQ OPTION Format
+# 
+#    The Setup Request LLQ OPTION MUST be repeated once for each
+#    additional query in the Question section.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The request MAY contain multiple questions to set up multiple LLQs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Setup Request consisting of multiple questions MUST contain
+multiple LLQ OPTIONS, one per question, with the LLQ OPTIONS in the
+same order as the questions they correspond to (i.e., the first LLQ
+OPTION corresponds to the first question, the second LLQ OPTION
+corresponds to the second question, etc.).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If requesting multiple
+LLQs, clients SHOULD request the same LLQ-LEASE for each LLQ.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Requests over UDP MUST NOT contain multiple questions if doing so
+would cause the message to exceed a single IP packet.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A client MUST NOT request multiple identical LLQs (i.e., containing
+the same qname/type/class) from the same source IP address and port.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The query MUST NOT be for record type ANY (255), class ANY (255), or
+class NONE (0).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Setup Request LLQ OPTION MUST be repeated once for each
+additional query in the Question section.
+'''
+

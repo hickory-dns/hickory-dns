@@ -1,0 +1,97 @@
+target = "https://www.rfc-editor.org/rfc/rfc9156#section-2.3"
+
+# Limitation of the Number of Queries
+#
+#    When using QNAME minimisation, the number of labels in the received
+#    QNAME can influence the number of queries sent from the resolver.
+#    This opens an attack vector and can decrease performance.  Resolvers
+#    supporting QNAME minimisation MUST implement a mechanism to limit the
+#    number of outgoing queries per user request.
+# 
+#    Take for example an incoming QNAME with many labels, like
+#    www.host.group.department.example.com, where
+#    host.group.department.example.com is hosted on example.com's name
+#    servers.  (Such deep domains are especially common under ip6.arpa.)
+#    Assume a resolver that knows only the name servers of example.com.
+#    Without QNAME minimisation, it would send these example.com name
+#    servers a query for www.host.group.department.example.com and
+#    immediately get a specific referral or an answer, without the need
+#    for more queries to probe for the zone cut.  For such a name, a cold
+#    resolver with QNAME minimisation will send more queries, one per
+#    label.  Once the cache is warm, there will be less difference with a
+#    traditional resolver.  Testing of this is described in
+#    [Huque-QNAME-Min].
+# 
+#    The behaviour of sending multiple queries can be exploited by sending
+#    queries with a large number of labels in the QNAME that will be
+#    answered using a wildcard record.  Take for example a record for
+#    *.example.com, hosted on example.com's name servers.  An incoming
+#    query containing a QNAME with more than 100 labels, ending in
+#    example.com, will result in a query per label.  By using random
+#    labels, the attacker can bypass the cache and always require the
+#    resolver to send many queries upstream.  Note that [RFC8198] can
+#    limit this attack in some cases.
+# 
+#    One mechanism that MAY be used to reduce this attack vector is by
+#    appending more than one label per iteration for QNAMEs with a large
+#    number of labels.  To do this, a maximum number of QNAME minimisation
+#    iterations MUST be selected (MAX_MINIMISE_COUNT); a RECOMMENDED value
+#    is 10.  Optionally, a value for the number of queries that should
+#    only have one label appended MAY be selected (MINIMISE_ONE_LAB); a
+#    good value is 4.  The assumption here is that the number of labels on
+#    delegations higher in the hierarchy are rather small; therefore, not
+#    exposing too many labels early on has the most privacy benefit.
+# 
+#    Another potential, optional mechanism for limiting the number of
+#    queries is to assume that labels that begin with an underscore (_)
+#    character do not represent privacy-relevant administrative
+#    boundaries.  For example, if the QNAME is "_25._tcp.mail.example.org"
+#    and the algorithm has already searched for "mail.example.org", the
+#    next query can be for all the underscore-prefixed names together,
+#    namely "_25._tcp.mail.example.org".
+# 
+#    When a resolver needs to send out a query, it will look for the
+#    closest-known delegation point in its cache.  The number of not-yet-
+#    exposed labels is the difference between this closest name server and
+#    the incoming QNAME.  The first MINIMISE_ONE_LAB labels will be
+#    handled as described in Section 2.  The number of labels that are
+#    still not exposed now need to be divided proportionally over the
+#    remaining iterations (MAX_MINIMISE_COUNT - MINIMISE_ONE_LAB).  If the
+#    not-yet-exposed labels cannot be equally divided over the remaining
+#    iterations, the remainder of the division should be added to the last
+#    iterations.  For example, when resolving a QNAME with 18 labels with
+#    MAX_MINIMISE_COUNT set to 10 and MINIMISE_ONE_LAB set to 4, the
+#    number of labels added per iteration are: 1,1,1,1,2,2,2,2,3,3.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolvers
+supporting QNAME minimisation MUST implement a mechanism to limit the
+number of outgoing queries per user request.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+One mechanism that MAY be used to reduce this attack vector is by
+appending more than one label per iteration for QNAMEs with a large
+number of labels.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To do this, a maximum number of QNAME minimisation
+iterations MUST be selected (MAX_MINIMISE_COUNT); a RECOMMENDED value
+is 10.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Optionally, a value for the number of queries that should
+only have one label appended MAY be selected (MINIMISE_ONE_LAB); a
+good value is 4.
+'''
+

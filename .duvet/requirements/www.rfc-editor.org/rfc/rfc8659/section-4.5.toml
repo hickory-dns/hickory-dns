@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-4.5"
+
+# Critical Flag
+#
+#    The critical flag is intended to permit future versions of CAA to
+#    introduce new semantics that MUST be understood for correct
+#    processing of the record, preventing conforming CAs that do not
+#    recognize the new semantics from issuing certificates for the
+#    indicated FQDNs.
+# 
+#    In the following example, the Property with a Property Tag of "tbs"
+#    is flagged as critical.  Neither the ca1.example.net CA nor any other
+#    Issuer is authorized to issue for "new.example.com" (or any other
+#    domains for which this is the Relevant RRset) unless the Issuer has
+#    implemented the processing rules for the "tbs" Property Tag.
+# 
+#    new.example.com       CAA 0 issue "ca1.example.net"
+#    new.example.com       CAA 128 tbs "Unknown"
+
+[[spec]]
+level = "MUST"
+quote = '''
+The critical flag is intended to permit future versions of CAA to
+introduce new semantics that MUST be understood for correct
+processing of the record, preventing conforming CAs that do not
+recognize the new semantics from issuing certificates for the
+indicated FQDNs.
+'''
+

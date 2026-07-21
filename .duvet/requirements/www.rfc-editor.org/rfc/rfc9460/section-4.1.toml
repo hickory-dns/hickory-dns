@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-4.1"
+
+# Authoritative Servers
+#
+#    When replying to a SVCB query, authoritative DNS servers SHOULD
+#    return A, AAAA, and SVCB records in the Additional section for any
+#    TargetNames that are in the zone.  If the zone is signed, the server
+#    SHOULD also include DNSSEC records authenticating the existence or
+#    nonexistence of these records in the Additional section.
+# 
+#    See Section 4.4 for exceptions.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When replying to a SVCB query, authoritative DNS servers SHOULD
+return A, AAAA, and SVCB records in the Additional section for any
+TargetNames that are in the zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the zone is signed, the server
+SHOULD also include DNSSEC records authenticating the existence or
+nonexistence of these records in the Additional section.
+'''
+

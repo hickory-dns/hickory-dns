@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-10.2"
+
+# DNAME at the Zone Apex
+#
+#    The DNAME specification in Section 3 of [RFC2672] has a 'no-
+#    descendants' limitation.  If a DNAME RR is present at node N, there
+#    MUST be no data at any descendant of N.
+# 
+#    If N is the apex of the zone, there will be NSEC3 and RRSIG types
+#    present at descendants of N.  This specification updates the DNAME
+#    specification to allow NSEC3 and RRSIG types at descendants of the
+#    apex regardless of the existence of DNAME at the apex.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a DNAME RR is present at node N, there
+MUST be no data at any descendant of N.
+'''
+

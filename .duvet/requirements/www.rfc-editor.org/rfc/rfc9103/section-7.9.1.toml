@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.9.1"
+
+# Padding AXoT Responses
+#
+#    The goal of padding AXoT responses is two fold:
+# 
+#    *  to obfuscate the actual size of the transferred zone to minimize
+#       information leakage about the entire contents of the zone
+# 
+#    *  to obfuscate the incremental changes to the zone between SOA
+#       updates to minimize information leakage about zone update activity
+#       and growth
+# 
+#    Note that the reuse of XoT connections for transfers of multiple
+#    different zones slightly complicates any attempt to analyze the
+#    traffic size and timing to extract information.  Also, effective
+#    padding may require the state to be kept because zones may grow and/
+#    or shrink over time.
+# 
+#    It is noted here that, depending on the padding policies eventually
+#    developed for XoT, the requirement to obfuscate the total zone size
+#    might require a server to create 'empty' AXoT responses, that is,
+#    AXoT responses that contain no RRs apart from an OPT RR containing
+#    the EDNS(0) option for padding.  For example, without this
+#    capability, the maximum size that a tiny zone could be padded to
+#    would theoretically be limited if there had to be a minimum of 1 RR
+#    per packet.
+# 
+#    However, as with existing AXFR, the last AXoT response message sent
+#    MUST contain the same SOA that was in the first message of the AXoT
+#    response series in order to signal the conclusion of the zone
+#    transfer.
+# 
+#    [RFC5936] says:
+# 
+#    |  Each AXFR response message SHOULD contain a sufficient number of
+#    |  RRs to reasonably amortize the per-message overhead, up to the
+#    |  largest number that will fit within a DNS message (taking the
+#    |  required content of the other sections into account, as described
+#    |  below).
+# 
+#    'Empty' AXoT responses generated in order to meet a padding
+#    requirement will be exceptions to the above statement.  For
+#    flexibility, for future proofing, and in order to guarantee support
+#    for future padding policies, it is stated here that secondary
+#    implementations MUST be resilient to receiving padded AXoT responses,
+#    including 'empty' AXoT responses that contain only an OPT RR
+#    containing the EDNS(0) option for padding.
+# 
+#    Recommendations of specific policies for padding AXoT responses are
+#    out of scope for this specification.  Detailed considerations of such
+#    policies and the trade-offs involved are expected to be the subject
+#    of future work.
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, as with existing AXFR, the last AXoT response message sent
+MUST contain the same SOA that was in the first message of the AXoT
+response series in order to signal the conclusion of the zone
+transfer.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  Each AXFR response message SHOULD contain a sufficient number of
+|  RRs to reasonably amortize the per-message overhead, up to the
+|  largest number that will fit within a DNS message (taking the
+|  required content of the other sections into account, as described
+|  below).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For
+flexibility, for future proofing, and in order to guarantee support
+for future padding policies, it is stated here that secondary
+implementations MUST be resilient to receiving padded AXoT responses,
+including 'empty' AXoT responses that contain only an OPT RR
+containing the EDNS(0) option for padding.
+'''
+

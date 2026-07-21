@@ -1,0 +1,112 @@
+target = "https://www.rfc-editor.org/rfc/rfc2845#section-2"
+
+# - TSIG RR Format
+#
+#    2.1 TSIG RR Type
+# 
+#    To provide secret key authentication, we use a new RR type whose
+#    mnemonic is TSIG and whose type code is 250.  TSIG is a meta-RR and
+#    MUST not be cached.  TSIG RRs are used for authentication between DNS
+#    entities that have established a shared secret key.  TSIG RRs are
+#    dynamically computed to cover a particular DNS transaction and are
+#    not DNS RRs in the usual sense.
+# 
+#    2.2 TSIG Calculation
+# 
+#    As the TSIG RRs are related to one DNS request/response, there is no
+#    value in storing or retransmitting them, thus the TSIG RR is
+#    discarded once it has been used to authenticate a DNS message.  The
+#    only message digest algorithm specified in this document is "HMAC-
+#    MD5" (see [RFC1321], [RFC2104]).  The "HMAC-MD5" algorithm is
+#    mandatory to implement for interoperability.  Other algorithms can be
+#    specified at a later date.  Names and definitions of new algorithms
+#    MUST be registered with IANA.  All multi-octet integers in the TSIG
+#    record are sent in network byte order (see [RFC1035 2.3.2]).
+# 
+#    2.3. Record Format
+# 
+#     NAME The name of the key used in domain name syntax.  The name
+#          should reflect the names of the hosts and uniquely identify
+#          the key among a set of keys these two hosts may share at any
+#          given time.  If hosts A.site.example and B.example.net share a
+#          key, possibilities for the key name include
+#          <id>.A.site.example, <id>.B.example.net, and
+#          <id>.A.site.example.B.example.net.  It should be possible for
+#          more than one key to be in simultaneous use among a set of
+#          interacting hosts.  The name only needs to be meaningful to
+#          the communicating hosts but a meaningful mnemonic name as
+#          above is strongly recommended.
+# 
+#          The name may be used as a local index to the key involved and
+#          it is recommended that it be globally unique.  Where a key is
+#          just shared between two hosts, its name actually only need
+#          only be meaningful to them but it is recommended that the key
+#          name be mnemonic and incorporate the resolver and server host
+#          names in that order.
+# 
+#     TYPE TSIG (250: Transaction SIGnature)
+# 
+#     CLASS ANY
+# 
+#     TTL  0
+# 
+#     RdLen (variable)
+# 
+#     RDATA
+# 
+#       Field Name       Data Type      Notes
+#       --------------------------------------------------------------
+#       Algorithm Name   domain-name    Name of the algorithm
+#                                       in domain name syntax.
+#       Time Signed      u_int48_t      seconds since 1-Jan-70 UTC.
+#       Fudge            u_int16_t      seconds of error permitted
+#                                       in Time Signed.
+#       MAC Size         u_int16_t      number of octets in MAC.
+#       MAC              octet stream   defined by Algorithm Name.
+#       Original ID      u_int16_t      original message ID
+#       Error            u_int16_t      expanded RCODE covering
+#                                       TSIG processing.
+#       Other Len        u_int16_t      length, in octets, of
+#                                       Other Data.
+#       Other Data       octet stream   empty unless Error == BADTIME
+# 
+#    2.4. Example
+# 
+#       NAME   HOST.EXAMPLE.
+# 
+#       TYPE   TSIG
+# 
+#       CLASS  ANY
+# 
+#       TTL    0
+# 
+#       RdLen  as appropriate
+# 
+#       RDATA
+# 
+#          Field Name       Contents
+#          -------------------------------------
+#          Algorithm Name   SAMPLE-ALG.EXAMPLE.
+#          Time Signed      853804800
+#          Fudge            300
+#          MAC Size         as appropriate
+#          MAC              as appropriate
+#          Original ID      as appropriate
+#          Error            0 (NOERROR)
+#          Other Len        0
+#          Other Data       empty
+
+[[spec]]
+level = "MUST"
+quote = '''
+TSIG is a meta-RR and
+MUST not be cached.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Names and definitions of new algorithms
+MUST be registered with IANA.
+'''
+

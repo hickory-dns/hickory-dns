@@ -1,0 +1,17 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-4"
+
+# Intermediary Considerations
+#
+#    It is RECOMMENDED that DNS intermediaries that terminate TCP
+#    connections implement edns-tcp-keepalive.  An intermediary that does
+#    not implement edns-tcp-keepalive but sits between a client and server
+#    that both support edns-tcp-keepalive might close idle connections
+#    unnecessarily.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that DNS intermediaries that terminate TCP
+connections implement edns-tcp-keepalive.
+'''
+

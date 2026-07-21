@@ -1,0 +1,60 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6.5"
+
+# Wildcard Queries (qtype "ANY" and qclass "ANY")
+#
+#    When responding to queries using qtype "ANY" (255) and/or qclass
+#    "ANY" (255), a Multicast DNS responder MUST respond with *ALL* of its
+#    records that match the query.  This is subtly different from how
+#    qtype "ANY" and qclass "ANY" work in Unicast DNS.
+# 
+#    A common misconception is that a Unicast DNS query for qtype "ANY"
+#    will elicit a response containing all matching records.  This is
+#    incorrect.  If there are any records that match the query, the
+#    response is required only to contain at least one of them, not
+#    necessarily all of them.
+# 
+#    This somewhat surprising behavior is commonly seen with caching
+#    (i.e., "recursive") name servers.  If a caching server receives a
+#    qtype "ANY" query for which it has at least one valid answer, it is
+#    allowed to return only those matching answers it happens to have
+#    already in its cache, and it is not required to reconsult the
+#    authoritative name server to check if there are any more records that
+#    also match the qtype "ANY" query.
+# 
+#    For example, one might imagine that a query for qtype "ANY" for name
+#    "host.example.com" would return both the IPv4 (A) and the IPv6 (AAAA)
+#    address records for that host.  In reality, what happens is that it
+#    depends on the history of what queries have been previously received
+#    by intervening caching servers.  If a caching server has no records
+#    for "host.example.com", then it will consult another server (usually
+# 
+#    the authoritative name server for the name in question), and, in that
+#    case, it will typically return all IPv4 and IPv6 address records.
+#    However, if some other host has recently done a query for qtype "A"
+#    for name "host.example.com", so that the caching server already has
+#    IPv4 address records for "host.example.com" in its cache but no IPv6
+#    address records, then it will return only the IPv4 address records it
+#    already has cached, and no IPv6 address records.
+# 
+#    Multicast DNS does not share this property that qtype "ANY" and
+#    qclass "ANY" queries return some undefined subset of the matching
+#    records.  When responding to queries using qtype "ANY" (255) and/or
+#    qclass "ANY" (255), a Multicast DNS responder MUST respond with *ALL*
+#    of its records that match the query.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When responding to queries using qtype "ANY" (255) and/or qclass
+"ANY" (255), a Multicast DNS responder MUST respond with *ALL* of its
+records that match the query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When responding to queries using qtype "ANY" (255) and/or
+qclass "ANY" (255), a Multicast DNS responder MUST respond with *ALL*
+of its records that match the query.
+'''
+

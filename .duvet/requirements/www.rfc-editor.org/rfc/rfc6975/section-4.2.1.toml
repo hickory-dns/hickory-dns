@@ -1,0 +1,58 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-4.2.1"
+
+# Validating Recursive Resolvers
+#
+#    A validating recursive resolver sets the DAU, DHU, and/or N3U
+#    option(s) when performing recursion based on its list of algorithms
+#    and any DAU, DHU, and/or N3U option lists in the stub client query.
+#    When the recursive server receives a query with one or more of the
+#    options set, the recursive server MUST set the algorithm list for any
+#    outgoing iterative queries for that resolution chain to a union of
+#    the stub client's list and the validating recursive resolver's list.
+#    For example, if the recursive resolver's algorithm list for the DAU
+#    option is (3, 5, 7) and the stub's algorithm list is (7, 8), the
+#    final DAU algorithm list would be (3, 5, 7, 8).
+# 
+#    If the client included the DO and Checking Disabled (CD) bits, but
+#    did not include the DAU, DHU, and/or N3U option(s) in the query, the
+#    validating recursive resolver MAY include the option(s) with its own
+#    list in full.  If one or more of the options are missing, the
+#    validating recursive resolver MAY include the missing options with
+#    its own list in full.
+# 
+#    Validating recursive resolvers MUST NOT set the DAU, DHU, and/or N3U
+#    option(s) in the final response to the stub client.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When the recursive server receives a query with one or more of the
+options set, the recursive server MUST set the algorithm list for any
+outgoing iterative queries for that resolution chain to a union of
+the stub client's list and the validating recursive resolver's list.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the client included the DO and Checking Disabled (CD) bits, but
+did not include the DAU, DHU, and/or N3U option(s) in the query, the
+validating recursive resolver MAY include the option(s) with its own
+list in full.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If one or more of the options are missing, the
+validating recursive resolver MAY include the missing options with
+its own list in full.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Validating recursive resolvers MUST NOT set the DAU, DHU, and/or N3U
+option(s) in the final response to the stub client.
+'''
+

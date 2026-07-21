@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc4255#section-2.2"
+
+# Implementation Notes
+#
+#    Client implementors SHOULD provide a configurable policy used to
+#    select the order of methods used to verify a host key.  This document
+#    defines one method: Fingerprint storage in DNS.  Another method
+#    defined in the SSH Architecture [6] uses local files to store keys
+#    for comparison.  Other methods that could be defined in the future
+#    might include storing fingerprints in LDAP or other databases.  A
+# 
+#    configurable policy will allow administrators to determine which
+#    methods they want to use and in what order the methods should be
+#    prioritized.  This will allow administrators to determine how much
+#    trust they want to place in the different methods.
+# 
+#    One specific scenario for having a configurable policy is where
+#    clients do not use fully qualified host names to connect to servers.
+#    In this scenario, the implementation SHOULD verify the host key
+#    against a local database before verifying the key via the fingerprint
+#    returned from DNS.  This would help prevent an attacker from
+#    injecting a DNS search path into the local resolver and forcing the
+#    client to connect to a different host.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Client implementors SHOULD provide a configurable policy used to
+select the order of methods used to verify a host key.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this scenario, the implementation SHOULD verify the host key
+against a local database before verifying the key via the fingerprint
+returned from DNS.
+'''
+

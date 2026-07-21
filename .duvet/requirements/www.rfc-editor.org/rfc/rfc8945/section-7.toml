@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-7"
+
+# TSIG Truncation Policy
+#
+#    As noted above, two DNS agents (e.g., resolver and server) must
+#    mutually agree to use TSIG.  Implicit in such an "agreement" are
+#    criteria as to acceptable keys, algorithms, and (with the extensions
+#    in this document) truncations.  Local policies MAY require the
+#    rejection of TSIGs, even though they use an algorithm for which
+#    implementation is mandatory.
+# 
+#    When a local policy permits acceptance of a TSIG with a particular
+#    algorithm and a particular non-zero amount of truncation, it SHOULD
+#    also permit the use of that algorithm with lesser truncation (a
+#    longer MAC) up to the full keyed hash output.
+# 
+#    Regardless of a lower acceptable truncated MAC length specified by
+#    local policy, a reply SHOULD be sent with a MAC at least as long as
+#    that in the corresponding request.  Note, if the request specified a
+#    MAC length longer than the keyed hash output, it will be rejected by
+#    processing rules (Section 5.2.2.1, case 1).
+# 
+#    Implementations permitting multiple acceptable algorithms and/or
+#    truncations SHOULD permit this list to be ordered by presumed
+#    strength and SHOULD allow different truncations for the same
+#    algorithm to be treated as separate entities in this list.  When so
+#    implemented, policies SHOULD accept a presumed stronger algorithm and
+#    truncation than the minimum strength required by the policy.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Local policies MAY require the
+rejection of TSIGs, even though they use an algorithm for which
+implementation is mandatory.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a local policy permits acceptance of a TSIG with a particular
+algorithm and a particular non-zero amount of truncation, it SHOULD
+also permit the use of that algorithm with lesser truncation (a
+longer MAC) up to the full keyed hash output.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Regardless of a lower acceptable truncated MAC length specified by
+local policy, a reply SHOULD be sent with a MAC at least as long as
+that in the corresponding request.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations permitting multiple acceptable algorithms and/or
+truncations SHOULD permit this list to be ordered by presumed
+strength and SHOULD allow different truncations for the same
+algorithm to be treated as separate entities in this list.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When so
+implemented, policies SHOULD accept a presumed stronger algorithm and
+truncation than the minimum strength required by the policy.
+'''
+

@@ -1,0 +1,63 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-4.2"
+
+# Validating CDS/CDNSKEY Records for DNSSEC Bootstrapping
+#
+#    To validate a child's CDS/CDNSKEY RRset for DNSSEC bootstrapping, the
+#    parental agent, knowing both the child zone name and its NS
+#    hostnames, MUST execute the following steps:
+# 
+#    Step 1:  verify that the child has no DS records published at the
+#             parent and that at least one of its nameservers is outside
+#             the child domain;
+# 
+#    Step 2:  query the CDS/CDNSKEY RRset at the child zone apex directly
+#             from each of the authoritative servers as determined by the
+#             delegation's (parent-side) NS RRset, without caching;
+# 
+#    Step 3:  query the CDS/CDNSKEY RRset located at the signaling name
+#             under each signaling domain (except those falling within the
+#             child domain) using a trusted DNS resolver and enforce
+#             DNSSEC validation;
+# 
+#    Step 4:  check (separately by record type) that all RRsets retrieved
+#             in Steps 2 and 3 have equal contents;
+# 
+#    If the above steps succeed without error, the CDS/CDNSKEY RRsets are
+#    successfully verified, and the parental agent can proceed with the
+#    publication of the DS RRset under the precautions described in
+#    Section 5 of [RFC8078].
+# 
+#    The parental agent MUST abort the procedure if an error condition
+#    occurs, in particular:
+# 
+#    *  in Step 1: the child is already securely delegated or has in-
+#       domain nameservers only;
+# 
+#    *  in Step 2: any failure during the retrieval of the CDS/CDNSKEY
+#       RRset located at the child apex from any of the authoritative
+#       nameservers;
+# 
+#    *  in Step 3: any failure to retrieve the CDS/CDNSKEY RRsets located
+#       at the signaling name under any signaling domain, including
+#       failure of DNSSEC validation, or unauthenticated data (AD bit not
+#       set);
+# 
+#    *  in Step 4: inconsistent responses (for at least one of the types),
+#       including an RRset that is empty in one of Steps 2 or 3, but non-
+#       empty in the other.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To validate a child's CDS/CDNSKEY RRset for DNSSEC bootstrapping, the
+parental agent, knowing both the child zone name and its NS
+hostnames, MUST execute the following steps:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The parental agent MUST abort the procedure if an error condition
+occurs, in particular:
+'''
+

@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-10.5"
+
+# Passive Observation Of Failures (POOF)
+#
+#    A host observes the multicast queries issued by the other hosts on
+#    the network.  One of the major benefits of also sending responses
+#    using multicast is that it allows all hosts to see the responses (or
+#    lack thereof) to those queries.
+# 
+#    If a host sees queries, for which a record in its cache would be
+#    expected to be given as an answer in a multicast response, but no
+#    such answer is seen, then the host may take this as an indication
+#    that the record may no longer be valid.
+# 
+#    After seeing two or more of these queries, and seeing no multicast
+#    response containing the expected answer within ten seconds, then even
+#    though its TTL may indicate that it is not yet due to expire, that
+#    record SHOULD be flushed from the cache.  The host SHOULD NOT perform
+#    its own queries to reconfirm that the record is truly gone.  If every
+#    host on a large network were to do this, it would cause a lot of
+#    unnecessary multicast traffic.  If host A sends multicast queries
+#    that remain unanswered, then there is no reason to suppose that host
+#    B or any other host is likely to be any more successful.
+# 
+#    The previous section, "Cache Flush on Failure Indication", describes
+#    a situation where a user trying to print discovers that the printer
+#    is no longer available.  By implementing the passive observation
+#    described here, when one user fails to contact the printer, all hosts
+#    on the network observe that failure and update their caches
+#    accordingly.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+After seeing two or more of these queries, and seeing no multicast
+response containing the expected answer within ten seconds, then even
+though its TTL may indicate that it is not yet due to expire, that
+record SHOULD be flushed from the cache.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The host SHOULD NOT perform
+its own queries to reconfirm that the record is truly gone.
+'''
+

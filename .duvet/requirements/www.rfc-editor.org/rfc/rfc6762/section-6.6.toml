@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6.6"
+
+# Cooperating Multicast DNS Responders
+#
+#    If a Multicast DNS responder ("A") observes some other Multicast DNS
+#    responder ("B") send a Multicast DNS response message containing a
+#    resource record with the same name, rrtype, and rrclass as one of A's
+#    resource records, but *different* rdata, then:
+# 
+#       o If A's resource record is intended to be a shared resource
+#         record, then this is no conflict, and no action is required.
+# 
+#       o If A's resource record is intended to be a member of a unique
+#         resource record set owned solely by that responder, then this is
+#         a conflict and MUST be handled as described in Section 9,
+#         "Conflict Resolution".
+# 
+#    If a Multicast DNS responder ("A") observes some other Multicast DNS
+#    responder ("B") send a Multicast DNS response message containing a
+#    resource record with the same name, rrtype, and rrclass as one of A's
+#    resource records, and *identical* rdata, then:
+# 
+#       o If the TTL of B's resource record given in the message is at
+#         least half the true TTL from A's point of view, then no action
+#         is required.
+# 
+#       o If the TTL of B's resource record given in the message is less
+#         than half the true TTL from A's point of view, then A MUST mark
+#         its record to be announced via multicast.  Queriers receiving
+#         the record from B would use the TTL given by B and, hence, may
+#         delete the record sooner than A expects.  By sending its own
+#         multicast response correcting the TTL, A ensures that the record
+#         will be retained for the desired time.
+# 
+#    These rules allow multiple Multicast DNS responders to offer the same
+#    data on the network (perhaps for fault-tolerance reasons) without
+#    conflicting with each other.
+
+[[spec]]
+level = "MUST"
+quote = '''
+o If A's resource record is intended to be a member of a unique
+resource record set owned solely by that responder, then this is
+a conflict and MUST be handled as described in Section 9,
+"Conflict Resolution".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o If the TTL of B's resource record given in the message is less
+than half the true TTL from A's point of view, then A MUST mark
+its record to be announced via multicast.
+'''
+

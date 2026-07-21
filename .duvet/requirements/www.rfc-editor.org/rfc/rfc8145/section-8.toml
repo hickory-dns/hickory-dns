@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-8"
+
+# Privacy Considerations
+#
+#    This proposal provides additional, optional "signaling" to DNS
+#    queries in the form of Key Tag values.  While Key Tag values
+#    themselves are not considered private information, it may be possible
+#    for an eavesdropper to use Key Tag values as a fingerprinting
+#    technique to identify particular validating DNS clients.  This may be
+#    especially true if the validator is configured with trust anchors for
+#    zones in addition to the root zone.
+# 
+#    A validating resolver need not transmit the Key Tags in every
+#    applicable query.  Due to privacy concerns, such a resolver MAY
+#    choose to transmit the Key Tags for a subset of queries (e.g., every
+#    25th time) or by random chance with a certain probability (e.g., 5%).
+# 
+#    Implementations of this specification MAY be administratively
+#    configured to only transmit the Key Tags for certain zones.  For
+#    example, the software's configuration file may specify a list of
+#    zones for which the use of the mechanisms described here is allowed
+#    or denied.  Since the primary motivation for this specification is to
+#    provide operational measurement data for root zone key rollovers, it
+#    is RECOMMENDED that implementations at least include the edns-key-tag
+#    option for root zone DNSKEY queries.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Due to privacy concerns, such a resolver MAY
+choose to transmit the Key Tags for a subset of queries (e.g., every
+25th time) or by random chance with a certain probability (e.g., 5%).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementations of this specification MAY be administratively
+configured to only transmit the Key Tags for certain zones.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Since the primary motivation for this specification is to
+provide operational measurement data for root zone key rollovers, it
+is RECOMMENDED that implementations at least include the edns-key-tag
+option for root zone DNSKEY queries.
+'''
+

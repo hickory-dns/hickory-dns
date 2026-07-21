@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.4"
+
+# Configured Trust Anchors
+#
+#    A security-aware resolver MUST be capable of being configured with at
+#    least one trusted public key or DS RR and SHOULD be capable of being
+#    configured with multiple trusted public keys or DS RRs.  Since a
+#    security-aware resolver will not be able to validate signatures
+#    without such a configured trust anchor, the resolver SHOULD have some
+#    reasonably robust mechanism for obtaining such keys when it boots;
+#    examples of such a mechanism would be some form of non-volatile
+#    storage (such as a disk drive) or some form of trusted local network
+#    configuration mechanism.
+# 
+#    Note that trust anchors also cover key material that is updated in a
+#    secure manner.  This secure manner could be through physical media, a
+#    key exchange protocol, or some other out-of-band means.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver MUST be capable of being configured with at
+least one trusted public key or DS RR and SHOULD be capable of being
+configured with multiple trusted public keys or DS RRs.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Since a
+security-aware resolver will not be able to validate signatures
+without such a configured trust anchor, the resolver SHOULD have some
+reasonably robust mechanism for obtaining such keys when it boots;
+examples of such a mechanism would be some form of non-volatile
+storage (such as a disk drive) or some form of trusted local network
+configuration mechanism.
+'''
+

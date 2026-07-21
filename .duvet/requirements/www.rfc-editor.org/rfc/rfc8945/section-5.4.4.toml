@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.4.4"
+
+# Truncation Error Handling
+#
+#    If the response RCODE is 9 (NOTAUTH) and the TSIG ERROR is 22
+#    (BADTRUNC), then this is a truncation-related error.  The client MAY
+#    retry with a lesser truncation up to the full HMAC output (no
+#    truncation), using the truncation used in the response as a hint for
+#    what the server policy allowed (Section 7).  Clients SHOULD log this
+#    event.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The client MAY
+retry with a lesser truncation up to the full HMAC output (no
+truncation), using the truncation used in the response as a hint for
+what the server policy allowed (Section 7).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD log this
+event.
+'''
+

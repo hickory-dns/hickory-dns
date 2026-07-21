@@ -1,0 +1,79 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-6.2.3"
+
+# Idle Timeouts
+#
+#    To mitigate the risk of unintentional server overload, DNS clients
+#    MUST take care to minimise the idle time of established DNS-over-TCP
+#    sessions made to any individual server.  DNS clients SHOULD close the
+#    TCP connection of an idle session, unless an idle timeout has been
+#    established using some other signalling mechanism, for example,
+#    [edns-tcp-keepalive].
+# 
+#    To mitigate the risk of unintentional server overload, it is
+#    RECOMMENDED that the default server application-level idle period be
+#    on the order of seconds, but no particular value is specified.  In
+#    practice, the idle period can vary dynamically, and servers MAY allow
+#    idle connections to remain open for longer periods as resources
+#    permit.  A timeout of at least a few seconds is advisable for normal
+#    operations to support those clients that expect the SOA and AXFR
+#    request sequence to be made on a single connection as originally
+#    specified in [RFC1035].  Servers MAY use zero timeouts when they are
+#    experiencing heavy load or are under attack.
+# 
+#    DNS messages delivered over TCP might arrive in multiple segments.  A
+#    DNS server that resets its idle timeout after receiving a single
+#    segment might be vulnerable to a "slow-read attack".  For this
+#    reason, servers SHOULD reset the idle timeout on the receipt of a
+#    full DNS message, rather than on receipt of any part of a DNS
+#    message.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To mitigate the risk of unintentional server overload, DNS clients
+MUST take care to minimise the idle time of established DNS-over-TCP
+sessions made to any individual server.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS clients SHOULD close the
+TCP connection of an idle session, unless an idle timeout has been
+established using some other signalling mechanism, for example,
+[edns-tcp-keepalive].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To mitigate the risk of unintentional server overload, it is
+RECOMMENDED that the default server application-level idle period be
+on the order of seconds, but no particular value is specified.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In
+practice, the idle period can vary dynamically, and servers MAY allow
+idle connections to remain open for longer periods as resources
+permit.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Servers MAY use zero timeouts when they are
+experiencing heavy load or are under attack.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For this
+reason, servers SHOULD reset the idle timeout on the receipt of a
+full DNS message, rather than on receipt of any part of a DNS
+message.
+'''
+

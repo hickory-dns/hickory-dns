@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.1"
+
+# Special Considerations for Islands of Security
+#
+#    Islands of security (see [RFC4033]) are signed zones for which it is
+#    not possible to construct an authentication chain to the zone from
+#    its parent.  Validating signatures within an island of security
+#    requires that the validator have some other means of obtaining an
+#    initial authenticated zone key for the island.  If a validator cannot
+#    obtain such a key, it SHOULD switch to operating as if the zones in
+#    the island of security are unsigned.
+# 
+#    All the normal processes for validating responses apply to islands of
+#    security.  The only difference between normal validation and
+#    validation within an island of security is in how the validator
+#    obtains a trust anchor for the authentication chain.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a validator cannot
+obtain such a key, it SHOULD switch to operating as if the zones in
+the island of security are unsigned.
+'''
+

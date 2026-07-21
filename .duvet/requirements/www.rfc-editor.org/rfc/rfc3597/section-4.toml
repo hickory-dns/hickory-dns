@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc3597#section-4"
+
+# Domain Name Compression
+#
+#    RRs containing compression pointers in the RDATA part cannot be
+#    treated transparently, as the compression pointers are only
+#    meaningful within the context of a DNS message.  Transparently
+#    copying the RDATA into a new DNS message would cause the compression
+#    pointers to point at the corresponding location in the new message,
+#    which now contains unrelated data.  This would cause the compressed
+#    name to be corrupted.
+# 
+#    To avoid such corruption, servers MUST NOT compress domain names
+#    embedded in the RDATA of types that are class-specific or not well-
+#    known.  This requirement was stated in [RFC1123] without defining the
+#    term "well-known"; it is hereby specified that only the RR types
+#    defined in [RFC1035] are to be considered "well-known".
+# 
+#    The specifications of a few existing RR types have explicitly allowed
+#    compression contrary to this specification: [RFC2163] specified that
+#    compression applies to the PX RR, and [RFC2535] allowed compression
+#    in SIG RRs and NXT RRs records.  Since this specification disallows
+#    compression in these cases, it is an update to [RFC2163] (section 4)
+#    and [RFC2535] (sections 4.1.7 and 5.2).
+# 
+#    Receiving servers MUST decompress domain names in RRs of well-known
+#    type, and SHOULD also decompress RRs of type RP, AFSDB, RT, SIG, PX,
+#    NXT, NAPTR, and SRV (although the current specification of the SRV RR
+#    in [RFC2782] prohibits compression, [RFC2052] mandated it, and some
+#    servers following that earlier specification are still in use).
+# 
+#    Future specifications for new RR types that contain domain names
+#    within their RDATA MUST NOT allow the use of name compression for
+#    those names, and SHOULD explicitly state that the embedded domain
+#    names MUST NOT be compressed.
+# 
+#    As noted in [RFC1123], the owner name of an RR is always eligible for
+#    compression.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To avoid such corruption, servers MUST NOT compress domain names
+embedded in the RDATA of types that are class-specific or not well-
+known.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Receiving servers MUST decompress domain names in RRs of well-known
+type, and SHOULD also decompress RRs of type RP, AFSDB, RT, SIG, PX,
+NXT, NAPTR, and SRV (although the current specification of the SRV RR
+in [RFC2782] prohibits compression, [RFC2052] mandated it, and some
+servers following that earlier specification are still in use).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Future specifications for new RR types that contain domain names
+within their RDATA MUST NOT allow the use of name compression for
+those names, and SHOULD explicitly state that the embedded domain
+names MUST NOT be compressed.
+'''
+

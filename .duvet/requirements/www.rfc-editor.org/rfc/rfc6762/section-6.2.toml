@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6.2"
+
+# Responding to Address Queries
+#
+#    When a Multicast DNS responder sends a Multicast DNS response message
+#    containing its own address records, it MUST include all addresses
+#    that are valid on the interface on which it is sending the message,
+#    and MUST NOT include addresses that are not valid on that interface
+#    (such as addresses that may be configured on the host's other
+#    interfaces).  For example, if an interface has both an IPv6 link-
+#    local and an IPv6 routable address, both should be included in the
+#    response message so that queriers receive both and can make their own
+#    choice about which to use.  This allows a querier that only has an
+#    IPv6 link-local address to connect to the link-local address, and a
+#    different querier that has an IPv6 routable address to connect to the
+#    IPv6 routable address instead.
+# 
+#    When a Multicast DNS responder places an IPv4 or IPv6 address record
+#    (rrtype "A" or "AAAA") into a response message, it SHOULD also place
+#    any records of the other address type with the same name into the
+#    additional section, if there is space in the message.  This is to
+#    provide fate sharing, so that all a device's addresses are delivered
+#    atomically in a single message, to reduce the risk that packet loss
+#    could cause a querier to receive only the IPv4 addresses and not the
+#    IPv6 addresses, or vice versa.
+# 
+#    In the event that a device has only IPv4 addresses but no IPv6
+#    addresses, or vice versa, then the appropriate NSEC record SHOULD be
+#    placed into the additional section, so that queriers can know with
+#    certainty that the device has no addresses of that kind.
+# 
+#    Some Multicast DNS responders treat a physical interface with both
+#    IPv4 and IPv6 address as a single interface with two addresses.
+#    Other Multicast DNS responders may treat this case as logically two
+#    interfaces (one with one or more IPv4 addresses, and the other with
+#    one or more IPv6 addresses), but responders that operate this way
+#    MUST NOT put the corresponding automatic NSEC records in replies they
+#    send (i.e., a negative IPv4 assertion in their IPv6 responses, and a
+#    negative IPv6 assertion in their IPv4 responses) because this would
+#    cause incorrect operation in responders on the network that work the
+#    former way.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a Multicast DNS responder sends a Multicast DNS response message
+containing its own address records, it MUST include all addresses
+that are valid on the interface on which it is sending the message,
+and MUST NOT include addresses that are not valid on that interface
+(such as addresses that may be configured on the host's other
+interfaces).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a Multicast DNS responder places an IPv4 or IPv6 address record
+(rrtype "A" or "AAAA") into a response message, it SHOULD also place
+any records of the other address type with the same name into the
+additional section, if there is space in the message.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the event that a device has only IPv4 addresses but no IPv6
+addresses, or vice versa, then the appropriate NSEC record SHOULD be
+placed into the additional section, so that queriers can know with
+certainty that the device has no addresses of that kind.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Other Multicast DNS responders may treat this case as logically two
+interfaces (one with one or more IPv4 addresses, and the other with
+one or more IPv6 addresses), but responders that operate this way
+MUST NOT put the corresponding automatic NSEC records in replies they
+send (i.e., a negative IPv4 assertion in their IPv6 responses, and a
+negative IPv6 assertion in their IPv4 responses) because this would
+cause incorrect operation in responders on the network that work the
+former way.
+'''
+

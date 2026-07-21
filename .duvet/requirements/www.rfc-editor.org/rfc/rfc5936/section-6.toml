@@ -1,0 +1,102 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-6"
+
+# Zone Integrity
+#
+#    An AXFR client MUST ensure that only a successfully transferred copy
+#    of the zone data can be used to serve this zone.  Previous
+#    description and implementation practice has introduced a two-stage
+#    model of the whole zone synchronization procedure:  Upon a trigger
+#    event (e.g., when polling of a SOA resource record detects a change
+#    in the SOA serial number, or when a DNS NOTIFY request [RFC1996] is
+#    received), the AXFR session is initiated, whereby the zone data are
+#    saved in a zone file or database (this latter step is necessary
+#    anyway to ensure proper restart of the server); upon successful
+#    completion of the AXFR operation and some sanity checks, this data
+#    set is "loaded" and made available for serving the zone in an atomic
+#    operation, and flagged "valid" for use during the next restart of the
+#    DNS server; if any error is detected, this data set MUST be deleted,
+#    and the AXFR client MUST continue to serve the previous version of
+#    the zone, if it did before.  The externally visible behavior of an
+#    AXFR client implementation MUST be equivalent to that of this two-
+#    stage model.
+# 
+#    If an AXFR client rejects data obtained in an AXFR session, it SHOULD
+#    remember the serial number and MAY attempt to retrieve the same zone
+#    version again.  The reason the same retrieval could make sense is
+#    that the reason for the rejection could be rooted in an
+#    implementation detail of one AXFR server used for the zone and not
+#    present in another AXFR server used for the zone.
+# 
+#    Ensuring that an AXFR client does not accept a forged copy of a zone
+#    is important to the security of a zone.  If a zone operator has the
+#    opportunity, protection can be afforded via dedicated links, physical
+#    or virtual via a VPN among the authoritative servers.  But there are
+#    instances in which zone operators have no choice but to run AXFR
+#    sessions over the global public Internet.
+# 
+#    Besides best attempts at securing TCP connections, DNS
+#    implementations SHOULD provide means to make use of "Secret Key
+#    Transaction Authentication for DNS (TSIG)" [RFC2845] and/or "DNS
+#    Request and Transaction Signatures ( SIG(0)s )" [RFC2931] to allow
+#    AXFR clients to verify the contents.  These techniques MAY also be
+#    used for authorization.
+
+[[spec]]
+level = "MUST"
+quote = '''
+An AXFR client MUST ensure that only a successfully transferred copy
+of the zone data can be used to serve this zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Previous
+description and implementation practice has introduced a two-stage
+model of the whole zone synchronization procedure:  Upon a trigger
+event (e.g., when polling of a SOA resource record detects a change
+in the SOA serial number, or when a DNS NOTIFY request [RFC1996] is
+received), the AXFR session is initiated, whereby the zone data are
+saved in a zone file or database (this latter step is necessary
+anyway to ensure proper restart of the server); upon successful
+completion of the AXFR operation and some sanity checks, this data
+set is "loaded" and made available for serving the zone in an atomic
+operation, and flagged "valid" for use during the next restart of the
+DNS server; if any error is detected, this data set MUST be deleted,
+and the AXFR client MUST continue to serve the previous version of
+the zone, if it did before.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The externally visible behavior of an
+AXFR client implementation MUST be equivalent to that of this two-
+stage model.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If an AXFR client rejects data obtained in an AXFR session, it SHOULD
+remember the serial number and MAY attempt to retrieve the same zone
+version again.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Besides best attempts at securing TCP connections, DNS
+implementations SHOULD provide means to make use of "Secret Key
+Transaction Authentication for DNS (TSIG)" [RFC2845] and/or "DNS
+Request and Transaction Signatures ( SIG(0)s )" [RFC2931] to allow
+AXFR clients to verify the contents.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+These techniques MAY also be
+used for authorization.
+'''
+

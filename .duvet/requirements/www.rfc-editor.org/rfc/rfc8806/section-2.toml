@@ -1,0 +1,87 @@
+target = "https://www.rfc-editor.org/rfc/rfc8806#section-2"
+
+# Requirements
+#
+#    In order to implement the mechanism described in this document:
+# 
+#    *  The system MUST be able to validate every signed record in a zone
+#       with DNSSEC [RFC4033].
+# 
+#    *  The system MUST have an up-to-date copy of the public part of the
+#       Key Signing Key (KSK) [RFC4033] used to sign the DNS root.
+# 
+#    *  The system MUST be able to retrieve a copy of the entire root zone
+#       (including all DNSSEC-related records).
+# 
+#    *  The system MUST be able to run an authoritative service for the
+#       root zone on the same host.  The authoritative root service MUST
+#       only respond to queries from the same host.  One way to ensure
+#       that the authoritative root service does not respond to queries
+#       from other hosts is to run an authoritative server for the root
+#       that responds only on one of the loopback addresses (that is, an
+#       address in the range 127/8 for IPv4 or ::1 in IPv6).  Another
+#       method is to have the resolver software also act as an
+#       authoritative server for the root zone, but only for answering
+#       queries from itself.
+# 
+#    A corollary of the above list is that authoritative data in the root
+#    zone used on the local authoritative server MUST be identical to the
+#    same data in the root zone for the DNS.  It is possible to change the
+#    unsigned data (the glue records) in the copy of the root zone, but
+#    such changes could cause problems for the recursive server that
+#    accesses the local root zone, and therefore any changes to the glue
+#    records SHOULD NOT be made.
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The system MUST be able to validate every signed record in a zone
+with DNSSEC [RFC4033].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The system MUST have an up-to-date copy of the public part of the
+Key Signing Key (KSK) [RFC4033] used to sign the DNS root.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The system MUST be able to retrieve a copy of the entire root zone
+(including all DNSSEC-related records).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The system MUST be able to run an authoritative service for the
+root zone on the same host.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The authoritative root service MUST
+only respond to queries from the same host.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A corollary of the above list is that authoritative data in the root
+zone used on the local authoritative server MUST be identical to the
+same data in the root zone for the DNS.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is possible to change the
+unsigned data (the glue records) in the copy of the root zone, but
+such changes could cause problems for the recursive server that
+accesses the local root zone, and therefore any changes to the glue
+records SHOULD NOT be made.
+'''
+

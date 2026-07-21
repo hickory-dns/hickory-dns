@@ -1335,7 +1335,8 @@ impl RrsigValidity {
             // There is nothing to check here, but this does tell us which zone a signature comes
             // from.
 
-            // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
+            //= https://www.rfc-editor.org/rfc/rfc4035#section-5.3.1
+            //# The RRSIG RR's Type Covered field MUST equal the RRset's type
             sig_input.type_covered == key.record_type &&
 
             // "The number of labels in the RRset owner name MUST be greater than or equal to the

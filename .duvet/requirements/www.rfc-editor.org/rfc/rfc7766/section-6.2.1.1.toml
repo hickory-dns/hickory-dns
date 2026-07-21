@@ -1,0 +1,70 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-6.2.1.1"
+
+# Query Pipelining
+#
+#    Due to the historical use of TCP primarily for zone transfer and
+#    truncated responses, no existing RFC discusses the idea of pipelining
+#    DNS queries over a TCP connection.
+# 
+#    In order to achieve performance on par with UDP, DNS clients SHOULD
+#    pipeline their queries.  When a DNS client sends multiple queries to
+#    a server, it SHOULD NOT wait for an outstanding reply before sending
+#    the next query.  Clients SHOULD treat TCP and UDP equivalently when
+#    considering the time at which to send a particular query.
+# 
+#    It is likely that DNS servers need to process pipelined queries
+#    concurrently and also send out-of-order responses over TCP in order
+#    to provide the level of performance possible with UDP transport.  If
+#    TCP performance is of importance, clients might find it useful to use
+#    server processing times as input to server and transport selection
+#    algorithms.
+# 
+#    DNS servers (especially recursive) MUST expect to receive pipelined
+#    queries.  The server SHOULD process TCP queries concurrently, just as
+#    it would for UDP.  The server SHOULD answer all pipelined queries,
+#    even if they are received in quick succession.  The handling of
+#    responses to pipelined queries is covered in Section 7.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In order to achieve performance on par with UDP, DNS clients SHOULD
+pipeline their queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a DNS client sends multiple queries to
+a server, it SHOULD NOT wait for an outstanding reply before sending
+the next query.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD treat TCP and UDP equivalently when
+considering the time at which to send a particular query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS servers (especially recursive) MUST expect to receive pipelined
+queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The server SHOULD process TCP queries concurrently, just as
+it would for UDP.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The server SHOULD answer all pipelined queries,
+even if they are received in quick succession.
+'''
+

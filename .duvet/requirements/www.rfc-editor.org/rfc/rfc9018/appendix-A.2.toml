@@ -1,0 +1,61 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#appendix-A.2"
+
+# The Same Client Learning a Renewed (Fresh) Server Cookie
+#
+#    40 minutes later, the same resolver (client) queries the same server
+#    for "example.org".  It reuses the Server Cookie it learned in the
+#    previous query.
+# 
+#    The Timestamp field in that previously learned Server Cookie, which
+#    is now sent along in the request, was and is 1559731985.  In the
+#    format of [RFC3339], this is 2019-06-05 10:53:05+00:00.
+# 
+#    ;; Sending:
+#    ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 50939
+#    ;; flags:; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 1
+# 
+#    ;; OPT PSEUDOSECTION:
+#    ; EDNS: version: 0, flags:; udp: 4096
+#    ; COOKIE: 2464c4abcf10c957010000005cf79f111f8130c3eee29480
+#    ;; QUESTION SECTION:
+#    ;example.org.                IN      A
+# 
+#    ;; QUERY SIZE: 52
+# 
+#    The authoritative nameserver (server) now generates a new Server
+#    Cookie.  The server SHOULD do this because it can see the Server
+#    Cookie sent by the client is older than half an hour (Section 4.3),
+#    but it is also fine for a server to generate a new Server Cookie
+#    sooner or even for every answer.
+# 
+#    The Timestamp field in the returned new Server Cookie has value
+#    1559734385, which, in the format of [RFC3339], is 2019-06-05
+#    11:33:05+00:00.
+# 
+#    ;; Got answer:
+#    ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 50939
+#    ;; flags: qr aa; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 1
+# 
+#    ;; OPT PSEUDOSECTION:
+#    ; EDNS: version: 0, flags:; udp: 4096
+#    ; COOKIE: 2464c4abcf10c957010000005cf7a871d4a564a1442aca77 (good)
+#    ;; QUESTION SECTION:
+#    ;example.org.                IN      A
+# 
+#    ;; ANSWER SECTION:
+#    example.org.         86400   IN      A       192.0.2.34
+# 
+#    ;; Query time: 6 msec
+#    ;; SERVER: 192.0.2.53#53(192.0.2.53)
+#    ;; WHEN: Wed Jun  5 11:33:05 UTC 2019
+#    ;; MSD SIZE  rcvd: 84
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The server SHOULD do this because it can see the Server
+Cookie sent by the client is older than half an hour (Section 4.3),
+but it is also fine for a server to generate a new Server Cookie
+sooner or even for every answer.
+'''
+

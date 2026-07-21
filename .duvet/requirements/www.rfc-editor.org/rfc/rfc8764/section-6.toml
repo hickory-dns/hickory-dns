@@ -1,0 +1,136 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-6"
+
+# Event Responses
+#
+#    When a change ("event") occurs to a name server's zone, the server
+#    MUST check if the new or deleted resource records answer any LLQs.
+#    If so, the changes MUST be communicated to the LLQ requesters in the
+#    form of a gratuitous DNS response sent to the client, with the
+#    relevant question(s) in the Question section, and the corresponding
+#    answers in the Answer section.  The response also includes an OPT
+#    pseudo-RR in the Additional section.  This OPT pseudo-RR contains, in
+#    its RDATA, an LLQ OPTION for each LLQ being answered in the message.
+#    Each LLQ OPTION must include the LLQ-ID.  This reduces the potential
+#    for spoof events being sent to a client.
+# 
+#      +---------------+------------+---------------------------------+
+#      | Field Name    | Field Type | Description                     |
+#      +===============+============+=================================+
+#      | OPTION-CODE   | u_int16_t  | LLQ (1)                         |
+#      +---------------+------------+---------------------------------+
+#      | OPTION-LENGTH | u_int16_t  | Length of following fields (18) |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-VERSION   | u_int16_t  | Version of LLQ protocol         |
+#      |               |            | implemented in server (1)       |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-OPCODE    | u_int16_t  | LLQ-EVENT (3)                   |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-ERROR     | u_int16_t  | NO-ERROR (0)                    |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-ID        | u_int64_t  | [As Appropriate]                |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-LEASE     | u_int32_t  | 0                               |
+#      +---------------+------------+---------------------------------+
+# 
+#                 Table 7: Event Response LLQ OPTION Format
+# 
+#    Gratuitous responses for a single LLQ MAY be batched such that
+#    multiple changes are communicated in a single message.  Responses
+#    MUST NOT be batched if this would cause a message that would
+#    otherwise fit in a single IP packet to be truncated.  While responses
+#    MAY be deferred to provide opportunities for batching, responses
+#    SHOULD NOT be delayed, for purposes of batching, for more than 30
+#    seconds, as this would cause an unacceptable latency for the client.
+# 
+#    After sending a gratuitous response, the server MUST listen for an
+#    acknowledgment from the client.  If the client does not respond, the
+#    server MUST resend the response.  The server MUST resend two times
+#    (for a total of 3 transmissions), after which the server MUST
+#    consider the client to be unreachable and delete its LLQ.  The server
+#    MUST listen for 2 seconds before resending the response, 4 more
+#    seconds before resending again, and must wait an additional 8 seconds
+#    after the 3rd transmission before terminating the LLQ.
+# 
+#    The DNS message header of the response SHOULD include an
+#    unpredictable random number in the DNS message ID field, which is to
+#    be echoed in the client's acknowledgment.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a change ("event") occurs to a name server's zone, the server
+MUST check if the new or deleted resource records answer any LLQs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If so, the changes MUST be communicated to the LLQ requesters in the
+form of a gratuitous DNS response sent to the client, with the
+relevant question(s) in the Question section, and the corresponding
+answers in the Answer section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Gratuitous responses for a single LLQ MAY be batched such that
+multiple changes are communicated in a single message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Responses
+MUST NOT be batched if this would cause a message that would
+otherwise fit in a single IP packet to be truncated.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+While responses
+MAY be deferred to provide opportunities for batching, responses
+SHOULD NOT be delayed, for purposes of batching, for more than 30
+seconds, as this would cause an unacceptable latency for the client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+After sending a gratuitous response, the server MUST listen for an
+acknowledgment from the client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the client does not respond, the
+server MUST resend the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST resend two times
+(for a total of 3 transmissions), after which the server MUST
+consider the client to be unreachable and delete its LLQ.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server
+MUST listen for 2 seconds before resending the response, 4 more
+seconds before resending again, and must wait an additional 8 seconds
+after the 3rd transmission before terminating the LLQ.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The DNS message header of the response SHOULD include an
+unpredictable random number in the DNS message ID field, which is to
+be echoed in the client's acknowledgment.
+'''
+

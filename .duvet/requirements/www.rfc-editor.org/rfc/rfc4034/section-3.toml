@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-3"
+
+# The RRSIG Resource Record
+#
+#    DNSSEC uses public key cryptography to sign and authenticate DNS
+#    resource record sets (RRsets).  Digital signatures are stored in
+#    RRSIG resource records and are used in the DNSSEC authentication
+#    process described in [RFC4035].  A validator can use these RRSIG RRs
+#    to authenticate RRsets from the zone.  The RRSIG RR MUST only be used
+#    to carry verification material (digital signatures) used to secure
+#    DNS operations.
+# 
+#    An RRSIG record contains the signature for an RRset with a particular
+#    name, class, and type.  The RRSIG RR specifies a validity interval
+#    for the signature and uses the Algorithm, the Signer's Name, and the
+#    Key Tag to identify the DNSKEY RR containing the public key that a
+#    validator can use to verify the signature.
+# 
+#    Because every authoritative RRset in a zone must be protected by a
+#    digital signature, RRSIG RRs must be present for names containing a
+#    CNAME RR.  This is a change to the traditional DNS specification
+#    [RFC1034], which stated that if a CNAME is present for a name, it is
+#    the only type allowed at that name.  A RRSIG and NSEC (see Section 4)
+#    MUST exist for the same name as a CNAME resource record in a signed
+#    zone.
+# 
+#    The Type value for the RRSIG RR type is 46.
+# 
+#    The RRSIG RR is class independent.
+# 
+#    An RRSIG RR MUST have the same class as the RRset it covers.
+# 
+#    The TTL value of an RRSIG RR MUST match the TTL value of the RRset it
+#    covers.  This is an exception to the [RFC2181] rules for TTL values
+#    of individual RRs within a RRset: individual RRSIG RRs with the same
+#    owner name will have different TTL values if the RRsets they cover
+#    have different TTL values.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The RRSIG RR MUST only be used
+to carry verification material (digital signatures) used to secure
+DNS operations.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A RRSIG and NSEC (see Section 4)
+MUST exist for the same name as a CNAME resource record in a signed
+zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An RRSIG RR MUST have the same class as the RRset it covers.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The TTL value of an RRSIG RR MUST match the TTL value of the RRset it
+covers.
+'''
+

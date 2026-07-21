@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-7.2"
+
+# Client
+#
+#    An AXFR client has the opportunity to try other features (i.e., those
+#    not defined by this document) when querying an AXFR server.
+# 
+#    Attempting to issue multiple DNS queries over a TCP transport for an
+#    AXFR session SHOULD be aborted if it interrupts the original request,
+#    and SHOULD take into consideration whether the AXFR server intends to
+#    close the connection immediately upon completion of the original
+#    (connection-causing) zone transfer.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Attempting to issue multiple DNS queries over a TCP transport for an
+AXFR session SHOULD be aborted if it interrupts the original request,
+and SHOULD take into consideration whether the AXFR server intends to
+close the connection immediately upon completion of the original
+(connection-causing) zone transfer.
+'''
+

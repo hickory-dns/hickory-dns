@@ -1,0 +1,79 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6.4"
+
+# Update to RFC 7766
+#
+#    [RFC7766] made general implementation recommendations with regard to
+#    TCP/TLS connection handling:
+# 
+#    |  To mitigate the risk of unintentional server overload, DNS clients
+#    |  MUST take care to minimize the number of concurrent TCP
+#    |  connections made to any individual server.  It is RECOMMENDED that
+#    |  for any given client/server interaction there SHOULD be no more
+#    |  than one connection for regular queries, one for zone transfers,
+#    |  and one for each protocol that is being used on top of TCP (for
+#    |  example, if the resolver was using TLS).  However, it is noted
+#    |  that certain primary/ secondary configurations with many busy
+#    |  zones might need to use more than one TCP connection for zone
+#    |  transfers for operational reasons (for example, to support
+#    |  concurrent transfers of multiple zones).
+# 
+#    Whilst this recommends a particular behavior for the clients using
+#    TCP, it does not relax the requirement for servers to handle 'mixed'
+#    traffic (regular queries and zone transfers) on any open TCP/TLS
+#    connection.  It also overlooks the potential that other transports
+#    might want to take the same approach with regard to using separate
+#    connections for different purposes.
+# 
+#    This specification updates the above general guidance in [RFC7766] to
+#    provide the same separation of connection purpose (regular queries
+#    and zone transfers) for all transports being used on top of TCP.
+# 
+#    Therefore, it is RECOMMENDED that for each protocol used on top of
+#    TCP in any given client/server interaction there SHOULD be no more
+#    than one connection for regular queries and one for zone transfers.
+# 
+#    As an illustration, it could be imagined that in the future such an
+#    interaction could hypothetically include one or all of the following:
+# 
+#    *  one TCP connection for regular queries
+# 
+#    *  one TCP connection for zone transfers
+# 
+#    *  one TLS connection for regular queries
+# 
+#    *  one TLS connection for zone transfers
+# 
+#    *  one DoH connection for regular queries
+# 
+#    *  one DoH connection for zone transfers
+# 
+#    Section 6.3.1 provides specific details of the reasons why more than
+#    one connection for a given transport might be required for zone
+#    transfers from a particular client.
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  To mitigate the risk of unintentional server overload, DNS clients
+|  MUST take care to minimize the number of concurrent TCP
+|  connections made to any individual server.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that
+|  for any given client/server interaction there SHOULD be no more
+|  than one connection for regular queries, one for zone transfers,
+|  and one for each protocol that is being used on top of TCP (for
+|  example, if the resolver was using TLS).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore, it is RECOMMENDED that for each protocol used on top of
+TCP in any given client/server interaction there SHOULD be no more
+than one connection for regular queries and one for zone transfers.
+'''
+

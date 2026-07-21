@@ -1,0 +1,95 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-5"
+
+# Updating the Server Secret
+#
+#    Changing the Server Secret regularly is RECOMMENDED.  All servers in
+#    an anycast set must be able to verify the Server Cookies constructed
+#    by all other servers in that anycast set at all times.  Therefore, it
+#    is vital that the Server Secret is shared among all servers before it
+#    is used to generate Server Cookies on any server.
+# 
+#    Also, to maximize maintaining established relationships between
+#    clients and servers, an old Server Secret should be valid for
+#    verification purposes for a specific period.
+# 
+#    To facilitate this, deployment of a new Server Secret MUST be done in
+#    three stages:
+# 
+#    Stage 1
+#       The new Server Secret is deployed on all the servers in an anycast
+#       set by the operator.
+# 
+#       Each server learns the new Server Secret but keeps using the
+#       previous Server Secret to generate Server Cookies.
+# 
+#       Server Cookies constructed with both the new Server Secret and the
+#       previous Server Secret are considered valid when verifying.
+# 
+#       After stage 1 is completed, all the servers in the anycast set
+#       have learned the new Server Secret and can verify Server Cookies
+#       constructed with it, but keep generating Server Cookies with the
+#       old Server Secret.
+# 
+#    Stage 2
+#       This stage is initiated by the operator after the Server Cookie is
+#       present on all members in the anycast set.
+# 
+#       When entering Stage 2, servers start generating Server Cookies
+#       with the new Server Secret.  The previous Server Secret is not yet
+#       removed/forgotten.
+# 
+#       Server Cookies constructed with both the new Server Secret and the
+#       previous Server Secret are considered valid when verifying.
+# 
+#    Stage 3
+#       This stage is initiated by the operator when it can be assumed
+#       that most clients have obtained a Server Cookie derived from the
+#       new Server Secret.
+# 
+#       With this stage, the previous Server Secret can be removed and
+#       MUST NOT be used anymore for verifying.
+# 
+#       It is RECOMMENDED that the operator wait, after initiating Stage 2
+#       and before initiating Stage 3, at least a period of time equal to
+#       the longest TTL in the zones served by the server plus 1 hour.
+# 
+#       The operator SHOULD wait at least longer than the period clients
+#       are allowed to use the same Server Cookie, which SHOULD be 1 hour
+#       (see Section 4.3).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Changing the Server Secret regularly is RECOMMENDED.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To facilitate this, deployment of a new Server Secret MUST be done in
+three stages:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+With this stage, the previous Server Secret can be removed and
+MUST NOT be used anymore for verifying.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that the operator wait, after initiating Stage 2
+and before initiating Stage 3, at least a period of time equal to
+the longest TTL in the zones served by the server plus 1 hour.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The operator SHOULD wait at least longer than the period clients
+are allowed to use the same Server Cookie, which SHOULD be 1 hour
+(see Section 4.3).
+'''
+

@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6.3.4"
+
+# The edns-tcp-keepalive EDNS(0) Option
+#
+#    XFR clients that send the edns-tcp-keepalive EDNS(0) option on every
+#    XFR request provide the server with maximum opportunity to update the
+#    edns-tcp-keepalive timeout.  The XFR server may use the frequency of
+#    recent XFRs to calculate an average update rate as input to the
+#    decision of what edns-tcp-keepalive timeout to use.  If the server
+#    does not support edns-tcp-keepalive, the client MAY keep the
+#    connection open for a few seconds ([RFC7766] recommends that servers
+#    use timeouts of at least a few seconds).
+# 
+#    Whilst the specification for EDNS(0) [RFC6891] does not specifically
+#    mention AXFRs, it does say:
+# 
+#    |  If an OPT record is present in a received request, compliant
+#    |  responders MUST include an OPT record in their respective
+#    |  responses.
+# 
+#    In this document, the above is clarified to indicate that if an OPT
+#    record is present in a received AXFR request, compliant responders
+#    MUST include an OPT record in each of the subsequent AXFR responses.
+#    Note that this requirement, combined with the use of edns-tcp-
+#    keepalive, enables AXFR servers to signal the desire to close a
+#    connection (when existing transactions have competed) due to low
+#    resources by sending an edns-tcp-keepalive EDNS(0) option with a
+#    timeout of 0 on any AXFR response.  This does not signal that the
+#    AXFR is aborted, just that the server wishes to close the connection
+#    as soon as possible.
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the server
+does not support edns-tcp-keepalive, the client MAY keep the
+connection open for a few seconds ([RFC7766] recommends that servers
+use timeouts of at least a few seconds).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  If an OPT record is present in a received request, compliant
+|  responders MUST include an OPT record in their respective
+|  responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this document, the above is clarified to indicate that if an OPT
+record is present in a received AXFR request, compliant responders
+MUST include an OPT record in each of the subsequent AXFR responses.
+'''
+
