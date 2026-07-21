@@ -1214,6 +1214,8 @@ mod tests {
     use futures_util::stream::once;
     use futures_util::{Stream, future};
     use test_support::subscribe;
+    #[cfg(feature = "__dnssec")]
+    use test_support::{MockNetworkHandler, MockProvider, MockRecord};
 
     #[cfg(all(unix, feature = "system-config"))]
     use super::testing::hosts_lookup_test;
@@ -1228,9 +1230,13 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     use super::testing::{sec_lookup_fails_test, sec_lookup_test};
     use super::*;
+    #[cfg(feature = "__dnssec")]
+    use crate::config::ServerGroup;
     use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
     use crate::net::DnsError;
     use crate::net::xfer::DnsExchange;
+    #[cfg(feature = "__dnssec")]
+    use crate::proto::dnssec::{SigningKey, crypto::Ed25519SigningKey};
     use crate::proto::op::{DnsRequest, DnsResponse, Message};
     use crate::proto::rr::rdata::A;
 
@@ -1587,5 +1593,72 @@ mod tests {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
+    }
+
+    #[cfg(feature = "__dnssec")]
+    #[tokio::test]
+    async fn test_dnssec_validation_bogus_fails() {
+        subscribe();
+
+        let mut trust_anchors = TrustAnchors::empty();
+        let private_key =
+            Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
+        let public_key = private_key.to_public_key().unwrap();
+        trust_anchors.insert(&public_key);
+
+        let resolver_ip = Ipv4Addr::new(203, 0, 113, 1).into();
+        let query_name = Name::parse("www.hickory-dns.testing.", None).unwrap();
+        let zone_name = Name::parse("hickory-dns.testing.", None).unwrap();
+        let mname = Name::parse("ns.testing.", None).unwrap();
+        let rname = Name::parse("admin.hickory-dns.testing.", None).unwrap();
+        let tld_name = Name::parse("testing.", None).unwrap();
+
+        let mock_records = vec![
+            // Positive response for A query.
+            MockRecord::a(
+                resolver_ip,
+                &query_name,
+                Ipv4Addr::new(203, 0, 113, 2).into(),
+            ),
+            // Negative response for AAAA query.
+            MockRecord::soa(resolver_ip, &zone_name, &mname, &rname)
+                .with_query_name(&query_name)
+                .with_query_type(RecordType::AAAA),
+            // Negative response when checking for zone cut at QNAME.
+            MockRecord::soa(resolver_ip, &zone_name, &mname, &rname)
+                .with_query_name(&query_name)
+                .with_query_type(RecordType::NS),
+            // Return NS RRset when checking for zone cut.
+            MockRecord::ns(resolver_ip, &zone_name, &mname),
+            MockRecord::ns(resolver_ip, &tld_name, &mname),
+            // Negative response when querying any DS RRset. This should cause DNSSEC validation to
+            // fail. (Plus, synthesizing records would be hard without moving tests to the
+            // hickory-integration crate.)
+            MockRecord::soa(resolver_ip, &tld_name, &mname, &rname)
+                .with_query_name(&zone_name)
+                .with_query_type(RecordType::DS),
+            MockRecord::soa(resolver_ip, &Name::root(), &mname, &rname)
+                .with_query_name(&tld_name)
+                .with_query_type(RecordType::DS),
+        ];
+        let handler = MockNetworkHandler::new(mock_records);
+        let provider = MockProvider::new(handler);
+
+        let server_group = ServerGroup {
+            ips: &[resolver_ip],
+            server_name: "ns.testing",
+            path: "/dns-query",
+        };
+        let resolver_config = ResolverConfig::udp_and_tcp(&server_group);
+        let resolver = Resolver::builder_with_config(resolver_config, provider)
+            .with_trust_anchor(Arc::new(trust_anchors))
+            .build()
+            .unwrap();
+
+        let error = resolver.lookup_ip(query_name).await.unwrap_err();
+        assert!(
+            error.to_string().contains("DNSSEC validation failed"),
+            "{error}"
+        );
     }
 }

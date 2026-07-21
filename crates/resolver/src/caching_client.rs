@@ -15,6 +15,8 @@ use std::{
 
 use once_cell::sync::Lazy;
 
+#[cfg(feature = "__dnssec")]
+use crate::proto::dnssec::{DnssecSummary, Proof};
 use crate::{
     cache::{MAX_TTL, ResponseCache, TtlConfig},
     lookup::Lookup,
@@ -199,6 +201,31 @@ where
         } else {
             response_message
         };
+
+        // TODO: This doesn't yet take into account the CD flag. There is not yet a way to pass it
+        // from the ForwarderZoneHandler, through the Resolver public API, to here.
+        #[cfg(feature = "__dnssec")]
+        if is_dnssec {
+            let summary_opt = match &response_message {
+                Ok(response) => Some(DnssecSummary::from_records(response.answers.iter())),
+                Err(NetError::Dns(DnsError::Nsec {
+                    response, proof, ..
+                })) => Some(if *proof == Proof::Bogus {
+                    DnssecSummary::Bogus
+                } else {
+                    DnssecSummary::from_records(response.authorities.iter())
+                }),
+                _ => None,
+            };
+            if let Some(DnssecSummary::Bogus) = summary_opt {
+                #[cfg(feature = "metrics")]
+                client
+                    .cache_metrics
+                    .cache_miss_duration
+                    .record(request_start.elapsed());
+                return Err(NetError::Dns(DnsError::DnssecBogus));
+            }
+        }
 
         // TODO: take all records and cache them?
         //  if it's DNSSEC they must be signed, otherwise?
