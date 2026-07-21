@@ -4,9 +4,11 @@ use dns_test::{
     Error, FQDN, Forwarder, Implementation, Network, PEER, Resolver, TrustAnchor,
     client::{Client, DigSettings, DigStatus},
     name_server::NameServer,
-    record::{A, RecordType},
+    record::{A, Record, RecordType},
     zone_file::SignSettings,
 };
+
+use base64::prelude::*;
 
 #[test]
 fn wrong_key() -> Result<(), Error> {
@@ -132,6 +134,81 @@ fn nsec3_does_not_cover() -> Result<(), Error> {
 
         assert_eq!(response.status, DigStatus::SERVFAIL);
     }
+
+    Ok(())
+}
+
+#[test]
+#[ignore = "hickory does not yet propagate the CD flag from the forwarder through the resolver code"]
+fn checking_disabled() -> Result<(), Error> {
+    let network = Network::new()?;
+    let sign_settings = SignSettings::default();
+
+    let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    let record_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+    leaf_ns.add(Record::a(FQDN::EXAMPLE_SUBDOMAIN, record_ipv4_addr));
+    let mut leaf_ns = leaf_ns.sign(sign_settings.clone())?;
+
+    // Corrupt an RRSIG.
+    let mut modified = 0;
+    for record in leaf_ns.signed_zone_file_mut().records.iter_mut() {
+        let Record::RRSIG(rrsig) = record else {
+            continue;
+        };
+        if rrsig.fqdn == FQDN::EXAMPLE_SUBDOMAIN {
+            let mut signature = BASE64_STANDARD.decode(&rrsig.signature).unwrap();
+            let last_byte = signature.last_mut().unwrap();
+            *last_byte = !*last_byte;
+            rrsig.signature = BASE64_STANDARD.encode(&signature);
+            modified += 1;
+        }
+    }
+    assert_eq!(modified, 1, "sanity check");
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&leaf_ns);
+    tld_ns.add(leaf_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings.clone())?;
+    let trust_anchor = root_ns.trust_anchor();
+    let root_hint = root_ns.root_hint();
+
+    let _leaf_ns = leaf_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _root_ns = root_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint).start_with_subject(&PEER)?;
+    let forwarder = Forwarder::new(&network, &resolver)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default()
+        .recurse()
+        .dnssec()
+        .checking_disabled();
+
+    let output = client.dig(
+        settings,
+        forwarder.ipv4_addr(),
+        RecordType::A,
+        &FQDN::EXAMPLE_SUBDOMAIN,
+    )?;
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(!output.flags.authenticated_data);
+    assert!(output.flags.checking_disabled);
+    assert!(
+        output.answer.iter().any(|r| {
+            r.clone()
+                .try_into_a()
+                .is_ok_and(|a| a.ipv4_addr == record_ipv4_addr)
+        }),
+        "{output:?}"
+    );
 
     Ok(())
 }

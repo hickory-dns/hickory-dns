@@ -89,7 +89,8 @@ impl<H: DnsHandle> Stream for RetrySendStream<H> {
                 (
                     _,
                     err @ NetError::NoConnections
-                    | err @ NetError::Dns(DnsError::NoRecordsFound(_)),
+                    | err @ NetError::Dns(DnsError::NoRecordsFound(_))
+                    | err @ NetError::Dns(DnsError::DnssecBogus),
                 ) => return Poll::Ready(Some(Err(err))),
                 // Don't count `Busy` as an attempt
                 (_, NetError::Busy) => {}
