@@ -15,6 +15,10 @@ use tracing::{debug, error, info, trace, warn};
 #[cfg(feature = "metrics")]
 use crate::metrics::CatalogMetrics;
 #[cfg(feature = "__dnssec")]
+use crate::net::{DnsError, NetError};
+#[cfg(all(feature = "__dnssec", feature = "recursor"))]
+use crate::resolver::recursor;
+#[cfg(feature = "__dnssec")]
 use crate::{
     dnssec::NxProofKind,
     proto::{
@@ -38,11 +42,6 @@ use crate::{
         AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
         MessageResponseBuilder, ZoneHandler, ZoneType,
     },
-};
-#[cfg(all(feature = "__dnssec", feature = "recursor"))]
-use crate::{
-    net::{DnsError, NetError},
-    resolver::recursor,
 };
 
 /// Set of zones and zone handlers available to this server.
@@ -1168,6 +1167,14 @@ async fn build_forwarded_response(
                     nsec_proof: Some(proof),
                     ..ResponseParts::default()
                 }
+            }
+        }
+        #[cfg(feature = "__dnssec")]
+        Err(LookupError::NetError(NetError::Dns(DnsError::DnssecBogus))) => {
+            response_meta.response_code = ResponseCode::ServFail;
+            ResponseParts {
+                nsec_proof: Some(Proof::Bogus),
+                ..ResponseParts::default()
             }
         }
         Err(e) => {
