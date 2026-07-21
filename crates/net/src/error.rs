@@ -400,6 +400,9 @@ pub enum DnsError {
         /// DNSSEC proof of the record
         proof: Proof,
     },
+    /// DNSSEC validation failure
+    #[error("DNSSEC validation failed")]
+    DnssecBogus,
 }
 
 impl DnsError {
@@ -513,6 +516,7 @@ impl DnsError {
             Self::NoRecordsFound(_) => "dns_no_records",
             #[cfg(feature = "__dnssec")]
             Self::Nsec { .. } => "dns_nsec",
+            Self::DnssecBogus => "dns_dnssec_bogus",
         }
     }
 }
