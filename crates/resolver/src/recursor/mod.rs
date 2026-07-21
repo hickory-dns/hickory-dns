@@ -433,8 +433,8 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
                 config.nsec3_soft_iteration_limit,
                 config.nsec3_hard_iteration_limit,
             )
-            .negative_validation_ttl(ttl_config.negative_response_ttl_bounds(RecordType::RRSIG))
-            .positive_validation_ttl(ttl_config.positive_response_ttl_bounds(RecordType::RRSIG));
+            .invalid_validation_ttl(ttl_config.negative_response_ttl_bounds(RecordType::RRSIG))
+            .valid_validation_ttl(ttl_config.positive_response_ttl_bounds(RecordType::RRSIG));
 
         if let Some(validation_cache_size) = config.validation_cache_size {
             handle = handle.validation_cache_size(validation_cache_size);
