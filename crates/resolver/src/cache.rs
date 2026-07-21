@@ -1047,7 +1047,7 @@ mod tests {
         let cname = Name::from_ascii("cname-record.com.").unwrap();
         let a = Name::from_ascii("a-record.com.").unwrap();
 
-        let query = Query::new(cname.clone(), RecordType::A);
+        let query = Query::query(cname.clone(), RecordType::A);
 
         let mut message = Message::response(0, OpCode::Query);
         message.add_query(query.clone());
