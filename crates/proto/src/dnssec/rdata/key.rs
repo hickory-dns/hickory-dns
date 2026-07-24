@@ -352,13 +352,11 @@ impl<'r> RecordDataDecodable<'r> for KEY {
             return Err(DecodeError::ExtendedKeyFlagsUnsupported(flags));
         }
 
-        // TODO: protocol my be infallible
         let protocol =
             Protocol::from(decoder.read_u8()?.unverified(/*Protocol is verified as safe*/));
 
         let algorithm: Algorithm = Algorithm::read(decoder)?;
 
-        // TODO: decode the key here?
         let public_key =
             decoder.read_vec_to_end().unverified(/*the byte array will fail in usage if invalid*/);
 
