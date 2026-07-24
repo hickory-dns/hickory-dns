@@ -19,6 +19,7 @@ use crate::{
         op::{Message, Query, ResponseCode},
         rr::{Name, Record, RecordType},
     },
+    recursor::QnameMinimization,
 };
 
 #[tokio::test]
@@ -439,6 +440,90 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
             ttl_lookup(&recursor, &ent_delegated_query_name).await?,
             &ent_delegated_query_name,
             ENT_DELEGATED_LEAF_IP
+        ));
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
+    subscribe();
+
+    let query_name = Name::from_ascii("host.ent.hickory-dns.testing.")?;
+    let ent_name = Name::from_ascii("ent.hickory-dns.testing.")?;
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
+
+    let responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
+        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
+            .with_query_name(&leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::soa(LEAF_IP, &leaf_zone, &leaf_ns, &leaf_ns)
+            .with_query_name(&ent_name)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Authority),
+        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
+    ];
+
+    let nxdomain_at_ent = Box::new(move |_, _, message: &mut Message| {
+        if let Some(query) = message.queries.first() {
+            if query.name == ent_name && query.query_type == RecordType::NS {
+                let mut error_message =
+                    Message::error_msg(message.id, message.op_code, ResponseCode::NXDomain);
+                error_message.add_authorities(message.authorities.drain(..));
+                *message = error_message;
+            }
+        }
+    });
+
+    let recursor_no_cache = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ns_cache_size: 1,
+            qname_minimization: QnameMinimization::Relaxed,
+            ..RecursorOptions::default()
+        },
+        MockProvider::new(
+            MockNetworkHandler::new(responses.clone()).with_mutation(nxdomain_at_ent.clone()),
+        ),
+    )?;
+
+    let recursor_cache = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ns_cache_size: 1024,
+            qname_minimization: QnameMinimization::Relaxed,
+            ..RecursorOptions::default()
+        },
+        MockProvider::new(
+            MockNetworkHandler::new(responses.clone()).with_mutation(nxdomain_at_ent),
+        ),
+    )?;
+
+    for recursor in [recursor_no_cache, recursor_cache] {
+        assert_eq!(
+            get_zone_name(&recursor, &query_name).await?,
+            Some(leaf_zone.clone())
+        );
+
+        // Sanity check - IPs are correct
+        assert!(validate_response(
+            ttl_lookup(&recursor, &query_name).await?,
+            &query_name,
+            LEAF_IP
         ));
     }
 
