@@ -1118,7 +1118,6 @@ fn setup_wrong_rrset(
 /// ; name passed signature validation.
 /// ```
 #[test]
-#[ignore]
 fn invalid_wildcard_expansion_bogus_nsec_same_name() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default().nsec(Nsec::_1);
