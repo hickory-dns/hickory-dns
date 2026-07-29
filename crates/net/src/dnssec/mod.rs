@@ -273,11 +273,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .authorities
             .iter()
             .filter_map(|rr| {
-                if message
-                    .authorities
-                    .iter()
-                    .any(|r| r.name == rr.name && r.proof == Proof::Secure)
-                {
+                if rr.proof == Proof::Secure {
                     match &rr.data {
                         RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) => Some((&rr.name, nsec3)),
                         _ => None,
@@ -292,11 +288,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .authorities
             .iter()
             .filter_map(|rr| {
-                if message
-                    .authorities
-                    .iter()
-                    .any(|r| r.name == rr.name && r.proof == Proof::Secure)
-                {
+                if rr.proof == Proof::Secure {
                     match &rr.data {
                         RData::DNSSEC(DNSSECRData::NSEC(nsec)) => Some((&rr.name, nsec)),
                         _ => None,
