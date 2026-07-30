@@ -29,6 +29,10 @@ use rustls::{
     server::ResolvesServerCert,
     sign::{CertifiedKey, SingleCertAndKey},
 };
+// `IgnoredAny` is only used by the fallback store variants below, so it is
+// unused when every store feature is enabled.
+#[allow(unused_imports)]
+use serde::de::IgnoredAny;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use thiserror::Error;
@@ -394,6 +398,13 @@ impl ZoneConfig {
                                 .await?;
                             Arc::new(handler)
                         }
+                        #[cfg(not(feature = "sqlite"))]
+                        ServerStoreConfig::Sqlite(_) => {
+                            return Err(ProtoError::from(
+                                "store type `sqlite` requires the `sqlite` Cargo feature, \
+                                 which was not enabled when this binary was built",
+                            ));
+                        }
                         _ => return Err(ProtoError::from(EMPTY_STORES)),
                     };
 
@@ -407,7 +418,7 @@ impl ZoneConfig {
                 );
 
                 #[cfg_attr(
-                    not(any(feature = "blocklist", feature = "resolver")),
+                    not(any(feature = "blocklist", feature = "resolver", feature = "recursor")),
                     allow(unreachable_code, unused_variables, clippy::never_loop)
                 )]
                 for store in stores {
@@ -440,6 +451,27 @@ impl ZoneConfig {
                             .await?;
 
                             Arc::new(recursor)
+                        }
+                        #[cfg(not(feature = "blocklist"))]
+                        ExternalStoreConfig::Blocklist(_) => {
+                            return Err(ProtoError::from(
+                                "store type `blocklist` requires the `blocklist` Cargo feature, \
+                                 which was not enabled when this binary was built",
+                            ));
+                        }
+                        #[cfg(not(feature = "resolver"))]
+                        ExternalStoreConfig::Forward(_) => {
+                            return Err(ProtoError::from(
+                                "store type `forward` requires the `resolver` Cargo feature, \
+                                 which was not enabled when this binary was built",
+                            ));
+                        }
+                        #[cfg(not(feature = "recursor"))]
+                        ExternalStoreConfig::Recursor(_) => {
+                            return Err(ProtoError::from(
+                                "store type `recursor` requires the `recursor` Cargo feature, \
+                                 which was not enabled when this binary was built",
+                            ));
                         }
                         _ => return Err(ProtoError::from(EMPTY_STORES)),
                     };
@@ -537,6 +569,8 @@ impl ServerZoneConfig {
             #[cfg(feature = "sqlite")]
             ServerStoreConfig::Sqlite(sqlite_config) => Some(&*sqlite_config.zone_path),
             ServerStoreConfig::Default => None,
+            #[cfg(not(feature = "sqlite"))]
+            ServerStoreConfig::Sqlite(_) => None,
         })
     }
 
@@ -569,6 +603,12 @@ pub(crate) enum ServerStoreConfig {
     /// Sqlite based configuration file
     #[cfg(feature = "sqlite")]
     Sqlite(SqliteConfig),
+    /// Fallback variant for when the `sqlite` feature is not enabled.
+    ///
+    /// Serde will parse the config, and the error is returned when the store is used, so that
+    /// the user learns the feature is missing rather than that the store type is unknown.
+    #[cfg(not(feature = "sqlite"))]
+    Sqlite(IgnoredAny),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
     #[default]
     Default,
@@ -583,12 +623,21 @@ pub(crate) enum ExternalStoreConfig {
     /// Blocklist configuration
     #[cfg(feature = "blocklist")]
     Blocklist(BlocklistConfig),
+    /// Fallback variant for when the `blocklist` feature is not enabled.
+    #[cfg(not(feature = "blocklist"))]
+    Blocklist(IgnoredAny),
     /// Forwarding Resolver
     #[cfg(feature = "resolver")]
     Forward(ForwardConfig),
+    /// Fallback variant for when the `resolver` feature is not enabled.
+    #[cfg(not(feature = "resolver"))]
+    Forward(IgnoredAny),
     /// Recursive Resolver
     #[cfg(feature = "recursor")]
     Recursor(Box<RecursiveConfig>),
+    /// Fallback variant for when the `recursor` feature is not enabled.
+    #[cfg(not(feature = "recursor"))]
+    Recursor(IgnoredAny),
     /// This is used by the configuration processing code to represent a deprecated or main-block config without an associated store.
     #[default]
     Default,
