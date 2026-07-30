@@ -1,0 +1,17 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.5.1"
+
+# AliasMode
+#
+#    For AliasMode SVCB RRs, a TargetName of "." indicates that the
+#    service is not available or does not exist.  This indication is
+#    advisory: clients encountering this indication MAY ignore it and
+#    attempt to connect without the use of SVCB.
+
+[[spec]]
+level = "MAY"
+quote = '''
+This indication is
+advisory: clients encountering this indication MAY ignore it and
+attempt to connect without the use of SVCB.
+'''
+

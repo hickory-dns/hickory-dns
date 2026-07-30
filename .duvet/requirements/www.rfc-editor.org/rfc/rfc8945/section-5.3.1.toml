@@ -1,0 +1,78 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.3.1"
+
+# TSIG on TCP Connections
+#
+#    A DNS TCP session, such as a zone transfer, can include multiple DNS
+#    messages.  Using TSIG on such a connection can protect the connection
+#    from an attack and provide data integrity.  The TSIG MUST be included
+#    on all DNS messages in the response.  For backward compatibility, a
+#    client that receives DNS messages and verifies TSIG MUST accept up to
+#    99 intermediary messages without a TSIG and MUST verify that both the
+#    first and last message contain a TSIG.
+# 
+#    The first message is processed as a standard answer (see
+#    Section 5.3), but subsequent messages have the following digest
+#    components:
+# 
+#       Prior MAC (running)
+#       DNS Messages (any unsigned messages since the last TSIG)
+#       TSIG Timers (current message)
+# 
+#    The "Prior MAC" is the MAC from the TSIG attached to the last message
+#    containing a TSIG.  "DNS Messages" comprises the concatenation (in
+#    message order) of all messages after the last message that included a
+#    TSIG and includes the current message.  "TSIG Timers" comprises the
+#    Time Signed and Fudge fields (in that order) pertaining to the
+#    message for which the TSIG was created; this means that the
+#    successive TSIG records in the stream will have non-decreasing Time
+#    Signed values.  Note that only the timers are included in the second
+#    and subsequent messages, not all the TSIG variables.
+# 
+#    This allows the client to rapidly detect when the session has been
+#    altered; at which point, it can close the connection and retry.  If a
+#    client TSIG verification fails, the client MUST close the connection.
+#    If the client does not receive TSIG records frequently enough (as
+#    specified above), it SHOULD assume the connection has been hijacked,
+#    and it SHOULD close the connection.  The client SHOULD treat this the
+#    same way as they would any other interrupted transfer (although the
+#    exact behavior is not specified).
+
+[[spec]]
+level = "MUST"
+quote = '''
+The TSIG MUST be included
+on all DNS messages in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For backward compatibility, a
+client that receives DNS messages and verifies TSIG MUST accept up to
+99 intermediary messages without a TSIG and MUST verify that both the
+first and last message contain a TSIG.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a
+client TSIG verification fails, the client MUST close the connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the client does not receive TSIG records frequently enough (as
+specified above), it SHOULD assume the connection has been hijacked,
+and it SHOULD close the connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD treat this the
+same way as they would any other interrupted transfer (although the
+exact behavior is not specified).
+'''
+

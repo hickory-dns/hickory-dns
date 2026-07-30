@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-4.1"
+
+# TSIG RR Type
+#
+#    To provide secret key authentication, we use an RR type whose
+#    mnemonic is TSIG and whose type code is 250.  TSIG is a meta-RR and
+#    MUST NOT be cached.  TSIG RRs are used for authentication between DNS
+#    entities that have established a shared secret key.  TSIG RRs are
+#    dynamically computed to cover a particular DNS transaction and are
+#    not DNS RRs in the usual sense.
+# 
+#    As the TSIG RRs are related to one DNS request/response, there is no
+#    value in storing or retransmitting them; thus, the TSIG RR is
+#    discarded once it has been used to authenticate a DNS message.
+
+[[spec]]
+level = "MUST"
+quote = '''
+TSIG is a meta-RR and
+MUST NOT be cached.
+'''
+

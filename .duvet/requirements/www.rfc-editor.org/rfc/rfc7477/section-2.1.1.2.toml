@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-2.1.1.2"
+
+# The Flags Field
+#
+#    The Flags field contains 16 bits of boolean flags that define
+#    operations that affect the processing of the CSYNC record.  The flags
+#    defined in this document are as follows:
+# 
+#       0x00 0x01: "immediate"
+# 
+#       0x00 0x02: "soaminimum"
+# 
+#    The definitions for how the flags are to be used can be found in
+#    Section 3.
+# 
+#    The remaining flags are reserved for use by future specifications.
+#    Undefined flags MUST be set to 0 by CSYNC publishers.  Parental
+#    agents MUST NOT process a CSYNC record if it contains a 1 value for a
+#    flag that is unknown to or unsupported by the parental agent.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Undefined flags MUST be set to 0 by CSYNC publishers.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Parental
+agents MUST NOT process a CSYNC record if it contains a 1 value for a
+flag that is unknown to or unsupported by the parental agent.
+'''
+

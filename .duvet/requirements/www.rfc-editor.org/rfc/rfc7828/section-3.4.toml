@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-3.4"
+
+# TCP Session Management
+#
+#    Both DNS clients and servers are subject to resource constraints that
+#    will limit the extent to which TCP sessions can persist.  Effective
+#    limits for the number of active sessions that can be maintained on
+#    individual clients and servers should be established, either as
+#    configuration options or by interrogation of process limits imposed
+#    by the operating system.  Servers that implement edns-tcp-keepalive
+#    should also engage in TCP connection management by recycling existing
+#    connections when appropriate, closing connections gracefully, and
+#    managing request queues to enable fair use.
+# 
+#    In the event that there is greater demand for TCP sessions than can
+#    be accommodated, servers may reduce the TIMEOUT value signalled in
+#    successive DNS messages to minimise idle time on existing sessions.
+#    This also allows, for example, clients with other candidate servers
+#    to query to establish new TCP sessions with different servers in
+#    expectation that an existing session is likely to be closed or to
+#    fall back to UDP.
+# 
+#    Based on TCP session resources, servers may signal a TIMEOUT value of
+#    0 to request clients to close connections as soon as possible.  This
+#    is useful when server resources become very low or a denial-of-
+#    service attack is detected and further maximises the shifting of
+#    TIME_WAIT state to well-behaved clients.
+# 
+#    However, it should be noted that RFC 6891 states:
+# 
+#       Lack of presence of an OPT record in a request MUST be taken as an
+#       indication that the requestor does not implement any part of this
+#       specification and that the responder MUST NOT include an OPT
+#       record in its response.
+# 
+#    Since servers must be faithful to this specification even on a
+#    persistent TCP connection, it means that (following the initial
+#    exchange of timeouts) a server may not be presented with the
+#    opportunity to signal a change in the idle timeout associated with a
+#    connection if the client does not send any further requests
+#    containing EDNS0 OPT RRs.  This limitation makes persistent
+#    connection handling via an initial idle timeout signal more
+# 
+#    attractive than a mechanism that establishes default persistence and
+#    then uses a connection close signal (in a similar manner to HTTP 1.1
+#    [RFC7230]).
+# 
+#    If a client includes the edns-tcp-keepalive option in the first
+#    query, it SHOULD include an EDNS0 OPT RR periodically in any further
+#    messages it sends during the TCP session.  This will increase the
+#    chance of the client being notified should the server modify the
+#    timeout associated with a session.  The algorithm for choosing when
+#    to do this is out of scope of this document and is left up to the
+#    implementor and/or operator.
+# 
+#    DNS clients and servers MAY close a TCP session at any time in order
+#    to manage local resource constraints.  The algorithm by which clients
+#    and servers rank active TCP sessions in order to determine which to
+#    close is not specified in this document.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Lack of presence of an OPT record in a request MUST be taken as an
+indication that the requestor does not implement any part of this
+specification and that the responder MUST NOT include an OPT
+record in its response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a client includes the edns-tcp-keepalive option in the first
+query, it SHOULD include an EDNS0 OPT RR periodically in any further
+messages it sends during the TCP session.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+DNS clients and servers MAY close a TCP session at any time in order
+to manage local resource constraints.
+'''
+

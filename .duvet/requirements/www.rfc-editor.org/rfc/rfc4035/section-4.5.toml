@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.5"
+
+# Response Caching
+#
+#    A security-aware resolver SHOULD cache each response as a single
+#    atomic entry containing the entire answer, including the named RRset
+#    and any associated DNSSEC RRs.  The resolver SHOULD discard the
+#    entire atomic entry when any of the RRs contained in it expire.  In
+#    most cases the appropriate cache index for the atomic entry will be
+#    the triple <QNAME, QTYPE, QCLASS>, but in cases such as the response
+#    form described in Section 3.1.3.2 the appropriate cache index will be
+#    the double <QNAME,QCLASS>.
+# 
+#    The reason for these recommendations is that, between the initial
+#    query and the expiration of the data from the cache, the
+#    authoritative data might have been changed (for example, via dynamic
+#    update).
+# 
+#    There are two situations for which this is relevant:
+# 
+#    1.  By using the RRSIG record, it is possible to deduce that an
+#        answer was synthesized from a wildcard.  A security-aware
+#        recursive name server could store this wildcard data and use it
+#        to generate positive responses to queries other than the name for
+#        which the original answer was first received.
+# 
+#    2.  NSEC RRs received to prove the non-existence of a name could be
+#        reused by a security-aware resolver to prove the non-existence of
+#        any name in the name range it spans.
+# 
+#    In theory, a resolver could use wildcards or NSEC RRs to generate
+#    positive and negative responses (respectively) until the TTL or
+#    signatures on the records in question expire.  However, it seems
+#    prudent for resolvers to avoid blocking new authoritative data or
+#    synthesizing new data on their own.  Resolvers that follow this
+#    recommendation will have a more consistent view of the namespace.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A security-aware resolver SHOULD cache each response as a single
+atomic entry containing the entire answer, including the named RRset
+and any associated DNSSEC RRs.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The resolver SHOULD discard the
+entire atomic entry when any of the RRs contained in it expire.
+'''
+

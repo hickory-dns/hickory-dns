@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-5.3"
+
+# Use by Responders
+#
+#    An authoritative name server receiving Key Tag queries MAY log or
+#    otherwise collect the Key Tag values to provide information to the
+#    zone operator.
+# 
+#    An authoritative name server MUST generate an appropriate response to
+#    the Key Tag query.  A server does not need to have built-in logic
+#    that determines the response to Key Tag queries: the response code is
+#    determined by whether the data is in the zone file or covered by
+#    wildcards.  The zone operator might want to add specific Key Tag
+#    records to its zone, perhaps with specific TTLs, to affect the
+#    frequency of Key Tag queries from clients.
+
+[[spec]]
+level = "MAY"
+quote = '''
+An authoritative name server receiving Key Tag queries MAY log or
+otherwise collect the Key Tag values to provide information to the
+zone operator.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An authoritative name server MUST generate an appropriate response to
+the Key Tag query.
+'''
+

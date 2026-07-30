@@ -1,0 +1,80 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-11"
+
+# IANA Considerations
+#
+#    Although the NSEC3 and NSEC3PARAM RR formats include a hash algorithm
+#    parameter, this document does not define a particular mechanism for
+#    safely transitioning from one NSEC3 hash algorithm to another.  When
+#    specifying a new hash algorithm for use with NSEC3, a transition
+#    mechanism MUST also be defined.
+# 
+#    This document updates the IANA registry "DOMAIN NAME SYSTEM
+#    PARAMETERS" (http://www.iana.org/assignments/dns-parameters) in sub-
+#    registry "TYPES", by defining two new types.  Section 3 defines the
+#    NSEC3 RR type 50.  Section 4 defines the NSEC3PARAM RR type 51.
+# 
+#    This document updates the IANA registry "DNS SECURITY ALGORITHM
+#    NUMBERS -- per [RFC4035]"
+#    (http://www.iana.org/assignments/dns-sec-alg-numbers).  Section 2
+#    defines the aliases DSA-NSEC3-SHA1 (6) and RSASHA1-NSEC3-SHA1 (7) for
+#    respectively existing registrations DSA and RSASHA1 in combination
+#    with NSEC3 hash algorithm SHA1.
+# 
+#    Since these algorithm numbers are aliases for existing DNSKEY
+#    algorithm numbers, the flags that exist for the original algorithm
+#    are valid for the alias algorithm.
+# 
+#    This document creates a new IANA registry for NSEC3 flags.  This
+#    registry is named "DNSSEC NSEC3 Flags".  The initial contents of this
+#    registry are:
+# 
+#      0   1   2   3   4   5   6   7
+#    +---+---+---+---+---+---+---+---+
+#    |   |   |   |   |   |   |   |Opt|
+#    |   |   |   |   |   |   |   |Out|
+#    +---+---+---+---+---+---+---+---+
+# 
+#       bit 7 is the Opt-Out flag.
+# 
+#       bits 0 - 6 are available for assignment.
+# 
+#    Assignment of additional NSEC3 Flags in this registry requires IETF
+#    Standards Action [RFC2434].
+# 
+#    This document creates a new IANA registry for NSEC3PARAM flags.  This
+#    registry is named "DNSSEC NSEC3PARAM Flags".  The initial contents of
+#    this registry are:
+# 
+#      0   1   2   3   4   5   6   7
+#    +---+---+---+---+---+---+---+---+
+#    |   |   |   |   |   |   |   | 0 |
+#    +---+---+---+---+---+---+---+---+
+# 
+#       bit 7 is reserved and must be 0.
+# 
+#       bits 0 - 6 are available for assignment.
+# 
+#    Assignment of additional NSEC3PARAM Flags in this registry requires
+#    IETF Standards Action [RFC2434].
+# 
+#    Finally, this document creates a new IANA registry for NSEC3 hash
+#    algorithms.  This registry is named "DNSSEC NSEC3 Hash Algorithms".
+#    The initial contents of this registry are:
+# 
+#       0 is Reserved.
+# 
+#       1 is SHA-1.
+# 
+#       2-255 Available for assignment.
+# 
+#    Assignment of additional NSEC3 hash algorithms in this registry
+#    requires IETF Standards Action [RFC2434].
+
+[[spec]]
+level = "MUST"
+quote = '''
+When
+specifying a new hash algorithm for use with NSEC3, a transition
+mechanism MUST also be defined.
+'''
+

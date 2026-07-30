@@ -1,0 +1,81 @@
+target = "https://www.rfc-editor.org/rfc/rfc8806#section-1"
+
+# Introduction
+#
+#    DNS recursive resolvers have to provide answers to all queries from
+#    their clients, even those for domain names that do not exist.  For
+#    each queried name that is within a top-level domain (TLD) that is not
+#    in the recursive resolver's cache, the resolver must send a query to
+#    a root server to get the information for that TLD or to find out that
+#    the TLD does not exist.  Research shows that the vast majority of
+#    queries going to the root are for names that do not exist in the root
+#    zone.
+# 
+#    Many of the queries from recursive resolvers to root servers get
+#    answers that are referrals to other servers.  Malicious third parties
+#    might be able to observe that traffic on the network between the
+#    recursive resolver and root servers.
+# 
+#    The primary goals of this design are to provide more reliable answers
+#    for queries to the root zone during network attacks that affect the
+#    root servers and to prevent queries and responses from being visible
+#    on the network.  This design will probably have little effect on
+#    getting faster responses to the stub resolver for good queries on
+#    TLDs, because the TTL for most TLDs is usually long-lived (on the
+#    order of a day or two) and is thus usually already in the cache of
+#    the recursive resolver; the same is true for the TTL for negative
+#    answers from the root servers.  (Although the primary goal of the
+#    design is for serving the root zone, the method can be used for any
+#    zone.)
+# 
+#    This document describes a method for the operator of a recursive
+#    resolver to have a complete root zone locally and to hide queries for
+#    the root zone from outsiders.  The basic idea is to create an up-to-
+#    date root zone service on the same host as the recursive server and
+#    use that service when the recursive resolver looks up root
+#    information.  The recursive resolver validates all responses from the
+#    root service on the same host, just as it would validate all
+#    responses from a remote root server.
+# 
+#    This design explicitly only allows the new root zone service to be
+#    run on the same server as the recursive resolver in order to prevent
+#    the server from serving authoritative answers to any other system.
+#    Specifically, the root service on the local system MUST be configured
+#    to only answer queries from resolvers on the same host and MUST NOT
+#    answer queries from any other resolver.
+# 
+#    At the time that RFC 7706 [RFC7706] was published, it was considered
+#    controversial, because there was not consensus on whether this was a
+#    "best practice".  In fact, many people felt that it is an excessively
+#    risky practice, because it introduced a new operational piece to
+#    local DNS operations where there was not one before.  Since then, the
+#    DNS operational community has largely shifted to believing that local
+#    serving of the root zone for an individual resolver is a reasonable
+#    practice.  The advantages listed above do not come free: if this new
+#    system does not work correctly, users can get bad data, or the entire
+#    recursive resolution system might fail in ways that are hard to
+#    diagnose.
+# 
+#    This design uses an authoritative service running on the same machine
+#    as the recursive resolver.  Common open source recursive resolver
+#    software does not need to add new functionality to act as an
+#    authoritative server for some zones, but other recursive resolver
+#    software might need to be able to talk to an authoritative server
+#    running on the same host.  Some resolver software supports being both
+#    an authoritative server and a resolver but separated by logical
+#    "views", allowing a local root to be implemented within a single
+#    process; examples of this can be seen in Appendix B.
+# 
+#    A different approach to solving some of the problems discussed in
+#    this document is described in [RFC8198].
+# 
+#    Readers are expected to be familiar with [RFC8499].
+
+[[spec]]
+level = "MUST"
+quote = '''
+Specifically, the root service on the local system MUST be configured
+to only answer queries from resolvers on the same host and MUST NOT
+answer queries from any other resolver.
+'''
+

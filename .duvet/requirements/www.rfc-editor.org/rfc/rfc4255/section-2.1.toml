@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc4255#section-2.1"
+
+# Method
+#
+#    Upon connection to an SSH server, the SSH client MAY look up the
+#    SSHFP resource record(s) for the host it is connecting to.  If the
+#    algorithm and fingerprint of the key received from the SSH server
+#    match the algorithm and fingerprint of one of the SSHFP resource
+#    record(s) returned from DNS, the client MAY accept the identity of
+#    the server.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Upon connection to an SSH server, the SSH client MAY look up the
+SSHFP resource record(s) for the host it is connecting to.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the
+algorithm and fingerprint of the key received from the SSH server
+match the algorithm and fingerprint of one of the SSHFP resource
+record(s) returned from DNS, the client MAY accept the identity of
+the server.
+'''
+

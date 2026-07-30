@@ -1,0 +1,96 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-4.1.1"
+
+# AXFR Client TCP
+#
+#    An AXFR client MAY request a connection to an AXFR server for any
+#    reason.  An AXFR client SHOULD close the connection when there is no
+#    apparent need to use the connection for some time period.  The AXFR
+#    server ought not have to maintain idle connections; the burden of
+#    connection closure ought to be on the client.  "Apparent need" for
+#    the connection is a judgment for the AXFR client and the DNS client.
+#    If the connection is used for multiple sessions, or if it is known
+#    that sessions will be coming, or if there is other query/response
+#    traffic anticipated or currently on the open connection, then there
+#    is "apparent need".
+# 
+#    An AXFR client can cancel the delivery of a zone only by closing the
+#    connection.  However, this action will also cancel all other
+#    outstanding activity using the connection.  There is no other
+#    mechanism by which an AXFR response can be cancelled.
+# 
+#    When a TCP connection is closed remotely (relative to the client),
+#    whether by the AXFR server or due to a network event, the AXFR client
+#    MUST cancel all outstanding sessions and non-AXFR transactions.
+#    Recovery from this situation is not straightforward.  If the
+#    disruption was a spurious event, attempting to restart the connection
+#    would be proper.  If the disruption was caused by a failure that
+#    proved to be persistent, the AXFR client would be wise not to spend
+#    too many resources trying to rebuild the connection.  Finally, if the
+#    connection was dropped because of a policy at the AXFR server (as can
+#    be the case with older AXFR servers), the AXFR client would be wise
+#    not to retry the connection.  Unfortunately, knowing which of the
+#    three cases above (momentary disruption, failure, policy) applies is
+#    not possible with certainty, and can only be assessed by heuristics.
+#    This exemplifies the general complications for clients in connection-
+#    oriented protocols not receiving meaningful error responses.
+# 
+#    An AXFR client MAY use an already opened TCP connection to start an
+#    AXFR session.  Using an existing open connection is RECOMMENDED over
+#    opening a new connection.  (Non-AXFR session traffic can also use an
+#    open connection.)  If in doing so the AXFR client realizes that the
+#    responses cannot be properly differentiated (lack of matching query
+#    IDs, for example) or the connection is terminated for a remote
+#    reason, then the AXFR client SHOULD NOT attempt to reuse an open
+#    connection with the specific AXFR server until the AXFR server is
+#    updated (which is, of course, not an event captured in the DNS
+#    protocol).
+
+[[spec]]
+level = "MAY"
+quote = '''
+An AXFR client MAY request a connection to an AXFR server for any
+reason.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An AXFR client SHOULD close the connection when there is no
+apparent need to use the connection for some time period.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a TCP connection is closed remotely (relative to the client),
+whether by the AXFR server or due to a network event, the AXFR client
+MUST cancel all outstanding sessions and non-AXFR transactions.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An AXFR client MAY use an already opened TCP connection to start an
+AXFR session.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Using an existing open connection is RECOMMENDED over
+opening a new connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+(Non-AXFR session traffic can also use an
+open connection.)  If in doing so the AXFR client realizes that the
+responses cannot be properly differentiated (lack of matching query
+IDs, for example) or the connection is terminated for a remote
+reason, then the AXFR client SHOULD NOT attempt to reuse an open
+connection with the specific AXFR server until the AXFR server is
+updated (which is, of course, not an event captured in the DNS
+protocol).
+'''
+

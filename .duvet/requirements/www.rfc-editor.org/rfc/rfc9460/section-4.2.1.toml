@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-4.2.1"
+
+# DNS64
+#
+#    DNS64 resolvers synthesize responses to AAAA queries for names that
+#    only have an A record (Section 5.1.7 of [RFC6147]).  SVCB-aware DNS64
+#    resolvers SHOULD apply the same synthesis logic when resolving AAAA
+#    records for the TargetName for inclusion in the Additional section
+#    (Step 2 in Section 4.2) and MAY omit the A records from this section.
+# 
+#    DNS64 resolvers MUST NOT extrapolate the AAAA synthesis logic to the
+#    IP hints in the SvcParams (Section 7.3).  Modifying the IP hints
+#    would break DNSSEC validation for the SVCB record and would not
+#    improve performance when the above recommendation is implemented.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SVCB-aware DNS64
+resolvers SHOULD apply the same synthesis logic when resolving AAAA
+records for the TargetName for inclusion in the Additional section
+(Step 2 in Section 4.2) and MAY omit the A records from this section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS64 resolvers MUST NOT extrapolate the AAAA synthesis logic to the
+IP hints in the SvcParams (Section 7.3).
+'''
+

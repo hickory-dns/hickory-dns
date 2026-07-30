@@ -1,0 +1,73 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#section-4"
+
+# Digest Algorithms Registry Column Values
+#
+#    Initial values for the use and implementation recommendation columns
+#    in the "Digest Algorithms" registry under the "DNSSEC Delegation
+#    Signer (DS) Resource Record (RR) Type Digest Algorithms" registry
+#    group are shown in Table 3.
+# 
+#    When there are multiple RECOMMENDED algorithms in the "Use for"
+#    columns, operators should choose the best algorithm according to
+#    local policy.
+# 
+#    +=====+===========+===========+===========+==========+=============+
+#    |Value|Description|Use for    |Use for    |Implement | Implement   |
+#    |     |           |DNSSEC     |DNSSEC     |for DNSSEC| for DNSSEC  |
+#    |     |           |Delegation |Validation |Delegation| Validation  |
+#    +=====+===========+===========+===========+==========+=============+
+#    |0    |NULL (CDS  |MUST NOT   |MUST NOT   |MUST NOT  | MUST NOT    |
+#    |     |only)      |           |           |          |             |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+#    |1    |SHA-1      |MUST NOT   |RECOMMENDED|MUST NOT  | MUST        |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+#    |2    |SHA-256    |RECOMMENDED|RECOMMENDED|MUST      | MUST        |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+#    |3    |GOST R     |MUST NOT   |MAY        |MUST NOT  | MAY         |
+#    |     |34.11-94   |           |           |          |             |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+#    |4    |SHA-384    |MAY        |RECOMMENDED|MAY       | RECOMMENDED |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+#    |5    |GOST R     |MAY        |MAY        |MAY       | MAY         |
+#    |     |34.11-2012 |           |           |          |             |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+#    |6    |SM3        |MAY        |MAY        |MAY       | MAY         |
+#    +-----+-----------+-----------+-----------+----------+-------------+
+# 
+#     Table 3: Initial Values for the Digest Algorithms Registry Columns
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When there are multiple RECOMMENDED algorithms in the "Use for"
+columns, operators should choose the best algorithm according to
+local policy.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
++=====+===========+===========+===========+==========+=============+
+|Value|Description|Use for    |Use for    |Implement | Implement   |
+|     |           |DNSSEC     |DNSSEC     |for DNSSEC| for DNSSEC  |
+|     |           |Delegation |Validation |Delegation| Validation  |
++=====+===========+===========+===========+==========+=============+
+|0    |NULL (CDS  |MUST NOT   |MUST NOT   |MUST NOT  | MUST NOT    |
+|     |only)      |           |           |          |             |
++-----+-----------+-----------+-----------+----------+-------------+
+|1    |SHA-1      |MUST NOT   |RECOMMENDED|MUST NOT  | MUST        |
++-----+-----------+-----------+-----------+----------+-------------+
+|2    |SHA-256    |RECOMMENDED|RECOMMENDED|MUST      | MUST        |
++-----+-----------+-----------+-----------+----------+-------------+
+|3    |GOST R     |MUST NOT   |MAY        |MUST NOT  | MAY         |
+|     |34.11-94   |           |           |          |             |
++-----+-----------+-----------+-----------+----------+-------------+
+|4    |SHA-384    |MAY        |RECOMMENDED|MAY       | RECOMMENDED |
++-----+-----------+-----------+-----------+----------+-------------+
+|5    |GOST R     |MAY        |MAY        |MAY       | MAY         |
+|     |34.11-2012 |           |           |          |             |
++-----+-----------+-----------+-----------+----------+-------------+
+|6    |SM3        |MAY        |MAY        |MAY       | MAY         |
++-----+-----------+-----------+-----------+----------+-------------+
+'''
+

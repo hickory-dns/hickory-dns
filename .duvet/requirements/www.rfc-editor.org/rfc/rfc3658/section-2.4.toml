@@ -1,0 +1,85 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.4"
+
+# Wire Format of the DS record
+#
+#    The DS (type=43) record contains these fields: key tag, algorithm,
+#    digest type, and the digest of a public key KEY record that is
+#    allowed and/or used to sign the child's apex KEY RRset.  Other keys
+#    MAY sign the child's apex KEY RRset.
+# 
+#                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+#     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |           key tag             |  algorithm    |  Digest type  |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                digest  (length depends on type)               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                (SHA-1 digest is 20 bytes)                     |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                                                               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+#    |                                                               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+#    |                                                               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# 
+#    The key tag is calculated as specified in RFC 2535.  Algorithm MUST
+#    be allowed to sign DNS data.  The digest type is an identifier for
+#    the digest algorithm used.  The digest is calculated over the
+#    canonical name of the delegated domain name followed by the whole
+#    RDATA of the KEY record (all four fields).
+# 
+#       digest = hash( canonical FQDN on KEY RR | KEY_RR_rdata)
+# 
+#       KEY_RR_rdata = Flags | Protocol | Algorithm | Public Key
+# 
+#    Digest type value 0 is reserved, value 1 is SHA-1, and reserving
+#    other types requires IETF standards action.  For interoperability
+#    reasons, keeping number of digest algorithms low is strongly
+#    RECOMMENDED.  The only reason to reserve additional digest types is
+#    to increase security.
+# 
+#    DS records MUST point to zone KEY records that are allowed to
+#    authenticate DNS data.  The indicated KEY records protocol field MUST
+#    be set to 3; flag field bit 7 MUST be set to 1.  The value of other
+#    flag bits is not significant for the purposes of this document.
+# 
+#    The size of the DS RDATA for type 1 (SHA-1) is 24 bytes, regardless
+#    of key size.  New digest types probably will have larger digests.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Other keys
+MAY sign the child's apex KEY RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Algorithm MUST
+be allowed to sign DNS data.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For interoperability
+reasons, keeping number of digest algorithms low is strongly
+RECOMMENDED.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DS records MUST point to zone KEY records that are allowed to
+authenticate DNS data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The indicated KEY records protocol field MUST
+be set to 3; flag field bit 7 MUST be set to 1.
+'''
+

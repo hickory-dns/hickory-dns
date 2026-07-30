@@ -1,0 +1,70 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-12.1"
+
+# Probing
+#
+#    A Recursive Resolver can send the ECS option with every outgoing
+#    query.  However, it is RECOMMENDED that resolvers remember which
+#    Authoritative Nameservers did not return the option with their
+#    response and omit client address information from subsequent queries
+#    to those nameservers.
+# 
+#    Additionally, Recursive Resolvers SHOULD be configured never to send
+#    the option when querying root, top-level, and effective top-level
+#    (i.e., "public suffix" [Public_Suffix_List]) domain servers.  These
+#    domains are delegation-centric and are very unlikely to generate
+#    different responses based on the address of the client.
+# 
+#    When probing, it is important that several things are probed: support
+#    for ECS, support for EDNS0, support for EDNS0 options, or possibly an
+#    unreachable nameserver.  Various implementations are known to drop
+#    DNS packets with OPT RRs (with or without options), thus several
+#    probes are required to discover what is supported.
+# 
+#    Probing, if implemented, MUST be repeated periodically, e.g., daily.
+#    If an Authoritative Nameserver indicates ECS support for one zone, it
+#    is to be expected that the nameserver supports ECS for all of its
+#    zones.  Likewise, an Authoritative Nameserver that uses ECS
+#    information for one of its zones MUST indicate support for the option
+#    in all of its responses to ECS queries.  If the option is supported
+#    but not actually used for generating a response, its SCOPE PREFIX-
+#    LENGTH MUST be set to 0.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+However, it is RECOMMENDED that resolvers remember which
+Authoritative Nameservers did not return the option with their
+response and omit client address information from subsequent queries
+to those nameservers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Additionally, Recursive Resolvers SHOULD be configured never to send
+the option when querying root, top-level, and effective top-level
+(i.e., "public suffix" [Public_Suffix_List]) domain servers.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Probing, if implemented, MUST be repeated periodically, e.g., daily.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Likewise, an Authoritative Nameserver that uses ECS
+information for one of its zones MUST indicate support for the option
+in all of its responses to ECS queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the option is supported
+but not actually used for generating a response, its SCOPE PREFIX-
+LENGTH MUST be set to 0.
+'''
+

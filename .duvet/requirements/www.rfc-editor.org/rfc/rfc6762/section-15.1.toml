@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-15.1"
+
+# Receiving Unicast Responses
+#
+#    In most operating systems, incoming *multicast* packets can be
+#    delivered to *all* open sockets bound to the right port number,
+#    provided that the clients take the appropriate steps to allow this.
+#    For this reason, all Multicast DNS implementations SHOULD use the
+#    SO_REUSEPORT and/or SO_REUSEADDR options (or equivalent as
+#    appropriate for the operating system in question) so they will all be
+#    able to bind to UDP port 5353 and receive incoming multicast packets
+#    addressed to that port.  However, unlike multicast packets, incoming
+#    unicast UDP packets are typically delivered only to the first socket
+#    to bind to that port.  This means that "QU" responses and other
+#    packets sent via unicast will be received only by the first Multicast
+#    DNS responder and/or querier on a system.  This limitation can be
+# 
+#    partially mitigated if Multicast DNS implementations detect when they
+#    are not the first to bind to port 5353, and in that case they do not
+#    request "QU" responses.  One way to detect if there is another
+#    Multicast DNS implementation already running is to attempt binding to
+#    port 5353 without using SO_REUSEPORT and/or SO_REUSEADDR, and if that
+#    fails it indicates that some other socket is already bound to this
+#    port.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For this reason, all Multicast DNS implementations SHOULD use the
+SO_REUSEPORT and/or SO_REUSEADDR options (or equivalent as
+appropriate for the operating system in question) so they will all be
+able to bind to UDP port 5353 and receive incoming multicast packets
+addressed to that port.
+'''
+

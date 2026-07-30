@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-2.5"
+
+# Compression of the DNAME Record
+#
+#    The DNAME owner name can be compressed like any other owner name.
+#    The DNAME RDATA target name MUST NOT be sent out in compressed form
+#    and MUST be downcased for DNS Security Extensions (DNSSEC)
+#    validation.
+# 
+#    Although the previous DNAME specification [RFC2672] (that is
+#    obsoleted by this specification) talked about signaling to allow
+#    compression of the target name, such signaling has never been
+#    specified, nor is it specified in this document.
+# 
+#    RFC 2672 (obsoleted by this document) states that the Extended DNS
+#    (EDNS) version has a means for understanding DNAME and DNAME target
+#    name compression.  This document revises RFC 2672, in that there is
+#    no EDNS version signaling for DNAME.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DNAME RDATA target name MUST NOT be sent out in compressed form
+and MUST be downcased for DNS Security Extensions (DNSSEC)
+validation.
+'''
+

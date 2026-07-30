@@ -1,0 +1,132 @@
+target = "https://www.rfc-editor.org/rfc/rfc6761#section-6.2"
+
+# Domain Name Reservation Considerations for "test."
+#
+#    The domain "test.", and any names falling within ".test.", are
+#    special in the following ways:
+# 
+#    1.  Users are free to use these test names as they would any other
+#        domain names.  However, since there is no central authority
+#        responsible for use of test names, users SHOULD be aware that
+#        these names are likely to yield different results on different
+#        networks.
+# 
+#    2.  Application software SHOULD NOT recognize test names as special,
+#        and SHOULD use test names as they would other domain names.
+# 
+#    3.  Name resolution APIs and libraries SHOULD NOT recognize test
+#        names as special and SHOULD NOT treat them differently.  Name
+#        resolution APIs SHOULD send queries for test names to their
+#        configured caching DNS server(s).
+# 
+#    4.  Caching DNS servers SHOULD recognize test names as special and
+#        SHOULD NOT, by default, attempt to look up NS records for them,
+#        or otherwise query authoritative DNS servers in an attempt to
+#        resolve test names.  Instead, caching DNS servers SHOULD, by
+#        default, generate immediate negative responses for all such
+#        queries.  This is to avoid unnecessary load on the root name
+#        servers and other name servers.  Caching DNS servers SHOULD offer
+#        a configuration option (disabled by default) to enable upstream
+#        resolving of test names, for use in networks where test names are
+#        known to be handled by an authoritative DNS server in said
+#        private network.
+# 
+#    5.  Authoritative DNS servers SHOULD recognize test names as special
+#        and SHOULD, by default, generate immediate negative responses for
+#        all such queries, unless explicitly configured by the
+#        administrator to give positive answers for test names.
+# 
+#    6.  DNS server operators SHOULD, if they are using test names,
+#        configure their authoritative DNS servers to act as authoritative
+#        for test names.
+# 
+#    7.  DNS Registries/Registrars MUST NOT grant requests to register
+#        test names in the normal way to any person or entity.  Test names
+#        are reserved for use in private networks and fall outside the set
+#        of names available for allocation by registries/registrars.
+#        Attempting to allocate a test name as if it were a normal DNS
+#        domain name will probably not work as desired, for reasons 4, 5,
+#        and 6 above.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+However, since there is no central authority
+responsible for use of test names, users SHOULD be aware that
+these names are likely to yield different results on different
+networks.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Application software SHOULD NOT recognize test names as special,
+and SHOULD use test names as they would other domain names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs and libraries SHOULD NOT recognize test
+names as special and SHOULD NOT treat them differently.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name
+resolution APIs SHOULD send queries for test names to their
+configured caching DNS server(s).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD recognize test names as special and
+SHOULD NOT, by default, attempt to look up NS records for them,
+or otherwise query authoritative DNS servers in an attempt to
+resolve test names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Instead, caching DNS servers SHOULD, by
+default, generate immediate negative responses for all such
+queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD offer
+a configuration option (disabled by default) to enable upstream
+resolving of test names, for use in networks where test names are
+known to be handled by an authoritative DNS server in said
+private network.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authoritative DNS servers SHOULD recognize test names as special
+and SHOULD, by default, generate immediate negative responses for
+all such queries, unless explicitly configured by the
+administrator to give positive answers for test names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS server operators SHOULD, if they are using test names,
+configure their authoritative DNS servers to act as authoritative
+for test names.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Registries/Registrars MUST NOT grant requests to register
+test names in the normal way to any person or entity.
+'''
+

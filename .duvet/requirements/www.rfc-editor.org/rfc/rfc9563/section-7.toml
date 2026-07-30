@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc9563#section-7"
+
+# IANA Considerations
+#
+#    IANA has registered the following in the "Digest Algorithms" registry
+#    within the "DNSSEC Delegation Signer (DS) Resource Record (RR) Type
+#    Digest Algorithms" registry group.
+# 
+#             +=======+=============+==========+===============+
+#             | Value | Digest Type | Status   | Reference     |
+#             +=======+=============+==========+===============+
+#             | 6     | SM3         | OPTIONAL | This document |
+#             +-------+-------------+----------+---------------+
+# 
+#                                  Table 1
+# 
+#    IANA has registered the following in the "DNS Security Algorithm
+#    Numbers" registry within the "Domain Name System Security (DNSSEC)
+#    Algorithm Numbers" registry group.
+# 
+#    +========+================+==========+=========+========+===========+
+#    | Number | Description    | Mnemonic | Zone    | Trans. | Reference |
+#    |        |                |          | Signing | Sec.   |           |
+#    +========+================+==========+=========+========+===========+
+#    | 17     | SM2 signing    | SM2SM3   | Y       | *      | This      |
+#    |        | algorithm      |          |         |        | document  |
+#    |        | with SM3       |          |         |        |           |
+#    |        | hashing        |          |         |        |           |
+#    |        | algorithm      |          |         |        |           |
+#    +--------+----------------+----------+---------+--------+-----------+
+# 
+#                                   Table 2
+# 
+#    * There has been no determination of standardization of the use of
+#    this algorithm with Transaction Security.
+
+[[spec]]
+level = "MAY"
+quote = '''
++=======+=============+==========+===============+
+| Value | Digest Type | Status   | Reference     |
++=======+=============+==========+===============+
+| 6     | SM3         | OPTIONAL | This document |
++-------+-------------+----------+---------------+
+'''
+

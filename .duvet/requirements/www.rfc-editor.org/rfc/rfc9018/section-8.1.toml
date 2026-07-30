@@ -1,0 +1,101 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-8.1"
+
+# Client Cookie Construction
+#
+#    In [RFC7873], it was RECOMMENDED to construct a Client Cookie by
+#    using a pseudorandom function of the Client IP address, the Server IP
+#    address, and a secret quantity known only to the client.  The Client
+#    IP address was included to ensure that a client could not be tracked
+#    if its IP address changes due to privacy mechanisms or otherwise.
+# 
+#    In this document, we changed Client Cookie construction to be just 64
+#    bits of entropy newly created for each new upstream server the client
+#    connects to.  As a consequence, additional care needs to be taken to
+#    prevent tracking of clients.  To prevent tracking, a new Client
+#    Cookie for a server MUST be created whenever the Client IP address
+#    changes.
+# 
+#    Unfortunately, tracking Client IP address changes is impractical with
+#    servers that do not support DNS Cookies.  To prevent tracking of
+#    clients with non-DNS Cookie-supporting servers, a client MUST NOT
+#    send a previously sent Client Cookie to a server not known to support
+#    DNS Cookies.  To prevent the creation of a new Client Cookie for each
+#    query to a non-DNS Cookie-supporting server, it is RECOMMENDED to not
+#    send a Client Cookie to that server for a certain period, for example
+#    five minutes.
+# 
+#    Summarizing:
+# 
+#    *  In order to provide minimal authentication, a client MUST use a
+#       different Client Cookie for each different Server IP address.
+# 
+#    *  To prevent tracking of clients, a new Client Cookie MUST be
+#       created when the Client IP address changes.
+# 
+#    *  To prevent tracking of clients by a non-DNS Cookie-supporting
+#       server, a client MUST NOT send a previously sent Client Cookie to
+#       a server in the absence of an associated Server Cookie.
+# 
+#    Note that it is infeasible for a client to detect a change in the
+#    public IP address when the client is behind a routing device
+#    performing Network Address Translation (NAT).  A server may track the
+#    public IP address of that routing device performing the NAT.
+#    Preventing tracking of the public IP of a NAT-performing routing
+#    device is beyond the scope of this document.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In [RFC7873], it was RECOMMENDED to construct a Client Cookie by
+using a pseudorandom function of the Client IP address, the Server IP
+address, and a secret quantity known only to the client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To prevent tracking, a new Client
+Cookie for a server MUST be created whenever the Client IP address
+changes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To prevent tracking of
+clients with non-DNS Cookie-supporting servers, a client MUST NOT
+send a previously sent Client Cookie to a server not known to support
+DNS Cookies.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To prevent the creation of a new Client Cookie for each
+query to a non-DNS Cookie-supporting server, it is RECOMMENDED to not
+send a Client Cookie to that server for a certain period, for example
+five minutes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  In order to provide minimal authentication, a client MUST use a
+different Client Cookie for each different Server IP address.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  To prevent tracking of clients, a new Client Cookie MUST be
+created when the Client IP address changes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  To prevent tracking of clients by a non-DNS Cookie-supporting
+server, a client MUST NOT send a previously sent Client Cookie to
+a server in the absence of an associated Server Cookie.
+'''
+

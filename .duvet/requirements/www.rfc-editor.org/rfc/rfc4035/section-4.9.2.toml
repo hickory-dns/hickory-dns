@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.9.2"
+
+# Handling of the CD Bit
+#
+#    A non-validating security-aware stub resolver SHOULD NOT set the CD
+#    bit when sending queries unless it is requested by the application
+#    layer, as by definition, a non-validating stub resolver depends on
+#    the security-aware recursive name server to perform validation on its
+#    behalf.
+# 
+#    A validating security-aware stub resolver SHOULD set the CD bit,
+#    because otherwise the security-aware recursive name server will
+#    answer the query using the name server's local policy, which may
+#    prevent the stub resolver from receiving data that would be
+#    acceptable to the stub resolver's local policy.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A non-validating security-aware stub resolver SHOULD NOT set the CD
+bit when sending queries unless it is requested by the application
+layer, as by definition, a non-validating stub resolver depends on
+the security-aware recursive name server to perform validation on its
+behalf.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A validating security-aware stub resolver SHOULD set the CD bit,
+because otherwise the security-aware recursive name server will
+answer the query using the name server's local policy, which may
+prevent the stub resolver from receiving data that would be
+acceptable to the stub resolver's local policy.
+'''
+

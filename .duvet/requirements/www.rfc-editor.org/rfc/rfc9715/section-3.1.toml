@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc9715#section-3.1"
+
+# Proposed Recommendations for UDP Responders
+#
+#    R1.    UDP responders should not use IPv6 fragmentation [RFC8200].
+# 
+#    R2.    UDP responders should configure their systems to prevent
+#           fragmentation of UDP packets when sending replies, provided it
+#           can be done safely.  The mechanisms to achieve this vary
+#           across different operating systems.
+# 
+#           For BSD-like operating systems, the IP Don't Fragment (DF)
+#           flag bit [RFC0791] can be used to prevent fragmentation.  In
+#           contrast, Linux systems do not expose a direct API for this
+#           purpose and require the use of Path MTU socket options
+#           (IP_MTU_DISCOVER) to manage fragmentation settings.  However,
+#           it is important to note that enabling IPv4 Path MTU Discovery
+#           for UDP in current Linux versions is considered harmful and
+#           dangerous.  For more details, see Appendix C.
+# 
+#    R3.    UDP responders should compose response packets that fit in the
+#           minimum of the offered requestor's maximum UDP payload size
+#           [RFC6891], the interface MTU, the network MTU value configured
+#           by the knowledge of the network operators, and the RECOMMENDED
+#           maximum DNS/UDP payload size 1400.  For more details, see
+#           Appendix A.
+# 
+#    R4.    If the UDP responder detects an immediate error indicating
+#           that the UDP packet exceeds the path MTU size, the UDP
+#           responder may recreate response packets that fit in the path
+#           MTU size or with the TC bit set.
+# 
+#    The cause and effect of the TC bit are unchanged [RFC1035].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+UDP responders should compose response packets that fit in the
+minimum of the offered requestor's maximum UDP payload size
+[RFC6891], the interface MTU, the network MTU value configured
+by the knowledge of the network operators, and the RECOMMENDED
+maximum DNS/UDP payload size 1400.
+'''
+

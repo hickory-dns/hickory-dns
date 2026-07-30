@@ -1,0 +1,86 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.2"
+
+# Signature Verification Support
+#
+#    A security-aware resolver MUST support the signature verification
+#    mechanisms described in Section 5 and SHOULD apply them to every
+#    received response, except when:
+# 
+#    o  the security-aware resolver is part of a security-aware recursive
+#       name server, and the response is the result of recursion on behalf
+#       of a query received with the CD bit set;
+# 
+#    o  the response is the result of a query generated directly via some
+#       form of application interface that instructed the security-aware
+#       resolver not to perform validation for this query; or
+# 
+#    o  validation for this query has been disabled by local policy.
+# 
+#    A security-aware resolver's support for signature verification MUST
+#    include support for verification of wildcard owner names.
+# 
+#    Security-aware resolvers MAY query for missing security RRs in an
+#    attempt to perform validation; implementations that choose to do so
+#    must be aware that the answers received may not be sufficient to
+#    validate the original response.  For example, a zone update may have
+#    changed (or deleted) the desired information between the original and
+#    follow-up queries.
+# 
+#    When attempting to retrieve missing NSEC RRs that reside on the
+#    parental side at a zone cut, a security-aware iterative-mode resolver
+#    MUST query the name servers for the parent zone, not the child zone.
+# 
+#    When attempting to retrieve a missing DS, a security-aware
+#    iterative-mode resolver MUST query the name servers for the parent
+#    zone, not the child zone.  As explained in Section 3.1.4.1,
+#    security-aware name servers need to apply special processing rules to
+#    handle the DS RR, and in some situations the resolver may also need
+#    to apply special rules to locate the name servers for the parent zone
+#    if the resolver does not already have the parent's NS RRset.  To
+#    locate the parent NS RRset, the resolver can start with the
+#    delegation name, strip off the leftmost label, and query for an NS
+#    RRset by that name.  If no NS RRset is present at that name, the
+#    resolver then strips off the leftmost remaining label and retries the
+#    query for that name, repeating this process of walking up the tree
+#    until it either finds the NS RRset or runs out of labels.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver MUST support the signature verification
+mechanisms described in Section 5 and SHOULD apply them to every
+received response, except when:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver's support for signature verification MUST
+include support for verification of wildcard owner names.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Security-aware resolvers MAY query for missing security RRs in an
+attempt to perform validation; implementations that choose to do so
+must be aware that the answers received may not be sufficient to
+validate the original response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When attempting to retrieve missing NSEC RRs that reside on the
+parental side at a zone cut, a security-aware iterative-mode resolver
+MUST query the name servers for the parent zone, not the child zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When attempting to retrieve a missing DS, a security-aware
+iterative-mode resolver MUST query the name servers for the parent
+zone, not the child zone.
+'''
+

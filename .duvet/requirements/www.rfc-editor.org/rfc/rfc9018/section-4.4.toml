@@ -1,0 +1,70 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-4.4"
+
+# The Hash Sub-Field
+#
+#    It's important that all the DNS servers use the same algorithm for
+#    computing the Server Cookie.  This document defines the Version 1 of
+#    the server-side algorithm to be:
+# 
+#    Hash = SipHash-2-4(
+#        Client Cookie | Version | Reserved | Timestamp | Client-IP,
+#        Server Secret )
+# 
+#    where "|" indicates concatenation.
+# 
+#    Notice that Client-IP is used for hash generation even though it is
+#    not included in the cookie value itself.  Client-IP can be either 4
+#    bytes for IPv4 or 16 bytes for IPv6.  The length of all the
+#    concatenated elements (the input into [SipHash-2-4]) MUST be either
+#    precisely 20 bytes in case of an IPv4 Client-IP or precisely 32 bytes
+#    in case of an IPv6 Client-IP.
+# 
+#    When a DNS server receives a Server Cookie version 1 for validation,
+#    the length of the received COOKIE option MUST be precisely 24 bytes:
+#    8 bytes for the Client Cookie plus 16 bytes for the Server Cookie.
+#    Verification of the length of the received COOKIE option is REQUIRED
+#    to guarantee the length of the input into [SipHash-2-4] to be
+#    precisely 20 bytes in the case of an IPv4 Client-IP and precisely 32
+#    bytes in the case of an IPv6 Client-IP.  This ensures that the input
+#    into [SipHash-2-4] is an injective function of the elements making up
+#    the input, and thereby prevents data substitution attacks.  More
+#    specifically, this prevents a 36-byte COOKIE option coming from an
+#    IPv4 Client-IP to be validated as if it were coming from an IPv6
+#    Client-IP.
+# 
+#    The Server Secret MUST be configurable to make sure that servers in
+#    an anycast network return consistent results.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The length of all the
+concatenated elements (the input into [SipHash-2-4]) MUST be either
+precisely 20 bytes in case of an IPv4 Client-IP or precisely 32 bytes
+in case of an IPv6 Client-IP.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a DNS server receives a Server Cookie version 1 for validation,
+the length of the received COOKIE option MUST be precisely 24 bytes:
+8 bytes for the Client Cookie plus 16 bytes for the Server Cookie.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Verification of the length of the received COOKIE option is REQUIRED
+to guarantee the length of the input into [SipHash-2-4] to be
+precisely 20 bytes in the case of an IPv4 Client-IP and precisely 32
+bytes in the case of an IPv6 Client-IP.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Server Secret MUST be configurable to make sure that servers in
+an anycast network return consistent results.
+'''
+

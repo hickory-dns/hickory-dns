@@ -1,0 +1,102 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.1.1"
+
+# Recursive Resolvers
+#
+#    The setup of the ECS option in a Recursive Resolver depends on the
+#    client query that triggered the resolution process.
+# 
+#    In the usual case, where no ECS option was present in the client
+#    query, the Recursive Resolver initializes the option by setting
+#    FAMILY of the client's address.  It then uses the value of its
+#    maximum cacheable prefix length to set SOURCE PREFIX-LENGTH.  For
+#    privacy reasons, and because the whole IP address is rarely required
+#    to determine a tailored response, this length SHOULD be shorter than
+#    the full address, as described in Section 11.
+# 
+#    If the triggering query included an ECS option itself, it MUST be
+#    examined for its SOURCE PREFIX-LENGTH.  The Recursive Resolver's
+#    outgoing query MUST then set SOURCE PREFIX-LENGTH to the shorter of
+#    the incoming query's SOURCE PREFIX-LENGTH or the server's maximum
+#    cacheable prefix length.
+# 
+#    Finally, in both cases, SCOPE PREFIX-LENGTH is set to 0 and ADDRESS
+#    is then added up to SOURCE PREFIX-LENGTH number of bits, with
+#    trailing 0 bits added, if needed, to fill the final octet.  The total
+#    number of octets used MUST only be enough to cover SOURCE PREFIX-
+#    LENGTH bits, rather than the full width that would normally be used
+#    by addresses in FAMILY.
+# 
+#    FAMILY and ADDRESS information MAY be used from the ECS option in the
+#    incoming query.  Passing the existing address data is supportive of
+#    the Recursive Resolver being used as the target of a Forwarding
+#    Resolver, but could possibly run into policy problems with regard to
+#    usage agreements between the Recursive Resolver and Authoritative
+#    Nameserver.  See Section 12.2 for more discussion on this point.  If
+#    the Recursive Resolver will not forward FAMILY and ADDRESS data from
+#    the incoming ECS option, it SHOULD return a REFUSED response.
+# 
+#    Subsequent queries to refresh the data MUST, if unrestricted by an
+#    incoming SOURCE PREFIX-LENGTH, specify the longest SOURCE PREFIX-
+#    LENGTH that the Recursive Resolver is willing to cache, even if a
+#    previous response indicated that a shorter prefix length was
+#    sufficient.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For
+privacy reasons, and because the whole IP address is rarely required
+to determine a tailored response, this length SHOULD be shorter than
+the full address, as described in Section 11.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the triggering query included an ECS option itself, it MUST be
+examined for its SOURCE PREFIX-LENGTH.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Recursive Resolver's
+outgoing query MUST then set SOURCE PREFIX-LENGTH to the shorter of
+the incoming query's SOURCE PREFIX-LENGTH or the server's maximum
+cacheable prefix length.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The total
+number of octets used MUST only be enough to cover SOURCE PREFIX-
+LENGTH bits, rather than the full width that would normally be used
+by addresses in FAMILY.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+FAMILY and ADDRESS information MAY be used from the ECS option in the
+incoming query.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If
+the Recursive Resolver will not forward FAMILY and ADDRESS data from
+the incoming ECS option, it SHOULD return a REFUSED response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Subsequent queries to refresh the data MUST, if unrestricted by an
+incoming SOURCE PREFIX-LENGTH, specify the longest SOURCE PREFIX-
+LENGTH that the Recursive Resolver is willing to cache, even if a
+previous response indicated that a shorter prefix length was
+sufficient.
+'''
+

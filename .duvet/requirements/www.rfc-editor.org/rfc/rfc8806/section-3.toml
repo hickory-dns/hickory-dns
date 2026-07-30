@@ -1,0 +1,96 @@
+target = "https://www.rfc-editor.org/rfc/rfc8806#section-3"
+
+# Operation of the Root Zone on the Local Server
+#
+#    The operation of an authoritative server for the root in the system
+#    described here can be done separately from the operation of the
+#    recursive resolver, or it might be part of the configuration of the
+#    recursive resolver system.
+# 
+#    The steps to set up the root zone are:
+# 
+#    1.  Retrieve a copy of the root zone.  (See Appendix A for some
+#        current locations of sources.)
+# 
+#    2.  Start the authoritative service for the root zone in a manner
+#        that prevents any system other than a recursive resolver on the
+#        same host from accessing it.
+# 
+#    The contents of the root zone MUST be refreshed using the timers from
+#    the SOA record in the root zone, as described in [RFC1035].  This
+#    inherently means that the contents of the local root zone will likely
+#    be a little behind those of the global root servers, because those
+#    servers are updated when triggered by NOTIFY messages.
+# 
+#    There is a risk that a system using a local authoritative server for
+#    the root zone cannot refresh the contents of the root zone before the
+#    expire time in the SOA.  A system using a local authoritative server
+#    for the root zone MUST NOT serve stale data for the root zone.  To
+#    mitigate the risk that stale data is served, the local root server
+#    MUST immediately switch to using non-local root servers when it
+#    detects that it would be serving state data.
+# 
+#    In a resolver that is using an internal service for the root zone, if
+#    the contents of the root zone cannot be refreshed before the expire
+#    time in the SOA, the resolver MUST immediately switch to using non-
+#    local root servers.
+# 
+#    In the event that refreshing the contents of the root zone fails, the
+#    results can be disastrous.  For example, sometimes all the NS records
+#    for a TLD are changed in a short period of time (such as 2 days); if
+#    the refreshing of the local root zone is broken during that time, the
+#    recursive resolver will have bad data for the entire TLD zone.
+# 
+#    An administrator using the procedure in this document SHOULD have an
+#    automated method to check that the contents of the local root zone
+#    are being refreshed; this might be part of the resolver software.
+#    One way to do this is to have a separate process that periodically
+#    checks the SOA of the local root zone and makes sure that it is
+#    changing.  At the time that this document is published, the SOA for
+#    the root zone is the digital representation of the current date with
+#    a two-digit counter appended, and the SOA is changed every day even
+#    if the contents of the root zone are unchanged.  For example, the SOA
+#    of the root zone on January 2, 2019 was 2019010201.  A process can
+#    use this fact to create a check for the contents of the local root
+#    zone (using a program not specified in this document).
+
+[[spec]]
+level = "MUST"
+quote = '''
+The contents of the root zone MUST be refreshed using the timers from
+the SOA record in the root zone, as described in [RFC1035].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A system using a local authoritative server
+for the root zone MUST NOT serve stale data for the root zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To
+mitigate the risk that stale data is served, the local root server
+MUST immediately switch to using non-local root servers when it
+detects that it would be serving state data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In a resolver that is using an internal service for the root zone, if
+the contents of the root zone cannot be refreshed before the expire
+time in the SOA, the resolver MUST immediately switch to using non-
+local root servers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An administrator using the procedure in this document SHOULD have an
+automated method to check that the contents of the local root zone
+are being refreshed; this might be part of the resolver software.
+'''
+

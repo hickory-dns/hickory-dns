@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.6"
+
+# Validating No Data Responses, QTYPE is DS
+#
+#    If there is an NSEC3 RR that matches QNAME present in the response,
+#    then that NSEC3 RR MUST NOT have the bits corresponding to DS and
+#    CNAME set in its Type Bit Maps field.
+# 
+#    If there is no such NSEC3 RR, then the validator MUST verify that a
+#    closest provable encloser proof for QNAME is present in the response,
+#    and that the NSEC3 RR that covers the "next closer" name has the Opt-
+#    Out bit set.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is an NSEC3 RR that matches QNAME present in the response,
+then that NSEC3 RR MUST NOT have the bits corresponding to DS and
+CNAME set in its Type Bit Maps field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is no such NSEC3 RR, then the validator MUST verify that a
+closest provable encloser proof for QNAME is present in the response,
+and that the NSEC3 RR that covers the "next closer" name has the Opt-
+Out bit set.
+'''
+

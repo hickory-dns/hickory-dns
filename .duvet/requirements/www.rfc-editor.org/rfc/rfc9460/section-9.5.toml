@@ -1,0 +1,93 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9.5"
+
+# HTTP Strict Transport Security (HSTS)
+#
+#    An HTTPS RR directs the client to communicate with this host only
+#    over a secure transport, similar to HSTS [HSTS].  Prior to making an
+#    "http" scheme request, the client SHOULD perform a lookup to
+#    determine if any HTTPS RRs exist for that origin.  To do so, the
+#    client SHOULD construct a corresponding "https" URL as follows:
+# 
+#    1.  Replace the "http" scheme with "https".
+# 
+#    2.  If the "http" URL explicitly specifies port 80, specify port 443.
+# 
+#    3.  Do not alter any other aspect of the URL.
+# 
+#    This construction is equivalent to Section 8.3 of [HSTS], Step 5.
+# 
+#    If an HTTPS RR query for this "https" URL returns any AliasMode HTTPS
+#    RRs or any compatible ServiceMode HTTPS RRs (see Section 8), the
+#    client SHOULD behave as if it has received an HTTP 307 (Temporary
+#    Redirect) status code with this "https" URL in the "Location" field.
+#    (Receipt of an incompatible ServiceMode RR does not trigger the
+#    redirect behavior.)  Because HTTPS RRs are received over an often-
+#    insecure channel (DNS), clients MUST NOT place any more trust in this
+#    signal than if they had received a 307 (Temporary Redirect) response
+#    over cleartext HTTP.
+# 
+#    Publishing an HTTPS RR can potentially lead to unexpected results or
+#    a loss in functionality in cases where the "http" resource neither
+#    redirects to the "https" resource nor references the same underlying
+#    resource.
+# 
+#    When an "https" connection fails due to an error in the underlying
+#    secure transport, such as an error in certificate validation, some
+#    clients currently offer a "user recourse" that allows the user to
+#    bypass the security error and connect anyway.  When making an "https"
+#    scheme request to an origin with an HTTPS RR, either directly or via
+#    the above redirect, such a client MAY remove the user recourse
+#    option.  Origins that publish HTTPS RRs therefore MUST NOT rely on
+#    user recourse for access.  For more information, see Sections 8.4 and
+#    12.1 of [HSTS].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Prior to making an
+"http" scheme request, the client SHOULD perform a lookup to
+determine if any HTTPS RRs exist for that origin.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To do so, the
+client SHOULD construct a corresponding "https" URL as follows:
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If an HTTPS RR query for this "https" URL returns any AliasMode HTTPS
+RRs or any compatible ServiceMode HTTPS RRs (see Section 8), the
+client SHOULD behave as if it has received an HTTP 307 (Temporary
+Redirect) status code with this "https" URL in the "Location" field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+(Receipt of an incompatible ServiceMode RR does not trigger the
+redirect behavior.)  Because HTTPS RRs are received over an often-
+insecure channel (DNS), clients MUST NOT place any more trust in this
+signal than if they had received a 307 (Temporary Redirect) response
+over cleartext HTTP.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+When making an "https"
+scheme request to an origin with an HTTPS RR, either directly or via
+the above redirect, such a client MAY remove the user recourse
+option.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Origins that publish HTTPS RRs therefore MUST NOT rely on
+user recourse for access.
+'''
+

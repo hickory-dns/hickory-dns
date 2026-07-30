@@ -1,0 +1,108 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.4"
+
+# Connection Management
+#
+#    Section 10 of [RFC9000], the QUIC transport specification, specifies
+#    that connections can be closed in three ways:
+# 
+#    *  idle timeout
+# 
+#    *  immediate close
+# 
+#    *  stateless reset
+# 
+#    Clients and servers implementing DoQ SHOULD negotiate use of the idle
+#    timeout.  Closing on idle timeout is done without any packet
+#    exchange, which minimizes protocol overhead.  Per Section 10.1 of
+#    [RFC9000], the QUIC transport specification, the effective value of
+#    the idle timeout is computed as the minimum of the values advertised
+#    by the two endpoints.  Practical considerations on setting the idle
+#    timeout are discussed in Section 5.5.2.
+# 
+#    Clients SHOULD monitor the idle time incurred on their connection to
+#    the server, defined by the time spent since the last packet from the
+#    server has been received.  When a client prepares to send a new DNS
+#    query to the server, it SHOULD check whether the idle time is
+#    sufficiently lower than the idle timer.  If it is, the client SHOULD
+#    send the DNS query over the existing connection.  If not, the client
+#    SHOULD establish a new connection and send the query over that
+#    connection.
+# 
+#    Clients MAY discard their connections to the server before the idle
+#    timeout expires.  A client that has outstanding queries SHOULD close
+#    the connection explicitly using QUIC's CONNECTION_CLOSE mechanism and
+#    the DoQ error code DOQ_NO_ERROR.
+# 
+#    Clients and servers MAY close the connection for a variety of other
+#    reasons, indicated using QUIC's CONNECTION_CLOSE.  Client and servers
+#    that send packets over a connection discarded by their peer might
+#    receive a stateless reset indication.  If a connection fails, all the
+#    in-progress transactions on that connection MUST be abandoned.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients and servers implementing DoQ SHOULD negotiate use of the idle
+timeout.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD monitor the idle time incurred on their connection to
+the server, defined by the time spent since the last packet from the
+server has been received.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a client prepares to send a new DNS
+query to the server, it SHOULD check whether the idle time is
+sufficiently lower than the idle timer.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If it is, the client SHOULD
+send the DNS query over the existing connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If not, the client
+SHOULD establish a new connection and send the query over that
+connection.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Clients MAY discard their connections to the server before the idle
+timeout expires.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A client that has outstanding queries SHOULD close
+the connection explicitly using QUIC's CONNECTION_CLOSE mechanism and
+the DoQ error code DOQ_NO_ERROR.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Clients and servers MAY close the connection for a variety of other
+reasons, indicated using QUIC's CONNECTION_CLOSE.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a connection fails, all the
+in-progress transactions on that connection MUST be abandoned.
+'''
+

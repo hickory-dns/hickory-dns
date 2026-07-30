@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-2.2.3"
+
+# The Hash Algorithm Field
+#
+#    The Hash Algorithm field is an 8-bit unsigned integer that identifies
+#    the cryptographic hash algorithm used to construct the digest.
+# 
+#    Herein, SHA384 ([RFC6234]), with Hash Algorithm value 1, is the only
+#    standardized Hash Algorithm defined for ZONEMD records that MUST be
+#    supported by implementations.  When SHA384 is used, the size of the
+#    Digest field is 48 octets.  The result of the SHA384 digest algorithm
+#    MUST NOT be truncated, and the entire 48-octet digest is published in
+#    the ZONEMD record.
+# 
+#    SHA512 ([RFC6234]), with Hash Algorithm value 2, is also defined for
+#    ZONEMD records and SHOULD be supported by implementations.  When
+#    SHA512 is used, the size of the Digest field is 64 octets.  The
+#    result of the SHA512 digest algorithm MUST NOT be truncated, and the
+#    entire 64-octet digest is published in the ZONEMD record.
+# 
+#    Hash Algorithm values 240-254 are allocated for Private Use.
+# 
+#    The "ZONEMD Hash Algorithms" registry is further described in
+#    Section 5.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Herein, SHA384 ([RFC6234]), with Hash Algorithm value 1, is the only
+standardized Hash Algorithm defined for ZONEMD records that MUST be
+supported by implementations.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The result of the SHA384 digest algorithm
+MUST NOT be truncated, and the entire 48-octet digest is published in
+the ZONEMD record.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SHA512 ([RFC6234]), with Hash Algorithm value 2, is also defined for
+ZONEMD records and SHOULD be supported by implementations.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+result of the SHA512 digest algorithm MUST NOT be truncated, and the
+entire 64-octet digest is published in the ZONEMD record.
+'''
+

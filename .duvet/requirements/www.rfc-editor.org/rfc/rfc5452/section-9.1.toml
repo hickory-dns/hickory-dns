@@ -1,0 +1,37 @@
+target = "https://www.rfc-editor.org/rfc/rfc5452#section-9.1"
+
+# Query Matching Rules
+#
+#    A resolver implementation MUST match responses to all of the
+#    following attributes of the query:
+# 
+#    o  Source address against query destination address
+# 
+#    o  Destination address against query source address
+# 
+#    o  Destination port against query source port
+# 
+#    o  Query ID
+# 
+#    o  Query name
+# 
+#    o  Query class and type
+# 
+#    before applying DNS trustworthiness rules (see Section 5.4.1 of
+#    [RFC2181]).
+# 
+#    A mismatch and the response MUST be considered invalid.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A resolver implementation MUST match responses to all of the
+following attributes of the query:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A mismatch and the response MUST be considered invalid.
+'''
+

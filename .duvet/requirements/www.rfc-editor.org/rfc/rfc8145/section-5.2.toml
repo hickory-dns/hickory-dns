@@ -1,0 +1,49 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-5.2"
+
+# Use by Queriers
+#
+#    A validating DNS resolver (stub or recursive) SHOULD originate a
+#    Key Tag query whenever it also originates a DNSKEY query for a
+#    trust anchor zone.  In other words, the need to issue a DNSKEY query
+#    is also the trigger to issue a Key Tag query.
+# 
+#    The value(s) included in the Key Tag query represents the Key Tag(s)
+#    of the trust anchor that will be used to validate the expected DNSKEY
+#    response.
+# 
+#    A validating DNS resolver SHOULD NOT originate Key Tag queries when
+#    also originating DNSKEY queries for non-trust anchor zones.
+# 
+#    A non-validating DNS resolver MUST NOT originate Key Tag queries.
+# 
+#    DNS resolvers with caches SHOULD cache and reuse the response to a
+#    Key Tag query just as it would any other response.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A validating DNS resolver (stub or recursive) SHOULD originate a
+Key Tag query whenever it also originates a DNSKEY query for a
+trust anchor zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A validating DNS resolver SHOULD NOT originate Key Tag queries when
+also originating DNSKEY queries for non-trust anchor zones.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A non-validating DNS resolver MUST NOT originate Key Tag queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS resolvers with caches SHOULD cache and reuse the response to a
+Key Tag query just as it would any other response.
+'''
+

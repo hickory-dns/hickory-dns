@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-7"
+
+# Updates to RFCs 1034 and 1035
+#
+#    This document extends the specification for processing ANY queries
+#    described in Section 4.3.2 of [RFC1034].
+# 
+#    It is important to note that returning a subset of available RRsets
+#    when processing an ANY query is legitimate and consistent with
+#    [RFC1035]; it can be argued that ANY does not always mean ALL, as
+#    used in Section 3.2.3 of [RFC1035].  The main difference here is that
+#    the TC bit SHOULD NOT be set in the response, thus indicating that
+#    this is not a complete answer.
+# 
+#    This document describes optional behavior for both DNS initiators and
+#    responders; implementation of the guidance provided by this document
+#    is OPTIONAL.
+# 
+#    RRSIG queries (i.e., queries with QTYPE=RRSIG) are similar to ANY
+#    queries in the sense that they have the potential to generate large
+#    responses as well as extra work for the responders that process them,
+#    e.g., in the case where signatures are generated on the fly.  RRSIG
+#    RRsets are not usually obtained using such explicit queries but are
+#    rather included in the responses for other RRsets that the RRSIGs
+#    cover.  This document does not specify appropriate behavior for RRSIG
+#    queries; however, future such advice might well benefit from
+#    consistency with and experience with the approaches for ANY queries
+#    described here.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The main difference here is that
+the TC bit SHOULD NOT be set in the response, thus indicating that
+this is not a complete answer.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+This document describes optional behavior for both DNS initiators and
+responders; implementation of the guidance provided by this document
+is OPTIONAL.
+'''
+

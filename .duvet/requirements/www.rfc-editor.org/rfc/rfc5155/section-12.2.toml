@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-12.2"
+
+# Opt-Out Considerations
+#
+#    The Opt-Out Flag (O) allows for unsigned names, in the form of
+#    delegations to unsigned zones, to exist within an otherwise signed
+#    zone.  All unsigned names are, by definition, insecure, and their
+#    validity or existence cannot be cryptographically proven.
+# 
+#    In general:
+# 
+#    o  Resource records with unsigned names (whether existing or not)
+#       suffer from the same vulnerabilities as RRs in an unsigned zone.
+#       These vulnerabilities are described in more detail in [RFC3833]
+#       (note in particular Section 2.3, "Name Chaining" and Section 2.6,
+#       "Authenticated Denial of Domain Names").
+# 
+#    o  Resource records with signed names have the same security whether
+#       or not Opt-Out is used.
+# 
+#    Note that with or without Opt-Out, an insecure delegation may be
+#    undetectably altered by an attacker.  Because of this, the primary
+#    difference in security when using Opt-Out is the loss of the ability
+#    to prove the existence or nonexistence of an insecure delegation
+#    within the span of an Opt-Out NSEC3 RR.
+# 
+#    In particular, this means that a malicious entity may be able to
+#    insert or delete RRs with unsigned names.  These RRs are normally NS
+#    RRs, but this also includes signed wildcard expansions (while the
+#    wildcard RR itself is signed, its expanded name is an unsigned name).
+# 
+#    Note that being able to add a delegation is functionally equivalent
+#    to being able to add any RR type: an attacker merely has to forge a
+#    delegation to name server under his/her control and place whatever
+#    RRs needed at the subzone apex.
+# 
+#    While in particular cases, this issue may not present a significant
+#    security problem, in general it should not be lightly dismissed.
+#    Therefore, it is strongly RECOMMENDED that Opt-Out be used sparingly.
+#    In particular, zone signing tools SHOULD NOT default to using Opt-
+#    Out, and MAY choose to not support Opt-Out at all.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore, it is strongly RECOMMENDED that Opt-Out be used sparingly.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In particular, zone signing tools SHOULD NOT default to using Opt-
+Out, and MAY choose to not support Opt-Out at all.
+'''
+

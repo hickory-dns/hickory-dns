@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.3.2"
+
+# Generation of TSIG on Error Returns
+#
+#    When a server detects an error relating to the key or MAC in the
+#    incoming request, the server SHOULD send back an unsigned error
+#    message (MAC Size == 0 and empty MAC).  It MUST NOT send back a
+#    signed error message.
+# 
+#    If an error is detected relating to the TSIG validity period or the
+#    MAC is too short for the local policy, the server SHOULD send back a
+#    signed error message.  The digest components are:
+# 
+#       Request MAC (if the request MAC validated)
+#       DNS Message (response)
+#       TSIG Variables (response)
+# 
+#    The reason that the request MAC is not included in this MAC in some
+#    cases is to make it possible for the client to verify the error.  If
+#    the error is not a TSIG error, the response MUST be generated as
+#    specified in Section 5.3.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a server detects an error relating to the key or MAC in the
+incoming request, the server SHOULD send back an unsigned error
+message (MAC Size == 0 and empty MAC).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It MUST NOT send back a
+signed error message.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If an error is detected relating to the TSIG validity period or the
+MAC is too short for the local policy, the server SHOULD send back a
+signed error message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If
+the error is not a TSIG error, the response MUST be generated as
+specified in Section 5.3.
+'''
+

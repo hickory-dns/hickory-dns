@@ -1,0 +1,105 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-11"
+
+# Source Address Check
+#
+#    All Multicast DNS responses (including responses sent via unicast)
+#    SHOULD be sent with IP TTL set to 255.  This is recommended to
+#    provide backwards-compatibility with older Multicast DNS queriers
+#    (implementing a draft version of this document, posted in February
+#    2004) that check the IP TTL on reception to determine whether the
+#    packet originated on the local link.  These older queriers discard
+#    all packets with TTLs other than 255.
+# 
+#    A host sending Multicast DNS queries to a link-local destination
+#    address (including the 224.0.0.251 and FF02::FB link-local multicast
+#    addresses) MUST only accept responses to that query that originate
+#    from the local link, and silently discard any other response packets.
+#    Without this check, it could be possible for remote rogue hosts to
+#    send spoof answer packets (perhaps unicast to the victim host), which
+#    the receiving machine could misinterpret as having originated on the
+#    local link.
+# 
+#    The test for whether a response originated on the local link is done
+#    in two ways:
+# 
+#       * All responses received with a destination address in the IP
+#         header that is the mDNS IPv4 link-local multicast address
+#         224.0.0.251 or the mDNS IPv6 link-local multicast address
+#         FF02::FB are necessarily deemed to have originated on the local
+#         link, regardless of source IP address.  This is essential to
+#         allow devices to work correctly and reliably in unusual
+#         configurations, such as multiple logical IP subnets overlayed on
+#         a single link, or in cases of severe misconfiguration, where
+#         devices are physically connected to the same link, but are
+#         currently misconfigured with completely unrelated IP addresses
+#         and subnet masks.
+# 
+#       * For responses received with a unicast destination address in the
+#         IP header, the source IP address in the packet is checked to see
+#         if it is an address on a local subnet.  An IPv4 source address
+#         is determined to be on a local subnet if, for (one of) the
+#         address(es) configured on the interface receiving the packet, (I
+#         & M) == (P & M), where I and M are the interface address and
+#         subnet mask respectively, P is the source IP address from the
+#         packet, '&' represents the bitwise logical 'and' operation, and
+#         '==' represents a bitwise equality test.  An IPv6 source address
+#         is determined to be on the local link if, for any of the on-link
+#         IPv6 prefixes on the interface receiving the packet (learned via
+#         IPv6 router advertisements or otherwise configured on the host),
+#         the first 'n' bits of the IPv6 source address match the first
+#         'n' bits of the prefix address, where 'n' is the length of the
+#         prefix being considered.
+# 
+#    Since queriers will ignore responses apparently originating outside
+#    the local subnet, a responder SHOULD avoid generating responses that
+#    it can reasonably predict will be ignored.  This applies particularly
+#    in the case of overlayed subnets.  If a responder receives a query
+#    addressed to the mDNS IPv4 link-local multicast address 224.0.0.251,
+#    from a source address not apparently on the same subnet as the
+#    responder (or, in the case of IPv6, from a source IPv6 address for
+#    which the responder does not have any address with the same prefix on
+#    that interface), then even if the query indicates that a unicast
+#    response is preferred (see Section 5.4, "Questions Requesting Unicast
+#    Responses"), the responder SHOULD elect to respond by multicast
+#    anyway, since it can reasonably predict that a unicast response with
+#    an apparently non-local source address will probably be ignored.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+All Multicast DNS responses (including responses sent via unicast)
+SHOULD be sent with IP TTL set to 255.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A host sending Multicast DNS queries to a link-local destination
+address (including the 224.0.0.251 and FF02::FB link-local multicast
+addresses) MUST only accept responses to that query that originate
+from the local link, and silently discard any other response packets.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Since queriers will ignore responses apparently originating outside
+the local subnet, a responder SHOULD avoid generating responses that
+it can reasonably predict will be ignored.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a responder receives a query
+addressed to the mDNS IPv4 link-local multicast address 224.0.0.251,
+from a source address not apparently on the same subnet as the
+responder (or, in the case of IPv6, from a source IPv6 address for
+which the responder does not have any address with the same prefix on
+that interface), then even if the query indicates that a unicast
+response is preferred (see Section 5.4, "Questions Requesting Unicast
+Responses"), the responder SHOULD elect to respond by multicast
+anyway, since it can reasonably predict that a unicast response with
+an apparently non-local source address will probably be ignored.
+'''
+

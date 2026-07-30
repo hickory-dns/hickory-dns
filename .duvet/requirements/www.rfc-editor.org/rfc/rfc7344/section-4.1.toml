@@ -1,0 +1,69 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-4.1"
+
+# CDS and CDNSKEY Processing Rules
+#
+#    If there is neither CDS nor CDNSKEY RRset in the Child, this signals
+#    that no change should be made to the current DS set.  This means
+#    that, once the Child and Parent are in sync, the Child DNS Operator
+#    MAY remove all CDS and CDNSKEY resource records from the zone.  The
+#    Child DNS Operator may choose to do this to decrease the size of the
+#    zone or to decrease the workload for the Parent (if the Parent
+#    receives no CDS/CDNSKEY records, it can go back to sleep).  If it
+#    does receive a CDS or CDNSKEY RRset, it needs to check them against
+#    what is currently published (see Section 5).
+# 
+#    The following acceptance rules are placed on the CDS and CDNSKEY
+#    resource records as follows:
+# 
+#    o  Location: MUST be at the Child zone apex.
+# 
+#    o  Signer: MUST be signed with a key that is represented in both the
+#       current DNSKEY and DS RRsets, unless the Parent uses the CDS or
+#       CDNSKEY RRset for initial enrollment; in that case, the Parent
+#       validates the CDS/CDNSKEY through some other means (see
+#       Section 6.1 and the Security Considerations).
+# 
+#    o  Continuity: MUST NOT break the current delegation if applied to DS
+#       RRset.
+# 
+#    If any these conditions fail, the CDS or CDNSKEY resource record MUST
+#    be ignored, and this error SHOULD be logged.
+
+[[spec]]
+level = "MAY"
+quote = '''
+This means
+that, once the Child and Parent are in sync, the Child DNS Operator
+MAY remove all CDS and CDNSKEY resource records from the zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Location: MUST be at the Child zone apex.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Signer: MUST be signed with a key that is represented in both the
+current DNSKEY and DS RRsets, unless the Parent uses the CDS or
+CDNSKEY RRset for initial enrollment; in that case, the Parent
+validates the CDS/CDNSKEY through some other means (see
+Section 6.1 and the Security Considerations).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Continuity: MUST NOT break the current delegation if applied to DS
+RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If any these conditions fail, the CDS or CDNSKEY resource record MUST
+be ignored, and this error SHOULD be logged.
+'''
+

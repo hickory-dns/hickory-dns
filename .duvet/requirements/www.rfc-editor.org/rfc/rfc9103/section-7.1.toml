@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.1"
+
+# Connection Establishment
+#
+#    During connection establishment, the Application-Layer Protocol
+#    Negotiation (ALPN) token "dot" [DoT-ALPN] MUST be selected in the TLS
+#    handshake.
+
+[[spec]]
+level = "MUST"
+quote = '''
+During connection establishment, the Application-Layer Protocol
+Negotiation (ALPN) token "dot" [DoT-ALPN] MUST be selected in the TLS
+handshake.
+'''
+

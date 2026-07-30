@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc9715#appendix-A"
+
+# Details of Requestor's Maximum UDP Payload Size Discussions
+#
+#    There are many discussions about default path MTU size and a
+#    requestor's maximum UDP payload size.
+# 
+#    *  The minimum MTU for an IPv6 interface is 1280 octets (see
+#       Section 5 of [RFC8200]).  So, it can be used as the default path
+#       MTU value for IPv6.  The corresponding minimum MTU for an IPv4
+#       interface is 68 (60 + 8) [RFC0791].
+# 
+#    *  [RFC4035] states that "A security-aware name server MUST support
+#       the EDNS0 ([RFC2671]) message size extension, [and it] MUST
+#       support a message size of at least 1220 octets".  Then, the
+#       smallest number of the maximum DNS/UDP payload size is 1220.
+# 
+#    *  In order to avoid IP fragmentation, [DNSFlagDay2020] proposes that
+#       UDP requestors set the requestor's payload size to 1232 and UDP
+#       responders compose UDP responses so they fit in 1232 octets.  The
+#       size 1232 is based on an MTU of 1280, which is required by the
+#       IPv6 specification [RFC8200], minus 48 octets for the IPv6 and UDP
+#       headers.
+# 
+#    *  Most of the Internet, especially the inner core, has an MTU of at
+#       least 1500 octets.  Maximum DNS/UDP payload size for IPv6 on an
+#       MTU 1500 Ethernet is 1452 (1500 minus 40 (IPv6 header size) minus
+#       8 (UDP header size)).  To allow for possible IP options and
+#       distant tunnel overhead, the recommendation of default maximum
+#       DNS/UDP payload size is 1400.
+# 
+#    *  [Huston2021] analyzes the result of [DNSFlagDay2020] and reports
+#       that their measurements suggest that in the interior of the
+#       Internet between recursive resolvers and authoritative servers,
+#       the prevailing MTU is 1500 and there is no measurable signal of
+#       use of smaller MTUs in this part of the Internet.  They propose
+#       that their measurements suggest setting the EDNS(0) requestor's
+#       UDP payload size to 1472 octets for IPv4 and 1452 octets for IPv6.
+# 
+#    As a result of these discussions, this document recommends a value of
+#    1400, with smaller values also allowed.
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  [RFC4035] states that "A security-aware name server MUST support
+the EDNS0 ([RFC2671]) message size extension, [and it] MUST
+support a message size of at least 1220 octets".
+'''
+

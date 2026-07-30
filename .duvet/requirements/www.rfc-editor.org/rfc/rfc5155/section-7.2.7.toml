@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.7"
+
+# Referrals to Unsigned Subzones
+#
+#    If there is an NSEC3 RR that matches the delegation name, then that
+#    NSEC3 RR MUST be included in the response.  The DS bit in the type
+#    bit maps of the NSEC3 RR MUST NOT be set.
+# 
+#    If the zone is Opt-Out, then there may not be an NSEC3 RR
+#    corresponding to the delegation.  In this case, the closest provable
+#    encloser proof MUST be included in the response.  The included NSEC3
+#    RR that covers the "next closer" name for the delegation MUST have
+#    the Opt-Out flag set to one.  (Note that this will be the case unless
+#    something has gone wrong).
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is an NSEC3 RR that matches the delegation name, then that
+NSEC3 RR MUST be included in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DS bit in the type
+bit maps of the NSEC3 RR MUST NOT be set.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this case, the closest provable
+encloser proof MUST be included in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The included NSEC3
+RR that covers the "next closer" name for the delegation MUST have
+the Opt-Out flag set to one.
+'''
+

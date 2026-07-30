@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-1.2"
+
+# Reserved Words
+#
+#    The key words "MAY", "MAY NOT", "MUST", "MUST NOT", "REQUIRED",
+#    "RECOMMENDED", "SHOULD", and "SHOULD NOT" in this document are to be
+#    interpreted as described in BCP 14, RFC 2119 [RFC2119].
+
+[[spec]]
+level = "MAY"
+quote = '''
+The key words "MAY", "MAY NOT", "MUST", "MUST NOT", "REQUIRED",
+"RECOMMENDED", "SHOULD", and "SHOULD NOT" in this document are to be
+interpreted as described in BCP 14, RFC 2119 [RFC2119].
+'''
+

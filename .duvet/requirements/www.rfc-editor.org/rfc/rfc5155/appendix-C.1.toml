@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#appendix-C.1"
+
+# Salting
+#
+#    Augmenting original owner names with salt before hashing increases
+#    the cost of a dictionary of pre-generated hash-values.  For every bit
+#    of salt, the cost of a precomputed dictionary doubles (because there
+#    must be an entry for each word combined with each possible salt
+#    value).  The NSEC3 RR can use a maximum of 2040 bits (255 octets) of
+#    salt, multiplying the cost by 2^2040.  This means that an attacker
+#    must, in practice, recompute the dictionary each time the salt is
+#    changed.
+# 
+#    Including a salt, regardless of size, does not affect the cost of
+#    constructing NSEC3 RRs.  It does increase the size of the NSEC3 RR.
+# 
+#    There MUST be at least one complete set of NSEC3 RRs for the zone
+#    using the same salt value.
+# 
+#    The salt SHOULD be changed periodically to prevent pre-computation
+#    using a single salt.  It is RECOMMENDED that the salt be changed for
+#    every re-signing.
+# 
+#    Note that this could cause a resolver to see RRs with different salt
+#    values for the same zone.  This is harmless, since each RR stands
+#    alone (that is, it denies the set of owner names whose hashes, using
+#    the salt in the NSEC3 RR, fall between the two hashes in the NSEC3
+#    RR) -- it is only the server that needs a complete set of NSEC3 RRs
+#    with the same salt in order to be able to answer every possible
+#    query.
+# 
+#    There is no prohibition with having NSEC3 RRs with different salts
+#    within the same zone.  However, in order for authoritative servers to
+#    be able to consistently find covering NSEC3 RRs, the authoritative
+#    server MUST choose a single set of parameters (algorithm, salt, and
+#    iterations) to use when selecting NSEC3 RRs.
+
+[[spec]]
+level = "MUST"
+quote = '''
+There MUST be at least one complete set of NSEC3 RRs for the zone
+using the same salt value.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The salt SHOULD be changed periodically to prevent pre-computation
+using a single salt.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that the salt be changed for
+every re-signing.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, in order for authoritative servers to
+be able to consistently find covering NSEC3 RRs, the authoritative
+server MUST choose a single set of parameters (algorithm, salt, and
+iterations) to use when selecting NSEC3 RRs.
+'''
+

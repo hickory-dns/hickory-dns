@@ -1,0 +1,42 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-9.3.1"
+
+# Opportunistic TLS
+#
+#    Opportunistic TLS for DoT is defined in [RFC8310] and can provide a
+#    defense against passive surveillance, providing on-the-wire
+#    confidentiality.  Essentially:
+# 
+#    *  if clients know authentication information for a server, they
+#       SHOULD try to authenticate the server,
+# 
+#    *  if this fails or clients do not know the information, they MAY
+#       fallback to using TLS without authentication, or
+# 
+#    *  clients MAY fallback to using cleartext if TLS is not available.
+# 
+#    As such, it does not offer a defense against active attacks (e.g., an
+#    on-path active attacker on the connection from client to server) and
+#    is not considered as useful for XoT.
+# 
+#    Properties:  None guaranteed.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+*  if clients know authentication information for a server, they
+SHOULD try to authenticate the server,
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+*  if this fails or clients do not know the information, they MAY
+fallback to using TLS without authentication, or
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+*  clients MAY fallback to using cleartext if TLS is not available.
+'''
+

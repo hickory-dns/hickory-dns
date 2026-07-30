@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-4.2"
+
+# The HTTP Response
+#
+#    The only response type defined in this document is "application/dns-
+#    message", but it is possible that other response formats will be
+#    defined in the future.  A DoH server MUST be able to process
+#    "application/dns-message" request messages.
+# 
+#    Different response media types will provide more or less information
+#    from a DNS response.  For example, one response type might include
+#    information from the DNS header bytes while another might omit it.
+#    The amount and type of information that a media type gives are solely
+#    up to the format, which is not defined in this protocol.
+# 
+#    Each DNS request-response pair is mapped to one HTTP exchange.  The
+#    responses may be processed and transported in any order using HTTP's
+#    multi-streaming functionality (see Section 5 of [RFC7540]).
+# 
+#    Section 5.1 discusses the relationship between DNS and HTTP response
+#    caching.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DoH server MUST be able to process
+"application/dns-message" request messages.
+'''
+

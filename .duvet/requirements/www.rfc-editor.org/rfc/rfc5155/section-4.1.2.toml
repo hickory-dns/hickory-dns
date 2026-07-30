@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-4.1.2"
+
+# Flag Fields
+#
+#    The Opt-Out flag is not used and is set to zero.
+# 
+#    All other flags are reserved for future use, and must be zero.
+# 
+#    NSEC3PARAM RRs with a Flags field value other than zero MUST be
+#    ignored.
+
+[[spec]]
+level = "MUST"
+quote = '''
+NSEC3PARAM RRs with a Flags field value other than zero MUST be
+ignored.
+'''
+

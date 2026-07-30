@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-5"
+
+# CDS/CDNSKEY Publication
+#
+#    The Child DNS Operator publishes CDS/CDNSKEY RRset(s).  In order to
+#    be valid, the CDS/CDNSKEY RRset(s) MUST be compliant with the rules
+#    in Section 4.1.  When the Parent DS is in sync with the CDS/CDNSKEY
+#    RRset(s), the Child DNS Operator MAY delete the CDS/CDNSKEY RRset(s);
+#    the Child can determine if this is the case by querying for DS
+#    records in the Parent.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order to
+be valid, the CDS/CDNSKEY RRset(s) MUST be compliant with the rules
+in Section 4.1.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+When the Parent DS is in sync with the CDS/CDNSKEY
+RRset(s), the Child DNS Operator MAY delete the CDS/CDNSKEY RRset(s);
+the Child can determine if this is the case by querying for DS
+records in the Parent.
+'''
+

@@ -1,0 +1,83 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-8.2"
+
+# In the Server
+#
+#    The DNS wire format [RFC1035] contains no client identifiers;
+#    however, various transports of DNS queries and responses do provide
+#    data that can be used to correlate requests.  HTTPS presents new
+#    considerations for correlation, such as explicit HTTP cookies and
+#    implicit fingerprinting of the unique set and ordering of HTTP
+#    request header fields.
+# 
+#    A DoH implementation is built on IP, TCP, TLS, and HTTP.  Each layer
+#    contains one or more common features that can be used to correlate
+#    queries to the same identity.  DNS transports will generally carry
+#    the same privacy properties of the layers used to implement them.
+#    For example, the properties of IP, TCP, and TLS apply to
+#    implementations of DNS over TLS.
+# 
+#    The privacy considerations of using the HTTPS layer in DoH are
+#    incremental to those of DNS over TLS.  DoH is not known to introduce
+#    new concerns beyond those associated with HTTPS.
+# 
+#    At the IP level, the client address provides obvious correlation
+#    information.  This can be mitigated by use of a NAT, proxy, VPN, or
+#    simple address rotation over time.  It may be aggravated by use of a
+#    DNS server that can correlate real-time addressing information with
+#    other personal identifiers, such as when a DNS server and DHCP server
+#    are operated by the same entity.
+# 
+#    DNS implementations that use one TCP connection for multiple DNS
+#    requests directly group those requests.  Long-lived connections have
+#    better performance behaviors than short-lived connections; however,
+#    they group more requests, which can expose more information to
+#    correlation and consolidation.  TCP-based solutions may also seek
+#    performance through the use of TCP Fast Open [RFC7413].  The cookies
+#    used in TCP Fast Open allow servers to correlate TCP sessions.
+# 
+#    TLS-based implementations often achieve better handshake performance
+#    through the use of some form of session resumption mechanism, such as
+#    Section 2.2 of [RFC8446].  Session resumption creates trivial
+#    mechanisms for a server to correlate TLS connections together.
+# 
+#    HTTP's feature set can also be used for identification and tracking
+#    in a number of different ways.  For example, Authentication request
+#    header fields explicitly identify profiles in use, and HTTP cookies
+#    are designed as an explicit state-tracking mechanism between the
+#    client and serving site and often are used as an authentication
+#    mechanism.
+# 
+#    Additionally, the User-Agent and Accept-Language request header
+#    fields often convey specific information about the client version or
+#    locale.  This facilitates content negotiation and operational work-
+#    arounds for implementation bugs.  Request header fields that control
+#    caching can expose state information about a subset of the client's
+#    history.  Mixing DoH requests with other HTTP requests on the same
+#    connection also provides an opportunity for richer data correlation.
+# 
+#    The DoH protocol design allows applications to fully leverage the
+#    HTTP ecosystem, including features that are not enumerated here.
+#    Utilizing the full set of HTTP features enables DoH to be more than
+#    an HTTP tunnel, but it is at the cost of opening up implementations
+#    to the full set of privacy considerations of HTTP.
+# 
+#    Implementations of DoH clients and servers need to consider the
+#    benefit and privacy impact of these features, and their deployment
+#    context, when deciding whether or not to enable them.
+#    Implementations are advised to expose the minimal set of data needed
+#    to achieve the desired feature set.
+# 
+#    Determining whether or not a DoH implementation requires HTTP cookie
+#    [RFC6265] support is particularly important because HTTP cookies are
+#    the primary state tracking mechanism in HTTP.  HTTP cookies SHOULD
+#    NOT be accepted by DOH clients unless they are explicitly required by
+#    a use case.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+HTTP cookies SHOULD
+NOT be accepted by DOH clients unless they are explicitly required by
+a use case.
+'''
+

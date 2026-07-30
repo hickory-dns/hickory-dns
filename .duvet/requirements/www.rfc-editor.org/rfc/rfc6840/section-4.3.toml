@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-4.3"
+
+# Check for CNAME
+#
+#    Section 5 of [RFC4035] says nothing explicit about validating
+#    responses based on (or that should be based on) CNAMEs.  When
+#    validating a NOERROR/NODATA response, validators MUST check the CNAME
+#    bit in the matching NSEC or NSEC3 RR's type bitmap in addition to the
+#    bit for the query type.
+# 
+#    Without this check, an attacker could successfully transform a
+#    positive CNAME response into a NOERROR/NODATA response by (for
+#    example) simply stripping the CNAME RRset from the response.  A naive
+#    validator would then note that the QTYPE was not present in the
+#    matching NSEC/NSEC3 RR, but fail to notice that the CNAME bit was
+#    set; thus, the response should have been a positive CNAME response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When
+validating a NOERROR/NODATA response, validators MUST check the CNAME
+bit in the matching NSEC or NSEC3 RR's type bitmap in addition to the
+bit for the query type.
+'''
+

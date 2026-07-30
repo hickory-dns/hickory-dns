@@ -1,0 +1,57 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.5.2"
+
+# Resource Management
+#
+#    Proper management of established and idle connections is important to
+#    the healthy operation of a DNS server.
+# 
+#    An implementation of DoQ SHOULD follow best practices similar to
+#    those specified for DNS over TCP [RFC7766], in particular with regard
+#    to:
+# 
+#    *  Concurrent Connections (Section 6.2.2 of [RFC7766], updated by
+#       Section 6.4 of [RFC9103])
+# 
+#    *  Security Considerations (Section 10 of [RFC7766])
+# 
+#    Failure to do so may lead to resource exhaustion and denial of
+#    service.
+# 
+#    Clients that want to maintain long duration DoQ connections SHOULD
+#    use the idle timeout mechanisms defined in Section 10.1 of [RFC9000],
+#    the QUIC transport specification.  Clients and servers MUST NOT send
+#    the edns-tcp-keepalive EDNS(0) Option [RFC7828] in any messages sent
+#    on a DoQ connection (because it is specific to the use of TCP/TLS as
+#    a transport).
+# 
+#    This document does not make specific recommendations for timeout
+#    values on idle connections.  Clients and servers should reuse and/or
+#    close connections depending on the level of available resources.
+#    Timeouts may be longer during periods of low activity and shorter
+#    during periods of high activity.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An implementation of DoQ SHOULD follow best practices similar to
+those specified for DNS over TCP [RFC7766], in particular with regard
+to:
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients that want to maintain long duration DoQ connections SHOULD
+use the idle timeout mechanisms defined in Section 10.1 of [RFC9000],
+the QUIC transport specification.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients and servers MUST NOT send
+the edns-tcp-keepalive EDNS(0) Option [RFC7828] in any messages sent
+on a DoQ connection (because it is specific to the use of TCP/TLS as
+a transport).
+'''
+

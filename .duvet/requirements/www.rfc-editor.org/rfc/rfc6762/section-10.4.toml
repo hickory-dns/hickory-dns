@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-10.4"
+
+# Cache Flush on Failure Indication
+#
+#    Sometimes a cache record can be determined to be stale when a client
+#    attempts to use the rdata it contains, and the client finds that
+#    rdata to be incorrect.
+# 
+#    For example, the rdata in an address record can be determined to be
+#    incorrect if attempts to contact that host fail, either because (for
+#    an IPv4 address on a local subnet) ARP requests for that address go
+#    unanswered, because (for an IPv6 address with an on-link prefix) ND
+#    requests for that address go unanswered, or because (for an address
+#    on a remote network) a router returns an ICMP "Host Unreachable"
+#    error.
+# 
+#    The rdata in an SRV record can be determined to be incorrect if
+#    attempts to communicate with the indicated service at the host and
+#    port number indicated are not successful.
+# 
+#    The rdata in a DNS-SD PTR record can be determined to be incorrect if
+#    attempts to look up the SRV record it references are not successful.
+# 
+#    The software implementing the Multicast DNS resource record cache
+#    should provide a mechanism so that clients detecting stale rdata can
+#    inform the cache.
+# 
+#    When the cache receives this hint that it should reconfirm some
+#    record, it MUST issue two or more queries for the resource record in
+#    dispute.  If no response is received within ten seconds, then, even
+#    though its TTL may indicate that it is not yet due to expire, that
+#    record SHOULD be promptly flushed from the cache.
+# 
+#    The end result of this is that if a printer suffers a sudden power
+#    failure or other abrupt disconnection from the network, its name may
+#    continue to appear in DNS-SD browser lists displayed on users'
+#    screens.  Eventually, that entry will expire from the cache
+#    naturally, but if a user tries to access the printer before that
+#    happens, the failure to successfully contact the printer will trigger
+#    the more hasty demise of its cache entries.  This is a sensible
+#    trade-off between good user experience and good network efficiency.
+#    If we were to insist that printers should disappear from the printer
+#    list within 30 seconds of becoming unavailable, for all failure
+#    modes, the only way to achieve this would be for the client to poll
+#    the printer at least every 30 seconds, or for the printer to announce
+#    its presence at least every 30 seconds, both of which would be an
+#    unreasonable burden on most networks.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When the cache receives this hint that it should reconfirm some
+record, it MUST issue two or more queries for the resource record in
+dispute.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If no response is received within ten seconds, then, even
+though its TTL may indicate that it is not yet due to expire, that
+record SHOULD be promptly flushed from the cache.
+'''
+

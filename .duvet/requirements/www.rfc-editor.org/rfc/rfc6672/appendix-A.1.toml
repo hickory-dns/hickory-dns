@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#appendix-A.1"
+
+# Changes to Server Behavior
+#
+#    Major changes to server behavior from the original DNAME
+#    specification are summarized below:
+# 
+#    o  The rules for DNAME substitution have been clarified in
+#       Section 2.2.
+# 
+#    o  The EDNS option to signal DNAME understanding and compression has
+#       never been specified, and this document clarifies that there is no
+#       signaling method (Section 2.5).
+# 
+#    o  The TTL for synthesized CNAME RRs is now set to the TTL of the
+#       DNAME, not zero (Section 3.1).
+# 
+#    o  Recursive caching servers MUST perform CNAME synthesis on behalf
+#       of clients (Section 3.4).
+# 
+#    o  The revised server algorithm is detailed in Section 3.2.
+# 
+#    o  Rules for dynamic update messages adding a DNAME or CNAME RR to a
+#       zone where a CNAME or DNAME already exists are detailed in
+#       Section 5.2.
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Recursive caching servers MUST perform CNAME synthesis on behalf
+of clients (Section 3.4).
+'''
+

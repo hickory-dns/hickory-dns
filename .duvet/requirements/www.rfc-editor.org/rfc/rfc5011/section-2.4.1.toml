@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-2.4.1"
+
+# Add Hold-Down Time
+#
+#    The add hold-down time is 30 days or the expiration time of the
+#    original TTL of the first trust point DNSKEY RRSet that contained the
+#    new key, whichever is greater.  This ensures that at least two
+#    validated DNSKEY RRSets that contain the new key MUST be seen by the
+#    resolver prior to the key's acceptance.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This ensures that at least two
+validated DNSKEY RRSets that contain the new key MUST be seen by the
+resolver prior to the key's acceptance.
+'''
+

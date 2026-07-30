@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc2308#section-7.1"
+
+# Server Failure (OPTIONAL)
+#
+#    Server failures fall into two major classes.  The first is where a
+#    server can determine that it has been misconfigured for a zone.  This
+#    may be where it has been listed as a server, but not configured to be
+#    a server for the zone, or where it has been configured to be a server
+#    for the zone, but cannot obtain the zone data for some reason.  This
+#    can occur either because the zone file does not exist or contains
+#    errors, or because another server from which the zone should have
+#    been available either did not respond or was unable or unwilling to
+#    supply the zone.
+# 
+#    The second class is where the server needs to obtain an answer from
+#    elsewhere, but is unable to do so, due to network failures, other
+#    servers that don't reply, or return server failure errors, or
+#    similar.
+# 
+#    In either case a resolver MAY cache a server failure response.  If it
+#    does so it MUST NOT cache it for longer than five (5) minutes, and it
+#    MUST be cached against the specific query tuple <query name, type,
+#    class, server IP address>.
+
+[[spec]]
+level = "MAY"
+quote = '''
+In either case a resolver MAY cache a server failure response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If it
+does so it MUST NOT cache it for longer than five (5) minutes, and it
+MUST be cached against the specific query tuple <query name, type,
+class, server IP address>.
+'''
+

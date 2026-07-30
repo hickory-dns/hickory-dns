@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-13"
+
+# Operational Considerations
+#
+#    If the options described in Section 12 are available, such
+#    configuration options MUST only be used in a 'migration mode' and
+#    therefore should be used with great care.
+# 
+#    It is noted that use of a TLS proxy in front of the primary server is
+#    a simple deployment solution that can enable server-side XoT.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the options described in Section 12 are available, such
+configuration options MUST only be used in a 'migration mode' and
+therefore should be used with great care.
+'''
+

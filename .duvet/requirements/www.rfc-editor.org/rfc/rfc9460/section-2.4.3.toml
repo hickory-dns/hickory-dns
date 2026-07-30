@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.4.3"
+
+# ServiceMode
+#
+#    In ServiceMode, the TargetName and SvcParams within each RR associate
+#    an alternative endpoint for the service with its connection
+#    parameters.
+# 
+#    Each protocol scheme that uses SVCB MUST define a protocol mapping
+#    that explains how SvcParams are applied for connections of that
+#    scheme.  Unless specified otherwise by the protocol mapping, clients
+#    MUST ignore any SvcParam that they do not recognize.
+# 
+#    Some SvcParams impose requirements on other SvcParams in the RR.  A
+#    ServiceMode RR is called "self-consistent" if its SvcParams all
+#    comply with each other's requirements.  Clients MUST reject any RR
+#    whose recognized SvcParams are not self-consistent and MAY reject the
+#    entire RRset.  To help zone operators avoid this condition, zone-file
+#    implementations SHOULD enforce self-consistency as well.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each protocol scheme that uses SVCB MUST define a protocol mapping
+that explains how SvcParams are applied for connections of that
+scheme.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Unless specified otherwise by the protocol mapping, clients
+MUST ignore any SvcParam that they do not recognize.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients MUST reject any RR
+whose recognized SvcParams are not self-consistent and MAY reject the
+entire RRset.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To help zone operators avoid this condition, zone-file
+implementations SHOULD enforce self-consistency as well.
+'''
+

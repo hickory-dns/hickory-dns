@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-5.1"
+
+# One-Shot Multicast DNS Queries
+#
+#    The most basic kind of Multicast DNS client may simply send standard
+#    DNS queries blindly to 224.0.0.251:5353, without necessarily even
+#    being aware of what a multicast address is.  This change can
+#    typically be implemented with just a few lines of code in an existing
+#    DNS resolver library.  If a name being queried falls within one of
+#    the reserved Multicast DNS domains (see Sections 3 and 4), then,
+#    rather than using the configured Unicast DNS server address, the
+#    query is instead sent to 224.0.0.251:5353 (or its IPv6 equivalent
+#    [FF02::FB]:5353).  Typically, the timeout would also be shortened to
+#    two or three seconds.  It's possible to make a minimal Multicast DNS
+#    resolver with only these simple changes.  These queries are typically
+#    done using a high-numbered ephemeral UDP source port, but regardless
+#    of whether they are sent from a dynamic port or from a fixed port,
+#    these queries MUST NOT be sent using UDP source port 5353, since
+#    using UDP source port 5353 signals the presence of a fully compliant
+#    Multicast DNS querier, as described below.
+# 
+#    A simple DNS resolver like this will typically just take the first
+#    response it receives.  It will not listen for additional UDP
+#    responses, but in many instances this may not be a serious problem.
+#    If a user types "http://MyPrinter.local." into their web browser, and
+#    their simple DNS resolver just takes the first response it receives,
+#    and the user gets to see the status and configuration web page for
+#    their printer, then the protocol has met the user's needs in this
+#    case.
+# 
+#    While a basic DNS resolver like this may be adequate for simple host
+#    name lookup, it may not get ideal behavior in other cases.
+#    Additional refinements to create a fully compliant Multicast DNS
+#    querier are described below.
+
+[[spec]]
+level = "MUST"
+quote = '''
+These queries are typically
+done using a high-numbered ephemeral UDP source port, but regardless
+of whether they are sent from a dynamic port or from a fixed port,
+these queries MUST NOT be sent using UDP source port 5353, since
+using UDP source port 5353 signals the presence of a fully compliant
+Multicast DNS querier, as described below.
+'''
+

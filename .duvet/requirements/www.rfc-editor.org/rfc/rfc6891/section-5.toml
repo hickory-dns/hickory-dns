@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-5"
+
+# Extended Label Types
+#
+#    The first octet in the on-the-wire representation of a DNS label
+#    specifies the label type; the basic DNS specification [RFC1035]
+#    dedicates the 2 most significant bits of that octet for this purpose.
+# 
+#    [RFC2671] defined DNS label type 0b01 for use as an indication for
+#    extended label types.  A specific extended label type was selected by
+#    the 6 least significant bits of the first octet.  Thus, extended
+#    label types were indicated by the values 64-127 (0b01xxxxxx) in the
+#    first octet of the label.
+# 
+#    Extended label types are extremely difficult to deploy due to lack of
+#    support in clients and intermediate gateways, as described in
+#    [RFC3363], which moved [RFC2673] to Experimental status; and
+#    [RFC3364], which describes the pros and cons.  As such, proposals
+#    that contemplate extended labels SHOULD weigh this deployment cost
+#    against the possibility of implementing functionality in other ways.
+# 
+#    Finally, implementations MUST NOT generate or pass Binary Labels in
+#    their communications, as they are now deprecated.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As such, proposals
+that contemplate extended labels SHOULD weigh this deployment cost
+against the possibility of implementing functionality in other ways.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Finally, implementations MUST NOT generate or pass Binary Labels in
+their communications, as they are now deprecated.
+'''
+

@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-2.3"
+
+# Active Refresh
+#
+#    A resolver that has been configured for an automatic update of keys
+#    from a particular trust point MUST query that trust point (e.g., do a
+#    lookup for the DNSKEY RRSet and related RRSIG records) no less often
+#    than the lesser of 15 days, half the original TTL for the DNSKEY
+#    RRSet, or half the RRSIG expiration interval and no more often than
+#    once per hour.  The expiration interval is the amount of time from
+#    when the RRSIG was last retrieved until the expiration time in the
+#    RRSIG.  That is, queryInterval = MAX(1 hr, MIN (15 days, 1/2*OrigTTL,
+#    1/2*RRSigExpirationInterval))
+# 
+#    If the query fails, the resolver MUST repeat the query until
+#    satisfied no more often than once an hour and no less often than the
+#    lesser of 1 day, 10% of the original TTL, or 10% of the original
+#    expiration interval.  That is, retryTime = MAX (1 hour, MIN (1 day,
+#    .1 * origTTL, .1 * expireInterval)).
+
+[[spec]]
+level = "MUST"
+quote = '''
+A resolver that has been configured for an automatic update of keys
+from a particular trust point MUST query that trust point (e.g., do a
+lookup for the DNSKEY RRSet and related RRSIG records) no less often
+than the lesser of 15 days, half the original TTL for the DNSKEY
+RRSet, or half the RRSIG expiration interval and no more often than
+once per hour.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the query fails, the resolver MUST repeat the query until
+satisfied no more often than once an hour and no less often than the
+lesser of 1 day, 10% of the original TTL, or 10% of the original
+expiration interval.
+'''
+

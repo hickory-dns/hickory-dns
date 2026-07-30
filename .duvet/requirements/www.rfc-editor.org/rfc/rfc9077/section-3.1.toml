@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc9077#section-3.1"
+
+# Updates to RFC 4034
+#
+#    [RFC4034] says:
+# 
+#    |  The NSEC RR SHOULD have the same TTL value as the SOA minimum TTL
+#    |  field.  This is in the spirit of negative caching ([RFC2308]).
+# 
+#    This is updated to say:
+# 
+#    |  The TTL of the NSEC RR that is returned MUST be the lesser of the
+#    |  MINIMUM field of the SOA record and the TTL of the SOA itself.
+#    |  This matches the definition of the TTL for negative responses in
+#    |  [RFC2308].  Because some signers incrementally update the NSEC
+#    |  chain, a transient inconsistency between the observed and expected
+#    |  TTL MAY exist.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  The NSEC RR SHOULD have the same TTL value as the SOA minimum TTL
+|  field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  The TTL of the NSEC RR that is returned MUST be the lesser of the
+|  MINIMUM field of the SOA record and the TTL of the SOA itself.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Because some signers incrementally update the NSEC
+|  chain, a transient inconsistency between the observed and expected
+|  TTL MAY exist.
+'''
+

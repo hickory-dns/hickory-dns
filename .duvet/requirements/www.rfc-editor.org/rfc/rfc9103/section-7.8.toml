@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.8"
+
+# Response RCODES
+#
+#    XoT clients and servers MUST implement EDE codes.  If a XoT server
+#    receives non-XoT traffic it is not willing to answer on a TLS
+#    connection, it SHOULD respond with REFUSED and the extended DNS error
+#    code 21 - Not Supported [RFC8914].  XoT clients should not send any
+#    further queries of this type to the server for a reasonable period of
+#    time (for example, one hour), i.e., long enough that the server
+#    configuration or policy might be updated.
+# 
+#    Historically, servers have used the REFUSED RCODE for many
+#    situations; therefore, clients often had no detailed information on
+#    which to base an error or fallback path when queries were refused.
+#    As a result, the client behavior could vary significantly.  XoT
+#    servers that refuse queries must cater to the fact that client
+#    behavior might vary from continually retrying queries regardless of
+#    receiving REFUSED to every query or, at the other extreme, clients
+#    may decide to stop using the server over any transport.  This might
+#    be because those clients are either non-XoT clients or do not
+#    implement EDE codes.
+
+[[spec]]
+level = "MUST"
+quote = '''
+XoT clients and servers MUST implement EDE codes.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a XoT server
+receives non-XoT traffic it is not willing to answer on a TLS
+connection, it SHOULD respond with REFUSED and the extended DNS error
+code 21 - Not Supported [RFC8914].
+'''
+

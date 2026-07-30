@@ -1,0 +1,136 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.1.1"
+
+# Header Values
+#
+#    These are the DNS message header values for an AXFR query.
+# 
+#       ID          Selected by client; see Note a)
+# 
+#       QR          MUST be 0 (Query)
+# 
+#       OPCODE      MUST be 0 (Standard Query)
+# 
+#       Flags:
+#          AA       "n/a" -- see Note b)
+#          TC       "n/a" -- see Note b)
+#          RD       "n/a" -- see Note b)
+#          RA       "n/a" -- see Note b)
+#          Z        "mbz" -- see Note c)
+#          AD       "n/a" -- see Note b)
+#          CD       "n/a" -- see Note b)
+# 
+#       RCODE       MUST be 0 (No error)
+# 
+#       QDCOUNT     Number of entries in Question section;   MUST be 1
+# 
+#       ANCOUNT     Number of entries in Answer section;     MUST be 0
+# 
+#       NSCOUNT     Number of entries in Authority section;  MUST be 0
+# 
+#       ARCOUNT     Number of entries in Additional section -- see Note d)
+# 
+#    Notes:
+# 
+#    a) Set to any value that the client is not already using with the
+#       same server.  There is no specific means for selecting the value
+#       in this field.  (Recall that AXFR is done only via TCP connections
+#       -- see Section 4, "Transport".)
+# 
+#       A server MUST reply using messages that use the same message ID to
+#       allow a client to have multiple queries outstanding concurrently
+#       over the same TCP connection -- see Note a) in Section 2.2.1 for
+#       more details.
+# 
+#    b) "n/a" -- The value in this field has no meaning in the context of
+#       AXFR query messages.  For the client, it is RECOMMENDED that the
+#       value be zero.  The server MUST ignore this value.
+# 
+#    c) "mbz" -- The client MUST set this bit to 0; the server MUST ignore
+#       it.
+# 
+#    d) The client MUST set this field to the number of resource records
+#       it places into the Additional section.  In the absence of explicit
+#       specification of new RRs to be carried in the Additional section
+#       of AXFR queries, the value MAY be 0, 1, or 2.  See Section 2.1.5,
+#       "Additional Section", for details on the currently applicable RRs.
+
+[[spec]]
+level = "MUST"
+quote = '''
+QR          MUST be 0 (Query)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+OPCODE      MUST be 0 (Standard Query)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+RCODE       MUST be 0 (No error)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+QDCOUNT     Number of entries in Question section;   MUST be 1
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+ANCOUNT     Number of entries in Answer section;     MUST be 0
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+NSCOUNT     Number of entries in Authority section;  MUST be 0
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A server MUST reply using messages that use the same message ID to
+allow a client to have multiple queries outstanding concurrently
+over the same TCP connection -- see Note a) in Section 2.2.1 for
+more details.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For the client, it is RECOMMENDED that the
+value be zero.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST ignore this value.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+c) "mbz" -- The client MUST set this bit to 0; the server MUST ignore
+it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+d) The client MUST set this field to the number of resource records
+it places into the Additional section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In the absence of explicit
+specification of new RRs to be carried in the Additional section
+of AXFR queries, the value MAY be 0, 1, or 2.
+'''
+

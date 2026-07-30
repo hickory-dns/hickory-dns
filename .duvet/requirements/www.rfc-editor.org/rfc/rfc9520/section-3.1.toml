@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc9520#section-3.1"
+
+# Retries and Timeouts
+#
+#    A resolver MUST NOT retry a given query to a server address over a
+#    given DNS transport more than twice (i.e., three queries in total)
+#    before considering the server address unresponsive over that DNS
+#    transport for that query.
+# 
+#    A resolver MAY retry a given query over a different DNS transport to
+#    the same server if it has reason to believe the DNS transport is
+#    available for that server and is compatible with the resolver's
+#    security policies.
+# 
+#    This document does not place any requirements on how long an
+#    implementation should wait before retrying a query (aka a timeout
+#    value), which may be implementation or configuration dependent.  It
+#    is generally expected that typical timeout values range from 3 to 30
+#    seconds.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A resolver MUST NOT retry a given query to a server address over a
+given DNS transport more than twice (i.e., three queries in total)
+before considering the server address unresponsive over that DNS
+transport for that query.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A resolver MAY retry a given query over a different DNS transport to
+the same server if it has reason to believe the DNS transport is
+available for that server and is compatible with the resolver's
+security policies.
+'''
+

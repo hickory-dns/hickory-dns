@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc9558#section-2"
+
+# DNSKEY Resource Records
+#
+#    The format of the DNSKEY RR can be found in RFC 4034 [RFC4034].
+# 
+#    GOST R 34.10-2012 public keys are stored with the algorithm number
+#    23.
+# 
+#    According to RFC 7091 [RFC7091], a GOST R 34.10-2012 public key is a
+#    point on the elliptic curve Q = (x, y).  The wire representation of a
+#    public key MUST contain 64 octets, where the first 32 octets contain
+#    the little-endian representation of x and the second 32 octets
+#    contain the little-endian representation of y.
+# 
+#    As RFC 6986 and RFC 7091 allow two variants of the length of the
+#    output hash and the signature and many variants of parameters of the
+#    digital signature, for the purpose of this document we use the
+#    256-bit variant of the digital signature algorithm, corresponding
+#    with the 256-bit variant of the digest algorithm.  We select the
+#    parameters for the digital signature algorithm to be id-tc26-gost-
+#    3410-2012-256-paramSetA as specified in RFC 7836 [RFC7836]; this
+#    document refers to it as "parameter set A".
+
+[[spec]]
+level = "MUST"
+quote = '''
+The wire representation of a
+public key MUST contain 64 octets, where the first 32 octets contain
+the little-endian representation of x and the second 32 octets
+contain the little-endian representation of y.
+'''
+

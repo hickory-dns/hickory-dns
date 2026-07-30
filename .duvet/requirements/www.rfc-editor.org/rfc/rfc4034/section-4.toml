@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-4"
+
+# The NSEC Resource Record
+#
+#    The NSEC resource record lists two separate things: the next owner
+#    name (in the canonical ordering of the zone) that contains
+#    authoritative data or a delegation point NS RRset, and the set of RR
+#    types present at the NSEC RR's owner name [RFC3845].  The complete
+#    set of NSEC RRs in a zone indicates which authoritative RRsets exist
+#    in a zone and also form a chain of authoritative owner names in the
+#    zone.  This information is used to provide authenticated denial of
+#    existence for DNS data, as described in [RFC4035].
+# 
+#    Because every authoritative name in a zone must be part of the NSEC
+#    chain, NSEC RRs must be present for names containing a CNAME RR.
+#    This is a change to the traditional DNS specification [RFC1034],
+#    which stated that if a CNAME is present for a name, it is the only
+#    type allowed at that name.  An RRSIG (see Section 3) and NSEC MUST
+#    exist for the same name as does a CNAME resource record in a signed
+#    zone.
+# 
+#    See [RFC4035] for discussion of how a zone signer determines
+#    precisely which NSEC RRs it has to include in a zone.
+# 
+#    The type value for the NSEC RR is 47.
+# 
+#    The NSEC RR is class independent.
+# 
+#    The NSEC RR SHOULD have the same TTL value as the SOA minimum TTL
+#    field.  This is in the spirit of negative caching ([RFC2308]).
+
+[[spec]]
+level = "MUST"
+quote = '''
+An RRSIG (see Section 3) and NSEC MUST
+exist for the same name as does a CNAME resource record in a signed
+zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The NSEC RR SHOULD have the same TTL value as the SOA minimum TTL
+field.
+'''
+

@@ -1,0 +1,96 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-3.2"
+
+# The RRSIG RR Presentation Format
+#
+#    The presentation format of the RDATA portion is as follows:
+# 
+#    The Type Covered field is represented as an RR type mnemonic.  When
+#    the mnemonic is not known, the TYPE representation as described in
+#    [RFC3597], Section 5, MUST be used.
+# 
+#    The Algorithm field value MUST be represented either as an unsigned
+#    decimal integer or as an algorithm mnemonic, as specified in Appendix
+#    A.1.
+# 
+#    The Labels field value MUST be represented as an unsigned decimal
+#    integer.
+# 
+#    The Original TTL field value MUST be represented as an unsigned
+#    decimal integer.
+# 
+#    The Signature Expiration Time and Inception Time field values MUST be
+#    represented either as an unsigned decimal integer indicating seconds
+#    since 1 January 1970 00:00:00 UTC, or in the form YYYYMMDDHHmmSS in
+#    UTC, where:
+# 
+#       YYYY is the year (0001-9999, but see Section 3.1.5);
+#       MM is the month number (01-12);
+#       DD is the day of the month (01-31);
+#       HH is the hour, in 24 hour notation (00-23);
+#       mm is the minute (00-59); and
+#       SS is the second (00-59).
+# 
+#    Note that it is always possible to distinguish between these two
+#    formats because the YYYYMMDDHHmmSS format will always be exactly 14
+#    digits, while the decimal representation of a 32-bit unsigned integer
+#    can never be longer than 10 digits.
+# 
+#    The Key Tag field MUST be represented as an unsigned decimal integer.
+# 
+#    The Signer's Name field value MUST be represented as a domain name.
+# 
+#    The Signature field is represented as a Base64 encoding of the
+#    signature.  Whitespace is allowed within the Base64 text.  See
+#    Section 2.2.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When
+the mnemonic is not known, the TYPE representation as described in
+[RFC3597], Section 5, MUST be used.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Algorithm field value MUST be represented either as an unsigned
+decimal integer or as an algorithm mnemonic, as specified in Appendix
+A.1.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Labels field value MUST be represented as an unsigned decimal
+integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Original TTL field value MUST be represented as an unsigned
+decimal integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Signature Expiration Time and Inception Time field values MUST be
+represented either as an unsigned decimal integer indicating seconds
+since 1 January 1970 00:00:00 UTC, or in the form YYYYMMDDHHmmSS in
+UTC, where:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Key Tag field MUST be represented as an unsigned decimal integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Signer's Name field value MUST be represented as a domain name.
+'''
+
