@@ -19,7 +19,8 @@ use tokio::net::{TcpListener, UdpSocket};
 mod handlers;
 use handlers::{
     BogusNoDataInsteadOfCname, DropRrsetHandler, ForgedDelegationHandler, ServfailRrsetHandler,
-    bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler, cname_loop_handler,
+    bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
+    bogus_wildcard_expansion_nsec_same_name_condition_handler, cname_loop_handler,
     empty_response_handler, foreign_class_handler, nsec3_apex_nodata_handler,
     nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
     parent_ns_in_authority_handler, qr_not_response_force_tcp_handler, qr_not_response_handler,
@@ -105,6 +106,7 @@ enum HandlerArg {
         zone: Name,
         nameserver: Name,
     },
+    BogusWildcardExpansionNsecSameNameCondition,
 }
 
 impl HandlerArg {
@@ -150,6 +152,9 @@ impl HandlerArg {
                 nameserver,
             } => FORGED_DELEGATION_HANDLER
                 .get_or_init(|| ForgedDelegationHandler::new(ip_address, zone, nameserver)),
+            Self::BogusWildcardExpansionNsecSameNameCondition => {
+                &(bogus_wildcard_expansion_nsec_same_name_condition_handler as HandlerMessageFnPtr)
+            }
         }
     }
 }
