@@ -11,7 +11,7 @@ use hickory_net::{
 use hickory_proto::{
     dnssec::{
         Nsec3HashAlgorithm,
-        rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
+        rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
     },
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, MessageType, Query, ResponseCode},
     rr::{
@@ -236,10 +236,7 @@ pub(crate) fn nsec3_nocover_handler(request: Message, _transport: Transport) -> 
     let correct_name = origin_name.prepend_label("subdomain-0")?;
     let valid_nx_name = origin_name.prepend_label("validnx")?;
 
-    let records = zone_file::parse_zone_file(Path::new(
-        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
-    ))
-    .map_err(|message| anyhow!("nsec3_nocover handler: unable to load zone file: {message}"))?;
+    let records = read_zone_file()?;
 
     match query_type {
         RecordType::DNSKEY | RecordType::SOA => {
@@ -1343,6 +1340,194 @@ impl Handler for ForgedDelegationHandler {
         }
 
         Ok(Some(encode_response(&response, max_message_size)?))
+    }
+}
+
+pub(super) fn bogus_wildcard_expansion_nsec_same_name_condition_handler(
+    request: Message,
+    _transport: Transport,
+) -> Result<Message> {
+    let mut msg = request.into_response();
+    let query = &msg.queries[0];
+    let query_name = query.name.clone();
+    let query_type = query.query_type;
+
+    let origin_name = Name::from_ascii("hickory-dns.testing.")?;
+    let www_name = Name::from_ascii("www.hickory-dns.testing.")?;
+    let wildcard_name = Name::from_ascii("*.hickory-dns.testing.")?;
+    let expected_query_name = Name::from_ascii("subdomain.www.hickory-dns.testing.")?;
+
+    let records = read_zone_file()?;
+    // Gather RRsets and signatures over RRsets from the zone file.
+    let soa = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::SOA)
+        .collect::<Vec<_>>();
+    let soa_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&origin_name, RecordType::SOA))
+        .collect::<Vec<_>>();
+    let ns = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::NS)
+        .collect::<Vec<_>>();
+    let ns_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&origin_name, RecordType::NS))
+        .collect::<Vec<_>>();
+    let dnskey = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::DNSKEY)
+        .collect::<Vec<_>>();
+    let dnskey_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&origin_name, RecordType::DNSKEY))
+        .collect::<Vec<_>>();
+    let apex_nsec = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::NSEC && r.name == origin_name)
+        .collect::<Vec<_>>();
+    let apex_nsec_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&origin_name, RecordType::NSEC))
+        .collect::<Vec<_>>();
+    let wildcard_a = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::A && r.name == wildcard_name)
+        .collect::<Vec<_>>();
+    let wildcard_a_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&wildcard_name, RecordType::A))
+        .collect::<Vec<_>>();
+    let wildcard_nsec = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::NSEC && r.name == wildcard_name)
+        .collect::<Vec<_>>();
+    let wildcard_nsec_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&wildcard_name, RecordType::NSEC))
+        .collect::<Vec<_>>();
+    let www_nsec = records
+        .iter()
+        .filter(|r| r.record_type() == RecordType::NSEC && r.name == www_name)
+        .collect::<Vec<_>>();
+    let www_nsec_rrsig = records
+        .iter()
+        .filter(filter_rrsig_rrset(&www_name, RecordType::NSEC))
+        .collect::<Vec<_>>();
+
+    match query_type {
+        RecordType::SOA => {
+            msg.add_answers(soa.iter().copied().cloned());
+            msg.add_answers(soa_rrsig.iter().copied().cloned());
+        }
+        RecordType::DNSKEY => {
+            msg.add_answers(dnskey.iter().copied().cloned());
+            msg.add_answers(dnskey_rrsig.iter().copied().cloned());
+        }
+        RecordType::A if query_name == expected_query_name => {
+            // This is the query for which we return a tampered response.
+
+            let mut modified_a_record =
+                (*wildcard_a.first().context("no wildcard A record")?).clone();
+            let mut modified_a_rrsig = (*wildcard_a_rrsig
+                .first()
+                .context("no wildcard A signature")?)
+            .clone();
+            // Wildcard expansion: overwrite name.
+            modified_a_record.name = expected_query_name.clone();
+            modified_a_rrsig.name = expected_query_name.clone();
+            msg.add_answer(modified_a_record);
+            msg.add_answer(modified_a_rrsig);
+
+            let mut modified_nsec_record =
+                (*wildcard_nsec.first().context("no wildcard NSEC record")?).clone();
+            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &mut modified_nsec_record.data else {
+                return Err(anyhow!("wrong RDATA type in wildcard NSEC record"));
+            };
+            // Overwrite next domain name to prove the query name, subdomain.www.hickory-dns.testing.,
+            // does not exist.
+            *nsec = NSEC::new(
+                Name::from_ascii("z.hickory-dns.testing.").unwrap(),
+                nsec.type_bit_maps(),
+            );
+            msg.add_authority(modified_nsec_record);
+            msg.add_authorities(wildcard_nsec_rrsig.iter().copied().cloned());
+
+            // Add an extra RRset with the same name to trigger the bug.
+            msg.add_authorities(wildcard_a.iter().copied().cloned());
+            msg.add_authorities(wildcard_a_rrsig.iter().copied().cloned());
+        }
+        RecordType::NS if query_name == origin_name => {
+            msg.add_answers(ns.iter().copied().cloned());
+            msg.add_answers(ns_rrsig.iter().copied().cloned());
+        }
+        RecordType::NS if query_name == www_name || query_name == expected_query_name => {
+            msg.add_authorities(soa.iter().copied().cloned());
+            msg.add_authorities(soa_rrsig.iter().copied().cloned());
+            msg.add_authorities(www_nsec.iter().copied().cloned());
+            msg.add_authorities(www_nsec_rrsig.iter().copied().cloned());
+        }
+        RecordType::A if query_name.to_string().contains("primary") => {
+            // BIND requests A records for the name server names.
+            msg.add_answers(
+                records
+                    .iter()
+                    .filter(|r| {
+                        r.name == query_name
+                            && (r.record_type() == RecordType::A
+                                || r.record_type() == RecordType::RRSIG)
+                    })
+                    .cloned(),
+            );
+        }
+        RecordType::AAAA if query_name.to_string().contains("primary") => {
+            // BIND requests AAAA records for the name server names.
+            msg.add_authorities(soa.iter().copied().cloned());
+            msg.add_authorities(soa_rrsig.iter().copied().cloned());
+            msg.add_authorities(apex_nsec.iter().copied().cloned());
+            msg.add_authorities(apex_nsec_rrsig.iter().copied().cloned());
+            msg.add_authorities(wildcard_nsec.iter().copied().cloned());
+            msg.add_authorities(wildcard_nsec_rrsig.iter().copied().cloned());
+            msg.add_authorities(www_nsec.iter().copied().cloned());
+            msg.add_authorities(www_nsec_rrsig.iter().copied().cloned());
+        }
+        RecordType::A if query_name.to_string() == "www.hickory-dns.testing." => {
+            // Unbound sends this query as part of QNAME minimization.
+            msg.add_authorities(soa.iter().copied().cloned());
+            msg.add_authorities(soa_rrsig.iter().copied().cloned());
+            msg.add_authorities(www_nsec.iter().copied().cloned());
+            msg.add_authorities(www_nsec_rrsig.iter().copied().cloned());
+        }
+        _ => {
+            return Err(anyhow!("unexpected query: {query_name} {query_type}"));
+        }
+    }
+
+    msg.metadata.recursion_available = false;
+    msg.metadata.authoritative = true;
+    msg.metadata.authentic_data = true;
+    Ok(msg)
+}
+
+/// Reads a zone file and returns the records it contains.
+///
+/// If the environment variable `ZONE_FILE` is set, the filename of the zone file will be taken from
+/// there. Otherwise, `/etc/zones/main.zone` will be read by default.
+fn read_zone_file() -> Result<Vec<Record>> {
+    zone_file::parse_zone_file(Path::new(
+        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
+    ))
+    .map_err(|message| anyhow!("unable to load zone file: {message}"))
+}
+
+/// Returns a filter function that selects RRSIGs over a specific RRset.
+fn filter_rrsig_rrset(name: &Name, record_type: RecordType) -> impl Fn(&&Record) -> bool + use<'_> {
+    move |record| {
+        let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &record.data else {
+            return false;
+        };
+        rrsig.input().type_covered == record_type && &record.name == name
     }
 }
 
