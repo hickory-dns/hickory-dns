@@ -1013,3 +1013,121 @@ fn setup_wrong_rrset(
         resolver,
     ))
 }
+
+/// This is a regression test for how secure/bogus NSEC/NSEC3 records were handled.
+///
+/// Previously, NSEC and NSEC3 records were passed to verify_nsec()/verify_nsec3() if at least one
+/// record in the authority section with the same name passed signature validation. This is
+/// obviously incorrect, because what we care about is whether the NSEC/NSEC3 record passed
+/// signature validation. Only the NSEC case is tested here.
+///
+/// This test uses a server that sends crafted bogus responses exploiting this difference, and
+/// checks whether resolvers correctly reject them. The victim zone contains A records at both a
+/// wildcard name and a regular name. We send a query for the regular name, and the server
+/// constructs a response claiming only the record at the wildcard name exists, doing wildcard
+/// expanson on that record. A tampered NSEC record is included in the response, which will fail
+/// signature validation.
+///
+/// Zone:
+///
+/// ```text
+/// hickory-dns.testing. SOA ...
+/// hickory-dns.testing. NS ...
+/// hickory-dns.testing. NSEC *.hickory-dns.testing. NS SOA RRSIG NSEC DNSKEY
+/// hickory-dns.testing. DNSKEY ...
+/// hickory-dns.testing. RRSIG SOA ...
+/// hickory-dns.testing. RRSIG NS ...
+/// hickory-dns.testing. RRSIG NSEC ...
+/// hickory-dns.testing. RRSIG DNSKEY ...
+/// *.hickory-dns.testing. A 192.168.1.1
+/// *.hickory-dns.testing. NSEC www.hickory-dns.testing. A RRSIG NSEC
+/// *.hickory-dns.testing. RRSIG A ...
+/// *.hickory-dns.testing. RRSIG NSEC ...
+/// www.hickory-dns.testing. A 192.168.2.2
+/// www.hickory-dns.testing. NSEC hickory-dns.testing. A RRSIG NSEC
+/// www.hickory-dns.testing. RRSIG A ...
+/// www.hickory-dns.testing. RRSIG NSEC ...
+/// ```
+///
+/// Forged response:
+///
+/// ```text
+/// ;; QUESTION SECTION:
+/// ; subdomain.www.hickory-dns.testing. IN A
+///
+/// ;; ANSWER SECTION
+/// subdomain.www.hickory-dns.testing. IN A 192.168.1.1
+/// subdomain.www.hickory-dns.testing. IN RRSIG A 13 2 86400 (expiration) (inception) (tag) hickory-dns.testing. (signature)
+/// ; Note that labels=2 indicates this RRSIG record was expanded from the
+/// ; *.hickory-dns.testing. RRSIG record.
+///
+/// ;; AUTHORITY SECTION
+/// *.hickory-dns.testing. IN NSEC z.hickory-dns.testing. A RRSIG NSEC
+/// ; This is modified to prove that subdomain.www.hickory-dns.testing. does not exist.
+/// *.hickory-dns.testing. IN RRSIG NSEC 13 2 86400 (expiration) (inception) (tag) hickory-dns.testing. (signature)
+/// ; The signature is unmodified, so it will not validate.
+/// *.hickory-dns.testing. IN A 192.168.1.1
+/// *.hickory-dns.testing. IN RRSIG A 13 2 86400 (expiration) (inception) (tag) hickory-dns.testing. (signature)
+/// ; This is included to trigger the condition that some record with the same
+/// ; name passed signature validation.
+/// ```
+#[test]
+#[ignore]
+fn invalid_wildcard_expansion_bogus_nsec_same_name() -> Result<(), Error> {
+    let network = Network::new()?;
+    let sign_settings = SignSettings::default().nsec(Nsec::_1);
+
+    let mut leaf_ns = NameServer::new(
+        &Implementation::test_server(
+            "bogus_wildcard_expansion_nsec_same_name_condition",
+            Vec::new(),
+            "both",
+        ),
+        FQDN::TEST_DOMAIN,
+        &network,
+    )?;
+    leaf_ns.add(A {
+        fqdn: FQDN::TEST_DOMAIN.push_label("*"),
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(192, 168, 1, 1),
+    });
+    leaf_ns.add(A {
+        fqdn: FQDN::TEST_DOMAIN.push_label("www"),
+        ttl: 86400,
+        ipv4_addr: Ipv4Addr::new(192, 168, 2, 2),
+    });
+    let leaf_ns = leaf_ns.sign(sign_settings.clone())?;
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&leaf_ns);
+    tld_ns.add(leaf_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings.clone())?;
+    let root_hint = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let _leaf_ns = leaf_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _root_ns = root_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+    let dig_settings = *DigSettings::default().recurse().dnssec();
+
+    let response = client.dig(
+        dig_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::TEST_DOMAIN.push_label("www").push_label("subdomain"),
+    )?;
+
+    assert_eq!(response.status, DigStatus::SERVFAIL);
+
+    Ok(())
+}

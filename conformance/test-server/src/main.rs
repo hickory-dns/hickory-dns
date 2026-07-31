@@ -66,6 +66,9 @@ async fn main() -> Result<()> {
         } => Arc::new(handlers::ForgedDelegationHandler::new(
             ip_address, zone, nameserver,
         )),
+        HandlerArg::BogusWildcardExpansionNsecSameNameCondition => {
+            Arc::new(handlers::bogus_wildcard_expansion_nsec_same_name_condition_handler)
+        }
     };
 
     let mut handles = vec![];
@@ -137,6 +140,7 @@ enum HandlerArg {
         zone: Name,
         nameserver: Name,
     },
+    BogusWildcardExpansionNsecSameNameCondition,
 }
 
 struct UdpServer {
