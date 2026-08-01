@@ -118,6 +118,10 @@ allow_server = ["127.0.0.254/32"]
 ## you can override these default entries by adding exceptions to allow_server.
 deny_server = ["0.0.0.0/8", "127.0.0.0/8", "::/128", "::1/128"]
 
+## qname_minimization: "Relaxed" or "Strict", defaults to "Strict".
+## When set to "Relaxed", queries continue when receiving NXDOMAIN on empty non-terminal labels.
+qname_minimization = "Strict"
+
 ## cache_policy: set the minimum/maximum TTL for positive/negative responses.
 ## This can be set for all queries and for specific query types.
 [zones.stores.cache_policy.default]
