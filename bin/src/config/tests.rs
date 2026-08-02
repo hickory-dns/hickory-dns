@@ -461,6 +461,13 @@ fn test_reject_unknown_fields() {
                     skip = true;
                     break;
                 }
+
+                #[cfg(not(feature = "__dnssec"))]
+                if store.contains_key("dnssec_policy") {
+                    println!("skipping due to dnssec_policy setting");
+                    skip = true;
+                    break;
+                }
             }
         }
 
