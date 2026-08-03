@@ -342,7 +342,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             };
 
             // Check if the response has data for the canonical name.
-            if response.answers.iter().any(|record| record.name == name.0) {
+            if response.answers.iter().any(|record| {
+                record.name == name.0
+                    && (record.record_type() == query.query_type
+                        || record.record_type() == RecordType::CNAME)
+            }) {
                 continue;
             }
 
