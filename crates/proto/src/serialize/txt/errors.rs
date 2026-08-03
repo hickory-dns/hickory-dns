@@ -160,6 +160,10 @@ pub enum LexerError {
     #[error("{0}")]
     Message(&'static str),
 
+    /// A single token ran past the lexer's bound
+    #[error("token is too long")]
+    TokenTooLong,
+
     /// An unclosed list was found
     #[error("unclosed list, missing ')'")]
     UnclosedList,

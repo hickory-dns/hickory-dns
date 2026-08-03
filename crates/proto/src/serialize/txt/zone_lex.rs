@@ -18,6 +18,11 @@ pub(crate) struct Lexer<'a> {
     state: State,
 }
 
+/// The most steps the lexer may take over one token, so that a malformed input cannot spin it
+/// forever. A step is not the same as a character, a state transition takes one without consuming
+/// any, and an escape sequence consumes up to four, so this is a bound on work rather than on length.
+const MAX_TOKEN_STEPS: usize = 4_096;
+
 impl<'a> Lexer<'a> {
     /// Creates a new lexer with the given data to parse
     pub(crate) fn new(txt: impl Into<Cow<'a, str>>) -> Self {
@@ -36,10 +41,7 @@ impl<'a> Lexer<'a> {
         let mut char_data_vec: Option<Vec<String>> = None;
         let mut char_data: Option<String> = None;
 
-        for i in 0..4_096 {
-            // max chars in a single lex, helps with issues in the lexer...
-            assert!(i < 4095); // keeps the bounds of the loop defined (nothing lasts forever)
-
+        for _ in 0..MAX_TOKEN_STEPS {
             // This is to get around mutability rules such that we can peek at the iter without moving next...
             let ch: Option<char> = self.peek();
 
@@ -259,7 +261,9 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        unreachable!("The above match statement should have found a terminal state");
+        // Falling out of the loop means the token ran past MAX_TOKEN_STEPS without reaching a
+        // terminal state.
+        Err(LexerError::TokenTooLong)
     }
 
     fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
@@ -764,5 +768,29 @@ $INCLUDE <SUBSYS>ISI-MAILBOXES.TXT",
             Token::CharData("<SUBSYS>ISI-MAILBOXES.TXT".to_string())
         );
         assert!(next_token(&mut lexer).is_none());
+    }
+
+    #[test]
+    fn oversized_token() {
+        // A token that never terminates within the bound is an error, not a panic.
+        let mut lexer = Lexer::new("a".repeat(MAX_TOKEN_STEPS));
+        assert_eq!(lexer.next_token(), Err(LexerError::TokenTooLong));
+
+        // An unterminated quoted string is the same story, and used to panic on its way to the
+        // UnclosedQuotedString error.
+        let mut lexer = Lexer::new(alloc::format!("\"{}", "a".repeat(MAX_TOKEN_STEPS)));
+        assert_eq!(lexer.next_token(), Err(LexerError::TokenTooLong));
+
+        // A long token that stays inside the bound still lexes. A handful of steps go to state
+        // transitions rather than to characters, so this stops short of the bound itself.
+        let long = "a".repeat(MAX_TOKEN_STEPS - 8);
+        let mut lexer = Lexer::new(long.clone());
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData(long));
+
+        // Steps are not characters: each escape sequence consumes several, so a token can run
+        // well past MAX_TOKEN_STEPS characters and still lex.
+        let escaped = alloc::format!("\"{}\"", "\\065".repeat(MAX_TOKEN_STEPS / 2));
+        let mut lexer = Lexer::new(escaped);
+        assert!(matches!(next_token(&mut lexer), Some(Token::CharData(_))));
     }
 }
