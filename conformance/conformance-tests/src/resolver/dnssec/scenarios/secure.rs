@@ -382,13 +382,24 @@ fn no_root_ds_query() -> Result<(), Error> {
 }
 
 #[test]
-fn nsec_wildcard_expanded_positive_response() -> Result<(), Error> {
+fn nsec_wildcard_expanded_positive_response_four_labels() -> Result<(), Error> {
+    nsec_wildcard_expanded_positive_response(
+        FQDN::EXAMPLE_SUBDOMAIN
+            .push_label("a")
+            .push_label("b")
+            .push_label("c")
+            .push_label("d"),
+    )
+}
+
+#[ignore = "hickory wildcard validation is incorrect"]
+#[test]
+fn nsec_wildcard_expanded_positive_response_one_label() -> Result<(), Error> {
+    nsec_wildcard_expanded_positive_response(FQDN::EXAMPLE_SUBDOMAIN.push_label("www"))
+}
+
+fn nsec_wildcard_expanded_positive_response(needle_fqdn: FQDN) -> Result<(), Error> {
     let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
-    let needle_fqdn = FQDN::EXAMPLE_SUBDOMAIN
-        .push_label("a")
-        .push_label("b")
-        .push_label("c")
-        .push_label("d");
     let network = Network::new()?;
 
     let mut leaf_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
