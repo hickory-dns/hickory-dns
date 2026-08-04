@@ -8,7 +8,7 @@
 use tracing::{debug, error};
 
 use crate::{
-    net::{udp::MAX_RECEIVE_BUFFER_SIZE, xfer::Protocol},
+    net::xfer::Protocol,
     proto::{
         ProtoError,
         op::{
@@ -90,8 +90,9 @@ where
         encoder.set_max_size(match protocol {
             Protocol::Udp => match &self.edns {
                 Some(edns) => edns.max_payload(),
-                // No EDNS, use the recommended max from RFC 6891
-                None => MAX_RECEIVE_BUFFER_SIZE as u16,
+                // No EDNS, so the requestor advertised no buffer and RFC 1035 section 4.2.1
+                // restricts the message to 512 bytes
+                None => 512,
             },
             _ => u16::MAX,
         });
@@ -289,8 +290,8 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use crate::proto::op::{Header, Message, MessageType, Metadata, OpCode};
-    use crate::proto::rr::{DNSClass, Name, RData, Record};
+    use crate::proto::op::{Header, Message, MessageType, Metadata, OpCode, Query};
+    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType};
     use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 
     use super::*;
@@ -366,6 +367,38 @@ mod tests {
         assert!(response.metadata.truncation);
         assert_eq!(response.answers.len(), 0);
         assert!(response.authorities.len() > 1);
+    }
+
+    /// A response with no OPT record answers a request that had none, so RFC 1035 section 4.2.1
+    /// applies and the message may not exceed 512 bytes.
+    #[test]
+    fn test_non_edns_udp_response_is_bounded_at_512() {
+        let answer = Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            0,
+            RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+        );
+
+        let request = MessageRequest::mock(
+            Metadata::new(10, MessageType::Query, OpCode::Query),
+            Query::query(Name::root(), RecordType::A),
+        );
+        assert_eq!(request.max_payload(), 512);
+
+        let response = MessageResponseBuilder::from_message_request(&request).build(
+            Metadata::new(10, MessageType::Response, OpCode::Query),
+            iter::repeat(&answer),
+            [],
+            [],
+            [],
+        );
+
+        let (_info, buf) = response.encode(Protocol::Udp).expect("failed to encode");
+        assert!(buf.len() <= 512, "response was {} bytes", buf.len());
+
+        let response = Message::from_vec(&buf).expect("failed to decode");
+        assert!(response.metadata.truncation);
+        assert!(response.answers.len() > 1);
     }
 
     // https://github.com/hickory-dns/hickory-dns/issues/2210
