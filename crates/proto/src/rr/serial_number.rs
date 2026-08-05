@@ -65,3 +65,58 @@ impl PartialOrd for SerialNumber {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_equal() {
+       let a = SerialNumber (42);
+       let b = SerialNumber (42);
+       assert_eq!(a.partial_cmp(&b), Some(Ordering::Equal));
+    }
+
+    #[test]
+    fn test_none() {
+        let a = SerialNumber(0);
+        let b = SerialNumber (1 << 31);
+        assert_eq!(a.partial_cmp(&b), None);    
+    }
+
+    #[test]
+    fn test_less() {
+        let a = SerialNumber(40);
+        let b = SerialNumber (42);
+        assert_eq!(a.partial_cmp(&b), Some(Ordering::Less));    
+    }
+
+    #[test]
+    fn test_less_wrap() {
+        let a = SerialNumber(u32::MAX);
+        let b = SerialNumber (0);
+        assert_eq!(a.partial_cmp(&b), Some(Ordering::Less));    
+    }
+
+    #[test]
+    fn test_greater() {
+        let a = SerialNumber(42);
+        let b = SerialNumber (40);
+        assert_eq!(a.partial_cmp(&b), Some(Ordering::Greater));    
+    }
+
+    #[test]
+    fn test_greater_wrap() {
+        let a = SerialNumber(0);
+        let b = SerialNumber (u32::MAX);
+        assert_eq!(a.partial_cmp(&b), Some(Ordering::Greater));    
+    }
+
+    #[test]
+    fn test_add_wrapping() {
+        let a = SerialNumber(1);
+        let b = SerialNumber (u32::MAX);
+        assert_eq!(a+b ,SerialNumber(0));    
+    }
+
+}
