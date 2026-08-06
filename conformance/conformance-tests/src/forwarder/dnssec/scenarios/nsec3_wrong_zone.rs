@@ -79,7 +79,6 @@ use dns_test::{
 /// H(victim.testing.).attacker.testing. RRSIG NSEC3 ...
 /// ```
 #[test]
-#[ignore = "hickory lacks checks on names of NSEC3 records"]
 fn forged_nsec3_from_wrong_zone() -> Result<(), Error> {
     let network = Network::new()?;
     let sign_settings = SignSettings::default().nsec(Nsec::_3 {
