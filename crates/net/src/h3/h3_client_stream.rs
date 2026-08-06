@@ -414,7 +414,8 @@ impl H3ClientStreamBuilder {
         server_name: Arc<str>,
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
-        let quic_connection = timeout(
+        let local_addr = endpoint.local_addr().ok();
+        let quic_connection = match timeout(
             self.connect_timeout,
             connect_quic(
                 name_server,
@@ -429,7 +430,15 @@ impl H3ClientStreamBuilder {
             ),
         )
         .await
-        .map_err(|_| NetError::Timeout)??;
+        {
+            Ok(connection) => connection?,
+            Err(elapsed) => {
+                return Err(NetError::from(format!(
+                    "h3 QUIC connect Timeout after {:?}: server={name_server}, server_name={server_name}, local_addr={local_addr:?}, elapsed={elapsed}",
+                    self.connect_timeout,
+                )));
+            }
+        };
 
         let h3_connection = h3_quinn::Connection::new(quic_connection);
         let mut builder = h3::client::builder();
@@ -440,7 +449,12 @@ impl H3ClientStreamBuilder {
             Ok(Err(e)) => {
                 return Err(ProtoError::from(format!("h3 connection failed: {e}")).into());
             }
-            Err(_) => return Err(NetError::Timeout),
+            Err(_) => {
+                return Err(NetError::from(format!(
+                    "h3 HTTP/3 setup Timeout after {:?}: server={name_server}, server_name={server_name}, path={path}",
+                    self.connect_timeout
+                )));
+            }
         };
 
         let (shutdown_tx, mut shutdown_rx) = mpsc::channel::<()>(1);
@@ -499,26 +513,23 @@ mod tests {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
-        let mut request = Message::query();
-        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        request.add_query(query);
-        request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
-        edns.set_version(0);
-        edns.set_max_payload(1232);
-        request.edns = Some(edns);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3 = H3ClientStream::builder()
-            .crypto_config(client_config)
-            .build(google, Arc::from("dns.google"), Arc::from("/dns-query"))
-            .await
-            .expect("h3 connect failed");
+        let config = client_config.clone();
+        let build_fn = |b: H3ClientStreamBuilder| b.crypto_config(config.clone());
+        let mut h3 = connect_h3_with_retries(
+            google,
+            Arc::from("dns.google"),
+            Arc::from("/dns-query"),
+            &build_fn,
+            5,
+        )
+        .await
+        .expect("h3 connect failed");
 
+        let request = make_test_dns_request(RecordType::A);
         let response = h3
             .send_message(request)
             .first_answer()
@@ -532,24 +543,9 @@ mod tests {
                 .any(|record| matches!(record.data, RData::A(_)))
         );
 
-        //
-        // assert that the connection works for a second query
-        let mut request = Message::query();
-        let query = Query::new(
-            Name::from_str("www.example.com.").unwrap(),
-            RecordType::AAAA,
-        );
-        request.add_query(query);
-        request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
-        edns.set_version(0);
-        edns.set_max_payload(1232);
-        request.edns = Some(edns);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
-
+        let request = make_test_dns_request(RecordType::AAAA);
         let response = h3
-            .send_message(request.clone())
+            .send_message(request)
             .first_answer()
             .await
             .expect("send_message failed");
@@ -567,30 +563,23 @@ mod tests {
         subscribe();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
-        let mut request = Message::query();
-        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        request.add_query(query);
-        request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
-        edns.set_version(0);
-        edns.set_max_payload(1232);
-        request.edns = Some(edns);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3 = H3ClientStream::builder()
-            .crypto_config(client_config)
-            .build(
-                google,
-                Arc::from(google.ip().to_string()),
-                Arc::from("/dns-query"),
-            )
-            .await
-            .expect("h3 connect failed");
+        let config = client_config.clone();
+        let build_fn = |b: H3ClientStreamBuilder| b.crypto_config(config.clone());
+        let mut h3 = connect_h3_with_retries(
+            google,
+            Arc::from(google.ip().to_string()),
+            Arc::from("/dns-query"),
+            &build_fn,
+            5,
+        )
+        .await
+        .expect("h3 connect failed");
 
+        let request = make_test_dns_request(RecordType::A);
         let response = h3
             .send_message(request)
             .first_answer()
@@ -604,24 +593,9 @@ mod tests {
                 .any(|record| matches!(record.data, RData::A(_)))
         );
 
-        //
-        // assert that the connection works for a second query
-        let mut request = Message::query();
-        let query = Query::new(
-            Name::from_str("www.example.com.").unwrap(),
-            RecordType::AAAA,
-        );
-        request.add_query(query);
-        request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
-        edns.set_version(0);
-        edns.set_max_payload(1232);
-        request.edns = Some(edns);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
-
+        let request = make_test_dns_request(RecordType::AAAA);
         let response = h3
-            .send_message(request.clone())
+            .send_message(request)
             .first_answer()
             .await
             .expect("send_message failed");
@@ -639,32 +613,26 @@ mod tests {
         subscribe();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
-        let mut request = Message::query();
-        let query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        request.add_query(query);
-        request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
-        edns.set_version(0);
-        edns.set_max_payload(1232);
-        request.edns = Some(edns);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let mut client_config = client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let mut h3 = H3ClientStream::builder()
-            .crypto_config(client_config)
+        let config = client_config.clone();
+        let build_fn = |b: H3ClientStreamBuilder| {
             // Currently CF is using a broken GREASE implementation, see <https://github.com/hyperium/h3/issues/206>.
-            .disable_grease(true)
-            .build(
-                cloudflare,
-                Arc::from("cloudflare-dns.com"),
-                Arc::from("/dns-query"),
-            )
-            .await
-            .expect("h3 connect failed");
+            b.crypto_config(config.clone()).disable_grease(true)
+        };
+        let mut h3 = connect_h3_with_retries(
+            cloudflare,
+            Arc::from("cloudflare-dns.com"),
+            Arc::from("/dns-query"),
+            &build_fn,
+            5,
+        )
+        .await
+        .expect("h3 connect failed");
 
+        let request = make_test_dns_request(RecordType::A);
         let response = h3
             .send_message(request)
             .first_answer()
@@ -678,22 +646,7 @@ mod tests {
                 .any(|record| matches!(record.data, RData::A(_)))
         );
 
-        //
-        // assert that the connection works for a second query
-        let mut request = Message::query();
-        let query = Query::new(
-            Name::from_str("www.example.com.").unwrap(),
-            RecordType::AAAA,
-        );
-        request.add_query(query);
-        request.metadata.recursion_desired = true;
-        let mut edns = Edns::new();
-        edns.set_version(0);
-        edns.set_max_payload(1232);
-        request.edns = Some(edns);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
-
+        let request = make_test_dns_request(RecordType::AAAA);
         let response = h3
             .send_message(request)
             .first_answer()
@@ -756,5 +709,61 @@ mod tests {
             println!("join_set completed {idx}/{total}");
             idx += 1;
         }
+    }
+
+    fn make_test_dns_request(record_type: RecordType) -> DnsRequest {
+        let mut request = Message::query();
+        let query = Query::new(Name::from_str("www.example.com.").unwrap(), record_type);
+        request.add_query(query);
+        request.metadata.recursion_desired = true;
+        let mut edns = Edns::new();
+        edns.set_version(0);
+        edns.set_max_payload(1232);
+        request.edns = Some(edns);
+        DnsRequest::new(request, DnsRequestOptions::default())
+    }
+
+    // Retries H3 connection up to max_retries times with exponential backoff delays.
+    // Useful for flaky network conditions in tests. Use --nocapture to see retry details.
+    async fn connect_h3_with_retries<F>(
+        name_server: SocketAddr,
+        server_name: Arc<str>,
+        path: Arc<str>,
+        build_fn: &F,
+        max_retries: usize,
+    ) -> Result<H3ClientStream, NetError>
+    where
+        F: Fn(H3ClientStreamBuilder) -> H3ClientStreamBuilder,
+    {
+        let mut last_err = None;
+        let mut delay_ms = 100u64;
+
+        for attempt in 0..max_retries {
+            let builder = H3ClientStream::builder();
+            let builder = build_fn(builder);
+            match builder
+                .build(name_server, server_name.clone(), path.clone())
+                .await
+            {
+                Ok(stream) => {
+                    if attempt >= 1 {
+                        eprintln!("H3 connection succeeded after {attempt} retries");
+                    }
+                    return Ok(stream);
+                }
+                Err(e) => {
+                    if attempt < max_retries - 1 {
+                        eprintln!(
+                            "H3 connection attempt {attempt} failed: {e}; retrying in {delay_ms}ms"
+                        );
+                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                        delay_ms *= 2;
+                    }
+                    last_err = Some(e);
+                }
+            }
+        }
+
+        Err(last_err.unwrap())
     }
 }
