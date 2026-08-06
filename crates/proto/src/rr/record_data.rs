@@ -1355,7 +1355,10 @@ mod tests {
 
     use super::*;
     use crate::rr::domain::Name;
-    use crate::rr::rdata::{MX, SOA, SRV, TXT};
+    use crate::rr::{
+        SerialNumber,
+        rdata::{MX, SOA, SRV, TXT},
+    };
     use crate::serialize::binary::bin_tests::test_emit_data_set;
 
     fn get_data() -> Vec<(RData, Vec<u8>)> {
@@ -1389,7 +1392,7 @@ mod tests {
                 RData::SOA(SOA::new(
                     Name::from_str("www.example.com.").unwrap(),
                     Name::from_str("xxx.example.com.").unwrap(),
-                    u32::MAX,
+                    SerialNumber::from(u32::MAX),
                     -1,
                     -1,
                     -1,
@@ -1456,7 +1459,7 @@ mod tests {
             RData::SOA(SOA::new(
                 Name::from_str("www.example.com").unwrap(),
                 Name::from_str("xxx.example.com").unwrap(),
-                u32::MAX,
+                SerialNumber::from(u32::MAX),
                 -1,
                 -1,
                 -1,
@@ -1477,7 +1480,7 @@ mod tests {
             RData::SOA(SOA::new(
                 Name::from_str("www.example.com").unwrap(),
                 Name::from_str("xxx.example.com").unwrap(),
-                u32::MAX,
+                SerialNumber::from(u32::MAX),
                 -1,
                 -1,
                 -1,

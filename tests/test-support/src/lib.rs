@@ -20,7 +20,7 @@ use hickory_net::{
 use hickory_proto::{
     op::{Message, OpCode, Query, ResponseCode},
     rr::{
-        Name, RData, Record, RecordType,
+        Name, RData, Record, RecordType, SerialNumber,
         rdata::{A, NS, SOA},
     },
     serialize::binary::BinDecodable,
@@ -135,7 +135,15 @@ impl MockRecord {
             query_name: rr_name.clone(),
             query_type: RecordType::SOA,
             record_name: rr_name.clone(),
-            record_data: RData::SOA(SOA::new(mname.clone(), rname.clone(), 1, 1, 1, 1, 1)),
+            record_data: RData::SOA(SOA::new(
+                mname.clone(),
+                rname.clone(),
+                SerialNumber::from(1),
+                1,
+                1,
+                1,
+                1,
+            )),
             section: MockResponseSection::Authority,
         }
     }

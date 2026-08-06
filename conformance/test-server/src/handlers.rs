@@ -14,7 +14,7 @@ use hickory_proto::{
         rdata::{DNSSECRData, NSEC3, NSEC3PARAM, RRSIG},
     },
     op::{DnsRequest, DnsRequestOptions, Message, MessageType, Query, ResponseCode},
-    rr::{RData, Record, RecordType, domain::Name, rdata},
+    rr::{RData, Record, RecordType, SerialNumber, domain::Name, rdata},
 };
 use std::{
     env,
@@ -571,7 +571,15 @@ pub(crate) fn nxdomain_with_ns_authority_handler(
     msg.metadata.recursion_desired = false;
     msg.metadata.response_code = ResponseCode::NXDomain;
 
-    let soa = rdata::SOA::new(ns_name.clone(), ns_name.clone(), 1, 3600, 600, 604800, 300);
+    let soa = rdata::SOA::new(
+        ns_name.clone(),
+        ns_name.clone(),
+        SerialNumber::from(1),
+        3600,
+        600,
+        604800,
+        300,
+    );
     msg.add_authority(Record::from_rdata(zone.clone(), 300, RData::SOA(soa)));
     msg.add_authority(Record::from_rdata(
         zone,

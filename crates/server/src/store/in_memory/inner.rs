@@ -31,7 +31,8 @@ use crate::{
 use super::maybe_next_name;
 use crate::{
     proto::rr::{
-        DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
+        DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, SerialNumber,
+        rdata::SOA,
     },
     zone_handler::LookupOptions,
 };
@@ -184,12 +185,12 @@ impl InnerInMemory {
     }
 
     /// get the current serial number for the zone.
-    pub(super) fn serial(&self, origin: &LowerName) -> u32 {
+    pub(super) fn serial(&self, origin: &LowerName) -> SerialNumber {
         match self.inner_soa(origin) {
             Some(soa) => soa.serial,
             None => {
                 error!("could not lookup SOA for zone handler: {origin}");
-                0
+                SerialNumber::from(0)
             }
         }
     }
@@ -478,8 +479,8 @@ impl InnerInMemory {
             panic!("This was not an SOA record"); // valid panic, never should happen
         };
 
-        self.upsert(record, serial, dns_class);
-        serial
+        self.upsert(record, serial.get(), dns_class);
+        serial.get()
     }
 
     /// Inserts or updates a `Record` depending on its existence in the zone.
@@ -661,7 +662,7 @@ impl InnerInMemory {
 
         // insert all the nsec records
         for record in records {
-            let upserted = self.upsert(record, serial, dns_class);
+            let upserted = self.upsert(record, serial.get(), dns_class);
             debug_assert!(upserted);
         }
     }
@@ -790,7 +791,7 @@ impl InnerInMemory {
 
         // insert all the NSEC3 records.
         for record in records {
-            let upserted = self.upsert(record, serial, dns_class);
+            let upserted = self.upsert(record, serial.get(), dns_class);
             debug_assert!(upserted);
         }
 
@@ -986,7 +987,7 @@ mod tests {
             RData::SOA(SOA::new(
                 ns_name.clone(),
                 Name::from_str("hostmaster.example.com.").unwrap(),
-                1,
+                SerialNumber::from(1),
                 3600,
                 3600,
                 3600,

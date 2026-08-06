@@ -25,7 +25,7 @@ use hickory_proto::{
     },
     op::{DnsResponse, ResponseCode},
     rr::{
-        DNSClass, Name, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType, SerialNumber,
         rdata::{A, SOA},
     },
 };
@@ -186,7 +186,7 @@ async fn setup_authoritative_server(
                 RData::SOA(SOA::new(
                     Name::parse("nameserver.", None).unwrap(),
                     Name::parse("admin.nameserver.", None).unwrap(),
-                    0,
+                    SerialNumber::from(0),
                     3600,
                     3600,
                     3600,
