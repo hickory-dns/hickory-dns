@@ -1195,6 +1195,16 @@ fn verify_rrsig_with_keys(
         );
         return None;
     }
+    if rrset.record_type() == RecordType::NSEC3
+        && rrset.name().base_name() != rrsig.data().input().signer_name
+    {
+        warn!(
+            name = %rrset.name(),
+            signer_name = %rrsig.data().input().signer_name,
+            "NSEC3 record name is malformed"
+        );
+        return None;
+    }
 
     // DNSKEYs were already validated by the inner query in the above lookup
     let dnskeys = dnskey_message.answers.iter().filter_map(|r| {
