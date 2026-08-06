@@ -116,13 +116,13 @@ pub(super) fn verify_nsec3(
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty()); // checked in the caller
 
-    let pairs = match convert_nsec3_pairs(query, soa, nsec3s) {
-        Ok(pairs) => pairs,
+    let records = match convert_nsec3_records(query, soa, nsec3s) {
+        Ok(records) => records,
         Err(proof) => return proof,
     };
-    debug_assert!(!pairs.is_empty()); // `nsec3s` was not empty, and we returned on any invalid values
+    debug_assert!(!records.is_empty()); // `nsec3s` was not empty, and we returned on any invalid values
 
-    let cx = match Context::new(query, soa, &pairs) {
+    let cx = match Context::new(query, soa, &records) {
         Ok(cx) => cx,
         Err(proof) => return proof,
     };
@@ -191,43 +191,44 @@ pub(super) fn verify_nsec3(
 /// zone name.
 pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &NSEC3)]) -> bool {
     let query = Query::query(zone.clone(), RecordType::DS);
-    let Ok(pairs) = convert_nsec3_pairs(&query, None, nsec3s) else {
+    let Ok(records) = convert_nsec3_records(&query, None, nsec3s) else {
         return false;
     };
 
-    let Ok(cx) = Context::new(&query, None, &pairs) else {
+    let Ok(cx) = Context::new(&query, None, &records) else {
         return false;
     };
 
     // Check for matching record.
     let (hashed_zone_name, base32_hashed_zone_name) = cx.hash_and_label(zone);
-    if let Some(pair) = pairs
+    if let Some(info) = records
         .iter()
-        .find(|pair| pair.base32_hashed_name == base32_hashed_zone_name)
+        .find(|info| info.base32_hashed_name == base32_hashed_zone_name)
     {
-        let type_set = pair.nsec3_data.type_set();
+        let type_set = info.nsec3_data.type_set();
         return type_set.contains(RecordType::NS)
             && !type_set.contains(RecordType::DS)
             && !type_set.contains(RecordType::SOA);
     }
 
     // Check for covering record with opt-out flag set.
-    if let Some(pair) = find_covering_record(&pairs, &hashed_zone_name, &base32_hashed_zone_name) {
-        return pair.nsec3_data.opt_out();
+    if let Some(info) = find_covering_record(&records, &hashed_zone_name, &base32_hashed_zone_name)
+    {
+        return info.nsec3_data.opt_out();
     }
 
     false
 }
 
 /// Convert pairs of record names and NSEC3 RDATA to pairs of hashed record names and NSEC3 RDATA.
-fn convert_nsec3_pairs<'a>(
+fn convert_nsec3_records<'a>(
     query: &Query,
     soa: Option<&Name>,
     nsec3s: &'a [(&Name, &'a NSEC3)],
-) -> Result<Vec<Nsec3RecordPair<'a>>, Proof> {
+) -> Result<Vec<Nsec3RecordInfo<'a>>, Proof> {
     nsec3s
         .iter()
-        .map(|(name, data)| Nsec3RecordPair::new(name, data, query, soa))
+        .map(|(name, data)| Nsec3RecordInfo::new(name, data, query, soa))
         .collect()
 }
 
@@ -486,14 +487,14 @@ fn split_first_label(name: &Name) -> Option<(&[u8], Name)> {
 
 #[derive(Default)]
 struct ClosestEncloserProofInfo<'a> {
-    closest_encloser: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
-    next_closer: Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
+    closest_encloser: Option<(HashedNameInfo, &'a Nsec3RecordInfo<'a>)>,
+    next_closer: Option<(HashedNameInfo, &'a Nsec3RecordInfo<'a>)>,
 }
 
 struct Context<'a> {
     query: &'a Query,
     soa: Option<&'a Name>,
-    nsec3s: &'a [Nsec3RecordPair<'a>],
+    nsec3s: &'a [Nsec3RecordInfo<'a>],
     hash_algorithm: Nsec3HashAlgorithm,
     salt: &'a [u8],
     iterations: u16,
@@ -504,7 +505,7 @@ impl<'a> Context<'a> {
     fn new(
         query: &'a Query,
         soa: Option<&'a Name>,
-        nsec3s: &'a [Nsec3RecordPair<'a>],
+        nsec3s: &'a [Nsec3RecordInfo<'a>],
     ) -> Result<Self, Proof> {
         // RFC 5155 8.2 - all NSEC3 records share the same NSEC3 params
         let first = &nsec3s[0];
@@ -539,7 +540,7 @@ impl<'a> Context<'a> {
         matching: bool,
     ) -> (
         ClosestEncloserProofInfo<'a>,
-        Option<(HashedNameInfo, &'a Nsec3RecordPair<'a>)>,
+        Option<(HashedNameInfo, &'a Nsec3RecordInfo<'a>)>,
     ) {
         let closest_encloser_proof = self.closest_encloser_proof();
 
@@ -676,14 +677,14 @@ impl<'a> Context<'a> {
 }
 
 fn find_covering_record<'a>(
-    nsec3s: &'a [Nsec3RecordPair<'a>],
+    nsec3s: &'a [Nsec3RecordInfo<'a>],
     target_hashed_name: &[u8],
     // Strictly speaking we don't need this parameter, we can calculate
     // base32(target_hashed_name) inside the function.
     // However, we already have it available at call sites, may as well use
     // it and save on repeated base32 encodings.
     target_base32_hashed_name: &Label,
-) -> Option<&'a Nsec3RecordPair<'a>> {
+) -> Option<&'a Nsec3RecordInfo<'a>> {
     nsec3s.iter().find(|record| {
         let Some(record_next_hashed_owner_name_base32) =
             record.nsec3_data.next_hashed_owner_name_base32()
@@ -759,12 +760,13 @@ fn nsec3_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
     proof_log_yield(proof, query, "nsec3", msg)
 }
 
-struct Nsec3RecordPair<'a> {
+/// Preprocessed form of an NSEC3 record.
+struct Nsec3RecordInfo<'a> {
     base32_hashed_name: Label,
     nsec3_data: &'a NSEC3,
 }
 
-impl<'a> Nsec3RecordPair<'a> {
+impl<'a> Nsec3RecordInfo<'a> {
     /// Preprocesses an NSEC3 record and performs sanity checks.
     fn new(
         name: &'a Name,
@@ -797,7 +799,7 @@ impl<'a> Nsec3RecordPair<'a> {
             ));
         };
 
-        Ok(Nsec3RecordPair {
+        Ok(Nsec3RecordInfo {
             base32_hashed_name,
             nsec3_data: rdata,
         })
@@ -1625,11 +1627,11 @@ mod tests {
             [],
         );
 
-        let record_1_pair = Nsec3RecordPair {
+        let record_1_pair = Nsec3RecordInfo {
             base32_hashed_name: record_1_label,
             nsec3_data: &record_1_rdata,
         };
-        let record_2_pair = Nsec3RecordPair {
+        let record_2_pair = Nsec3RecordInfo {
             base32_hashed_name: record_2_label,
             nsec3_data: &record_2_rdata,
         };
