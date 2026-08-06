@@ -292,7 +292,7 @@ impl DNSKEY {
     ///
     /// # Arguments
     ///
-    /// * `name` - the label of of the DNSKEY record.
+    /// * `name` - the label of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();

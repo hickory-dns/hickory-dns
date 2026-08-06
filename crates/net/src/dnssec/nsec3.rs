@@ -579,7 +579,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// Hashes a name and returns both both the hash digest and the base32-encoded form.
+    /// Hashes a name and returns both the hash digest and the base32-encoded form.
     fn hash_and_label(&self, name: &Name) -> (Vec<u8>, Label) {
         let hash = self
             .hash_algorithm
