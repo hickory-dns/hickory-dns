@@ -8,40 +8,73 @@
 //! System configuration loading
 //!
 //! This module is responsible for parsing and returning the configuration from
-//!  the host system. It will read from the default location on each operating
-//!  system, e.g. most Unixes have this written to `/etc/resolv.conf`
+//! the host system. It will read from the default location on each operating
+//! system, e.g. most Unixes have this written to `/etc/resolv.conf`
 #![allow(missing_docs)]
 
-#[cfg(all(unix, not(any(target_os = "android", target_vendor = "apple"))))]
-#[cfg(feature = "system-config")]
-mod unix;
+mod resolv_conf;
 
-#[cfg(all(unix, not(any(target_os = "android", target_vendor = "apple"))))]
-#[cfg(feature = "system-config")]
-pub use self::unix::{parse_resolv_conf, read_system_conf};
+// `read_resolv_conf` `parse_resolv_conf` are simply utility functions for
+// parsing a `resolv.conf` file, so it can be available on all platforms
+pub use self::resolv_conf::{parse_resolv_conf, read_resolv_conf};
 
-#[cfg(windows)]
-#[cfg(feature = "system-config")]
+#[cfg(any(
+    // If the user has explicitly opted into resolv.conf as their primary
+    // "default system config", then compile it regardless of target platform
+    feature = "system-config-resolv-conf",
+
+    // Otherwise, if they have not explicitly opted into `resolv.conf`, but
+    // have activated the general `system-config` feature, then choose platforms
+    // where `resolv.conf` is typically the primary system configuration for
+    // DNS.
+    all(
+        feature = "system-config",
+        unix,
+        not(any(target_vendor = "apple", target_os = "android")),
+    )
+))]
+pub use self::resolv_conf::read_system_conf;
+
+#[cfg(all(
+    windows,
+    feature = "system-config",
+    not(feature = "system-config-resolv-conf"),
+))]
 mod windows;
 
-#[cfg(target_os = "windows")]
-#[cfg(feature = "system-config")]
+#[cfg(all(
+    windows,
+    feature = "system-config",
+    not(feature = "system-config-resolv-conf"),
+))]
 pub use self::windows::read_system_conf;
 
-#[cfg(target_os = "android")]
-#[cfg(feature = "system-config")]
+#[cfg(all(
+    feature = "system-config",
+    target_os = "android",
+    not(feature = "system-config-resolv-conf"),
+))]
 mod android;
 
-#[cfg(target_os = "android")]
-#[cfg(feature = "system-config")]
+#[cfg(all(
+    feature = "system-config",
+    target_os = "android",
+    not(feature = "system-config-resolv-conf"),
+))]
 pub use self::android::read_system_conf;
 
-#[cfg(target_vendor = "apple")]
-#[cfg(feature = "system-config")]
+#[cfg(all(
+    feature = "system-config",
+    target_vendor = "apple",
+    not(feature = "system-config-resolv-conf"),
+))]
 mod apple;
 
-#[cfg(target_vendor = "apple")]
-#[cfg(feature = "system-config")]
+#[cfg(all(
+    feature = "system-config",
+    target_vendor = "apple",
+    not(feature = "system-config-resolv-conf"),
+))]
 pub use self::apple::read_system_conf;
 
 #[cfg(all(feature = "system-config", any(windows, target_vendor = "apple")))]
