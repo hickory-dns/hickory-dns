@@ -19,7 +19,7 @@ use hickory_proto::{
     },
     op::{DnsResponse, ResponseCode},
     rr::{
-        DNSClass, Name, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType, SerialNumber,
         rdata::{A, AAAA, HINFO, MX, NS, SOA},
     },
 };
@@ -308,7 +308,7 @@ fn example_zone_handler(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZoneH
             RData::SOA(SOA::new(
                 Name::parse("ns1", Some(&origin)).unwrap(),
                 Name::parse("bugs.x.w", Some(&origin)).unwrap(),
-                SERIAL,
+                SerialNumber::from(SERIAL),
                 3600,
                 300,
                 3600000,

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::ProtoResult,
-    rr::{RData, RecordData, RecordType, domain::Name},
+    rr::{RData, RecordData, RecordType, domain::Name, serial_number::SerialNumber},
     serialize::{
         binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
         txt::{ParseError, parse_ttl},
@@ -97,7 +97,7 @@ pub struct SOA {
     ///                 value wraps and should be compared using sequence space
     ///                 arithmetic.
     /// ```
-    pub serial: u32,
+    pub serial: SerialNumber,
 
     /// A 32 bit time interval before the zone should be refreshed, in seconds.
     ///
@@ -154,7 +154,7 @@ impl SOA {
     pub fn new(
         mname: Name,
         rname: Name,
-        serial: u32,
+        serial: SerialNumber,
         refresh: i32,
         retry: i32,
         expire: i32,
@@ -218,13 +218,19 @@ impl SOA {
             .and_then(parse_ttl)?;
 
         Ok(Self::new(
-            mname, rname, serial, refresh, retry, expire, minimum,
+            mname,
+            rname,
+            SerialNumber(serial),
+            refresh,
+            retry,
+            expire,
+            minimum,
         ))
     }
 
     /// Increments the serial number by one
     pub fn increment_serial(&mut self) {
-        self.serial += 1; // TODO: what to do on overflow?
+        self.serial += SerialNumber(1);
     }
 }
 
@@ -265,7 +271,7 @@ impl<'r> BinDecodable<'r> for SOA {
         Ok(Self {
             mname: Name::read(decoder)?,
             rname: Name::read(decoder)?,
-            serial: decoder.read_u32()?.unverified(/*any u32 is valid*/),
+            serial: SerialNumber::from(decoder.read_u32()?.unverified(/*any u32 is valid*/)),
             refresh: decoder.read_i32()?.unverified(/*any i32 is valid*/),
             retry: decoder.read_i32()?.unverified(/*any i32 is valid*/),
             expire: decoder.read_i32()?.unverified(/*any i32 is valid*/),
@@ -379,7 +385,7 @@ mod tests {
         let rdata = SOA::new(
             Name::from_str("m.example.com.").unwrap(),
             Name::from_str("r.example.com.").unwrap(),
-            1,
+            SerialNumber(1),
             2,
             3,
             4,
@@ -422,7 +428,7 @@ mod tests {
         let expected_soa = SOA::new(
             "hickory-dns.org.".parse().unwrap(),
             "root.hickory-dns.org.".parse().unwrap(),
-            199609203,
+            SerialNumber(199609203),
             28800,
             7200,
             604800,

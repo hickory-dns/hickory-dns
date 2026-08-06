@@ -478,7 +478,7 @@ mod tests {
         time::{Duration, Instant},
     };
 
-    use hickory_proto::rr::rdata::CNAME;
+    use hickory_proto::rr::{SerialNumber, rdata::CNAME};
     #[cfg(feature = "serde")]
     use serde::Deserialize;
 
@@ -887,7 +887,15 @@ mod tests {
         norecs.soa = Some(Box::new(Record::from_rdata(
             zone_name.clone(),
             10,
-            SOA::new(name.base_name(), name.clone(), 1, 1, 1, 1, 1),
+            SOA::new(
+                name.base_name(),
+                name.clone(),
+                SerialNumber::from(1),
+                1,
+                1,
+                1,
+                1,
+            ),
         )));
         norecs.authorities = Some(Arc::new([Record::from_rdata(
             zone_name.clone(),

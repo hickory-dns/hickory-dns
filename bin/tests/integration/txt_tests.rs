@@ -119,7 +119,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
             Name::from_str("action\\.domains.isi.edu.").unwrap(),
             soa.rname
         );
-        assert_eq!(20, soa.serial);
+        assert_eq!(SerialNumber::from(20), soa.serial);
         assert_eq!(7200, soa.refresh);
         assert_eq!(600, soa.retry);
         assert_eq!(3_600_000, soa.expire);
@@ -152,7 +152,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
             Name::from_str("hostmaster.centralnic.net.").unwrap(),
             lower_soa.rname
         );
-        assert_eq!(271851, lower_soa.serial);
+        assert_eq!(SerialNumber::from(271851), lower_soa.serial);
         assert_eq!(900, lower_soa.refresh);
         assert_eq!(1800, lower_soa.retry);
         assert_eq!(6_048_000, lower_soa.expire);

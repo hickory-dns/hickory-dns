@@ -210,7 +210,7 @@ mod tests {
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::RData;
     use crate::rr::rdata::{A, NS, SOA};
-    use crate::rr::{Name, Record, RecordType};
+    use crate::rr::{Name, Record, RecordType, SerialNumber};
 
     use super::*;
 
@@ -246,7 +246,15 @@ mod tests {
         Record::from_rdata(
             example(),
             88640,
-            RData::SOA(SOA::new(ns1(), hostmaster(), 1, 2, 3, 4, 5)),
+            RData::SOA(SOA::new(
+                ns1(),
+                hostmaster(),
+                SerialNumber::from(1),
+                2,
+                3,
+                4,
+                5,
+            )),
         )
     }
 

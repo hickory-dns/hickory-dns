@@ -104,7 +104,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
                 _ => None,
             })
             .ok_or_else(|| format!("SOA record must be present: {origin}"))?;
-        let serial = soa.serial;
+        let serial = soa.serial.get();
 
         let iter = records.into_values();
 
@@ -196,7 +196,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 
     /// get the current serial number for the zone.
     pub async fn serial(&self) -> u32 {
-        self.inner.read().await.serial(self.origin())
+        self.inner.read().await.serial(self.origin()).get()
     }
 
     #[cfg(feature = "sqlite")]
@@ -253,7 +253,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 
         // TODO: also generate the CDS and CDNSKEY
         let serial = inner.serial(origin);
-        inner.upsert(dnskey, serial, dns_class);
+        inner.upsert(dnskey, serial.get(), dns_class);
         inner.secure_keys.push(signer);
         Ok(())
     }
