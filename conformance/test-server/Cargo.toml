@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
 base64 = "0.22"
 clap = { version = "4.0", features = ["derive", "std"] }
 data-encoding = "2.9"

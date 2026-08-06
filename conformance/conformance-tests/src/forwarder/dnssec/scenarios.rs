@@ -9,6 +9,7 @@ use dns_test::{
 };
 
 mod bogus;
+mod nsec3_wrong_zone;
 
 /// Test DNSSEC-signed zone query WITHOUT DO bit set
 ///
