@@ -1,6 +1,7 @@
 use crate::{Handler, Transport, encode_response, max_message_size, zone_file};
 use anyhow::{Context, Error, Result, anyhow};
 use async_trait::async_trait;
+use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
 use data_encoding::BASE32_DNSSEC;
 use hickory_net::{
     client::Client,
@@ -10,12 +11,13 @@ use hickory_net::{
 };
 use hickory_proto::{
     dnssec::{
-        Nsec3HashAlgorithm,
-        rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
+        Algorithm, DnssecSigner, Nsec3HashAlgorithm, PublicKeyBuf,
+        crypto::EcdsaSigningKey,
+        rdata::{DNSKEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
     },
     op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, MessageType, Query, ResponseCode},
     rr::{
-        DNSClass, RData, Record, RecordType,
+        DNSClass, RData, Record, RecordSet, RecordType,
         domain::Name,
         rdata::{self, NS},
     },
@@ -26,7 +28,9 @@ use std::{
     ops::{Deref, DerefMut},
     path::Path,
     sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering},
+    time::Duration,
 };
+use time::OffsetDateTime;
 
 /// This handler generates a valid A-record response to any query
 pub(crate) fn base_handler(request: Message, _transport: Transport) -> Result<Message> {
@@ -1528,6 +1532,124 @@ fn filter_rrsig_rrset(name: &Name, record_type: RecordType) -> impl Fn(&&Record)
             return false;
         };
         rrsig.input().type_covered == record_type && &record.name == name
+    }
+}
+
+pub(super) struct Nsec3WrongZoneHandler {
+    /// IP address of the upstream resolver.
+    ip_address: IpAddr,
+    /// Private key for the attacker zone's ZSK.
+    private_key: String,
+    /// Public key for the attacker zone's ZSK.
+    public_key: String,
+}
+
+impl Nsec3WrongZoneHandler {
+    pub(super) fn new(ip_address: IpAddr, private_key: String, public_key: String) -> Self {
+        Self {
+            ip_address,
+            private_key,
+            public_key,
+        }
+    }
+}
+
+#[async_trait]
+impl Handler for Nsec3WrongZoneHandler {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+        let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+        let max_message_size = max_message_size(&query_message, transport);
+        let query = &query_message.queries[0];
+        let query_name = query.name.clone();
+        let query_type = query.query_type;
+
+        let origin_name = Name::from_ascii("victim.testing.")?;
+
+        if !(query_type == RecordType::A && query_name == origin_name) {
+            let msg = proxy_query(self.ip_address, query_message).await?.into();
+            return Ok(Some(encode_response(&msg, max_message_size)?));
+        }
+
+        // Construct NSEC3 record.
+        //
+        // $ nsec3hash -r 1 0 1 - victim.testing.
+        // victim.testing. NSEC3 1 0 1 - GTR6F74IERHONNKRCH3QDNUNNDVR2OF1
+        let hash_base32 = "GTR6F74IERHONNKRCH3QDNUNNDVR2OF1";
+        let hash = data_encoding::BASE32_DNSSEC
+            .decode(hash_base32.as_bytes())
+            .unwrap();
+        let crafted_nsec3_rdata = NSEC3::new(
+            Nsec3HashAlgorithm::SHA1,
+            false,
+            1,
+            Vec::new(),
+            hash,
+            [
+                RecordType::NS,
+                RecordType::SOA,
+                RecordType::RRSIG,
+                RecordType::DNSKEY,
+                RecordType::NSEC3PARAM,
+            ],
+        );
+        let crafted_nsec3_name =
+            Name::from_ascii("GTR6F74IERHONNKRCH3QDNUNNDVR2OF1.attacker.testing.")?;
+        let crafted_nsec3_record = Record::from_rdata(
+            crafted_nsec3_name.clone(),
+            86400,
+            RData::DNSSEC(DNSSECRData::NSEC3(crafted_nsec3_rdata)),
+        );
+
+        // Convert keypair.
+        let private_key_raw = data_encoding::BASE64
+            .decode(self.private_key.as_bytes())
+            .context("could not decode private key")?;
+        let public_key_raw = data_encoding::BASE64
+            .decode(self.public_key.as_bytes())
+            .context("could not decode public key")?;
+        let mut uncompressed_public_key = public_key_raw.clone();
+        uncompressed_public_key.insert(0, 0x04);
+        let keypair = EcdsaKeyPair::from_private_key_and_public_key(
+            &ECDSA_P256_SHA256_FIXED_SIGNING,
+            &private_key_raw,
+            &uncompressed_public_key,
+        )
+        .context("could not construct key pair from raw bytes")?;
+        let pkcs8 = keypair
+            .to_pkcs8v1()
+            .context("could not convert private key to PKCS-8")?;
+        let signing_key =
+            EcdsaSigningKey::from_pkcs8(&pkcs8.as_ref().into(), Algorithm::ECDSAP256SHA256)
+                .context("could not load PKCS-8 private key")?;
+
+        // Sign NSEC3 record with the attacker's zone signing key.
+        let signer = DnssecSigner::new(
+            DNSKEY::new(
+                true,
+                false,
+                false,
+                PublicKeyBuf::new(public_key_raw.clone(), Algorithm::ECDSAP256SHA256),
+            ),
+            Box::new(signing_key),
+            Name::from_ascii("attacker.testing.")?,
+            Duration::from_secs(60 * 60 * 24 * 7),
+        );
+        let mut rrset = RecordSet::new(crafted_nsec3_name.clone(), RecordType::NSEC3, 0);
+        rrset.insert(crafted_nsec3_record.clone(), 0);
+        let inception = OffsetDateTime::now_utc();
+        let rrsig = RRSIG::from_rrset(&rrset, DNSClass::IN, inception, &signer)?;
+        let rrsig_record = Record::from_rdata(
+            crafted_nsec3_name,
+            86400,
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+        );
+
+        // Construct response.
+        let mut msg = query_message.into_response();
+        msg.add_authority(crafted_nsec3_record);
+        msg.add_authority(rrsig_record);
+
+        Ok(Some(encode_response(&msg, max_message_size)?))
     }
 }
 

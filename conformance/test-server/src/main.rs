@@ -18,8 +18,8 @@ use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
 use handlers::{
-    BogusNoDataInsteadOfCname, DropRrsetHandler, ForgedDelegationHandler, ServfailRrsetHandler,
-    bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
+    BogusNoDataInsteadOfCname, DropRrsetHandler, ForgedDelegationHandler, Nsec3WrongZoneHandler,
+    ServfailRrsetHandler, bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
     bogus_wildcard_expansion_nsec_same_name_condition_handler, cname_loop_handler,
     empty_response_handler, foreign_class_handler, nsec3_apex_nodata_handler,
     nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
@@ -107,6 +107,11 @@ enum HandlerArg {
         nameserver: Name,
     },
     BogusWildcardExpansionNsecSameNameCondition,
+    Nsec3WrongZone {
+        ip_address: IpAddr,
+        private_key: String,
+        public_key: String,
+    },
 }
 
 impl HandlerArg {
@@ -155,6 +160,12 @@ impl HandlerArg {
             Self::BogusWildcardExpansionNsecSameNameCondition => {
                 &(bogus_wildcard_expansion_nsec_same_name_condition_handler as HandlerMessageFnPtr)
             }
+            Self::Nsec3WrongZone {
+                ip_address,
+                private_key,
+                public_key,
+            } => NSEC3_WRONG_ZONE_HANDLER
+                .get_or_init(|| Nsec3WrongZoneHandler::new(ip_address, private_key, public_key)),
         }
     }
 }
@@ -163,6 +174,7 @@ static DROP_HANDLER: OnceLock<DropRrsetHandler> = OnceLock::new();
 static BOGUS_NO_DATA_CNAME_HANDLER: OnceLock<BogusNoDataInsteadOfCname> = OnceLock::new();
 static SERVFAIL_HANDLER: OnceLock<ServfailRrsetHandler> = OnceLock::new();
 static FORGED_DELEGATION_HANDLER: OnceLock<ForgedDelegationHandler> = OnceLock::new();
+static NSEC3_WRONG_ZONE_HANDLER: OnceLock<Nsec3WrongZoneHandler> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,

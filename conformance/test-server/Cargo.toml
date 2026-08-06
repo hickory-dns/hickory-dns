@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+aws-lc-rs.workspace = true
 clap = { workspace = true, features = ["derive", "std"] }
 data-encoding = { workspace = true }
 futures = { workspace = true, default-features = false }

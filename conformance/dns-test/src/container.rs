@@ -401,9 +401,6 @@ impl Container {
                 Implementation::Hickory { .. } => "server starting up, awaiting connections...",
                 Implementation::Pdns if role == Role::Resolver => "Enabled multiplexer",
                 Implementation::Pdns => panic!("Pdns unsupported as name server"),
-                Implementation::TestServer { .. } if role == Role::Resolver => {
-                    panic!("TestServer unsupported as resolver")
-                }
                 Implementation::TestServer { .. } => "TEST SERVER STARTED",
                 Implementation::Unbound if role == Role::Resolver => "start of service",
                 Implementation::Unbound => "nsd started",
