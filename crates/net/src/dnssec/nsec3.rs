@@ -203,7 +203,7 @@ pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &N
     let (hashed_zone_name, base32_hashed_zone_name) = cx.hash_and_label(zone);
     if let Some(info) = records
         .iter()
-        .find(|info| info.base32_hashed_name == base32_hashed_zone_name)
+        .find(|info| info.matches(zone, &base32_hashed_zone_name))
     {
         let type_set = info.nsec3_data.type_set();
         return type_set.contains(RecordType::NS)
@@ -220,7 +220,8 @@ pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &N
     false
 }
 
-/// Convert pairs of record names and NSEC3 RDATA to pairs of hashed record names and NSEC3 RDATA.
+/// Convert pairs of record names and NSEC3 RDATA to structures containing hashed record names, zone
+/// names, and NSEC3 RDATA.
 fn convert_nsec3_records<'a>(
     query: &Query,
     soa: Option<&Name>,
@@ -245,7 +246,7 @@ fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
     if cx
         .nsec3s
         .iter()
-        .any(|r| r.base32_hashed_name == base32_hashed_query_name)
+        .any(|r| r.matches(&cx.query.name, &base32_hashed_query_name))
     {
         return cx.proof(Proof::Bogus, "NXDomain response with record for query name");
     }
@@ -301,7 +302,7 @@ fn validate_nodata_response(
     let query_name_record = cx
         .nsec3s
         .iter()
-        .find(|record| record.base32_hashed_name == base32_hashed_query_name);
+        .find(|record| record.matches(&cx.query.name, &base32_hashed_query_name));
 
     // Case 2:
     // Name exists but there's no record of this type
@@ -555,9 +556,12 @@ impl<'a> Context<'a> {
 
         let wildcard_name_info = HashedNameInfo::new(wildcard_encloser_name, self);
         let wildcard_record = if matching {
-            self.nsec3s
-                .iter()
-                .find(|record| record.base32_hashed_name == wildcard_name_info.base32_hashed_name)
+            self.nsec3s.iter().find(|record| {
+                record.matches(
+                    &wildcard_name_info.name,
+                    &wildcard_name_info.base32_hashed_name,
+                )
+            })
         } else {
             find_covering_record(
                 self.nsec3s,
@@ -600,7 +604,7 @@ impl<'a> Context<'a> {
         let Some(closest_encloser_matching_record) =
             closest_encloser_candidates.iter().find_map(|candidate| {
                 self.nsec3s.iter().find(|nsec| {
-                    nsec.base32_hashed_name == candidate.base32_hashed_name
+                    nsec.matches(&candidate.name, &candidate.base32_hashed_name)
                         && !nsec.nsec3_data.is_ancestor_delegation()
                 })
             })
@@ -762,7 +766,11 @@ fn nsec3_yield(proof: Proof, query: &Query, msg: impl Display) -> Proof {
 
 /// Preprocessed form of an NSEC3 record.
 struct Nsec3RecordInfo<'a> {
+    /// The leftmost label of the NSEC3 record's name.
     base32_hashed_name: Label,
+    /// The remainder of the NSEC3 record's name.
+    zone_name: Name,
+    /// The NSEC3 record's RDATA.
     nsec3_data: &'a NSEC3,
 }
 
@@ -801,8 +809,22 @@ impl<'a> Nsec3RecordInfo<'a> {
 
         Ok(Nsec3RecordInfo {
             base32_hashed_name,
+            zone_name: base,
             nsec3_data: rdata,
         })
+    }
+
+    /// Determines whether this NSEC3 record matches a name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name to test against this NSEC3 record
+    /// * `base32_hashed_name` - A base32-encoded label representing the hash of `name`
+    ///
+    /// While `base32_hashed_name` could be recomputed from `name`, each call site has both values
+    /// available already, so we take both as separate arguments to avoid redundant work.
+    fn matches(&self, name: &Name, base32_hashed_name: &Label) -> bool {
+        self.zone_name.zone_of(name) && &self.base32_hashed_name == base32_hashed_name
     }
 }
 
@@ -1629,10 +1651,12 @@ mod tests {
 
         let record_1_pair = Nsec3RecordInfo {
             base32_hashed_name: record_1_label,
+            zone_name: Name::parse("example.", None).unwrap(),
             nsec3_data: &record_1_rdata,
         };
         let record_2_pair = Nsec3RecordInfo {
             base32_hashed_name: record_2_label,
+            zone_name: Name::parse("example.", None).unwrap(),
             nsec3_data: &record_2_rdata,
         };
 
