@@ -272,13 +272,18 @@ fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
         // Got all three components - we proved that there's no `query_name`
         // in the zone
         (Some(_), Some(_), Some(_)) => cx.proof(Proof::Secure, "direct proof"),
-        // `query_name`'s parent is the `soa_name` itself, so there's no need
-        // to send `soa_name`'s NSEC3 record. Still we have to show that
-        // both `query_name` doesn't exist and there's no wildcard to service it
-        (None, Some(_), Some(_)) if Some(&cx.query.name.base_name()) == cx.soa => cx.proof(
-            Proof::Secure,
-            "no direct or wildcard proof, but parent name of query is SOA",
-        ),
+        // `query_name`'s parent is the zone apex itself, so there's no need to send its NSEC3
+        // record. Still we have to show that both `query_name` doesn't exist and there's no
+        // wildcard to service it.
+        (None, Some((_, next_closer_nsec3)), Some((_, wildcard_nsec3)))
+            if cx.query.name.base_name() == next_closer_nsec3.zone_name
+                && next_closer_nsec3.zone_name == wildcard_nsec3.zone_name =>
+        {
+            cx.proof(
+                Proof::Secure,
+                "no direct or wildcard proof, but parent name of query is zone apex",
+            )
+        }
         _ => cx.proof(Proof::Bogus, "no proof of non-existence"),
     }
 }
