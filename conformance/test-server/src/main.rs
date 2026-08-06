@@ -69,6 +69,15 @@ async fn main() -> Result<()> {
         HandlerArg::BogusWildcardExpansionNsecSameNameCondition => {
             Arc::new(handlers::bogus_wildcard_expansion_nsec_same_name_condition_handler)
         }
+        HandlerArg::Nsec3WrongZone {
+            ip_address,
+            private_key,
+            public_key,
+        } => Arc::new(handlers::Nsec3WrongZoneHandler::new(
+            ip_address,
+            private_key,
+            public_key,
+        )),
     };
 
     let mut handles = vec![];
@@ -141,6 +150,11 @@ enum HandlerArg {
         nameserver: Name,
     },
     BogusWildcardExpansionNsecSameNameCondition,
+    Nsec3WrongZone {
+        ip_address: IpAddr,
+        private_key: String,
+        public_key: String,
+    },
 }
 
 struct UdpServer {
