@@ -163,7 +163,7 @@ impl DNSKEY {
         record::DNSKEY { zone, ttl, rdata }
     }
 
-    pub(crate) fn rdata(&self) -> &DNSKEYRData {
+    pub fn rdata(&self) -> &DNSKEYRData {
         &self.rdata
     }
 }
