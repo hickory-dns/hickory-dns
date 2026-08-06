@@ -212,7 +212,8 @@ pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &N
     }
 
     // Check for covering record with opt-out flag set.
-    if let Some(info) = find_covering_record(&records, &hashed_zone_name, &base32_hashed_zone_name)
+    if let Some(info) =
+        find_covering_record(&records, zone, &hashed_zone_name, &base32_hashed_zone_name)
     {
         return info.nsec3_data.opt_out();
     }
@@ -405,8 +406,13 @@ fn validate_nodata_response(
     // name as the hashed query name and not having the DS bit set in the type flags
     // is covered here by case 2.
     if query_type == RecordType::DS
-        && find_covering_record(cx.nsec3s, &hashed_query_name, &base32_hashed_query_name)
-            .is_some_and(|x| x.nsec3_data.opt_out())
+        && find_covering_record(
+            cx.nsec3s,
+            &cx.query.name,
+            &hashed_query_name,
+            &base32_hashed_query_name,
+        )
+        .is_some_and(|x| x.nsec3_data.opt_out())
     {
         return cx.proof(Proof::Secure, "DS query covered by opt-out proof");
     }
@@ -439,6 +445,7 @@ fn validate_nodata_response(
             let next_closer_name_info = HashedNameInfo::new(next_closer_name, cx);
             let next_closer_record = find_covering_record(
                 cx.nsec3s,
+                &next_closer_name_info.name,
                 &next_closer_name_info.hashed_name,
                 &next_closer_name_info.base32_hashed_name,
             );
@@ -565,6 +572,7 @@ impl<'a> Context<'a> {
         } else {
             find_covering_record(
                 self.nsec3s,
+                &wildcard_name_info.name,
                 &wildcard_name_info.hashed_name,
                 &wildcard_name_info.base32_hashed_name,
             )
@@ -633,6 +641,7 @@ impl<'a> Context<'a> {
         // Now find a covering record for the next closer, which is one label longer than the closest encloser
         let next_closer_covering_record = find_covering_record(
             self.nsec3s,
+            &next_closer_name_info.name,
             &next_closer_name_info.hashed_name,
             &next_closer_name_info.base32_hashed_name,
         );
@@ -682,6 +691,7 @@ impl<'a> Context<'a> {
 
 fn find_covering_record<'a>(
     nsec3s: &'a [Nsec3RecordInfo<'a>],
+    name: &Name,
     target_hashed_name: &[u8],
     // Strictly speaking we don't need this parameter, we can calculate
     // base32(target_hashed_name) inside the function.
@@ -695,6 +705,11 @@ fn find_covering_record<'a>(
         else {
             return false;
         };
+
+        // Ignore NSEC3 records from outside the zone.
+        if !record.zone_name.zone_of(name) {
+            return false;
+        }
 
         // Matching records don't count as covering records
         if record.base32_hashed_name == *target_base32_hashed_name {
@@ -1649,24 +1664,33 @@ mod tests {
             [],
         );
 
+        let zone_name = Name::parse("example.", None).unwrap();
         let record_1_pair = Nsec3RecordInfo {
             base32_hashed_name: record_1_label,
-            zone_name: Name::parse("example.", None).unwrap(),
+            zone_name: zone_name.clone(),
             nsec3_data: &record_1_rdata,
         };
         let record_2_pair = Nsec3RecordInfo {
             base32_hashed_name: record_2_label,
-            zone_name: Name::parse("example.", None).unwrap(),
+            zone_name: zone_name.clone(),
             nsec3_data: &record_2_rdata,
         };
 
         // Each hash should be covered by only one of the two NSEC3 records.
         for query_hash in [[0x44; 20], [0x88; 20], [0xDD; 20]] {
             let query_label = Label::from_ascii(&BASE32_DNSSEC.encode(&query_hash)).unwrap();
-            let covered_by_1 =
-                find_covering_record(slice::from_ref(&record_1_pair), &query_hash, &query_label);
-            let covered_by_2 =
-                find_covering_record(slice::from_ref(&record_2_pair), &query_hash, &query_label);
+            let covered_by_1 = find_covering_record(
+                slice::from_ref(&record_1_pair),
+                &zone_name,
+                &query_hash,
+                &query_label,
+            );
+            let covered_by_2 = find_covering_record(
+                slice::from_ref(&record_2_pair),
+                &zone_name,
+                &query_hash,
+                &query_label,
+            );
             let covered_by = covered_by_1
                 .iter()
                 .chain(covered_by_2.iter())
