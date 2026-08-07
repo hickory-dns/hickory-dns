@@ -203,7 +203,7 @@ pub use resolver::LookupFuture;
 pub use resolver::TokioResolver;
 pub use resolver::{Resolver, ResolverBuilder};
 mod cache;
-pub use cache::{MAX_TTL, ResponseCache, TtlBounds, TtlConfig};
+pub use cache::{MAX_TTL, ResponseCache, DelegationCache, TtlBounds, TtlConfig};
 #[cfg(feature = "metrics")]
 pub mod metrics;
 pub mod system_conf;
