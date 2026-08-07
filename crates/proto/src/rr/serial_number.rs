@@ -1,6 +1,10 @@
 //! Number type to support Serial Number Arithmetics
 
-use core::{cmp::Ordering, ops::Add};
+use crate::{
+    error::ProtoResult,
+    serialize::binary::{BinEncodable, BinEncoder},
+};
+use core::{cmp::Ordering, fmt, num::ParseIntError, ops::Add, ops::AddAssign, str::FromStr};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -31,6 +35,14 @@ impl From<u32> for SerialNumber {
     }
 }
 
+impl FromStr for SerialNumber {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse::<u32>().map(Self::from)
+    }
+}
+
 /// Serial Number Addition, see RFC 1982, section 3.1
 ///
 /// The result is a wrapping add.
@@ -39,6 +51,13 @@ impl Add for SerialNumber {
 
     fn add(self, rhs: Self) -> Self::Output {
         Self(self.0.wrapping_add(rhs.0))
+    }
+}
+
+/// Serial Number Addition and assign.
+impl AddAssign for SerialNumber {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 = (*self + rhs).0;
     }
 }
 
@@ -63,5 +82,40 @@ impl PartialOrd for SerialNumber {
         } else {
             None
         }
+    }
+}
+
+impl fmt::Display for SerialNumber {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl BinEncodable for SerialNumber {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        self.0.emit(encoder)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_display() {
+        assert_eq!(format!("{}", SerialNumber::from(42)), "42");
+    }
+
+    #[test]
+    fn test_from_str() {
+        assert_eq!(
+            "42".parse::<SerialNumber>().unwrap(),
+            SerialNumber::from(42)
+        )
+    }
+
+    #[test]
+    fn test_from_str_error() {
+        assert!("abc".parse::<SerialNumber>().is_err());
     }
 }

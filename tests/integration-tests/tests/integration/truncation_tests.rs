@@ -5,7 +5,9 @@ use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::FirstAnswer;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
-use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
+use hickory_proto::rr::{
+    DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey, SerialNumber,
+};
 use hickory_server::Server;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
@@ -84,7 +86,7 @@ fn new_large_catalog(num_records: u32) -> Catalog {
             RData::SOA(SOA::new(
                 n("sns.dns.icann.org."),
                 n("noc.dns.icann.org."),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,

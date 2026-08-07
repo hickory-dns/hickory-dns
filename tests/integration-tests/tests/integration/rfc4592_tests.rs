@@ -14,7 +14,7 @@ use hickory_net::{
 use hickory_proto::{
     op::ResponseCode,
     rr::{
-        DNSClass, Name, RData, Record, RecordType,
+        DNSClass, Name, RData, Record, RecordType, SerialNumber,
         rdata::{A, MX, NS, SOA, SRV, TXT},
     },
 };
@@ -277,7 +277,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
             RData::SOA(SOA::new(
                 Name::parse("mname", Some(&origin)).unwrap(),
                 Name::parse("rname", Some(&origin)).unwrap(),
-                SERIAL,
+                SerialNumber::from(SERIAL),
                 3600,
                 300,
                 3600000,

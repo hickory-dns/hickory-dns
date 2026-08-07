@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, NS, SOA, TXT};
-use hickory_proto::rr::{Name, RData, Record};
+use hickory_proto::rr::{Name, RData, Record, SerialNumber};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
@@ -25,7 +25,7 @@ pub fn create_example() -> InMemoryZoneHandler {
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,

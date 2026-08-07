@@ -37,7 +37,7 @@ use crate::{
             DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message,
             OpCode, Query, update_message,
         },
-        rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, rdata::SOA},
+        rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, SerialNumber, rdata::SOA},
     },
     runtime::RuntimeProvider,
     xfer::{
@@ -645,17 +645,17 @@ enum ClientStreamXfrState<R> {
     },
     Second {
         inner: R,
-        expected_serial: u32,
+        expected_serial: SerialNumber,
         maybe_incr: bool,
     },
     Axfr {
         inner: R,
-        expected_serial: u32,
+        expected_serial: SerialNumber,
     },
     Ixfr {
         inner: R,
         even: bool,
-        expected_serial: u32,
+        expected_serial: SerialNumber,
     },
     Ended,
     Invalid,
@@ -678,7 +678,7 @@ impl<R> ClientStreamXfrState<R> {
     // TODO: this is complex enough it should get its own tests
     fn process(&mut self, answers: &[Record]) -> Result<(), NetError> {
         use ClientStreamXfrState::*;
-        fn get_serial(r: &Record) -> Option<u32> {
+        fn get_serial(r: &Record) -> Option<SerialNumber> {
             match &r.data {
                 RData::SOA(soa) => Some(soa.serial),
                 _ => None,

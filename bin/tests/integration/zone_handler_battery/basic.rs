@@ -12,7 +12,7 @@ use hickory_net::{
 use hickory_proto::{
     op::{Message, MessageRequest, MessageType, Metadata, OpCode, Query, ResponseCode},
     rr::{
-        Name, RData, RecordType,
+        Name, RData, RecordType, SerialNumber,
         rdata::{A as A4, AAAA},
     },
 };
@@ -68,7 +68,7 @@ pub fn test_soa(handler: impl ZoneHandler) {
         RData::SOA(soa) => {
             assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), soa.mname);
             assert_eq!(Name::from_str("root.hickory-dns.org.").unwrap(), soa.rname);
-            assert_eq!(199609203, soa.serial);
+            assert_eq!(SerialNumber::from(199609203), soa.serial);
             assert_eq!(28800, soa.refresh);
             assert_eq!(7200, soa.retry);
             assert_eq!(604800, soa.expire);

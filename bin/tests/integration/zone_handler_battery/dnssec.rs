@@ -74,7 +74,7 @@ pub fn test_soa(handler: impl ZoneHandler, keys: &[DNSKEY]) {
 
     assert_eq!(Name::from_str("hickory-dns.org.").unwrap(), soa.mname);
     assert_eq!(Name::from_str("root.hickory-dns.org.").unwrap(), soa.rname);
-    assert!(199609203 < soa.serial); // serial should be one or more b/c of the signing process
+    assert!(199609203 < soa.serial.get()); // serial should be one or more b/c of the signing process
     assert_eq!(28800, soa.refresh);
     assert_eq!(7200, soa.retry);
     assert_eq!(604800, soa.expire);

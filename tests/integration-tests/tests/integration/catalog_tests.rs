@@ -7,7 +7,7 @@ use hickory_net::{
 use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
-        LowerName, Name, RData, Record, RecordType,
+        LowerName, Name, RData, Record, RecordType, SerialNumber,
         rdata::{
             A, AAAA, CNAME, NS, SOA,
             opt::{EdnsCode, EdnsOption, NSIDPayload},
@@ -41,7 +41,7 @@ fn create_records(records: &mut InMemoryZoneHandler) {
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,
@@ -255,7 +255,7 @@ async fn test_catalog_lookup_soa() {
         RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
-            2015082403,
+            SerialNumber::from(2015082403),
             7200,
             3600,
             1209600,
@@ -327,7 +327,7 @@ async fn test_catalog_nx_soa() {
         RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
-            2015082403,
+            SerialNumber::from(2015082403),
             7200,
             3600,
             1209600,
@@ -385,7 +385,7 @@ async fn test_catalog_soa_query_for_nx_name() {
         RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
-            2015082403,
+            SerialNumber::from(2015082403),
             7200,
             3600,
             1209600,
@@ -452,7 +452,7 @@ async fn test_axfr_allow_all() {
         RData::SOA(SOA::new(
             Name::parse("sns.dns.icann.org.", None).unwrap(),
             Name::parse("noc.dns.icann.org.", None).unwrap(),
-            2015082403,
+            SerialNumber::from(2015082403),
             7200,
             3600,
             1209600,
@@ -501,7 +501,7 @@ async fn test_axfr_allow_all() {
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,
@@ -544,7 +544,7 @@ async fn test_axfr_allow_all() {
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,

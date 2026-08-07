@@ -67,7 +67,7 @@ async fn readme_example() {
     assert!(!a_data.is_empty());
 }
 
-fn soa_record(serial: u32) -> Record {
+fn soa_record(serial: SerialNumber) -> Record {
     let soa = RData::SOA(SOA::new(
         Name::from_ascii("example.com.").unwrap(),
         Name::from_ascii("admin.example.com.").unwrap(),
@@ -102,10 +102,10 @@ fn get_stream_testcase(
 async fn test_stream_xfr_valid_axfr() {
     subscribe();
     let stream = get_stream_testcase(vec![vec![
-        soa_record(3),
+        soa_record(SerialNumber::from(3)),
         a_record(1),
         a_record(2),
-        soa_record(3),
+        soa_record(SerialNumber::from(3)),
     ]]);
     let mut stream = ClientStreamXfr::new(stream, false);
     assert!(matches!(stream.state, Start { .. }));
@@ -121,9 +121,9 @@ async fn test_stream_xfr_valid_axfr() {
 async fn test_stream_xfr_valid_axfr_multipart() {
     subscribe();
     let stream = get_stream_testcase(vec![
-        vec![soa_record(3)],
+        vec![soa_record(SerialNumber::from(3))],
         vec![a_record(1)],
-        vec![soa_record(3)],
+        vec![soa_record(SerialNumber::from(3))],
         vec![a_record(2)], // will be ignored as connection is dropped before reading this message
     ]);
     let mut stream = ClientStreamXfr::new(stream, false);
@@ -147,7 +147,10 @@ async fn test_stream_xfr_valid_axfr_multipart() {
 #[tokio::test]
 async fn test_stream_xfr_empty_axfr() {
     subscribe();
-    let stream = get_stream_testcase(vec![vec![soa_record(3)], vec![soa_record(3)]]);
+    let stream = get_stream_testcase(vec![
+        vec![soa_record(SerialNumber::from(3))],
+        vec![soa_record(SerialNumber::from(3))],
+    ]);
     let mut stream = ClientStreamXfr::new(stream, false);
     assert!(matches!(stream.state, Start { .. }));
 
@@ -166,12 +169,12 @@ async fn test_stream_xfr_empty_axfr() {
 async fn test_stream_xfr_axfr_with_ixfr_reply() {
     subscribe();
     let stream = get_stream_testcase(vec![vec![
-        soa_record(3),
-        soa_record(2),
+        soa_record(SerialNumber::from(3)),
+        soa_record(SerialNumber::from(2)),
         a_record(1),
-        soa_record(3),
+        soa_record(SerialNumber::from(3)),
         a_record(2),
-        soa_record(3),
+        soa_record(SerialNumber::from(3)),
     ]]);
     let mut stream = ClientStreamXfr::new(stream, false);
     assert!(matches!(stream.state, Start { .. }));
@@ -203,10 +206,10 @@ async fn test_stream_xfr_axfr_with_non_xfr_reply() {
 async fn test_stream_xfr_invalid_axfr_multipart() {
     subscribe();
     let stream = get_stream_testcase(vec![
-        vec![soa_record(3)],
+        vec![soa_record(SerialNumber::from(3))],
         vec![a_record(1)],
-        vec![soa_record(3), a_record(2)],
-        vec![soa_record(3)],
+        vec![soa_record(SerialNumber::from(3)), a_record(2)],
+        vec![soa_record(SerialNumber::from(3))],
     ]);
     let mut stream = ClientStreamXfr::new(stream, false);
     assert!(matches!(stream.state, Start { .. }));
@@ -229,12 +232,12 @@ async fn test_stream_xfr_invalid_axfr_multipart() {
 async fn test_stream_xfr_valid_ixfr() {
     subscribe();
     let stream = get_stream_testcase(vec![vec![
-        soa_record(3),
-        soa_record(2),
+        soa_record(SerialNumber::from(3)),
+        soa_record(SerialNumber::from(2)),
         a_record(1),
-        soa_record(3),
+        soa_record(SerialNumber::from(3)),
         a_record(2),
-        soa_record(3),
+        soa_record(SerialNumber::from(3)),
     ]]);
     let mut stream = ClientStreamXfr::new(stream, true);
     assert!(matches!(stream.state, Start { .. }));
@@ -250,12 +253,12 @@ async fn test_stream_xfr_valid_ixfr() {
 async fn test_stream_xfr_valid_ixfr_multipart() {
     subscribe();
     let stream = get_stream_testcase(vec![
-        vec![soa_record(3)],
-        vec![soa_record(2)],
+        vec![soa_record(SerialNumber::from(3))],
+        vec![soa_record(SerialNumber::from(2))],
         vec![a_record(1)],
-        vec![soa_record(3)],
+        vec![soa_record(SerialNumber::from(3))],
         vec![a_record(2)],
-        vec![soa_record(3)],
+        vec![soa_record(SerialNumber::from(3))],
         vec![a_record(3)], //
     ]);
     let mut stream = ClientStreamXfr::new(stream, true);
