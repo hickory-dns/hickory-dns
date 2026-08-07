@@ -30,7 +30,7 @@ use crate::{
     },
     serialize::{
         binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
-        txt::{Lexer, ParseError, Token},
+        txt::{ParseError, decode_char_string, encode_char_string},
     },
 };
 
@@ -175,7 +175,7 @@ impl SVCB {
     ///   strings.  Key names should contain 1-63 characters from the ranges
     ///   "a"-"z", "0"-"9", and "-".  In ABNF [RFC5234],
     ///
-    ///   alpha-lc      = %x61-7A   ;  a-z
+    ///   alpha-lc      = %x61-7A   ; a-z
     ///   SvcParamKey   = 1*63(alpha-lc / DIGIT / "-")
     ///   SvcParam      = SvcParamKey ["=" SvcParamValue]
     ///   SvcParamValue = char-string ; See Appendix A.
@@ -220,19 +220,14 @@ impl SVCB {
         // Loop over all of the service parameters
         let mut svc_params = Vec::new();
         for token in tokens {
-            // first need to split the key and (optional) value
             let mut key_value = token.splitn(2, '=');
+
             let key = key_value
                 .next()
                 .ok_or_else(|| ParseError::MissingToken("SVCB SvcbParams missing".to_string()))?;
 
-            // get the value, and remove any quotes
-            let mut value = key_value.next();
-            if let Some(value) = value.as_mut() {
-                if value.starts_with('"') && value.ends_with('"') {
-                    *value = &value[1..value.len() - 1];
-                }
-            }
+            let value = key_value.next();
+
             svc_params.push(into_svc_param(key, value)?);
         }
 
@@ -267,16 +262,17 @@ fn parse_value(key: SvcParamKey, value: Option<&str>) -> Result<SvcParamValue, P
     }
 }
 
-fn parse_char_data(value: &str) -> Result<String, ParseError> {
-    let mut lex = Lexer::new(value);
-    let ch_data = lex
-        .next_token()?
-        .ok_or(ParseError::Message("expected character data"))?;
-
-    match ch_data {
-        Token::CharData(data) => Ok(data),
-        _ => Err(ParseError::Message("expected character data")),
+/// Several SvcParamValues (mandatory, port, the IP hints, and ech which states
+/// "SvcParam") state: "To enable simpler parsing, this SvcParamValue MUST NOT
+/// contain escape sequences."
+fn deny_escapes(value: &str) -> Result<&str, ParseError> {
+    if value.contains('\\') {
+        return Err(ParseError::Message(
+            "this SvcParamValue MUST NOT contain escape sequences",
+        ));
     }
+
+    Ok(value)
 }
 
 /// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-8)
@@ -301,7 +297,7 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
 fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or(ParseError::Message("expected at least one Mandatory field"))?;
 
-    let mandatories = parse_list::<SvcParamKey>(value)?;
+    let mandatories = parse_list::<SvcParamKey>(deny_escapes(value)?)?;
     Ok(SvcParamValue::Mandatory(Mandatory(mandatories)))
 }
 
@@ -321,7 +317,12 @@ fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 fn parse_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or(ParseError::Message("expected at least one ALPN code"))?;
 
-    let alpns = parse_list::<String>(value).expect("infallible");
+    // char-string decoding comes first (RFC 9460 §2.1)
+    let decoded = decode_char_string(value)?;
+    let decoded = String::from_utf8(decoded)
+        .map_err(|_| ParseError::Message("alpn-ids must be valid UTF-8"))?;
+
+    let alpns = parse_list::<String>(&decoded).expect("infallible");
     Ok(SvcParamValue::Alpn(Alpn(alpns)))
 }
 
@@ -352,8 +353,7 @@ fn parse_no_default_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseErro
 fn parse_port(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or(ParseError::Message("a port number for the port option"))?;
 
-    let value = parse_char_data(value)?;
-    let port = u16::from_str(&value)?;
+    let port = u16::from_str(deny_escapes(value)?)?;
     Ok(SvcParamValue::Port(port))
 }
 
@@ -368,7 +368,7 @@ fn parse_port(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or(ParseError::Message("expected at least one ipv4 hint"))?;
 
-    let hints = parse_list::<A>(value)?;
+    let hints = parse_list::<A>(deny_escapes(value)?)?;
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
@@ -383,7 +383,7 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or(ParseError::Message("expected at least one ipv6 hint"))?;
 
-    let hints = parse_list::<AAAA>(value)?;
+    let hints = parse_list::<AAAA>(deny_escapes(value)?)?;
     Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
 }
 
@@ -402,8 +402,7 @@ fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
         "expected a base64 encoded string for EchConfig",
     ))?;
 
-    let value = parse_char_data(value)?;
-    let ech_config_bytes = data_encoding::BASE64.decode(value.as_bytes())?;
+    let ech_config_bytes = data_encoding::BASE64.decode(deny_escapes(value)?.as_bytes())?;
     Ok(SvcParamValue::EchConfigList(EchConfigList(
         ech_config_bytes,
     )))
@@ -425,10 +424,9 @@ fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///   MUST NOT be repeated.
 /// ```
 fn parse_unknown(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let unknown: Vec<u8> = if let Some(value) = value {
-        value.as_bytes().to_vec()
-    } else {
-        Vec::new()
+    let unknown = match value {
+        Some(value) => decode_char_string(value)?,
+        None => Vec::new(),
     };
 
     Ok(SvcParamValue::Unknown(Unknown(unknown)))
@@ -447,7 +445,7 @@ where
         match (c, escaping) {
             // End of value
             (',', false) => {
-                result.push(T::from_str(&parse_char_data(&current_value)?).map_err(Into::into)?);
+                result.push(T::from_str(&current_value).map_err(Into::into)?);
                 current_value.clear()
             }
             // Start of escape sequence
@@ -469,7 +467,7 @@ where
 
     // Push the remaining value if there's any
     if !current_value.is_empty() {
-        result.push(T::from_str(&parse_char_data(&current_value)?).map_err(Into::into)?);
+        result.push(T::from_str(&current_value).map_err(Into::into)?);
     }
 
     Ok(result)
@@ -939,11 +937,13 @@ impl BinEncodable for Mandatory {
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         if self.0.is_empty() {
-            return Err(ProtoError::from("Alpn expects at least one value"));
+            return Err(ProtoError::from("Mandatory expects at least one value"));
         }
 
-        // TODO: order by key value
-        for key in self.0.iter() {
+        let mut keys = self.0.clone();
+        keys.sort_unstable();
+
+        for key in keys {
             key.emit(encoder)?
         }
 
@@ -968,9 +968,11 @@ impl fmt::Display for Mandatory {
     ///
     ///    ipv6hint=... key65333=ex1 key65444=ex2 mandatory=key65444,ipv6hint
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        for key in self.0.iter() {
-            // TODO: confirm in the RFC that trailing commas are ok
-            write!(f, "{key},")?;
+        for (index, key) in self.0.iter().enumerate() {
+            if index != 0 {
+                write!(f, ",")?;
+            }
+            write!(f, "{key}")?;
         }
 
         Ok(())
@@ -1139,12 +1141,22 @@ impl fmt::Display for Alpn {
     ///   The presentation value SHALL be a comma-separated list
     ///   (Appendix A.1) of one or more "alpn-id"s.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        for alpn in self.0.iter() {
-            // TODO: confirm in the RFC that trailing commas are ok
-            write!(f, "{alpn},")?;
+        // commas and backslashes within an alpn-id are escaped first (Appendix A.1),
+        // then the joined list is encoded as a char-string (RFC 9460 §2.1)
+        let mut joined = Vec::new();
+        for (index, alpn) in self.0.iter().enumerate() {
+            if index != 0 {
+                joined.push(b',');
+            }
+            for byte in alpn.bytes() {
+                if byte == b',' || byte == b'\\' {
+                    joined.push(b'\\');
+                }
+                joined.push(byte);
+            }
         }
 
-        Ok(())
+        encode_char_string(&joined, f)
     }
 }
 
@@ -1317,8 +1329,11 @@ where
     ///   in standard textual format [RFC 5952](https://tools.ietf.org/html/rfc5952).  To enable simpler parsing,
     ///   this SvcParamValue MUST NOT contain escape sequences.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        for ip in self.0.iter() {
-            write!(f, "{ip},")?;
+        for (index, ip) in self.0.iter().enumerate() {
+            if index != 0 {
+                write!(f, ",")?;
+            }
+            write!(f, "{ip}")?;
         }
 
         Ok(())
@@ -1368,10 +1383,7 @@ impl BinEncodable for Unknown {
 
 impl fmt::Display for Unknown {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        // TODO: this needs to be properly encoded
-        write!(f, "\"{}\",", String::from_utf8_lossy(&self.0))?;
-
-        Ok(())
+        encode_char_string(&self.0, f)
     }
 }
 
@@ -1536,6 +1548,7 @@ mod tests {
 
     #[track_caller]
     fn test_encode_decode(rdata: SVCB) {
+        // wire-format round-trip
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
         rdata.emit(&mut encoder).expect("failed to emit SVCB");
@@ -1544,6 +1557,10 @@ mod tests {
         let mut decoder = BinDecoder::new(bytes);
         let read_rdata = SVCB::read_data(&mut decoder).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
+
+        // presentation-format round-trip
+        let parsed_rdata: SVCB = parse_record(&format!("example.com. 42 IN SVCB {rdata}"));
+        assert_eq!(rdata, parsed_rdata);
     }
 
     #[test]
@@ -1593,6 +1610,59 @@ mod tests {
                     SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::Alpn])),
                 ),
             ],
+        ));
+    }
+
+    /// [RFC 9460 §2.1, SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-2.1)
+    ///
+    /// ```text
+    /// 2.1.  Zone-File Presentation Format
+    ///
+    ///   alpha-lc      = %x61-7A   ; a-z
+    ///   SvcParamKey   = 1*63(alpha-lc / DIGIT / "-")
+    ///   SvcParam      = SvcParamKey ["=" SvcParamValue]
+    ///   SvcParamValue = char-string ; See Appendix A.
+    ///   value         = *OCTET ; Value before key-specific parsing
+    /// ```
+    ///
+    /// [RFC 9460 Appendix A, SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#appendix-A)
+    ///
+    /// ```text
+    /// Appendix A.  Decoding Text in Zone Files
+    ///
+    ///   ; non-special is VCHAR minus DQUOTE, ";", "(", ")", and "\".
+    ///   non-special = %x21 / %x23-27 / %x2A-3A / %x3C-5B / %x5D-7E
+    ///   ; non-digit is VCHAR minus DIGIT.
+    ///   non-digit   = %x21-2F / %x3A-7E
+    ///   ; dec-octet is a number 0-255 as a three-digit decimal number.
+    ///   dec-octet   = ( "0" / "1" ) 2DIGIT /
+    ///                 "2" ( ( %x30-34 DIGIT ) / ( "5" %x30-35 ) )
+    ///   escaped     = "\" ( non-digit / dec-octet )
+    ///   contiguous  = 1*( non-special / escaped )
+    ///   quoted      = DQUOTE *( contiguous / ( ["\"] WSP ) ) DQUOTE
+    ///   char-string = contiguous / quoted
+    /// ```
+    #[test]
+    fn test_encode_decode_svcb_value_with_space() {
+        test_encode_decode(SVCB::new(
+            1,
+            Name::from_utf8(".").unwrap(),
+            vec![(
+                SvcParamKey::Key(65367),
+                SvcParamValue::Unknown(Unknown(b"fizz, buzz".to_vec())),
+            )],
+        ));
+    }
+
+    #[test]
+    fn test_encode_decode_svcb_value_with_escapes() {
+        test_encode_decode(SVCB::new(
+            1,
+            Name::from_utf8(".").unwrap(),
+            vec![(
+                SvcParamKey::Key(65367),
+                SvcParamValue::Unknown(Unknown(b"a\"b\\c \x00\x7f\xff".to_vec())),
+            )],
         ));
     }
 
@@ -1756,7 +1826,7 @@ mod tests {
 
         // NOTE: In each case the test vector from the RFC was augmented with a TTL (42 in each
         //       case). The parser requires this but the test vectors do not include it.
-        let vectors: [TestVector; 9] = [
+        let vectors = [
             // https://datatracker.ietf.org/doc/html/rfc9460#appendix-D.1
             // Figure 2: AliasMode
             TestVector {
@@ -1802,7 +1872,7 @@ mod tests {
                 priority: 1,
                 params: vec![(
                     SvcParamKey::Key(667),
-                    SvcParamValue::Unknown(Unknown(b"hello\\210qoo".into())),
+                    SvcParamValue::Unknown(Unknown(b"hello\xd2qoo".into())),
                 )],
             },
             // Figure 7: Two Quoted IPv6 Hints
@@ -1858,29 +1928,25 @@ mod tests {
             },
             // Figure 10: An "alpn" Value with an Escaped Comma and an Escaped Backslash in Two Presentation Formats
             TestVector {
-                record: r#"example.com.  42  SVCB   16 foo.example.org. alpn="f\\\\oo\,bar,h2""#,
+                record: r#"example.com.  42  SVCB   16 foo.example.org. alpn="f\\\\oo\\,bar,h2""#,
                 record_type: RecordType::SVCB,
                 target_name: Name::from_str("foo.example.org.").unwrap(),
                 priority: 16,
                 params: vec![(
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec![r#"f\\oo,bar"#.to_owned(), "h2".to_owned()])),
+                    SvcParamValue::Alpn(Alpn(vec![r#"f\oo,bar"#.to_owned(), "h2".to_owned()])),
                 )],
             },
-            /*
-             * TODO(XXX): Parser does not replace escaped characters, does not see "\092," as
-             *            an escaped delim.
             TestVector {
-                record: r#"example.com.  42  SVCB   116 foo.example.org. alpn=f\\\092oo\092,bar,h2""#,
+                record: r#"example.com.  42  SVCB   16 foo.example.org. alpn=f\\\092oo\092,bar,h2"#,
                 record_type: RecordType::SVCB,
                 target_name: Name::from_str("foo.example.org.").unwrap(),
                 priority: 16,
                 params: vec![(
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec![r#"f\\oo,bar"#.to_owned(), "h2".to_owned()])),
+                    SvcParamValue::Alpn(Alpn(vec![r#"f\oo,bar"#.to_owned(), "h2".to_owned()])),
                 )],
             },
-            */
         ];
 
         for record in vectors {
