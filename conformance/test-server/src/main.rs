@@ -18,8 +18,9 @@ use tokio::net::{TcpListener, UdpSocket};
 
 mod handlers;
 use handlers::{
-    BogusNoDataInsteadOfCname, DropRrsetHandler, ForgedDelegationHandler, Nsec3WrongZoneHandler,
-    ServfailRrsetHandler, bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
+    BogusNoDataInsteadOfCname, BogusWildcardExpansionQnameExistsHandler, DropRrsetHandler,
+    ForgedDelegationHandler, Nsec3WrongZoneHandler, ServfailRrsetHandler, bad_case_handler,
+    bad_txid_handler, bailiwick_handler, base_handler,
     bogus_wildcard_expansion_nsec_same_name_condition_handler, cname_loop_handler,
     empty_response_handler, foreign_class_handler, nsec3_apex_nodata_handler,
     nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
@@ -112,6 +113,11 @@ enum HandlerArg {
         private_key: String,
         public_key: String,
     },
+    BogusWildcardExpansionQnameExists {
+        ip_address: IpAddr,
+        wildcard_name: Name,
+        query_name: Name,
+    },
 }
 
 impl HandlerArg {
@@ -166,6 +172,13 @@ impl HandlerArg {
                 public_key,
             } => NSEC3_WRONG_ZONE_HANDLER
                 .get_or_init(|| Nsec3WrongZoneHandler::new(ip_address, private_key, public_key)),
+            Self::BogusWildcardExpansionQnameExists {
+                ip_address,
+                wildcard_name,
+                query_name,
+            } => BOGUS_WILDCARD_EXPANSION_QNAME_EXISTS.get_or_init(|| {
+                BogusWildcardExpansionQnameExistsHandler::new(ip_address, wildcard_name, query_name)
+            }),
         }
     }
 }
@@ -175,6 +188,8 @@ static BOGUS_NO_DATA_CNAME_HANDLER: OnceLock<BogusNoDataInsteadOfCname> = OnceLo
 static SERVFAIL_HANDLER: OnceLock<ServfailRrsetHandler> = OnceLock::new();
 static FORGED_DELEGATION_HANDLER: OnceLock<ForgedDelegationHandler> = OnceLock::new();
 static NSEC3_WRONG_ZONE_HANDLER: OnceLock<Nsec3WrongZoneHandler> = OnceLock::new();
+static BOGUS_WILDCARD_EXPANSION_QNAME_EXISTS: OnceLock<BogusWildcardExpansionQnameExistsHandler> =
+    OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,
