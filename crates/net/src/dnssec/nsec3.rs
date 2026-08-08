@@ -174,7 +174,12 @@ pub(super) fn verify_nsec3(
                 RData::DNSSEC(DNSSECRData::RRSIG(data)) => Some(data.input().num_labels),
                 _ => None,
             });
-            validate_nodata_response(query.query_type(), wildcard_num_labels, &cx)
+            validate_nodata_response(
+                query.query_type(),
+                wildcard_num_labels,
+                answers.is_empty(),
+                &cx,
+            )
         }
         _ => cx.proof(
             Proof::Bogus,
@@ -297,6 +302,7 @@ fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
 fn validate_nodata_response(
     query_type: RecordType,
     wildcard_encloser_num_labels: Option<u8>,
+    answers_is_empty: bool,
     cx: &Context<'_>,
 ) -> Proof {
     // 2. Name exists but there's no record of this type
@@ -359,6 +365,12 @@ fn validate_nodata_response(
             return cx.proof(
                 Proof::Bogus,
                 "direct match for DS query is an NSEC3 record from the child side of the zone cut",
+            );
+        } else if !answers_is_empty {
+            return cx.proof(
+                Proof::Bogus,
+                "query name exists, no records of matching type exist, \
+                and answer section is not empty",
             );
         } else {
             return cx.proof(
