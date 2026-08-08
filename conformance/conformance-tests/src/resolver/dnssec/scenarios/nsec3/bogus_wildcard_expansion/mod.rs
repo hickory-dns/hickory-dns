@@ -22,7 +22,6 @@ use dns_test::{
 };
 
 #[test]
-#[ignore = "hickory's NODATA validation rules are missing a check for an empty answer section"]
 fn bogus_wildcard_expansion_qname_exists_one_label() -> Result<(), Error> {
     bogus_wildcard_expansion_qname_exists(
         FQDN::TEST_DOMAIN.push_label("*"),
@@ -31,7 +30,6 @@ fn bogus_wildcard_expansion_qname_exists_one_label() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory's NODATA validation rules are missing a check for an empty answer section"]
 fn bogus_wildcard_expansion_qname_exists_many_labels() -> Result<(), Error> {
     bogus_wildcard_expansion_qname_exists(
         FQDN::TEST_DOMAIN
@@ -48,7 +46,6 @@ fn bogus_wildcard_expansion_qname_exists_many_labels() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory's NODATA validation rules are missing a check for an empty answer section"]
 fn bogus_wildcard_expansion_qname_exists_expand_multiple_labels() -> Result<(), Error> {
     bogus_wildcard_expansion_qname_exists(
         FQDN::TEST_DOMAIN.push_label("a").push_label("*"),
