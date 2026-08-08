@@ -78,6 +78,15 @@ async fn main() -> Result<()> {
             private_key,
             public_key,
         )),
+        HandlerArg::BogusWildcardExpansionQnameExists {
+            ip_address,
+            wildcard_name,
+            query_name,
+        } => Arc::new(handlers::BogusWildcardExpansionQnameExistsHandler::new(
+            ip_address,
+            wildcard_name,
+            query_name,
+        )),
     };
 
     let mut handles = vec![];
@@ -154,6 +163,11 @@ enum HandlerArg {
         ip_address: IpAddr,
         private_key: String,
         public_key: String,
+    },
+    BogusWildcardExpansionQnameExists {
+        ip_address: IpAddr,
+        wildcard_name: Name,
+        query_name: Name,
     },
 }
 
