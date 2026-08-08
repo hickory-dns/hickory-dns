@@ -15,7 +15,9 @@ use hickory_proto::{
         crypto::EcdsaSigningKey,
         rdata::{DNSKEY, DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
     },
-    op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, MessageType, ResponseCode},
+    op::{
+        DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, MessageType, Query, ResponseCode,
+    },
     rr::{
         DNSClass, RData, Record, RecordSet, RecordType,
         domain::Name,
@@ -1506,6 +1508,67 @@ impl Handler for Nsec3WrongZoneHandler {
         msg.add_authority(rrsig_record);
 
         Ok(Some(msg.to_vec().context("error serializing response")?))
+    }
+}
+
+/// Proxies queries to another server, and forges a positive wildcard-expanded response in place of
+/// a NODATA response.
+pub(super) struct BogusWildcardExpansionQnameExistsHandler {
+    ip_address: IpAddr,
+    wildcard_name: Name,
+    query_name: Name,
+}
+
+impl BogusWildcardExpansionQnameExistsHandler {
+    pub(super) fn new(ip_address: IpAddr, wildcard_name: Name, query_name: Name) -> Self {
+        Self {
+            ip_address,
+            wildcard_name,
+            query_name,
+        }
+    }
+}
+
+#[async_trait]
+impl Handler for BogusWildcardExpansionQnameExistsHandler {
+    async fn handle(&self, bytes: &[u8], _transport: Transport) -> Result<Option<Vec<u8>>> {
+        let query_message = Message::from_vec(bytes).context("error parsing query into message")?;
+        let query = &query_message.queries[0];
+
+        let response = if query.name == self.query_name && query.query_type == RecordType::A {
+            let mut edns = Edns::new();
+            edns.set_max_payload(1232);
+            edns.set_dnssec_ok(true);
+
+            let mut wildcard_query = Message::query();
+            wildcard_query.set_edns(edns.clone());
+            wildcard_query.add_query(Query::query(
+                self.wildcard_name.base_name().prepend_label("other")?,
+                RecordType::A,
+            ));
+            let wildcard_response = proxy_query(self.ip_address, wildcard_query).await?;
+            let mut wildcard_records = Message::from(wildcard_response).answers;
+            for record in wildcard_records.iter_mut() {
+                // Replace the name in the wildcard-expanded record.
+                record.name = query.name.clone();
+            }
+
+            let mut nodata_query = Message::query();
+            nodata_query.set_edns(edns);
+            nodata_query.add_query(Query::query(self.query_name.clone(), RecordType::A));
+            let nodata_response = proxy_query(self.ip_address, nodata_query).await?;
+
+            let mut response: Message = nodata_response.into();
+            response.metadata.id = query_message.id;
+            response.add_answers(wildcard_records);
+            response
+        } else {
+            proxy_query(self.ip_address, query_message).await?.into()
+        };
+
+        Ok(Some(
+            response.to_vec().context("error serializing response")?,
+        ))
     }
 }
 
