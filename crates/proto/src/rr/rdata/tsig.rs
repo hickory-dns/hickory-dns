@@ -387,13 +387,6 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
     fn read_data(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let end_idx = decoder.len().checked_add(decoder.index()).ok_or_else(||
-            // no legal message is long enough to trigger this
-            DecodeError::IncorrectRDataLengthRead {
-                read: decoder.index(),
-                len: decoder.index(),
-            })?;
-
         let algorithm = TsigAlgorithm::read(decoder)?;
         let time_high = decoder.read_u16()?.unverified(/*valid as any u16*/) as u64;
         let time_low = decoder.read_u32()?.unverified(/*valid as any u32*/) as u64;
@@ -401,11 +394,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
         let fudge = decoder.read_u16()?.unverified(/*valid as any u16*/);
         let mac_size = decoder
             .read_u16()?
-            .verify_unwrap(|&size| decoder.index() + size as usize + 6 /* 3 u16 */ <= end_idx)
-            .map_err(|size| DecodeError::IncorrectRDataLengthRead {
-                read: end_idx - decoder.index(),
-                len: size as usize + 6,
-            })?;
+            .unverified(/* length is checked by read_vec() later */);
         let mac =
             decoder.read_vec(mac_size as usize)?.unverified(/*valid as any vec of the right size*/);
         let oid = decoder.read_u16()?.unverified(/*valid as any u16*/);
@@ -415,11 +404,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
         };
         let other_len = decoder
             .read_u16()?
-            .verify_unwrap(|&size| decoder.index() + size as usize == end_idx)
-            .map_err(|size| DecodeError::IncorrectRDataLengthRead {
-                read: end_idx - decoder.index(),
-                len: size as usize,
-            })?;
+            .unverified(/* length is checked by read_vec() later */);
         let other = decoder.read_vec(other_len as usize)?.unverified(/*valid as any vec of the right size*/);
 
         Ok(Self {
