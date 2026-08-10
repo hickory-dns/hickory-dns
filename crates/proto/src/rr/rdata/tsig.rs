@@ -383,10 +383,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
         let mac_size = decoder
             .read_u16()?
             .verify_unwrap(|&size| decoder.index() + size as usize + 6 /* 3 u16 */ <= end_idx)
-            .map_err(|size| DecodeError::IncorrectRDataLengthRead {
-                read: end_idx - decoder.index(),
-                len: size as usize + 6,
-            })?;
+            .map_err(|_| DecodeError::InsufficientBytes)?;
         let mac =
             decoder.read_vec(mac_size as usize)?.unverified(/*valid as any vec of the right size*/);
         let oid = decoder.read_u16()?.unverified(/*valid as any u16*/);
@@ -397,10 +394,7 @@ impl<'r> RecordDataDecodable<'r> for TSIG {
         let other_len = decoder
             .read_u16()?
             .verify_unwrap(|&size| decoder.index() + size as usize == end_idx)
-            .map_err(|size| DecodeError::IncorrectRDataLengthRead {
-                read: end_idx - decoder.index(),
-                len: size as usize,
-            })?;
+            .map_err(|_| DecodeError::InsufficientBytes)?;
         let other = decoder.read_vec(other_len as usize)?.unverified(/*valid as any vec of the right size*/);
 
         Ok(Self {
