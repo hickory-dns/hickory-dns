@@ -391,7 +391,7 @@ mod test {
     use super::*;
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::rdata::{NS, SOA};
-    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType};
+    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType, SerialNumber};
     use crate::proto::serialize::binary::BinEncodable;
     use crate::xfer::{DnsClientStream, StreamReceiver};
 
@@ -513,7 +513,7 @@ mod test {
             RData::SOA(SOA::new(
                 Name::parse("sns.dns.icann.org.", None).unwrap(),
                 Name::parse("noc.dns.icann.org.", None).unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,

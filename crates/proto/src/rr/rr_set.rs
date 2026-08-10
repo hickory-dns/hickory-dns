@@ -556,7 +556,7 @@ mod test {
             RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.org.").unwrap(),
                 Name::from_str("noc.dns.icann.org.").unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,
@@ -569,7 +569,7 @@ mod test {
             RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.net.").unwrap(),
                 Name::from_str("noc.dns.icann.net.").unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,
@@ -582,7 +582,7 @@ mod test {
             RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.net.").unwrap(),
                 Name::from_str("noc.dns.icann.net.").unwrap(),
-                2015082404,
+                SerialNumber::from(2015082404),
                 7200,
                 3600,
                 1209600,
@@ -666,7 +666,7 @@ mod test {
             RData::SOA(SOA::new(
                 Name::from_str("sns.dns.icann.org.").unwrap(),
                 Name::from_str("noc.dns.icann.org.").unwrap(),
-                2015082403,
+                SerialNumber::from(2015082403),
                 7200,
                 3600,
                 1209600,

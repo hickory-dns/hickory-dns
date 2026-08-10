@@ -1248,7 +1248,7 @@ mod tests {
     use crate::proto::{
         op::{MessageType, OpCode, Query},
         rr::{
-            Name, RData, Record, RecordType,
+            Name, RData, Record, RecordType, SerialNumber,
             rdata::{A, SOA},
         },
     };
@@ -1272,7 +1272,7 @@ mod tests {
             RData::SOA(SOA::new(
                 Name::from_str("ns.example.com.").unwrap(),
                 Name::from_str("admin.example.com.").unwrap(),
-                1,
+                SerialNumber::from(1),
                 3600,
                 1800,
                 604800,

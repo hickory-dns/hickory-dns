@@ -21,10 +21,14 @@ use futures::{
 use hickory_net::NetError;
 use hickory_net::runtime::{DnsTcpStream, DnsUdpSocket, RuntimeProvider, TokioHandle, TokioTime};
 use hickory_net::xfer::DnsHandle;
-use hickory_proto::ProtoError;
-use hickory_proto::op::{DnsRequest, DnsResponse, Message, Query};
-use hickory_proto::rr::rdata::{CNAME, NS, SOA};
-use hickory_proto::rr::{Name, RData, Record};
+use hickory_proto::{
+    ProtoError,
+    op::{DnsRequest, DnsResponse, Message, Query},
+    rr::{
+        Name, RData, Record, SerialNumber,
+        rdata::{CNAME, NS, SOA},
+    },
+};
 use hickory_resolver::config::ConnectionConfig;
 use hickory_resolver::{ConnectionProvider, PoolContext};
 
@@ -209,7 +213,15 @@ pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
 }
 
 pub fn soa_record(name: Name, mname: Name) -> Record {
-    let soa = SOA::new(mname, Name::default(), 1, 3600, 60, 86400, 3600);
+    let soa = SOA::new(
+        mname,
+        Name::default(),
+        SerialNumber::from(1),
+        3600,
+        60,
+        86400,
+        3600,
+    );
     Record::from_rdata(name, 86400, RData::SOA(soa))
 }
 
