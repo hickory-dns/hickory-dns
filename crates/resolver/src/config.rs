@@ -22,7 +22,10 @@ use std::{fs, io};
 
 use ipnet::IpNet;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize, Serialize,
+    de::{self, Visitor, value::MapAccessDeserializer},
+};
 use tracing::warn;
 #[cfg(all(
     feature = "toml",
@@ -396,6 +399,37 @@ impl ConnectionConfig {
 }
 
 #[cfg(feature = "serde")]
+fn connection_config_protocol_parser<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<ProtocolConfig, D::Error> {
+    struct ProtocolConfigVisitor;
+
+    impl<'de> Visitor<'de> for ProtocolConfigVisitor {
+        type Value = ProtocolConfig;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(r#"a string ("udp" | "tcp") or a protocol table"#)
+        }
+
+        fn visit_str<E: de::Error>(self, s: &str) -> Result<Self::Value, E> {
+            match s {
+                "tcp" => Ok(ProtocolConfig::Tcp),
+                "udp" => Ok(ProtocolConfig::Udp),
+                _ => Err(E::custom(
+                    r#"only "tcp" and "udp" are allowed in string form!"#,
+                )),
+            }
+        }
+
+        fn visit_map<A: de::MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
+            ProtocolConfig::deserialize(MapAccessDeserializer::new(map))
+        }
+    }
+
+    deserializer.deserialize_any(ProtocolConfigVisitor)
+}
+
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for ConnectionConfig {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
@@ -403,6 +437,7 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
         struct OptionalParts {
             #[serde(default)]
             port: Option<u16>,
+            #[serde(deserialize_with = "connection_config_protocol_parser")]
             protocol: ProtocolConfig,
             #[serde(default)]
             bind_addr: Option<SocketAddr>,
@@ -1180,5 +1215,36 @@ mod tests {
             code.enable_per_name_server_metrics,
             json.enable_per_name_server_metrics
         );
+    }
+
+    #[test]
+    fn connection_config_protocol_forms() {
+        let config = toml::from_str::<ConnectionConfig>(r#"protocol = "udp""#).unwrap();
+        assert_eq!(config.protocol, ProtocolConfig::Udp);
+
+        let config = toml::from_str::<ConnectionConfig>(r#"protocol = "tcp""#).unwrap();
+        assert_eq!(config.protocol, ProtocolConfig::Tcp);
+
+        // The table form still works.
+        let config = toml::from_str::<ConnectionConfig>(r#"protocol = { type = "tcp" }"#).unwrap();
+        assert_eq!(config.protocol, ProtocolConfig::Tcp);
+
+        #[cfg(feature = "__tls")]
+        {
+            let config = toml::from_str::<ConnectionConfig>(
+                r#"protocol = { type = "tls", server_name = "example.com" }"#,
+            )
+            .unwrap();
+            assert_eq!(
+                config.protocol,
+                ProtocolConfig::Tls {
+                    server_name: Arc::from("example.com")
+                }
+            );
+            assert_eq!(config.port, 853);
+        }
+
+        // Only protocols without additional fields have a string form.
+        assert!(toml::from_str::<ConnectionConfig>(r#"protocol = "quic""#).is_err());
     }
 }
