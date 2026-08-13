@@ -43,8 +43,9 @@ type = "forward"
 [[zones.stores.name_servers]]
 ip = "8.8.8.8"
 trust_negative_responses = false
+## protocol is either a plain string ("udp" or "tcp") or a table, e.g. { type = "tls", server_name = "..." }
 connections = [
-    { protocol = { type = "udp" } },
+    { protocol = "udp" },
     { protocol = { type = "tcp" } },
 ]
 
