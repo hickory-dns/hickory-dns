@@ -40,6 +40,11 @@ mod private {
             self.max_size = max as usize;
         }
 
+        /// Returns the maximum size currently enforced
+        pub(super) fn max_size(&self) -> u16 {
+            self.max_size as u16
+        }
+
         pub(super) fn write(&mut self, offset: usize, data: &[u8]) -> ProtoResult<()> {
             debug_assert!(offset <= self.buffer.len());
             if offset + data.len() > self.max_size {
@@ -146,6 +151,11 @@ impl<'a> BinEncoder<'a> {
     /// *this method will move to the constructor in a future release*
     pub fn set_max_size(&mut self, max: u16) {
         self.buffer.set_max_size(max);
+    }
+
+    /// Returns the maximum size of the buffer currently in effect
+    pub(crate) fn max_size(&self) -> u16 {
+        self.buffer.max_size()
     }
 
     /// Returns a reference to the internal buffer
