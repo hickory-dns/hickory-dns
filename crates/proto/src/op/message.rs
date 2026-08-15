@@ -597,24 +597,54 @@ where
     let place = encoder.place::<Header>()?;
 
     let query_count = queries.emit(encoder)?;
-    // TODO: need to do something on max records
-    //  return offset of last emitted record.
-    let answer_count = count_was_truncated(answers.emit(encoder))?;
-    let authority_count = count_was_truncated(authorities.emit(encoder))?;
-    let mut additional_count = count_was_truncated(additionals.emit(encoder))?;
+
+    let answer_count;
+    let authority_count;
+    let mut additional_count;
 
     if let Some(mut edns) = edns.cloned() {
         // need to commit the error code
         edns.set_rcode_high(metadata.response_code.high());
 
-        let count = count_was_truncated(encoder.emit_iter([&Record::from(&edns)]))?;
+        // RFC 6891 section 7: "The minimal response MUST be the DNS header, question section,
+        // and an OPT record. This MUST also occur when a truncated response (using the DNS
+        // header's TC bit) is returned."
+        //
+        // The OPT record's owner name is always the root, which always encodes to exactly one
+        // byte regardless of what has already been written, so its encoded size is known ahead
+        // of time. Reserve that much space before encoding the answer, authority and additional
+        // sections, so the OPT record is guaranteed to fit afterward even if those sections end
+        // up truncated.
+        let opt_record = Record::from(&edns);
+        let opt_len = {
+            let mut buf = Vec::new();
+            BinEncoder::new(&mut buf).emit_iter([&opt_record])?;
+            buf.len() as u16
+        };
+
+        let max_size = encoder.max_size();
+        encoder.set_max_size(max_size.saturating_sub(opt_len));
+
+        answer_count = count_was_truncated(answers.emit(encoder))?;
+        authority_count = count_was_truncated(authorities.emit(encoder))?;
+        additional_count = count_was_truncated(additionals.emit(encoder))?;
+
+        encoder.set_max_size(max_size);
+
+        let count = count_was_truncated(encoder.emit_iter([&opt_record]))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
-    } else if metadata.response_code.high() > 0 {
-        warn!(
-            "response code: {} for request: {} requires EDNS but none available",
-            metadata.response_code, metadata.id
-        );
+    } else {
+        answer_count = count_was_truncated(answers.emit(encoder))?;
+        authority_count = count_was_truncated(authorities.emit(encoder))?;
+        additional_count = count_was_truncated(additionals.emit(encoder))?;
+
+        if metadata.response_code.high() > 0 {
+            warn!(
+                "response code: {} for request: {} requires EDNS but none available",
+                metadata.response_code, metadata.id
+            );
+        }
     }
 
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
