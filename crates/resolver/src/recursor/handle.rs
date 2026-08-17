@@ -317,17 +317,19 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     ) -> Result<Message, RecursorError> {
         let query_type = query.query_type;
 
-        // Don't resolve CNAME lookups for a CNAME (or ANY) query
-        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
-            return Ok(response);
-        }
-
         // Return early if there isn't a matching CNAME in the response.
         let has_cname = response
             .answers
             .iter()
             .any(|rec| matches!(rec.data, CNAME(_)) && rec.name == query.name);
         if !has_cname {
+            return Ok(response);
+        }
+
+        // Don't resolve CNAME lookups for a CNAME (or ANY) query, but still order the chain
+        // the upstream returned.
+        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
+            order_cname_chain(&mut response.answers, &query.name);
             return Ok(response);
         }
 
@@ -417,6 +419,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         if !cname_chain.is_empty() {
             response.answers.extend(cname_chain);
         }
+
+        order_cname_chain(&mut response.answers, &query.name);
 
         Ok(response)
     }
@@ -1133,6 +1137,41 @@ const MAX_GLUELESS_FOLLOW: usize = 5;
 
 /// Maximum number of upstream queries the recursor will issue for a single client query.
 const MAX_QUERIES_PER_REQUEST: u8 = 200;
+
+/// Sort `answers` so a CNAME chain unrolls from `query_name`.
+///
+/// Clients such as glibc need the chain in this order to follow it.
+fn order_cname_chain(answers: &mut Vec<Record>, query_name: &Name) {
+    let mut by_name = HashMap::<&Name, Vec<usize>>::new();
+    for (i, record) in answers.iter().enumerate() {
+        by_name.entry(&record.name).or_default().push(i);
+    }
+
+    // Records off the chain rank after it, in their original order.
+    let mut rank = (answers.len()..answers.len() * 2).collect::<Vec<_>>();
+    let mut next_rank = 0;
+    let mut name = query_name;
+    // Each name is visited once, so this ends even if the chain loops.
+    while let Some(indices) = by_name.remove(name) {
+        let mut target = None;
+        for i in indices {
+            rank[i] = next_rank;
+            next_rank += 1;
+            if let (None, CNAME(cname)) = (target, &answers[i].data) {
+                target = Some(&cname.0);
+            }
+        }
+
+        match target {
+            Some(next) => name = next,
+            None => break,
+        }
+    }
+
+    let mut ranked = answers.drain(..).zip(rank).collect::<Vec<_>>();
+    ranked.sort_unstable_by_key(|(_, rank)| *rank);
+    answers.extend(ranked.into_iter().map(|(record, _)| record));
+}
 
 #[cfg(test)]
 mod tests {
