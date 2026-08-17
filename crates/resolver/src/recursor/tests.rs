@@ -1157,6 +1157,143 @@ enabled = {}
     }
 }
 
+fn chain_delegation() -> Result<Vec<MockRecord>, NetError> {
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
+
+    Ok(vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
+        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
+            .with_query_name(&leaf_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+    ])
+}
+
+#[tokio::test]
+async fn cname_chain_answer_order() -> Result<(), NetError> {
+    subscribe();
+
+    let alias = Name::from_ascii("alias.hickory-dns.testing.")?;
+    let intermediate = Name::from_ascii("intermediate.hickory-dns.testing.")?;
+    let canonical = Name::from_ascii("canonical.hickory-dns.testing.")?;
+
+    let delegation = chain_delegation()?;
+
+    let alias_cname = MockRecord::cname(LEAF_IP, &alias, &intermediate).with_query_name(&alias);
+    let intermediate_cname =
+        MockRecord::cname(LEAF_IP, &intermediate, &canonical).with_query_name(&alias);
+    let canonical_a = MockRecord::a(LEAF_IP, &canonical, LEAF_IP).with_query_name(&alias);
+
+    // The authoritative server returns the whole chain in all three cases: the address record
+    // ahead of the aliases that lead to it, the aliases themselves reversed, and already
+    // unrolled.
+    let answer_orders = [
+        vec![
+            canonical_a.clone(),
+            alias_cname.clone(),
+            intermediate_cname.clone(),
+        ],
+        vec![
+            intermediate_cname.clone(),
+            alias_cname.clone(),
+            canonical_a.clone(),
+        ],
+        vec![alias_cname, intermediate_cname, canonical_a],
+    ];
+
+    for answers in answer_orders {
+        let mut responses = delegation.clone();
+        responses.extend(answers);
+
+        let recursor = Recursor::with_options(
+            &[ROOT_IP],
+            RecursorOptions {
+                deny_server: Vec::new(),
+                ..RecursorOptions::default()
+            },
+            MockProvider::new(MockNetworkHandler::new(responses)),
+        )?;
+
+        let response = recursor
+            .resolve(
+                Query::new(alias.clone(), RecordType::A),
+                Instant::now(),
+                false,
+            )
+            .await?;
+
+        let chain = response
+            .answers
+            .iter()
+            .map(|record| (record.name.clone(), record.record_type()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            chain,
+            vec![
+                (alias.clone(), RecordType::CNAME),
+                (intermediate.clone(), RecordType::CNAME),
+                (canonical.clone(), RecordType::A),
+            ]
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn cname_chain_answer_order_for_cname_query() -> Result<(), NetError> {
+    subscribe();
+
+    let alias = Name::from_ascii("alias.hickory-dns.testing.")?;
+    let intermediate = Name::from_ascii("intermediate.hickory-dns.testing.")?;
+    let canonical = Name::from_ascii("canonical.hickory-dns.testing.")?;
+
+    // A CNAME query does not resolve the chain, so the upstream order is all there is.
+    let mut responses = chain_delegation()?;
+    responses.extend([
+        MockRecord::cname(LEAF_IP, &intermediate, &canonical)
+            .with_query_name(&alias)
+            .with_query_type(RecordType::CNAME),
+        MockRecord::cname(LEAF_IP, &alias, &intermediate)
+            .with_query_name(&alias)
+            .with_query_type(RecordType::CNAME),
+    ]);
+
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ..RecursorOptions::default()
+        },
+        MockProvider::new(MockNetworkHandler::new(responses)),
+    )?;
+
+    let response = recursor
+        .resolve(
+            Query::new(alias.clone(), RecordType::CNAME),
+            Instant::now(),
+            false,
+        )
+        .await?;
+
+    let names = response
+        .answers
+        .iter()
+        .map(|record| record.name.clone())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec![alias, intermediate]);
+
+    Ok(())
+}
+
 const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
 const TLD_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 2, 1));
 const LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 3, 1));

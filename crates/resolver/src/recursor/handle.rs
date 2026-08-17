@@ -317,16 +317,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     ) -> Result<Message, RecursorError> {
         let query_type = query.query_type;
 
-        // Don't resolve CNAME lookups for a CNAME (or ANY) query
-        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
-            return Ok(response);
-        }
-
         // Return early if there aren't any CNAME in the response.
         let has_cname = response
             .all_sections()
             .any(|rec| matches!(rec.data, CNAME(_)));
         if !has_cname {
+            return Ok(response);
+        }
+
+        // Don't resolve CNAME lookups for a CNAME (or ANY) query, but still order the chain
+        // the upstream returned.
+        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
+            order_cname_chain(&mut response.answers, &query.name);
             return Ok(response);
         }
 
@@ -398,6 +400,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         if !cname_chain.is_empty() {
             response.answers.extend(cname_chain);
         }
+
+        order_cname_chain(&mut response.answers, &query.name);
 
         Ok(response)
     }
@@ -919,6 +923,35 @@ fn name_server_config(
         OpportunisticEncryption::Enabled { .. } => NameServerConfig::opportunistic_encryption(ip),
         _ => NameServerConfig::udp_and_tcp(ip),
     }
+}
+
+/// Sort `answers` so a CNAME chain unrolls from `query_name`, the order clients such as glibc
+/// need to follow it.
+fn order_cname_chain(answers: &mut Vec<Record>, query_name: &Name) {
+    let mut ordered = Vec::with_capacity(answers.len());
+    let mut name = query_name.clone();
+
+    // Bounded by the same hop limit as the lookups above. Records left over, including any
+    // past that limit, keep their relative order at the end.
+    for _ in 0..MAX_CNAME_LOOKUPS {
+        let (matched, rest): (Vec<Record>, Vec<Record>) =
+            answers.drain(..).partition(|record| record.name == name);
+        *answers = rest;
+
+        let target = matched.iter().find_map(|record| match &record.data {
+            CNAME(cname) => Some(cname.0.clone()),
+            _ => None,
+        });
+        ordered.extend(matched);
+
+        match target {
+            Some(next) => name = next,
+            None => break,
+        }
+    }
+
+    ordered.append(answers);
+    *answers = ordered;
 }
 
 /// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion
