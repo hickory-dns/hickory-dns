@@ -36,6 +36,7 @@ use crate::{
     },
     resolver::lookup::Lookup,
     server::{Request, RequestInfo},
+    store::rooted,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneTransfer, ZoneType,
@@ -102,24 +103,15 @@ impl BlocklistZoneHandler {
             metrics: BlocklistMetrics::new(),
         };
 
-        let base_dir = match base_dir {
-            Some(dir) => dir.display(),
-            None => {
-                return Err(format!(
-                    "invalid blocklist (zone directory) base path specified: '{base_dir:?}'"
-                ));
-            }
-        };
-
         // Load block lists into the block table cache for this zone handler.
         for bl in &config.lists {
             info!("adding blocklist {}", bl.display());
-
-            let file = match File::open(format!("{base_dir}/{}", bl.display())) {
+            let bl = rooted(bl, base_dir);
+            let file = match File::open(&bl) {
                 Ok(file) => file,
                 Err(e) => {
                     return Err(format!(
-                        "unable to open blocklist file {base_dir}/{}: {e:?}",
+                        "unable to open blocklist file {}: {e:?}",
                         bl.display()
                     ));
                 }
@@ -127,7 +119,7 @@ impl BlocklistZoneHandler {
 
             if let Err(e) = handler.add(file) {
                 return Err(format!(
-                    "unable to add data from blocklist {base_dir}/{}: {e:?}",
+                    "unable to add data from blocklist {}: {e:?}",
                     bl.display()
                 ));
             }
@@ -523,8 +515,7 @@ pub struct BlocklistConfig {
     /// or *.com that might block many more hosts than intended.
     pub min_wildcard_depth: u8,
 
-    /// Block lists to load.  These should be specified as relative (to the server zone directory)
-    /// paths in the config file.
+    /// Block lists to load.  A relative path is relative to the server zone directory.
     pub lists: Vec<PathBuf>,
 
     /// IPv4 sinkhole IP. This is the IP that is returned when a blocklist entry is matched for an
@@ -574,7 +565,7 @@ impl Default for BlocklistConfig {
 mod test {
     use std::{
         net::{Ipv4Addr, Ipv6Addr},
-        path::Path,
+        path::{Path, PathBuf},
         str::FromStr,
         sync::Arc,
     };
@@ -799,6 +790,27 @@ mod test {
         .expect("unable to create config");
 
         assert_eq!(zh.entry_count(), 0);
+    }
+
+    #[test]
+    fn test_blocklist_file_absolute_path() {
+        subscribe();
+
+        let mut abs_blocklist_path =
+            PathBuf::from_str(env!("CARGO_MANIFEST_DIR")).expect("valid path");
+        abs_blocklist_path.push("../../tests/test-data/test_configs/default/blocklist.txt");
+
+        let config = BlocklistConfig {
+            lists: vec![abs_blocklist_path],
+            ..Default::default()
+        };
+
+        BlocklistZoneHandler::try_from_config(
+            Name::root(),
+            config,
+            Some(Path::new("/some/where/non-existent")),
+        )
+        .expect("configuration is valid");
     }
 
     async fn basic_test(
