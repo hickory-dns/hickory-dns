@@ -45,10 +45,8 @@ use crate::{
         },
     },
     server::{Request, RequestInfo},
-    store::{
-        file::rooted,
-        in_memory::{InMemoryZoneHandler, zone_from_path},
-    },
+    store::in_memory::{InMemoryZoneHandler, zone_from_path},
+    store::rooted,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneTransfer, ZoneType,

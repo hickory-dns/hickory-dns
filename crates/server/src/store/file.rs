@@ -24,6 +24,7 @@ use crate::{
     proto::rr::{LowerName, Name, RecordType},
     server::{Request, RequestInfo},
     store::in_memory::{InMemoryZoneHandler, zone_from_path},
+    store::rooted,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneTransfer, ZoneType,
@@ -251,13 +252,6 @@ impl DnssecZoneHandler for FileZoneHandler {
 pub struct FileConfig {
     /// path to the zone file
     pub zone_path: PathBuf,
-}
-
-pub(crate) fn rooted(zone_file: &Path, root_dir: Option<&Path>) -> PathBuf {
-    match root_dir {
-        Some(root) => root.join(zone_file),
-        None => zone_file.to_owned(),
-    }
 }
 
 #[cfg(test)]
