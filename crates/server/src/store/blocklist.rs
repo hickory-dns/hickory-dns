@@ -14,7 +14,7 @@ use std::{
     fs::File,
     io::{self, Read},
     net::{Ipv4Addr, Ipv6Addr},
-    path::Path,
+    path::{Path, PathBuf},
     str::FromStr,
     time::{Duration, Instant},
 };
@@ -113,20 +113,22 @@ impl BlocklistZoneHandler {
 
         // Load block lists into the block table cache for this zone handler.
         for bl in &config.lists {
-            info!("adding blocklist {bl}");
+            info!("adding blocklist {}", bl.display());
 
-            let file = match File::open(format!("{base_dir}/{bl}")) {
+            let file = match File::open(format!("{base_dir}/{}", bl.display())) {
                 Ok(file) => file,
                 Err(e) => {
                     return Err(format!(
-                        "unable to open blocklist file {base_dir}/{bl}: {e:?}"
+                        "unable to open blocklist file {base_dir}/{}: {e:?}",
+                        bl.display()
                     ));
                 }
             };
 
             if let Err(e) = handler.add(file) {
                 return Err(format!(
-                    "unable to add data from blocklist {base_dir}/{bl}: {e:?}"
+                    "unable to add data from blocklist {base_dir}/{}: {e:?}",
+                    bl.display()
                 ));
             }
         }
@@ -167,7 +169,7 @@ impl BlocklistZoneHandler {
     ///
     /// # Example
     /// ```
-    /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::Path, str::FromStr, sync::Arc};
+    /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::{Path, PathBuf}, str::FromStr, sync::Arc};
     /// use hickory_proto::rr::{LowerName, RecordType, Name};
     /// use hickory_server::{
     ///     store::blocklist::*,
@@ -179,7 +181,7 @@ impl BlocklistZoneHandler {
     ///     let config = BlocklistConfig {
     ///         wildcard_match: true,
     ///         min_wildcard_depth: 2,
-    ///         lists: vec!["default/blocklist.txt".to_string()],
+    ///         lists: vec![PathBuf::from("default/blocklist.txt")],
     ///         sinkhole_ipv4: None,
     ///         sinkhole_ipv6: None,
     ///         block_message: None,
@@ -523,7 +525,7 @@ pub struct BlocklistConfig {
 
     /// Block lists to load.  These should be specified as relative (to the server zone directory)
     /// paths in the config file.
-    pub lists: Vec<String>,
+    pub lists: Vec<PathBuf>,
 
     /// IPv4 sinkhole IP. This is the IP that is returned when a blocklist entry is matched for an
     /// A query. If unspecified, an implementation-provided default will be used.
@@ -594,7 +596,7 @@ mod test {
         let config = BlocklistConfig {
             wildcard_match: true,
             min_wildcard_depth: 2,
-            lists: vec!["default/blocklist.txt".to_string()],
+            lists: vec![PathBuf::from("default/blocklist.txt")],
             sinkhole_ipv4: None,
             sinkhole_ipv6: None,
             block_message: None,
@@ -640,7 +642,7 @@ mod test {
         let config = BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: false,
-            lists: vec!["default/blocklist.txt".to_string()],
+            lists: vec![PathBuf::from("default/blocklist.txt")],
             sinkhole_ipv4: Some(Ipv4Addr::new(192, 0, 2, 1)),
             sinkhole_ipv6: Some(Ipv6Addr::new(0, 0, 0, 0, 0xc0, 0, 2, 1)),
             block_message: Some(String::from("blocked")),
@@ -675,7 +677,7 @@ mod test {
         let config = BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: false,
-            lists: vec!["default/blocklist.txt".to_string()],
+            lists: vec![PathBuf::from("default/blocklist.txt")],
             sinkhole_ipv4: Some(Ipv4Addr::new(192, 0, 2, 1)),
             sinkhole_ipv6: Some(Ipv6Addr::new(0, 0, 0, 0, 0xc0, 0, 2, 1)),
             block_message: Some(String::from("blocked")),
@@ -707,7 +709,7 @@ mod test {
         let config = BlocklistConfig {
             min_wildcard_depth: 2,
             wildcard_match: true,
-            lists: vec!["default/blocklist3.txt".to_string()],
+            lists: vec![PathBuf::from("default/blocklist3.txt")],
             sinkhole_ipv4: Some(Ipv4Addr::new(192, 0, 2, 1)),
             sinkhole_ipv6: Some(Ipv6Addr::new(0, 0, 0, 0, 0xc0, 0, 2, 1)),
             block_message: Some(String::from("blocked")),
@@ -765,7 +767,7 @@ mod test {
         let config = BlocklistConfig {
             wildcard_match: true,
             min_wildcard_depth: 2,
-            lists: vec!["default/blocklist.txt".to_string()],
+            lists: vec![PathBuf::from("default/blocklist.txt")],
             sinkhole_ipv4: None,
             sinkhole_ipv6: None,
             block_message: None,
