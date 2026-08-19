@@ -992,3 +992,98 @@ fn secure_cname_secure_positive_wildcard_expanded(
 
     Ok(())
 }
+
+#[ignore = "hickory fails DNSSEC validation due to the presence of NSEC records"]
+#[test]
+fn secure_cname_target_insecure_child_zone_nsec() -> Result<(), Error> {
+    secure_cname_target_insecure_child_zone(SignSettings::default().nsec(Nsec::_1))
+}
+
+#[ignore = "hickory fails DNSSEC validation due to the presence of NSEC3 records"]
+#[test]
+fn secure_cname_target_insecure_child_zone_nsec3() -> Result<(), Error> {
+    secure_cname_target_insecure_child_zone(SignSettings::default().nsec(Nsec::_3 {
+        iterations: 1,
+        opt_out: false,
+        salt: None,
+    }))
+}
+
+#[ignore = "hickory fails DNSSEC validation due to the presence of NSEC3 records"]
+#[test]
+fn secure_cname_target_insecure_child_zone_nsec3_opt_out() -> Result<(), Error> {
+    secure_cname_target_insecure_child_zone(SignSettings::default().nsec(Nsec::_3 {
+        iterations: 1,
+        opt_out: true,
+        salt: None,
+    }))
+}
+
+/// This tests a scenario where a CNAME record points into an insecure child zone.
+///
+/// This was inspired by failures encountered in practice when resolving www.gov.uk. Since the
+/// target of the CNAME record is in a child zone, the authoritative name server may include a
+/// referral to the child zone in the response, along with the CNAME record itself. If the child
+/// zone is insecure, then the referral will also include a proof that no DS record exists for the
+/// referral. The NSEC/NSEC3 records making up that proof should be ignored when verifying the
+/// answer section, and only used for the referral.
+fn secure_cname_target_insecure_child_zone(sign_settings: SignSettings) -> Result<(), Error> {
+    let network = Network::new()?;
+
+    let alias_name = FQDN::TEST_DOMAIN.push_label("www");
+    let target_name = FQDN::EXAMPLE_SUBDOMAIN.push_label("a").push_label("b");
+
+    let mut child_ns = NameServer::new(&PEER, FQDN::EXAMPLE_SUBDOMAIN, &network)?;
+    child_ns.add(Record::a(
+        target_name.clone(),
+        Ipv4Addr::new(192, 168, 1, 1),
+    ));
+
+    let mut parent_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    parent_ns.add(Record::cname(alias_name.clone(), target_name.clone()));
+    parent_ns.referral_nameserver(&child_ns);
+    let parent_ns = parent_ns.sign(sign_settings.clone())?;
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&parent_ns);
+    tld_ns.add(parent_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings.clone())?;
+    let root_hint = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let _child_ns = child_ns.start()?;
+    let _parent_ns = parent_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _root_ns = root_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+
+    let settings = *DigSettings::default().recurse().dnssec().authentic_data();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &alias_name)?;
+
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(
+        output
+            .answer
+            .iter()
+            .any(|record| matches!(record, Record::CNAME(_))),
+        "CNAME record missing: {output:?}"
+    );
+    assert!(
+        output
+            .answer
+            .iter()
+            .any(|record| matches!(record, Record::A(_))),
+        "A record missing: {output:?}"
+    );
+
+    Ok(())
+}
