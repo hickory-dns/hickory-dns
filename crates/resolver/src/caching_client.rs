@@ -551,16 +551,16 @@ enum Records<F> {
 // see also the lookup_tests.rs in integration-tests crate
 #[cfg(test)]
 mod tests {
-    use std::net::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
     use std::str::FromStr;
-    use std::time::*;
+    use std::time::{Duration, Instant};
 
     use futures_executor::block_on;
     use test_support::subscribe;
 
     use super::*;
     use crate::cache::TtlConfig;
-    use crate::lookup_ip::tests::*;
+    use crate::lookup_ip::tests::{empty, error, mock, v4_message};
     use crate::proto::op::{Message, Query};
     use crate::proto::rr::rdata::{NS, SRV};
     use crate::proto::rr::{Name, Record};
