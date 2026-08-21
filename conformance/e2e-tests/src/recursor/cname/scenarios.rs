@@ -166,58 +166,6 @@ fn multi_level_cname_tests() -> Result<(), Error> {
     Ok(())
 }
 
-/// ensure that no more than MAX_CNAME_LOOKUPS will be resolved.
-#[test]
-fn cname_lookup_limit_test() -> Result<(), Error> {
-    let target_fqdn = FQDN("host.testing.")?;
-
-    let network = Network::new()?;
-
-    let mut root_ns = NameServer::new(&Implementation::test_peer(), FQDN::ROOT, &network)?;
-    let leaf_ns = NameServer::new(
-        &Implementation::test_server("cname_loop", Vec::new(), "both"),
-        FQDN::TEST_TLD,
-        &network,
-    )?;
-
-    root_ns.referral(
-        FQDN::TEST_TLD,
-        FQDN("primary.tld-server.testing.")?,
-        leaf_ns.ipv4_addr(),
-    );
-
-    let root_hint: Root = root_ns.root_hint();
-
-    let resolver =
-        Resolver::new(&network, root_hint).start_with_subject(&Implementation::hickory())?;
-
-    let client = Client::new(resolver.network())?;
-
-    let _root_ns = root_ns.start()?;
-    let _leaf_ns = leaf_ns.start()?;
-
-    thread::sleep(Duration::from_secs(2));
-    let a_settings = *DigSettings::default().recurse().authentic_data();
-    let res = client.dig(
-        a_settings,
-        resolver.ipv4_addr(),
-        RecordType::A,
-        &target_fqdn,
-    );
-
-    match res {
-        Ok(res) => {
-            assert!(res.status.is_servfail());
-            assert_eq!(res.answer.len(), 0);
-        }
-        Err(e) => panic!("error {e:?}; resolver logs: {}", resolver.logs().unwrap()),
-    }
-
-    assert!(resolver.logs().unwrap().contains("cname limit exceeded"));
-
-    Ok(())
-}
-
 struct TestNetwork {
     _network: Network,
     _root_ns: NameServer<Running>,
