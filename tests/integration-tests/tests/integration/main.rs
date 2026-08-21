@@ -6,6 +6,7 @@ mod dnssec_client_handle_tests;
 mod invalid_nsec3_tests;
 mod invalid_nsec_tests;
 mod lookup_tests;
+mod multiple_rrsig_tests;
 mod name_server_pool_tests;
 mod retry_dns_handle_tests;
 mod rfc4592_tests;
