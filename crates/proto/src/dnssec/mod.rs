@@ -17,7 +17,7 @@ use thiserror::Error;
 
 use crate::dnssec::crypto::Digest;
 use crate::error::ProtoError;
-use crate::rr::{Name, RData, Record, rdata::tsig::TsigAlgorithm};
+use crate::rr::{Name, RData, Record, RecordType, rdata::tsig::TsigAlgorithm};
 use crate::serialize::binary::{BinEncodable, BinEncoder, DecodeError, NameEncoding};
 
 mod algorithm;
@@ -384,7 +384,7 @@ impl Clone for DnsSecError {
 }
 
 /// DNSSEC status of an answer
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DnssecSummary {
     /// All records have been DNSSEC validated
     Secure,
@@ -396,9 +396,15 @@ pub enum DnssecSummary {
 
 impl DnssecSummary {
     /// Whether the records have been DNSSEC validated or not
+    ///
+    /// RRSIGs are skipped, since only the RRSIG used for verification carries the RRset's proof.
     pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
         let mut all_secure = None;
         for record in records {
+            if record.record_type() == RecordType::RRSIG {
+                continue;
+            }
+
             match &record.proof {
                 Proof::Secure => {
                     all_secure.get_or_insert(true);
@@ -523,6 +529,120 @@ mod test_utils {
             neg_dns_key.verify(tbs.as_ref(), &sig).is_err(),
             "algorithm: {:?} (dnskey, neg)",
             neg_pub_key.algorithm(),
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec;
+    use core::net::Ipv4Addr;
+
+    use super::rdata::{DNSSECRData, RRSIG, SigInput};
+    use super::*;
+    use crate::rr::SerialNumber;
+
+    fn a_record(name: &Name, proof: Proof) -> Record {
+        let mut record = Record::from_rdata(
+            name.clone(),
+            3600,
+            RData::A(Ipv4Addr::new(192, 0, 2, 1).into()),
+        );
+        record.proof = proof;
+        record
+    }
+
+    fn rrsig_record(name: &Name, algorithm: Algorithm, proof: Proof) -> Record {
+        let input = SigInput {
+            type_covered: RecordType::A,
+            algorithm,
+            num_labels: 2,
+            original_ttl: 3600,
+            sig_expiration: SerialNumber(0),
+            sig_inception: SerialNumber(0),
+            key_tag: 0,
+            signer_name: Name::root(),
+        };
+        let mut record = Record::from_rdata(
+            name.clone(),
+            3600,
+            RData::DNSSEC(DNSSECRData::RRSIG(RRSIG::from_sig(input, vec![]))),
+        );
+        record.proof = proof;
+        record
+    }
+
+    /// Only the RRSIG used for verification is marked, the other one stays Indeterminate.
+    #[test]
+    fn summary_ignores_unused_rrsig() {
+        let name = Name::from_ascii("www.example.").unwrap();
+        let records = [
+            a_record(&name, Proof::Secure),
+            rrsig_record(&name, Algorithm::ECDSAP256SHA256, Proof::Secure),
+            rrsig_record(&name, Algorithm::RSASHA256, Proof::Indeterminate),
+        ];
+
+        assert_eq!(
+            DnssecSummary::from_records(records.iter()),
+            DnssecSummary::Secure
+        );
+    }
+
+    #[test]
+    fn summary_follows_rrset_proof() {
+        let name = Name::from_ascii("www.example.").unwrap();
+        for (proof, expected) in [
+            (Proof::Secure, DnssecSummary::Secure),
+            (Proof::Insecure, DnssecSummary::Insecure),
+            (Proof::Indeterminate, DnssecSummary::Insecure),
+            (Proof::Bogus, DnssecSummary::Bogus),
+        ] {
+            let records = [
+                a_record(&name, proof),
+                rrsig_record(&name, Algorithm::ECDSAP256SHA256, proof),
+            ];
+            assert_eq!(DnssecSummary::from_records(records.iter()), expected);
+        }
+    }
+
+    /// The proof of an RRSIG must not override the proof of the records it covers.
+    #[test]
+    fn summary_ignores_rrsig_proof() {
+        let name = Name::from_ascii("www.example.").unwrap();
+        let records = [
+            a_record(&name, Proof::Bogus),
+            rrsig_record(&name, Algorithm::ECDSAP256SHA256, Proof::Secure),
+        ];
+        assert_eq!(
+            DnssecSummary::from_records(records.iter()),
+            DnssecSummary::Bogus
+        );
+
+        let records = [
+            a_record(&name, Proof::Insecure),
+            rrsig_record(&name, Algorithm::ECDSAP256SHA256, Proof::Secure),
+        ];
+        assert_eq!(
+            DnssecSummary::from_records(records.iter()),
+            DnssecSummary::Insecure
+        );
+    }
+
+    #[test]
+    fn summary_of_rrsigs_only_is_insecure() {
+        let name = Name::from_ascii("www.example.").unwrap();
+        let records = [rrsig_record(
+            &name,
+            Algorithm::ECDSAP256SHA256,
+            Proof::Secure,
+        )];
+        assert_eq!(
+            DnssecSummary::from_records(records.iter()),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records([].iter()),
+            DnssecSummary::Insecure
         );
     }
 }
