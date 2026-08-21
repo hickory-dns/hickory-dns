@@ -986,18 +986,28 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         .first_answer()
                         .map(move |result| match result {
                             Ok(message) => {
-                                let verdict_opt = verify_rrsig_with_keys(
+                                // Report a failed signature as an error, so that select_ok()
+                                // below tries the remaining RRSIGs.
+                                match verify_rrsig_with_keys(
                                     message,
                                     &rrsig,
                                     key,
                                     rrset,
                                     current_time,
-                                );
-                                Ok(verdict_opt.map(|(proof, adjusted_ttl)| RrsetProof {
-                                    proof,
-                                    adjusted_ttl,
-                                    rrsig_index: Some(i),
-                                }))
+                                ) {
+                                    Some((proof, adjusted_ttl)) => Ok(RrsetProof {
+                                        proof,
+                                        adjusted_ttl,
+                                        rrsig_index: Some(i),
+                                    }),
+                                    None => Err(ProofError::new(
+                                        Proof::Bogus,
+                                        ProofErrorKind::RrsigsUnverified {
+                                            name: Name::from(&key.name),
+                                            record_type: key.record_type,
+                                        },
+                                    )),
+                                }
                             }
                             Err(net) => Err(ProofError::new(
                                 Proof::Bogus,
@@ -1020,19 +1030,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
 
         // as long as any of the verifications is good, then the RRSET is valid.
-        let select = future::select_ok(verifications);
-
-        // this will return either a good result or the errors
-        let (proof, rest) = select.await?;
+        let (proof, rest) = future::select_ok(verifications).await?;
         drop(rest);
 
-        proof.ok_or_else(||
-            // we are in a bogus state, DS records were available (see beginning of function), but RRSIGs couldn't be verified
-            ProofError::new(Proof::Bogus, ProofErrorKind::RrsigsUnverified {
-                name: Name::from(&key.name),
-                record_type: key.record_type,
-            }
-        ))
+        Ok(proof)
     }
 
     /// An internal function used to clone the handle, but maintain some information back to the
