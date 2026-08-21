@@ -1,7 +1,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    Error, FQDN, Network, PEER, Resolver,
+    Error, FQDN, Implementation, Network, PEER, Resolver,
     client::{Client, DigSettings, DigStatus},
     name_server::{Graph, NameServer, Running, Sign},
     record::{A, CNAME, Record, RecordType},
@@ -342,4 +342,68 @@ fn setup_cname_cross_zone() -> Result<(Network, Vec<NameServer<Running>>, Resolv
     let client = Client::new(&network)?;
 
     Ok((network, nameservers, resolver, client))
+}
+
+/// Ensure that only a limited number of CNAME records will be followed.
+#[test]
+fn cname_lookup_limit_test() -> Result<(), Error> {
+    let target_fqdn = FQDN("host.testing.")?;
+
+    let network = Network::new()?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    let leaf_ns = NameServer::new(
+        &Implementation::test_server("cname_loop", Vec::new(), "both"),
+        FQDN::TEST_TLD,
+        &network,
+    )?;
+
+    root_ns.referral(
+        FQDN::TEST_TLD,
+        FQDN("primary.tld-server.testing.")?,
+        leaf_ns.ipv4_addr(),
+    );
+
+    let root_hint = root_ns.root_hint();
+
+    let _root_ns = root_ns.start()?;
+    let _leaf_ns = leaf_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint).start()?;
+    let client = Client::new(&network)?;
+
+    let a_settings = *DigSettings::default().recurse().authentic_data();
+    let res = client.dig(
+        a_settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &target_fqdn,
+    );
+
+    let res = match res {
+        Ok(res) => res,
+        Err(e) => panic!("error {e:?}; resolver logs: {}", resolver.logs().unwrap()),
+    };
+
+    // Different resolvers either return SERVFAIL or just follow the first CNAME record in each
+    // response. The zone is malformed, since it has CNAME RRsets with multiple records, so it is
+    // fine for different resolvers to handle this differently. We mainly want to make sure that
+    // resolution does not time out due to exponential sized query fan-out.
+    match res.status {
+        DigStatus::SERVFAIL => {
+            assert!(res.answer.is_empty(), "{res:?}");
+        }
+        DigStatus::NOERROR => {
+            let expected = Ipv4Addr::new(192, 0, 2, 1);
+            assert!(
+                res.answer.iter().any(
+                    |record| matches!(record, Record::A(A{ipv4_addr,..}) if *ipv4_addr == expected)
+                ),
+                "{res:?}"
+            );
+        }
+        _ => panic!("unexpected response code: {res:?}"),
+    }
+
+    Ok(())
 }
