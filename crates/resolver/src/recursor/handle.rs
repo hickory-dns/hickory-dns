@@ -322,11 +322,11 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             return Ok(response);
         }
 
-        // Return early if there aren't any CNAME in the response.
+        // Return early if there isn't a matching CNAME in the response.
         let has_cname = response
             .answers
             .iter()
-            .any(|rec| matches!(rec.data, CNAME(_)));
+            .any(|rec| matches!(rec.data, CNAME(_)) && rec.name == query.name);
         if !has_cname {
             return Ok(response);
         }
@@ -336,21 +336,35 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         let mut cname_chain = vec![];
 
-        for rec in response.answers.iter() {
-            let CNAME(name) = &rec.data else {
-                continue;
-            };
-
-            // Check if the response has data for the canonical name.
+        let mut effective_qname = &query.name;
+        let mut name_history = vec![effective_qname];
+        loop {
+            // Check if we are done following CNAME records.
             if response.answers.iter().any(|record| {
-                record.name == name.0
-                    && (record.record_type() == query.query_type
-                        || record.record_type() == RecordType::CNAME)
+                record.record_type() == query.query_type && &record.name == effective_qname
             }) {
+                break;
+            }
+
+            // Check if there is a CNAME record at the current effective QNAME.
+            let target_name_opt = response.answers.iter().find_map(|record| {
+                let CNAME(cname) = &record.data else {
+                    return None;
+                };
+                (&record.name == effective_qname).then_some(&cname.0)
+            });
+            if let Some(target_name) = target_name_opt {
+                if name_history.contains(&target_name) {
+                    // The CNAME records form a loop.
+                    break;
+                }
+                name_history.push(target_name);
+                effective_qname = target_name;
                 continue;
             }
 
-            let cname_query = Query::query(name.0.clone(), query_type);
+            // Try following the last CNAME record by restarting resolution.
+            let cname_query = Query::query(effective_qname.clone(), query_type);
 
             let count = limits.cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
             if count > MAX_CNAME_LOOKUPS {
@@ -392,6 +406,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
                 None
             }));
+
+            break;
         }
 
         if !cname_chain.is_empty() {
