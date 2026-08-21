@@ -130,17 +130,22 @@
 //!
 //! The following DNS protocols are optionally supported:
 //!
-//! - Enable `tls` for DNS over TLS (DoT)
-//! - Enable `https-rustls` for DNS over HTTP/2 (DoH)
-//! - Enable `quic` for DNS over QUIC (DoQ)
-//! - Enable `h3` for DNS over HTTP/3 (DoH3)
+//! Features requiring cryptography require selecting a specific cryptography
+//! provider. See the [project README] for more information.
+//!
+//! [project README]: https://github.com/hickory-dns/hickory-dns#cryptography-provider
+//!
+//! - Enable `tls-aws-lc-rs` or `tls-ring` for DNS over TLS (DoT)
+//! - Enable `https-aws-lc-rs` or `https-ring` for DNS over HTTP/2 (DoH)
+//! - Enable `quic-aws-lc-rs` or `quic-ring` for DNS over QUIC (DoQ)
+//! - Enable `h3-aws-lc-rs` or `h3-ring` for DNS over HTTP/3 (DoH3)
 //!
 //! ### Example
 //!
-//! Enable the TLS library through the dependency on `hickory-resolver`:
+//! Enable a TLS cryptography provider through the dependency on `hickory-resolver`:
 //!
 //! ```toml
-//! hickory-resolver = { version = "*", features = ["tls"] }
+//! hickory-resolver = { version = "*", features = ["tls-aws-lc-rs"] }
 //! ```
 //!
 //! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as
