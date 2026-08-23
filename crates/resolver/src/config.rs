@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(all(
+    feature = "recursor",
     feature = "toml",
     feature = "serde",
     any(feature = "__tls", feature = "__quic")
@@ -25,6 +26,7 @@ use ipnet::IpNet;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 #[cfg(all(
+    feature = "recursor",
     feature = "toml",
     feature = "serde",
     any(feature = "__tls", feature = "__quic")
@@ -32,6 +34,7 @@ use tracing::warn;
 use tracing::{debug, info};
 
 #[cfg(all(
+    feature = "recursor",
     feature = "toml",
     feature = "serde",
     any(feature = "__tls", feature = "__quic")
@@ -793,6 +796,7 @@ pub enum OpportunisticEncryption {
 
 impl OpportunisticEncryption {
     #[cfg(all(
+        feature = "recursor",
         feature = "toml",
         feature = "serde",
         any(feature = "__tls", feature = "__quic")
