@@ -122,8 +122,3 @@ prometheus-parse = { workspace = true }
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-all-features]
-skip_optional_dependencies = true
-max_combination_size = 2
-denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec", "systemd"]

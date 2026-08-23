@@ -101,10 +101,5 @@ hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["recursor", "system-config", "tokio"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 
-[package.metadata.cargo-all-features]
-skip_optional_dependencies = true
-max_combination_size = 2
-denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]
-
 [lints]
 workspace = true

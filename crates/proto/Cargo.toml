@@ -23,6 +23,7 @@ license.workspace = true
 std = [
     "data-encoding/std",
     "ipnet/std",
+    "once_cell/std",
     "rand/std",
     "rand/thread_rng",
     "ring?/std",
@@ -82,8 +83,3 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-all-features]
-skip_optional_dependencies = true
-max_combination_size = 2
-denylist = ["__tls", "__https", "__quic", "__h3", "__dnssec"]

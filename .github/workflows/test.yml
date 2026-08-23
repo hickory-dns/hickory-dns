@@ -134,29 +134,29 @@ jobs:
         run: just ${{ matrix.feature }}
 
   check-all-features-matrix:
-    name: cargo-all-features
+    name: cargo-hack / ${{ matrix.partition }}
     runs-on: ubuntu-latest
     continue-on-error: true
     strategy:
       matrix:
-        chunk:
-          - 1
-          - 2
-          - 3
-          - 4
+        partition:
+          - 1/4
+          - 2/4
+          - 3/4
+          - 4/4
     steps:
       - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: cargo install cargo-all-features
+      - name: cargo install cargo-hack
         uses: baptiste0928/cargo-install@v3
         with:
-          crate: cargo-all-features
-          version: 1.12.0
+          crate: cargo-hack
+          version: 0.6.45
 
-      - name: cargo check-all-features
-        run: cargo check-all-features --n-chunks 4 --chunk ${{ matrix.chunk }}
+      - name: cargo hack check (workspace)
+        run: cargo hack check --workspace --feature-powerset --depth 2 --skip __tls,__https,__quic,__h3,__dnssec --partition ${{ matrix.partition }}
 
   ## Check past and future versions
   ##   this enforces the minimum version of rust this project works with
