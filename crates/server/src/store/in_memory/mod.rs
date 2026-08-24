@@ -456,7 +456,9 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
             (None, None) => {
                 return Continue(Err(
-                    // An existing owner or empty non-terminal is NODATA, not NXDOMAIN.
+                    // A name/type lookup miss does not imply the name is absent.
+                    // Existing owners and empty non-terminals yield NODATA, not NXDOMAIN
+                    // (RFC 2308 §2.2; RFC 4592 §2.2.2).
                     if inner.name_exists(name) {
                         LookupError::NameExists
                     } else {
