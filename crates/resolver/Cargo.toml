@@ -49,7 +49,7 @@ recursor = ["dep:async-recursion", "dep:lru-cache"]
 serde = ["dep:serde", "hickory-proto/serde"]
 system-config = ["dep:ipconfig", "dep:resolv-conf", "dep:jni", "dep:ndk-context", "dep:system-configuration"]
 
-toml = ["dep:toml"]
+toml = ["dep:toml", "serde"]
 
 tokio = ["dep:tokio", "tokio/rt", "hickory-net/tokio"]
 
