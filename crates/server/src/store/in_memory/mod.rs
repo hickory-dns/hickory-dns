@@ -449,11 +449,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             (None, answer, _) => (None, answer),
         };
 
-        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
-        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
-        //   always return empty sets. This is only important in the negative case, where other DNS authorities
-        //   generally return NoError and no results when other types exist at the same name. bah.
-        // TODO: can we get rid of this?
         use LookupControlFlow::*;
         let answers = match (cname_chain, answer) {
             // CNAME chase produced a chain — use it as the answer.
@@ -461,11 +456,8 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
             (None, None) => {
                 return Continue(Err(
-                    if inner
-                        .records
-                        .keys()
-                        .any(|key| key.name() == name || name.zone_of(key.name()))
-                    {
+                    // An existing owner or empty non-terminal is NODATA, not NXDOMAIN.
+                    if inner.name_exists(name) {
                         LookupError::NameExists
                     } else {
                         LookupError::from(match self.origin().zone_of(name) {
