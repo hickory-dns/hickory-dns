@@ -14,8 +14,7 @@ use core::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use data_encoding::{Encoding, Specification};
-use once_cell::sync::Lazy;
+use data_encoding::Encoding;
 
 use crate::{
     error::ProtoResult,
@@ -27,14 +26,12 @@ use crate::{
 };
 
 /// HEX formatting specific to TLSA, SMIMEA and SSHFP encodings
-pub static HEX: Lazy<Encoding> = Lazy::new(|| {
-    let mut spec = Specification::new();
-    spec.symbols.push_str("0123456789abcdef");
-    spec.ignore.push_str(" \t\r\n");
-    spec.translate.from.push_str("ABCDEF");
-    spec.translate.to.push_str("abcdef");
-    spec.encoding().expect("error in sshfp HEX encoding")
-});
+pub static HEX: Encoding = data_encoding_macro::new_encoding! {
+    symbols: "0123456789abcdef",
+    ignore: " \t\r\n",
+    translate_from: "ABCDEF",
+    translate_to: "abcdef",
+};
 
 /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
 ///
