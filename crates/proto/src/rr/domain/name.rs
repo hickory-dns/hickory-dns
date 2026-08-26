@@ -23,7 +23,6 @@ use tinyvec::TinyVec;
 
 use crate::error::{ProtoError, ProtoResult};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
-use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
 };
@@ -878,7 +877,9 @@ impl Name {
     /// assert!(name.is_localhost());
     /// ```
     pub fn is_localhost(&self) -> bool {
-        LOCALHOST_usage.zone_of(self)
+        self.iter()
+            .next_back()
+            .is_some_and(|label| label.eq_ignore_ascii_case(b"localhost"))
     }
 
     /// True if the first label of this name is the wildcard, i.e. '*'

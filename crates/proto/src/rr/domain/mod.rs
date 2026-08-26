@@ -9,6 +9,7 @@
 
 mod label;
 mod name;
+#[cfg(feature = "std")]
 pub mod usage;
 
 pub use self::label::{IntoLabel, Label, LabelCmp};
