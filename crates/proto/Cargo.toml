@@ -55,6 +55,7 @@ aws-lc-rs = { workspace = true, optional = true }
 bitflags = { workspace = true, optional = true }
 critical-section = { workspace = true, optional = true }
 data-encoding = { workspace = true, features = ["alloc"] }
+data-encoding-macro.workspace = true
 idna.workspace = true
 ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
