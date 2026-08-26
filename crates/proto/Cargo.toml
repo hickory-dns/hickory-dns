@@ -23,6 +23,7 @@ license.workspace = true
 std = [
     "data-encoding/std",
     "ipnet/std",
+    "once_cell/std",
     "rand/std",
     "rand/thread_rng",
     "ring?/std",
