@@ -336,6 +336,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 self.config.ip,
                 &*cx.transport_state().await,
                 &cx.opportunistic_encryption,
+                &self.config.connections,
                 &connections,
             )?;
             if conn.meta.status().is_failed() {
@@ -911,6 +912,7 @@ impl ConnectionPolicy {
         ip: IpAddr,
         encrypted_transport_state: &NameServerTransportState,
         opportunistic_encryption: &OpportunisticEncryption,
+        connection_configs: &[ConnectionConfig],
         connections: &'a [ConnectionState<P>],
     ) -> Option<&'a ConnectionState<P>> {
         let selected = connections
@@ -921,14 +923,18 @@ impl ConnectionPolicy {
         let selected = selected?;
 
         // If we're using opportunistic encryption and selected a pre-existing unencrypted connection,
-        // and have successfully probed on any supported encrypted protocol, we should _not_ reuse the
+        // and have successfully probed a configured encrypted protocol, we should _not_ reuse the
         // existing connection and instead return `None`. This will result in a new encrypted connection
         // being made to the successfully probed protocol and added to the connection list for future
         // re-use.
         match opportunistic_encryption.is_enabled()
             && !selected.protocol.is_encrypted()
-            && encrypted_transport_state.any_recent_success(ip, opportunistic_encryption)
-        {
+            && self.has_configured_recent_encrypted_success(
+                ip,
+                encrypted_transport_state,
+                opportunistic_encryption,
+                connection_configs,
+            ) {
             true => None,
             false => Some(selected),
         }
@@ -986,6 +992,44 @@ impl ConnectionPolicy {
             .iter()
             .filter(|c| self.allows_protocol(c.protocol.to_protocol()))
             .find(|c| c.protocol.to_protocol().is_encrypted())
+    }
+
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    fn has_configured_recent_encrypted_success(
+        &self,
+        ip: IpAddr,
+        encrypted_transport_state: &NameServerTransportState,
+        opportunistic_encryption: &OpportunisticEncryption,
+        connection_configs: &[ConnectionConfig],
+    ) -> bool {
+        connection_configs.iter().any(|config| {
+            let protocol = config.protocol.to_protocol();
+            if !self.allows_protocol(protocol) {
+                return false;
+            }
+            match protocol {
+                #[cfg(feature = "__tls")]
+                Protocol::Tls => {
+                    encrypted_transport_state.recent_success(ip, protocol, opportunistic_encryption)
+                }
+                #[cfg(feature = "__quic")]
+                Protocol::Quic => {
+                    encrypted_transport_state.recent_success(ip, protocol, opportunistic_encryption)
+                }
+                _ => false,
+            }
+        })
+    }
+
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    fn has_configured_recent_encrypted_success(
+        &self,
+        _ip: IpAddr,
+        _encrypted_transport_state: &NameServerTransportState,
+        _opportunistic_encryption: &OpportunisticEncryption,
+        _connection_configs: &[ConnectionConfig],
+    ) -> bool {
+        false
     }
 
     /// Checks if the given protocol is allowed by current policy.
@@ -1391,19 +1435,20 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let state = NameServerTransportState::default();
         let opp_enc = OpportunisticEncryption::Disabled;
 
         // When opportunistic encryption is disabled, and disable_udp isn't active,
         // we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
 
         // When opportunistic encryption is disabled, and disable_udp is active,
         // we should select the TCP conn.
         policy.disable_udp = true;
-        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Tcp);
     }
@@ -1419,6 +1464,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1426,7 +1472,7 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, and there is an encrypted connection available,
         // we should always choose it as the most preferred.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Tls);
     }
@@ -1441,6 +1487,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1448,14 +1495,14 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and we have no probe state, we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and we have no probe state, we should select the TCP conn.
         policy.disable_udp = true;
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Tcp);
     }
@@ -1470,6 +1517,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1487,7 +1535,7 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates a failure, we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
@@ -1502,6 +1550,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1512,7 +1561,7 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates an in-flight probe, we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
 
@@ -1521,7 +1570,7 @@ mod opportunistic_enc_tests {
         state.complete_connection(ns_ip, Protocol::Tls);
 
         // In this case we should still select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
@@ -1536,6 +1585,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc_config = OpportunisticEncryptionConfig {
             persistence_period: Duration::from_secs(10),
@@ -1556,7 +1606,7 @@ mod opportunistic_enc_tests {
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates success that is too stale, we should select an unencrypted
         // connection since the probe is no longer considered recent.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
@@ -1571,6 +1621,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1584,8 +1635,28 @@ mod opportunistic_enc_tests {
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates a recent enough success, we should return `None` so that
         // we make a new encrypted connection.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_none());
+    }
+
+    #[test]
+    fn test_select_connection_udp_only_after_recent_tls_success() {
+        let policy = ConnectionPolicy::default();
+        let connections = [mock_connection(Protocol::Udp)];
+        let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::udp(ns_ip).connections;
+        let mut state = NameServerTransportState::default();
+        let opp_enc = OpportunisticEncryption::Enabled {
+            config: OpportunisticEncryptionConfig::default(),
+        };
+        state.complete_connection(ns_ip, Protocol::Tls);
+        state.response_received(ns_ip, Protocol::Tls);
+
+        let selected = policy
+            .select_connection(ns_ip, &state, &opp_enc, &configs, &connections)
+            .expect("the existing UDP connection should remain selectable");
+
+        assert_eq!(selected.protocol, Protocol::Udp);
     }
 
     #[tokio::test]
