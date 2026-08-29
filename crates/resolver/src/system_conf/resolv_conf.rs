@@ -21,14 +21,27 @@ use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::net::NetError;
 use crate::proto::rr::Name;
 
+#[cfg(any(
+    feature = "system-config-resolv-conf",
+    all(
+        feature = "system-config",
+        unix,
+        not(any(target_vendor = "apple", target_os = "android")),
+    )
+))]
 pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), NetError> {
     read_resolv_conf("/etc/resolv.conf")
 }
 
-fn read_resolv_conf<P: AsRef<Path>>(path: P) -> Result<(ResolverConfig, ResolverOpts), NetError> {
+/// Read the given file as a `resolv.conf` file and parse it into hickory
+/// config.
+pub fn read_resolv_conf<P: AsRef<Path>>(
+    path: P,
+) -> Result<(ResolverConfig, ResolverOpts), NetError> {
     parse_resolv_conf(fs::read(path)?)
 }
 
+/// Parse the given bytes as a `resolv.conf` file into hickory config.
 pub fn parse_resolv_conf<T: AsRef<[u8]>>(
     data: T,
 ) -> Result<(ResolverConfig, ResolverOpts), NetError> {
