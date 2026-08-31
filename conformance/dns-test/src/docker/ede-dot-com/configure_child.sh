@@ -232,7 +232,7 @@ for subdomain in ${subdomains[@]}; do
         # Find the ID of the key signing key
         ksk_id=$(grep "KSK;" $output_dir/db.$zone.signed | awk -F' = ' '{print $NF}')
         # Find the line containing the signature over KSK DNSKEY as well as where it starts and ends
-        line_rrsig_middle=$(grep  -n "$ksk_id.*no-rrsig-ksk.*" $output_dir/db.$zone.signed | cut -f1 -d:)
+        line_rrsig_middle=$(grep  -n "$ksk_id no-rrsig-ksk.*" $output_dir/db.$zone.signed | cut -f1 -d:)
         line_rrsig_start_num=$((line_rrsig_middle-1))
         line_rrsig_end=$(tail -n +$line_rrsig_start_num $output_dir/db.$zone.signed | grep -m 1 ")")
         line_rrsig_end_num=$(grep -n "$line_rrsig_end" $output_dir/db.$zone.signed | cut -f1 -d:)
@@ -242,7 +242,7 @@ for subdomain in ${subdomains[@]}; do
         # First delete the signature over the KSK
         ksk_id=$(grep "KSK;" $output_dir/db.$zone.signed | awk -F' = ' '{print $NF}')
         # Find the line containing the signature over KSK DNSKEY as well as where it starts and ends
-        line_rrsig_middle=$(grep  -n "$ksk_id.*no-rrsig-dnskey.*" $output_dir/db.$zone.signed | cut -f1 -d:)
+        line_rrsig_middle=$(grep  -n "$ksk_id no-rrsig-dnskey.*" $output_dir/db.$zone.signed | cut -f1 -d:)
         line_rrsig_start_num=$((line_rrsig_middle-1))
         line_rrsig_end=$(tail -n +$line_rrsig_start_num $output_dir/db.$zone.signed | grep -m 1 ")")
         line_rrsig_end_num=$(grep -n "$line_rrsig_end" $output_dir/db.$zone.signed | cut -f1 -d:)
