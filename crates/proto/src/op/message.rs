@@ -393,7 +393,7 @@ impl Message {
 
     /// Attempts to read the specified number of `Query`s
     pub fn read_queries(decoder: &mut BinDecoder<'_>, count: usize) -> ProtoResult<Vec<Query>> {
-        let mut queries = Vec::with_capacity(count);
+        let mut queries = Vec::with_capacity(Ord::min(count, 8));
         for _ in 0..count {
             queries.push(Query::read(decoder)?);
         }
@@ -422,8 +422,8 @@ impl Message {
         is_additional: bool,
         op: OpCode,
     ) -> Result<(Vec<Record>, Option<Edns>, Option<Box<Record<TSIG>>>), DecodeError> {
-        let mut records: Vec<Record> = Vec::with_capacity(count);
-        let mut edns: Option<Edns> = None;
+        let mut records = Vec::with_capacity(Ord::min(count, 8));
+        let mut edns = None;
         let mut sig = None;
 
         for _ in 0..count {
