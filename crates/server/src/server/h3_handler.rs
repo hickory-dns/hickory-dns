@@ -37,8 +37,10 @@ pub(super) async fn handle_h3(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registered h3: {:?}", socket);
+    let server_addr = socket.local_addr().ok();
     handle_h3_with_server(
         H3Server::with_socket(socket, server_cert_resolver)?,
+        server_addr,
         dns_hostname,
         cx,
     )
@@ -47,6 +49,7 @@ pub(super) async fn handle_h3(
 
 pub(super) async fn handle_h3_with_server(
     mut server: H3Server,
+    server_addr: Option<SocketAddr>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -86,7 +89,7 @@ pub(super) async fn handle_h3_with_server(
             debug!("starting h3 stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...
-            let result = h3_handler(streams, src_addr, dns_hostname, cx).await;
+            let result = h3_handler(streams, src_addr, server_addr, dns_hostname, cx).await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "h3 stream processing failed")
@@ -102,6 +105,7 @@ pub(super) async fn handle_h3_with_server(
 pub(crate) async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
+    server_addr: Option<SocketAddr>,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -145,7 +149,7 @@ pub(crate) async fn h3_handler(
         let stream = Arc::new(Mutex::new(stream));
         let responder = H3ResponseHandle(stream.clone());
         tokio::spawn(async move {
-            cx.handle_request(request, src_addr, Protocol::H3, responder)
+            cx.handle_request(request, src_addr, Protocol::H3, responder, server_addr)
                 .await
         });
 

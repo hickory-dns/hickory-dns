@@ -71,6 +71,7 @@ pub(super) async fn handle_h2_with_acceptor(
 ) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
+    let server_addr = listener.local_addr().ok();
     debug!("registered https: {listener:?}");
 
     let mut inner_join_set = JoinSet::new();
@@ -123,7 +124,15 @@ pub(super) async fn handle_h2_with_acceptor(
             };
             debug!("accepted HTTPS request from: {src_addr}");
 
-            h2_handler(tls_stream, src_addr, dns_hostname, http_endpoint, cx).await;
+            h2_handler(
+                tls_stream,
+                src_addr,
+                server_addr,
+                dns_hostname,
+                http_endpoint,
+                cx,
+            )
+            .await;
         });
 
         reap_tasks(&mut inner_join_set);
@@ -139,6 +148,7 @@ pub(super) async fn handle_h2_with_acceptor(
 pub(crate) async fn h2_handler(
     io: impl AsyncRead + AsyncWrite + Unpin,
     src_addr: SocketAddr,
+    server_addr: Option<SocketAddr>,
     dns_hostname: Option<Arc<str>>,
     http_endpoint: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -189,8 +199,14 @@ pub(crate) async fn h2_handler(
                 }
             };
 
-            cx.handle_request(body.freeze(), src_addr, Protocol::Https, responder)
-                .await
+            cx.handle_request(
+                body.freeze(),
+                src_addr,
+                Protocol::Https,
+                responder,
+                server_addr,
+            )
+            .await
         });
 
         // we'll continue handling requests from here.
