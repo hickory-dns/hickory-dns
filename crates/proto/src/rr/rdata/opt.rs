@@ -8,6 +8,7 @@
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
+use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 use core::hash::{Hash, Hasher};
@@ -415,6 +416,9 @@ pub enum EdnsCode {
     /// [RFC 7901, CHAIN Query Requests in DNS, Optional](https://tools.ietf.org/html/rfc7901)
     Chain,
 
+    /// [RFC 8914, Extended DNS Errors](https://tools.ietf.org/html/rfc8914)
+    ExtendedDnsError,
+
     /// Unknown, used to deal with unknown or unsupported codes
     Unknown(u16),
 }
@@ -437,6 +441,8 @@ impl From<u16> for EdnsCode {
             11 => Self::Keepalive,
             12 => Self::Padding,
             13 => Self::Chain,
+            // 14 Zoneversion [RFC 9660]
+            15 => Self::ExtendedDnsError,
             _ => Self::Unknown(value),
         }
     }
@@ -459,6 +465,7 @@ impl From<EdnsCode> for u16 {
             EdnsCode::Keepalive => 11,
             EdnsCode::Padding => 12,
             EdnsCode::Chain => 13,
+            EdnsCode::ExtendedDnsError => 15,
             EdnsCode::Unknown(value) => value,
         }
     }
@@ -483,6 +490,9 @@ pub enum EdnsOption {
     /// [RFC 5001, DNS Name Server Identifier (NSID) Option](https://tools.ietf.org/html/rfc5001)
     NSID(NSIDPayload),
 
+    /// [RFC 8914, Extended DNS Errors](https://tools.ietf.org/html/rfc8914)
+    ExtendedDnsError(ExtendedDnsError),
+
     /// Unknown, used to deal with unknown or unsupported codes
     Unknown(u16, Vec<u8>),
 }
@@ -495,7 +505,8 @@ impl EdnsOption {
             EdnsOption::DAU(algorithms) => algorithms.len(),
             EdnsOption::Subnet(subnet) => subnet.len(),
             EdnsOption::NSID(payload) => payload.as_ref().len() as u16, // cast safety: NSIDPayload size is constrained.
-            EdnsOption::Unknown(_, data) => data.len() as u16,          // TODO: should we verify?
+            EdnsOption::ExtendedDnsError(ede) => ede.len(),
+            EdnsOption::Unknown(_, data) => data.len() as u16, // TODO: should we verify?
         }
     }
 
@@ -506,6 +517,7 @@ impl EdnsOption {
             EdnsOption::DAU(algorithms) => algorithms.is_empty(),
             EdnsOption::Subnet(subnet) => subnet.is_empty(),
             EdnsOption::NSID(payload) => payload.as_ref().is_empty(),
+            EdnsOption::ExtendedDnsError(ede) => ede.is_empty(),
             EdnsOption::Unknown(_, data) => data.is_empty(),
         }
     }
@@ -518,6 +530,7 @@ impl BinEncodable for EdnsOption {
             EdnsOption::DAU(algorithms) => algorithms.emit(encoder),
             EdnsOption::Subnet(subnet) => subnet.emit(encoder),
             EdnsOption::NSID(payload) => encoder.emit_slice(payload.as_ref()),
+            EdnsOption::ExtendedDnsError(ede) => ede.emit(encoder),
             EdnsOption::Unknown(_, data) => encoder.emit_slice(data), // gah, clone needed or make a crazy api.
         }
     }
@@ -533,6 +546,7 @@ impl<'a> TryFrom<(EdnsCode, &'a [u8])> for EdnsOption {
             EdnsCode::DAU => Self::DAU(value.1.into()),
             EdnsCode::Subnet => Self::Subnet(value.1.try_into()?),
             EdnsCode::NSID => Self::NSID(value.1.try_into()?),
+            EdnsCode::ExtendedDnsError => Self::ExtendedDnsError(value.1.try_into()?),
             _ => Self::Unknown(value.0.into(), value.1.to_vec()),
         })
     }
@@ -547,6 +561,7 @@ impl<'a> TryFrom<&'a EdnsOption> for Vec<u8> {
             EdnsOption::DAU(algorithms) => algorithms.into(),
             EdnsOption::Subnet(subnet) => subnet.try_into()?,
             EdnsOption::NSID(payload) => payload.as_ref().to_vec(),
+            EdnsOption::ExtendedDnsError(ede) => ede.try_into()?,
             EdnsOption::Unknown(_, data) => data.clone(), // gah, clone needed or make a crazy api.
         })
     }
@@ -559,6 +574,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
             EdnsOption::DAU(..) => Self::DAU,
             EdnsOption::Subnet(..) => Self::Subnet,
             EdnsOption::NSID(..) => Self::NSID,
+            EdnsOption::ExtendedDnsError(..) => Self::ExtendedDnsError,
             EdnsOption::Unknown(code, _) => (*code).into(),
         }
     }
@@ -844,6 +860,93 @@ impl AsRef<[u8]> for NSIDPayload {
     }
 }
 
+/// [RFC 8914, Extended DNS Errors](https://tools.ietf.org/html/rfc8914)
+///
+/// Carries an extended, machine readable error code plus optional human
+/// readable text, for example to explain why a response failed DNSSEC
+/// validation instead of returning a bare SERVFAIL.
+///
+/// ```text
+///    +0 (MSB)                            +1 (LSB)
+///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+/// 0: |                           INFO-CODE                           |
+///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+/// 2: /                           EXTRA-TEXT ...                      /
+///    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///
+/// o  INFO-CODE, 2 octets, a value from the IANA "Extended DNS Error
+///    Codes" registry.
+/// o  EXTRA-TEXT, a variable length, UTF-8 encoded, human readable string
+///    with additional detail about the error. It may be zero length.
+/// ```
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash, Ord)]
+pub struct ExtendedDnsError {
+    /// The INFO-CODE identifying the extended error, per the IANA registry.
+    pub info_code: u16,
+    /// The UTF-8 EXTRA-TEXT carrying additional detail about the error.
+    ///
+    /// This may be empty when no extra detail is provided.
+    pub extra_text: String,
+}
+
+impl ExtendedDnsError {
+    /// Returns the length in bytes of the option data.
+    fn len(&self) -> u16 {
+        // INFO-CODE (2 octets) + EXTRA-TEXT
+        2u16.saturating_add(u16::try_from(self.extra_text.len()).unwrap_or(u16::MAX))
+    }
+
+    /// Returns `true` if the length in bytes of the option data is 0.
+    ///
+    /// An Extended DNS Error always carries a 2-octet INFO-CODE, so this is
+    /// always `false`.
+    fn is_empty(&self) -> bool {
+        false
+    }
+}
+
+impl BinEncodable for ExtendedDnsError {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        self.info_code.emit(encoder)?;
+        encoder.emit_slice(self.extra_text.as_bytes())?;
+        Ok(())
+    }
+}
+
+impl<'a> BinDecodable<'a> for ExtendedDnsError {
+    fn read(decoder: &mut BinDecoder<'a>) -> Result<Self, DecodeError> {
+        let info_code = decoder.read_u16()?.unverified();
+        let extra_text = decoder.read_vec_to_end().unverified();
+        let extra_text = String::from_utf8(extra_text)?;
+        Ok(Self {
+            info_code,
+            extra_text,
+        })
+    }
+}
+
+impl<'a> TryFrom<&'a [u8]> for ExtendedDnsError {
+    type Error = DecodeError;
+
+    fn try_from(value: &'a [u8]) -> Result<Self, Self::Error> {
+        let mut decoder = BinDecoder::new(value);
+        Self::read(&mut decoder)
+    }
+}
+
+impl<'a> TryFrom<&'a ExtendedDnsError> for Vec<u8> {
+    type Error = ProtoError;
+
+    fn try_from(value: &'a ExtendedDnsError) -> Result<Self, Self::Error> {
+        let mut bytes = Self::with_capacity(value.len() as usize);
+        let mut encoder = BinEncoder::new(&mut bytes);
+        value.emit(&mut encoder)?;
+        bytes.shrink_to_fit();
+        Ok(bytes)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
@@ -922,22 +1025,88 @@ mod tests {
         let opt = read_rdata.unwrap();
         let options = vec![
             (
-                EdnsCode::Unknown(15u16),
-                EdnsOption::Unknown(15u16, vec![0x00, 0x06]),
+                EdnsCode::ExtendedDnsError,
+                EdnsOption::ExtendedDnsError(ExtendedDnsError {
+                    info_code: 6,
+                    extra_text: String::new(),
+                }),
             ),
             (
-                EdnsCode::Unknown(15u16),
-                EdnsOption::Unknown(
-                    15u16,
-                    vec![
-                        0x00, 0x09, 0x55, 0x6E, 0x6B, 0x6E, 0x6F, 0x77, 0x6E, 0x20, 0x65, 0x72,
-                        0x72, 0x6F, 0x72,
-                    ],
-                ),
+                EdnsCode::ExtendedDnsError,
+                EdnsOption::ExtendedDnsError(ExtendedDnsError {
+                    info_code: 9,
+                    extra_text: String::from("Unknown error"),
+                }),
             ),
         ];
         let options = OPT::new(options);
         assert_eq!(opt, options);
+    }
+
+    #[test]
+    fn test_extended_dns_error_roundtrip() {
+        let option_in = EdnsOption::ExtendedDnsError(ExtendedDnsError {
+            info_code: 9,
+            extra_text: String::from("Unknown error"),
+        });
+        let mut buf = Vec::new();
+        let mut encoder = BinEncoder::new(&mut buf);
+        option_in.emit(&mut encoder).unwrap();
+
+        // INFO-CODE 9 followed by the UTF-8 EXTRA-TEXT.
+        assert_eq!(&buf[..2], &[0x00, 0x09]);
+
+        let option_out = EdnsOption::try_from((EdnsCode::ExtendedDnsError, buf.as_ref())).unwrap();
+        assert_eq!(option_in, option_out);
+
+        if let EdnsOption::ExtendedDnsError(ede) = option_out {
+            assert_eq!(ede.info_code, 9);
+            assert_eq!(ede.extra_text, "Unknown error");
+        } else {
+            panic!("expected an ExtendedDnsError option");
+        }
+    }
+
+    #[test]
+    fn test_extended_dns_error_no_extra_text() {
+        let ede = ExtendedDnsError {
+            info_code: 6,
+            extra_text: String::new(),
+        };
+        assert_eq!(ede.len(), 2);
+        assert!(ede.extra_text.is_empty());
+
+        let bytes = Vec::<u8>::try_from(&ede).unwrap();
+        assert_eq!(bytes, vec![0x00, 0x06]);
+        assert_eq!(ExtendedDnsError::try_from(bytes.as_slice()).unwrap(), ede);
+    }
+
+    #[test]
+    fn test_extended_dns_error_via_opt() {
+        let mut rdata = OPT::default();
+        rdata.insert(EdnsOption::ExtendedDnsError(ExtendedDnsError {
+            info_code: 18,
+            extra_text: String::from("Prohibited"),
+        }));
+
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        rdata.emit(&mut encoder).unwrap();
+        let bytes = encoder.into_bytes();
+
+        let mut decoder = BinDecoder::new(bytes);
+        let read_rdata = OPT::read_data(&mut decoder).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_extended_dns_error_truncated() {
+        // A single byte cannot hold the 2-octet INFO-CODE.
+        let err = ExtendedDnsError::try_from([0x00].as_slice()).unwrap_err();
+        assert!(
+            matches!(err, DecodeError::InsufficientBytes),
+            "expected InsufficientBytes, got {err}"
+        );
     }
 
     #[test]
