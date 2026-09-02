@@ -17,6 +17,8 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
+use tracing::warn;
+
 use crate::config::{NameServerConfig, ResolverConfig, ResolverOpts};
 use crate::net::NetError;
 use crate::proto::rr::Name;
@@ -29,11 +31,13 @@ fn read_resolv_conf<P: AsRef<Path>>(path: P) -> Result<(ResolverConfig, Resolver
     parse_resolv_conf(fs::read(path)?)
 }
 
-pub fn parse_resolv_conf<T: AsRef<[u8]>>(
-    data: T,
+pub fn parse_resolv_conf(
+    data: impl AsRef<[u8]>,
 ) -> Result<(ResolverConfig, ResolverOpts), NetError> {
-    let parsed_conf = resolv_conf::Config::parse(&data)
-        .map_err(|e| io::Error::other(format!("Error parsing resolv.conf: {e}")))?;
+    let (parsed_conf, errors) = resolv_conf::Config::parse_with_errors(data.as_ref());
+    for error in errors {
+        warn!(%error, "error parsing resolv.conf");
+    }
     into_resolver_config(parsed_conf)
 }
 
