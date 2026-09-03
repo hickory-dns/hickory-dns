@@ -853,7 +853,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let pub_key = dns_key.public_key();
 
         // Checks to see if the key is valid against the registered root certificates
-        if self.trust_anchor.contains_with_name(pub_key, name) {
+        if self.trust_anchor.contains(pub_key, name) {
             debug!(
                 "validated dnskey with trust_anchor: {}, {dns_key}",
                 rr.name(),

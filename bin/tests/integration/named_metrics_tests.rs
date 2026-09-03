@@ -499,7 +499,7 @@ async fn test_updates() {
             RsaSigningKey::from_pkcs8(&PrivatePkcs8KeyDer::from(rsa_key.to_vec()), verify_algo)
                 .unwrap();
         let mut trust_anchor = TrustAnchors::empty();
-        trust_anchor.insert(&verify_key.to_public_key().unwrap());
+        trust_anchor.insert(&verify_key.to_public_key().unwrap(), Name::root().into());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
 

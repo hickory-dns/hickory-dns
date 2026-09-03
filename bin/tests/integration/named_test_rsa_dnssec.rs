@@ -18,7 +18,7 @@ use hickory_net::xfer::{DnsExchangeBackground, DnsMultiplexer, Protocol};
 use hickory_proto::{
     dnssec::{Algorithm, TrustAnchors},
     op::{DnsRequestOptions, Query},
-    rr::RecordType,
+    rr::{Name, RecordType},
 };
 use test_support::subscribe;
 
@@ -32,7 +32,7 @@ fn trust_anchor(public_key_path: &Path, algorithm: Algorithm) -> Arc<TrustAnchor
     let public_key = key_pair.to_public_key().unwrap();
     let mut trust_anchor = TrustAnchors::empty();
 
-    trust_anchor.insert(&public_key);
+    trust_anchor.insert(&public_key, Name::root().into());
     Arc::new(trust_anchor)
 }
 

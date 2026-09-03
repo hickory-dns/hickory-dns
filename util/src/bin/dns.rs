@@ -41,7 +41,7 @@ use hickory_net::{
 #[cfg(feature = "__dnssec")]
 use hickory_proto::{
     dnssec::{Algorithm, PublicKey, TrustAnchors, Verifier, rdata::DNSKEY},
-    rr::Record,
+    rr::{LowerName, Record},
 };
 use hickory_proto::{
     op::DnsResponse,
@@ -329,6 +329,7 @@ impl FetchKeysOpt {
         mut client: impl ClientHandle,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let Self { zone, output_dir } = self;
+        let zone_lower = LowerName::from(&zone);
 
         println!("; querying {zone} for key-signing-dnskeys, KSKs");
 
@@ -349,7 +350,7 @@ impl FetchKeysOpt {
         {
             let key_tag = dnskey.data().calculate_key_tag().expect("key_tag failed");
             let algorithm = dnskey.data().algorithm();
-            let in_trust_anchor = trust_anchor.contains(dnskey.data().public_key());
+            let in_trust_anchor = trust_anchor.contains(dnskey.data().public_key(), &zone_lower);
 
             if !dnskey.data().algorithm().is_supported() {
                 println!(
