@@ -99,7 +99,7 @@ fn test_parse_toml() {
     let config = Config::from_toml("listen_addrs_ipv6 = [\"::0\", \"::1\"]").unwrap();
     assert_eq!(
         config.listen_addrs_ipv6,
-        vec![Ipv6Addr::UNSPECIFIED, Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+        vec![Ipv6Addr::UNSPECIFIED, Ipv6Addr::LOCALHOST]
     );
 
     let config = Config::from_toml("tcp_request_timeout = 25").unwrap();

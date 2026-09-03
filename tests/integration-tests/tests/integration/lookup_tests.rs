@@ -93,10 +93,7 @@ async fn test_lookup_hosts() {
     );
     let lookup = lookup.await.unwrap();
 
-    assert_eq!(
-        lookup.iter().next().unwrap(),
-        Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)
-    );
+    assert_eq!(lookup.iter().next().unwrap(), Ipv6Addr::LOCALHOST);
 }
 
 fn create_ip_like_example() -> InMemoryZoneHandler {

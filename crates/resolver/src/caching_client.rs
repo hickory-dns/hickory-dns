@@ -937,7 +937,7 @@ mod tests {
     //                 Name::from_str("www.example.com.").unwrap(),
     //             )),
     //             RData::A(Ipv4Addr::LOCALHOST),
-    //             //RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+    //             //RData::AAAA(Ipv6Addr::LOCALHOST),
     //         ]
     //     );
     // }
@@ -1766,10 +1766,7 @@ mod tests {
         }
 
         {
-            let query = Query::new(
-                Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-                RecordType::PTR,
-            );
+            let query = Query::new(Name::from(Ipv6Addr::LOCALHOST), RecordType::PTR);
             let lookup = block_on(client.lookup(query.clone(), DnsRequestOptions::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
@@ -1801,10 +1798,7 @@ mod tests {
 
         assert!(
             block_on(client.lookup(
-                Query::new(
-                    Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-                    RecordType::MX
-                ),
+                Query::new(Name::from(Ipv6Addr::LOCALHOST), RecordType::MX),
                 DnsRequestOptions::default()
             ))
             .is_err()

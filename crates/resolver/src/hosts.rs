@@ -272,7 +272,7 @@ mod tests {
             &[Record::from_rdata(
                 name,
                 MAX_TTL,
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into())
+                RData::AAAA(Ipv6Addr::LOCALHOST.into())
             )]
         );
 

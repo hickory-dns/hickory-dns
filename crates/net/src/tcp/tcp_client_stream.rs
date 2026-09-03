@@ -155,10 +155,6 @@ mod tests {
     #[tokio::test]
     async fn test_tcp_stream_ipv6() {
         subscribe();
-        tcp_client_stream_test(
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            TokioRuntimeProvider::new(),
-        )
-        .await;
+        tcp_client_stream_test(IpAddr::V6(Ipv6Addr::LOCALHOST), TokioRuntimeProvider::new()).await;
     }
 }

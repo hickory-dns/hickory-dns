@@ -386,7 +386,7 @@ pub(crate) mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
-            RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into()),
+            RData::AAAA(Ipv6Addr::LOCALHOST.into()),
         )]);
 
         let resp = DnsResponse::from_message(message.into_response()).unwrap();
@@ -511,7 +511,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::LOCALHOST]
         );
     }
 
@@ -536,7 +536,7 @@ pub(crate) mod tests {
                 .collect::<Vec<IpAddr>>(),
             vec![
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
-                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
             ]
         );
 
@@ -573,7 +573,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![IpAddr::V6(Ipv6Addr::LOCALHOST)]
         );
 
         // error, then only ipv6 available
@@ -585,7 +585,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![IpAddr::V6(Ipv6Addr::LOCALHOST)]
         );
     }
 
@@ -609,7 +609,7 @@ pub(crate) mod tests {
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![
-                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
             ]
         );
@@ -647,7 +647,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![IpAddr::V6(Ipv6Addr::LOCALHOST)]
         );
 
         // v4 errors, v6 succeeds
@@ -659,7 +659,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![IpAddr::V6(Ipv6Addr::LOCALHOST)]
         );
     }
 
@@ -681,7 +681,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::LOCALHOST]
         );
 
         // nothing then ipv4
@@ -739,7 +739,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::LOCALHOST]
         );
 
         // error then ipv6
@@ -751,7 +751,7 @@ pub(crate) mod tests {
                 .iter()
                 .map(|r| r.data.ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::LOCALHOST]
         );
     }
 }
