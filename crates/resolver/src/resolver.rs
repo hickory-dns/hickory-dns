@@ -1133,7 +1133,7 @@ pub(crate) mod testing {
         let mut iter = response.iter();
         assert_eq!(
             iter.next().expect("no AAAA"),
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1,))
+            IpAddr::V6(Ipv6Addr::LOCALHOST)
         );
     }
 

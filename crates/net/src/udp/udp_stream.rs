@@ -393,6 +393,6 @@ mod tests {
     async fn test_udp_stream_ipv6() {
         subscribe();
         let provider = TokioRuntimeProvider::new();
-        udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), provider).await;
+        udp_stream_test(IpAddr::V6(Ipv6Addr::LOCALHOST), provider).await;
     }
 }

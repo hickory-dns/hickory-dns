@@ -544,21 +544,14 @@ mod tests {
     #[tokio::test]
     async fn test_udp_client_stream_ipv6() {
         subscribe();
-        udp_client_stream_test(
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            TokioRuntimeProvider::new(),
-        )
-        .await;
+        udp_client_stream_test(IpAddr::V6(Ipv6Addr::LOCALHOST), TokioRuntimeProvider::new()).await;
     }
 
     #[tokio::test]
     async fn test_udp_client_stream_ipv6_bad_id() {
         subscribe();
-        udp_client_stream_bad_id_test(
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            TokioRuntimeProvider::new(),
-        )
-        .await;
+        udp_client_stream_bad_id_test(IpAddr::V6(Ipv6Addr::LOCALHOST), TokioRuntimeProvider::new())
+            .await;
     }
 
     #[tokio::test]
