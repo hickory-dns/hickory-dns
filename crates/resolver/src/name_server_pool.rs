@@ -133,7 +133,7 @@ impl<P: ConnectionProvider> NameServerPool<P> {
 
 // Type alias for TTL unit tests to use tokio's time pause/advance
 #[cfg(not(feature = "tokio"))]
-type TtlInstant = std::time::Instant;
+type TtlInstant = Instant;
 #[cfg(feature = "tokio")]
 type TtlInstant = tokio::time::Instant;
 
