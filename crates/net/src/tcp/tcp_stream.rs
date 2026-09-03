@@ -193,7 +193,6 @@ impl<S: DnsTcpStream> TcpStream<S> {
 impl<S: DnsTcpStream> Stream for TcpStream<S> {
     type Item = io::Result<SerialMessage>;
 
-    #[allow(clippy::cognitive_complexity)]
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let peer = self.peer_addr;
         let (socket, outbound_messages, send_state, read_state) = self.pollable_split();
