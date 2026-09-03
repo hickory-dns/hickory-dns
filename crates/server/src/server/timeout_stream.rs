@@ -113,7 +113,6 @@ mod tests {
     fn test_no_timeout() {
         subscribe();
 
-        #[allow(deprecated)]
         let sequence = iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(io::Error::other);
         let core = Runtime::new().expect("could not get core");
 
