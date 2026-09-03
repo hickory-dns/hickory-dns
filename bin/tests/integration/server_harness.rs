@@ -97,7 +97,6 @@ pub struct TestServer {
 
 impl TestServer {
     /// Spins up a Server and handles shutting it down after running the test
-    #[allow(dead_code)]
     pub fn start(toml: &str) -> Self {
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
         println!("using server src path: {server_path}");

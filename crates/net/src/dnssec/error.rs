@@ -13,7 +13,6 @@ use crate::{
 };
 
 /// The error kind for dnssec errors that get returned in the crate
-#[allow(unreachable_pub)]
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum ProofErrorKind {
