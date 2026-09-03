@@ -12,7 +12,6 @@ use test_support::subscribe;
 
 // TODO: split this test up to test each thing separately
 #[tokio::test]
-#[allow(clippy::cognitive_complexity)]
 async fn test_zone() {
     subscribe();
 
