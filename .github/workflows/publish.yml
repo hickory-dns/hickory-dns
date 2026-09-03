@@ -11,9 +11,6 @@ env:
 jobs:
   publish:
     name: publish
-    # wait for the cache from all-features
-    #  TODO: we really want this:
-    # needs: ./.github/workflows/test/platform-matrix
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
