@@ -509,7 +509,6 @@ pub fn test_update_errors(handler: impl ZoneHandler) {
     );
 }
 
-#[allow(clippy::uninlined_format_args)]
 pub fn test_dots_in_name(handler: impl ZoneHandler) {
     let request = Request::from_message(
         MessageRequest::mock(
@@ -558,8 +557,7 @@ pub fn test_dots_in_name(handler: impl ZoneHandler) {
 
     assert!(
         matches!(lookup, LookupError::NameExists),
-        "lookup: {}",
-        lookup
+        "lookup: {lookup}"
     );
 
     // the rest should all be NameExists

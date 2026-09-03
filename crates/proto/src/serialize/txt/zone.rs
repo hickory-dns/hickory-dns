@@ -450,7 +450,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[allow(clippy::uninlined_format_args)]
     fn test_zone_parse() {
         let domain = Name::from_str("parameter.origin.org.").unwrap();
 
@@ -466,8 +465,7 @@ mod tests {
                     .unwrap_err()
                     .to_string()
                     .contains("FAULTY-RECORD-TYPE"),
-            "unexpected success: {:#?}",
-            result
+            "unexpected success: {result:#?}"
         );
     }
 }

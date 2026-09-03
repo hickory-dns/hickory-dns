@@ -1118,7 +1118,6 @@ fn test_update_message(name: Name) -> Message {
 
 #[cfg(feature = "__dnssec")]
 #[tokio::test]
-#[allow(clippy::uninlined_format_args)]
 async fn test_zone_signing() {
     use hickory_proto::{dnssec::rdata::RRSIG, rr::RecordData};
 
@@ -1172,8 +1171,7 @@ async fn test_zone_signing() {
                     }
                 })
                 .any(|rrsig| rrsig.input().type_covered == record.record_type()),
-            "record type not covered: {:?}",
-            record
+            "record type not covered: {record:?}"
         );
     }
 }
