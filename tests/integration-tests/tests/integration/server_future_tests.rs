@@ -38,7 +38,6 @@ use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;
 
 #[tokio::test]
-#[allow(clippy::uninlined_format_args)]
 async fn test_server_www_udp() {
     subscribe();
 
@@ -46,7 +45,7 @@ async fn test_server_www_udp() {
     let udp_socket = UdpSocket::bind(&addr).await.unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
-    println!("udp_socket on port: {}", ipaddr);
+    println!("udp_socket on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
@@ -54,13 +53,12 @@ async fn test_server_www_udp() {
     let client = tokio::spawn(client_thread_www(lazy_udp_client(ipaddr)));
 
     let client_result = client.await;
-    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+    assert!(client_result.is_ok(), "client failed: {client_result:?}");
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();
 }
 
 #[tokio::test]
-#[allow(clippy::uninlined_format_args)]
 async fn test_server_www_tcp() {
     subscribe();
 
@@ -68,7 +66,7 @@ async fn test_server_www_tcp() {
     let tcp_listener = TcpListener::bind(&addr).await.unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
-    println!("tcp_listener on port: {}", ipaddr);
+    println!("tcp_listener on port: {ipaddr}");
     let server_continue = Arc::new(AtomicBool::new(true));
     let server_continue2 = server_continue.clone();
 
@@ -76,7 +74,7 @@ async fn test_server_www_tcp() {
     let client = tokio::spawn(client_thread_www(lazy_tcp_client(ipaddr)));
 
     let client_result = client.await;
-    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+    assert!(client_result.is_ok(), "client failed: {client_result:?}");
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();
 }

@@ -373,10 +373,9 @@ mod lex_test {
 
     use super::*;
 
-    #[allow(clippy::uninlined_format_args)]
     fn next_token(lexer: &mut Lexer<'_>) -> Option<Token> {
         let result = lexer.next_token();
-        assert!(result.is_ok(), "{:?}", result);
+        assert!(result.is_ok(), "{result:?}");
         result.unwrap()
     }
 

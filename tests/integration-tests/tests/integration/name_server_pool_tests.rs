@@ -550,7 +550,6 @@ fn test_noerror_doesnt_leak() {
 }
 
 #[test]
-#[allow(clippy::uninlined_format_args)]
 fn test_distrust_nx_responses() {
     subscribe();
 
@@ -590,8 +589,7 @@ fn test_distrust_nx_responses() {
         assert_eq!(
             response.answers,
             slice::from_ref(&v4_record),
-            "did not see expected fallback behavior on response code `{}`",
-            response_code
+            "did not see expected fallback behavior on response code `{response_code}`"
         );
     }
 }

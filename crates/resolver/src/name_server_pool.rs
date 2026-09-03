@@ -1024,7 +1024,6 @@ mod tests {
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
     #[test]
-    #[allow(clippy::uninlined_format_args)]
     fn test_failed_then_success_pool() {
         subscribe();
 
@@ -1058,8 +1057,7 @@ mod tests {
                         .first_answer()
                     )
                     .is_err(),
-                "iter: {}",
-                i
+                "iter: {i}"
             );
         }
 
@@ -1074,8 +1072,7 @@ mod tests {
                         .first_answer()
                     )
                     .is_ok(),
-                "iter: {}",
-                i
+                "iter: {i}"
             );
         }
     }
