@@ -182,9 +182,9 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                         Nsec3HashAlgorithm::try_from(
                             tokens[4]
                                 .parse::<u8>()
-                                .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                                .map_err(|e| format!("NSEC3 algorithm error: {e:?}"))?,
                         )
-                        .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                        .map_err(|e| format!("NSEC3 algorithm error: {e:?}"))?,
                         tokens[5] == "1",
                         tokens[6]
                             .parse()
@@ -268,7 +268,9 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                         if tokens[7] == "-" {
                             vec![]
                         } else {
-                            tokens[8].as_bytes().to_vec()
+                            HEXUPPER
+                                .decode(tokens[7].as_bytes())
+                                .map_err(|e| format!("NSEC3PARAM unable to decode salt: {e:?}"))?
                         },
                     ))),
                 ));
