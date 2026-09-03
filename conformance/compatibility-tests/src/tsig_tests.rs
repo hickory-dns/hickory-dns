@@ -127,7 +127,7 @@ async fn test_tsig_zone_transfer() {
         zone_file.add(TestA {
             fqdn: FQDN::from_str(&format!("www{i}.example.net.")).unwrap(),
             ttl: 86400,
-            ipv4_addr: Ipv4Addr::new(127, 0, 0, 1),
+            ipv4_addr: Ipv4Addr::LOCALHOST,
         });
     }
 

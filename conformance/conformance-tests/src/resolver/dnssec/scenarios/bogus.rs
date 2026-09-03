@@ -701,7 +701,7 @@ fn invalid_nsec_wildcard_no_data_test(
     leaf_ns.add(Record::a(wildcard_fqdn.clone(), Ipv4Addr::new(1, 2, 3, 4)));
     // This name ensures the NSEC records matching the wildcard and covering the query are
     // different.
-    leaf_ns.add(Record::a(zero_fqdn.clone(), Ipv4Addr::new(127, 0, 0, 1)));
+    leaf_ns.add(Record::a(zero_fqdn.clone(), Ipv4Addr::LOCALHOST));
 
     let Graph {
         nameservers: _nameservers,
