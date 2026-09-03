@@ -439,7 +439,6 @@ pub(crate) mod tests {
 
     // one_shot tests are basically clones from the udp tests
     #[tokio::test]
-    #[allow(unused_qualifications)] // https://github.com/rust-lang/rust/issues/149873
     async fn test_next_random_socket() {
         subscribe();
 
