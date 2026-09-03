@@ -24,7 +24,6 @@ use crate::serialize::binary::*;
 /// The DNS Record class
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-#[allow(dead_code)]
 pub enum DNSClass {
     /// Internet
     IN,

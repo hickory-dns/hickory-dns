@@ -31,7 +31,6 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[allow(dead_code)]
 pub enum OpCode {
     /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)
     Query,
