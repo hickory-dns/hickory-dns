@@ -216,7 +216,6 @@ async fn test_query_edns_response(client: Client<TokioRuntimeProvider>) {
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
-#[allow(deprecated)]
 #[cfg(feature = "__dnssec")]
 async fn test_secure_query_example_udp() {
     subscribe();
@@ -225,7 +224,6 @@ async fn test_secure_query_example_udp() {
 }
 
 #[tokio::test]
-#[allow(deprecated)]
 #[cfg(feature = "__dnssec")]
 async fn test_secure_query_example_tcp() {
     subscribe();
@@ -342,7 +340,6 @@ async fn test_timeout_query_tcp() {
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
-#[allow(deprecated)]
 #[cfg(feature = "__dnssec")]
 async fn test_nsec_query_example_udp() {
     subscribe();
@@ -352,7 +349,6 @@ async fn test_nsec_query_example_udp() {
 
 #[tokio::test]
 #[ignore = "flaky test against internet server"]
-#[allow(deprecated)]
 #[cfg(feature = "__dnssec")]
 async fn test_nsec_query_example_tcp() {
     subscribe();
@@ -408,7 +404,6 @@ async fn test_nsec3_nxdomain() {
     assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
 }
 
-#[allow(deprecated)]
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 async fn create_tsig_ready_client(mut catalog: Catalog) -> (Client<TokioRuntimeProvider>, Name) {
     use hickory_proto::rr::TSigner;
