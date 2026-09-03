@@ -456,7 +456,6 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
 }
 
 /// Protocol configuration
-#[allow(missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(
     feature = "serde",
@@ -464,14 +463,18 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
     serde(deny_unknown_fields, rename_all = "snake_case", tag = "type")
 )]
 pub enum ProtocolConfig {
+    /// DNS over UDP
     #[default]
     Udp,
+    /// DNS over TCP
     Tcp,
+    /// DNS over TLS
     #[cfg(feature = "__tls")]
     Tls {
         /// The server name to use in the TLS handshake.
         server_name: Arc<str>,
     },
+    /// DNS over HTTP, with HTTP/2
     #[cfg(feature = "__https")]
     Https {
         /// The server name to use in the TLS handshake.
@@ -479,11 +482,13 @@ pub enum ProtocolConfig {
         /// The path (or endpoint) to use for the DNS query.
         path: Arc<str>,
     },
+    /// DNS over QUIC
     #[cfg(feature = "__quic")]
     Quic {
         /// The server name to use in the TLS handshake.
         server_name: Arc<str>,
     },
+    /// DNS over HTTP, with HTTP/3
     #[cfg(feature = "__h3")]
     H3 {
         /// The server name to use in the TLS handshake.
