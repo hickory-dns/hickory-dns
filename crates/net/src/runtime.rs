@@ -119,7 +119,6 @@ pub mod iocompat {
 }
 
 #[cfg(feature = "tokio")]
-#[allow(unreachable_pub)]
 mod tokio_runtime {
     use std::sync::Arc;
     use std::sync::Mutex;
