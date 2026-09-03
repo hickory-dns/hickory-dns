@@ -28,7 +28,6 @@ use crate::serialize::binary::*;
 /// This specifies the type of data in the RData field of the Resource Record
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-#[allow(dead_code)]
 #[non_exhaustive]
 pub enum RecordType {
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) IPv4 Address record

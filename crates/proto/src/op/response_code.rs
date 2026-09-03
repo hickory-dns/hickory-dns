@@ -63,7 +63,6 @@ use serde::{Deserialize, Serialize};
 ///  ```
 #[derive(Debug, Default, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[allow(dead_code)]
 pub enum ResponseCode {
     /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
     #[default]
