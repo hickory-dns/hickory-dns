@@ -1206,15 +1206,15 @@ fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
 fn verify_dnskey(
-    rr: &RecordRef<'_, DNSKEY>,
+    dnskey_record: &RecordRef<'_, DNSKEY>,
     ds_records: &[Record<DS>],
 ) -> Result<Proof, ProofError> {
-    let key_rdata = rr.data();
+    let key_rdata = dnskey_record.data();
     let key_tag = key_rdata.calculate_key_tag().map_err(|_| {
         ProofError::new(
             Proof::Insecure,
             ProofErrorKind::ErrorComputingKeyTag {
-                name: rr.name().clone(),
+                name: dnskey_record.name().clone(),
             },
         )
     })?;
@@ -1229,20 +1229,20 @@ fn verify_dnskey(
 
     // DS check if covered by DS keys
     let mut key_authentication_attempts = 0;
-    for r in ds_records.iter().filter(|ds| ds.proof.is_secure()) {
-        if r.data.algorithm() != key_algorithm {
+    for ds_record in ds_records.iter().filter(|ds| ds.proof.is_secure()) {
+        if ds_record.data.algorithm() != key_algorithm {
             trace!(
                 "skipping DS record due to algorithm mismatch, expected algorithm {}: ({}, {})",
-                key_algorithm, r.name, r.data,
+                key_algorithm, ds_record.name, ds_record.data,
             );
 
             continue;
         }
 
-        if r.data.key_tag() != key_tag {
+        if ds_record.data.key_tag() != key_tag {
             trace!(
                 "skipping DS record due to key tag mismatch, expected tag {key_tag}: ({}, {})",
-                r.name, r.data,
+                ds_record.name, ds_record.data,
             );
 
             continue;
@@ -1261,26 +1261,30 @@ fn verify_dnskey(
             continue;
         }
 
-        if !r.data.covers(rr.name(), key_rdata).unwrap_or(false) {
+        if !ds_record
+            .data
+            .covers(dnskey_record.name(), key_rdata)
+            .unwrap_or(false)
+        {
             continue;
         }
 
         debug!(
             "validated dnskey ({}, {key_rdata}) with {} {}",
-            rr.name(),
-            r.name,
-            r.data,
+            dnskey_record.name(),
+            ds_record.name,
+            ds_record.data,
         );
 
         // If this key is valid, then it is secure
         return Ok(Proof::Secure);
     }
 
-    trace!("bogus dnskey: {}", rr.name());
+    trace!("bogus dnskey: {}", dnskey_record.name());
     Err(ProofError::new(
         Proof::Bogus,
         ProofErrorKind::DnsKeyHasNoDs {
-            name: rr.name().clone(),
+            name: dnskey_record.name().clone(),
         },
     ))
 }
