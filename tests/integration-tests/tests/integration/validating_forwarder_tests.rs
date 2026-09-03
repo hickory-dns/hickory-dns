@@ -233,7 +233,7 @@ async fn setup_client_forwarder(
 
     if let Some(public_key) = public_key {
         let mut anchors = TrustAnchors::empty();
-        anchors.insert(public_key);
+        anchors.insert(public_key, Name::root().into());
         builder = builder.with_trust_anchor(Arc::new(anchors));
     }
     let handler = builder.build().unwrap();

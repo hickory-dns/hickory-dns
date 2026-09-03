@@ -1604,7 +1604,7 @@ mod tests {
         let private_key =
             Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
         let public_key = private_key.to_public_key().unwrap();
-        trust_anchors.insert(&public_key);
+        trust_anchors.insert(&public_key, Name::root().into());
 
         let resolver_ip = Ipv4Addr::new(203, 0, 113, 1).into();
         let query_name = Name::parse("www.hickory-dns.testing.", None).unwrap();
