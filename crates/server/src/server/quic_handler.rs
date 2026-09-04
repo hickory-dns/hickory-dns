@@ -140,21 +140,30 @@ pub(crate) async fn quic_handler(
             }
         };
 
-        let Ok(request_res) = timeout(quic_timeout, request_stream.receive_bytes()).await else {
-            break; // Timeout while reading body.
-        };
-        let request = request_res?;
+        let cx = cx.clone();
+        tokio::spawn(async move {
+            let Ok(request_res) = timeout(quic_timeout, request_stream.receive_bytes()).await
+            else {
+                return; // Timeout while reading body.
+            };
+            let request = match request_res {
+                Ok(bytes_mut) => bytes_mut.freeze(),
+                Err(error) => {
+                    warn!(%error, %src_addr, "reading quic request failed");
+                    return;
+                }
+            };
 
-        debug!(
-            "Received bytes {} from {src_addr} {request:?}",
-            request.len()
-        );
+            debug!(
+                "Received bytes {} from {src_addr} {request:?}",
+                request.len()
+            );
 
-        let stream = Arc::new(Mutex::new(request_stream));
-        let responder = QuicResponseHandle(stream.clone());
+            let responder = QuicResponseHandle(Arc::new(Mutex::new(request_stream)));
 
-        cx.handle_request(request.freeze(), src_addr, Protocol::Quic, responder)
-            .await;
+            cx.handle_request(request, src_addr, Protocol::Quic, responder)
+                .await;
+        });
 
         max_requests -= 1;
         if max_requests == 0 {
