@@ -380,9 +380,13 @@ impl Container {
     pub fn wait(&self, implementation: &Implementation, role: Role) -> Result<(), Error> {
         let start = Instant::now();
         let timeout = Duration::from_secs(10);
+        let mut last_logs = String::new();
         loop {
             if start.elapsed() >= timeout {
-                return Err("unable to start name server: timeout expired".into());
+                return Err(format!(
+                    "unable to start name server: timeout expired\n--- captured logs ---\n{last_logs}"
+                )
+                .into());
             }
 
             let Ok(logs) = self.stdout(&[
@@ -392,6 +396,7 @@ impl Container {
             ]) else {
                 continue;
             };
+            last_logs = logs;
 
             let match_str = match implementation {
                 Implementation::EdeDotCom if role == Role::Resolver => {
@@ -406,7 +411,7 @@ impl Container {
                 Implementation::Unbound => "nsd started",
             };
 
-            if logs.contains(match_str) {
+            if last_logs.contains(match_str) {
                 break;
             }
             sleep(Duration::from_millis(500));
