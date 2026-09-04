@@ -12,9 +12,8 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use h3::server::{Connection, RequestStream};
-use h3_quinn::{BidiStream, Endpoint};
-use http::Request;
+use h3::server::{Connection, RequestResolver};
+use h3_quinn::Endpoint;
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Connecting, EndpointConfig, Incoming, ServerConfig};
 use rustls::server::ResolvesServerCert;
@@ -119,17 +118,11 @@ impl H3Connection {
     /// Accept the next request from the client
     pub async fn accept(
         &mut self,
-    ) -> Option<Result<(Request<()>, RequestStream<BidiStream<Bytes>, Bytes>), NetError>> {
-        match self.connection.accept().await {
-            Ok(Some(resolver)) => match resolver.resolve_request().await {
-                Ok((request, stream)) => Some(Ok((request, stream))),
-                Err(e) => Some(Err(NetError::from(format!(
-                    "h3 request resolution failed: {e}"
-                )))),
-            },
-            Ok(None) => None,
-            Err(e) => Some(Err(NetError::from(format!("h3 request failed: {e}")))),
-        }
+    ) -> Result<Option<RequestResolver<h3_quinn::Connection, Bytes>>, NetError> {
+        self.connection
+            .accept()
+            .await
+            .map_err(|e| NetError::from(format!("h3 request failed: {e}")))
     }
 
     /// Shutdown the connection.
