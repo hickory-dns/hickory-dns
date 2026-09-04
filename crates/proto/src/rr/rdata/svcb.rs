@@ -1355,10 +1355,9 @@ impl<'r> BinDecodable<'r> for Unknown {
     fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
         // The passed slice is already length delimited, and we cannot
         // assume it's a collection of anything.
-        let len = decoder.len();
 
-        let data = decoder.read_vec(len)?;
-        let unknowns = data.unverified(/*any data is valid here*/).to_vec();
+        let data = decoder.read_vec_to_end();
+        let unknowns = data.unverified(/*any data is valid here*/);
 
         Ok(Self(unknowns))
     }
