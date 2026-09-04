@@ -5,7 +5,7 @@ use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::FirstAnswer;
 use hickory_proto::op::{DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
-use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
+use hickory_proto::rr::{Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_server::Server;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
@@ -42,11 +42,7 @@ async fn test_truncation() {
     // Build the query.
     let max_payload = 512;
     let mut msg = Message::query();
-    msg.add_query({
-        let mut query = Query::new(large_name(), RecordType::A);
-        query.set_query_class(DNSClass::IN);
-        query
-    });
+    msg.add_query(Query::new(large_name(), RecordType::A));
     msg.metadata.recursion_desired = true;
     msg.edns = Some({
         let mut edns = Edns::new();
