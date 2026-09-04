@@ -375,7 +375,7 @@ fn validate_nodata_response(
         } else {
             return cx.proof(
                 Proof::Secure,
-                format_args!("type map does not cover {query_type} or CNAME"),
+                format_args!("type map does not include {query_type} or CNAME"),
             );
         }
     }
