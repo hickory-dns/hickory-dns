@@ -188,13 +188,18 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
                     for i in 0..8 {
                         // if the current_bytes most significant bit is set
                         if bit_map & 0b1000_0000 == 0b1000_0000 {
-                            // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
-                            let low_byte: u8 = len
-                            .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
-                            .checked_mul(8)
-                            .checked_add(i)
-                            .map_err(|_| DecodeError::NsecBitmapOutOfBounds)?
-                            .unverified(/*any u8 is valid at this point*/);
+                            // will fail as param in this call if invalid
+                            let left = left.unverified();
+
+                            // len - left is the block in the bitmap, times 8 for the bits, + the
+                            // bit in the current_byte
+                            let low_byte: Restrict<u8> = len
+                                .checked_sub(left)
+                                .checked_mul(8)
+                                .checked_add(i)
+                                .map_err(|_| DecodeError::NsecBitmapOutOfBounds)?;
+                            // any u8 is valid at this point
+                            let low_byte = low_byte.unverified();
                             let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
                             types.insert(RecordType::from(rr_type));
                         }
