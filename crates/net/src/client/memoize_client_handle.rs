@@ -102,7 +102,7 @@ mod test {
     use crate::{
         proto::{
             op::{DnsRequest, DnsResponse, Message, MessageType, OpCode, Query},
-            rr::RecordType,
+            rr::{Name, RecordType},
         },
         runtime::TokioRuntimeProvider,
         xfer::{DnsHandle, FirstAnswer},
@@ -147,10 +147,10 @@ mod test {
         });
 
         let mut test1 = Message::query();
-        test1.add_query(Query::root().set_query_type(RecordType::A).clone());
+        test1.add_query(Query::new(Name::root(), RecordType::A));
 
         let mut test2 = Message::query();
-        test2.add_query(Query::root().set_query_type(RecordType::AAAA).clone());
+        test2.add_query(Query::new(Name::root(), RecordType::AAAA));
 
         let result = block_on(client.send(DnsRequest::from(test1.clone())).first_answer()).unwrap();
         assert_eq!(result.id, 0);

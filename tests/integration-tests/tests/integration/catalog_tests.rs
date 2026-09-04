@@ -131,8 +131,7 @@ async fn test_catalog_lookup() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(origin.into());
+    let query = Query::new(origin.into(), RecordType::A);
 
     question.add_query(query);
 
@@ -170,8 +169,7 @@ async fn test_catalog_lookup() {
 
     // other zone
     let mut question = Message::query();
-    let mut query = Query::root();
-    query.set_name(test_origin.into());
+    let query = Query::new(test_origin.into(), RecordType::A);
 
     question.add_query(query);
 
@@ -220,9 +218,7 @@ async fn test_catalog_lookup_soa() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(origin.into());
-    query.set_query_type(RecordType::SOA);
+    let query = Query::new(origin.into(), RecordType::SOA);
 
     question.add_query(query);
 
@@ -293,8 +289,7 @@ async fn test_catalog_nx_soa() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(Name::parse("nx.example.com.", None).unwrap());
+    let query = Query::new(Name::parse("nx.example.com.", None).unwrap(), RecordType::A);
 
     question.add_query(query);
 
@@ -349,9 +344,10 @@ async fn test_catalog_soa_query_for_nx_name() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(Name::parse("nx.example.com.", None).unwrap());
-    query.set_query_type(RecordType::SOA);
+    let query = Query::new(
+        Name::parse("nx.example.com.", None).unwrap(),
+        RecordType::SOA,
+    );
 
     question.add_query(query);
 
@@ -406,9 +402,7 @@ async fn test_non_authoritive_nx_refused() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(Name::parse("com.", None).unwrap());
-    query.set_query_type(RecordType::SOA);
+    let query = Query::new(Name::parse("com.", None).unwrap(), RecordType::SOA);
 
     question.add_query(query);
 
@@ -463,9 +457,7 @@ async fn test_axfr_allow_all() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
-    let mut query = Query::root();
-    query.set_name(origin.clone().into());
-    query.set_query_type(RecordType::AXFR);
+    let query = Query::new(origin.clone().into(), RecordType::AXFR);
 
     let mut question = Message::query();
     question.add_query(query);
@@ -570,9 +562,7 @@ async fn test_axfr_deny_all() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
-    let mut query = Query::root();
-    query.set_name(origin.into());
-    query.set_query_type(RecordType::AXFR);
+    let query = Query::new(origin.into(), RecordType::AXFR);
 
     let mut question = Message::query();
     question.add_query(query);
@@ -650,9 +640,7 @@ async fn test_axfr_deny_unsigned() {
     let mut catalog = Catalog::new();
     catalog.upsert(origin.clone(), vec![Arc::new(test)]);
 
-    let mut query = Query::root();
-    query.set_name(origin.into());
-    query.set_query_type(RecordType::AXFR);
+    let query = Query::new(origin.into(), RecordType::AXFR);
 
     let mut question = Message::query();
     question.add_query(query);
@@ -773,9 +761,7 @@ async fn test_nsid_enabled_and_requested() {
 }
 
 fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
-    let mut query = Query::root();
-    query.set_name(origin.into());
-    query.set_query_type(RecordType::A);
+    let query = Query::new(origin.into(), RecordType::A);
 
     let mut question_edns = Edns::new();
     if request_nsid {
@@ -853,9 +839,7 @@ async fn test_do_bit_reflected_when_requested() {
 
 /// Build an `A` query for `origin` carrying the given EDNS options.
 fn test_edns_request(origin: LowerName, edns: Edns) -> Request {
-    let mut query = Query::root();
-    query.set_name(origin.into());
-    query.set_query_type(RecordType::A);
+    let query = Query::new(origin.into(), RecordType::A);
 
     let mut question = Message::query();
     question.add_query(query);
@@ -883,9 +867,7 @@ async fn test_cname_alias() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(Name::from_str("alias.example.com.").unwrap());
-    query.set_query_type(RecordType::A);
+    let query = Query::new(Name::from_str("alias.example.com.").unwrap(), RecordType::A);
 
     question.add_query(query);
 
@@ -933,9 +915,10 @@ async fn test_cname_chain() {
 
     let mut question = Message::query();
 
-    let mut query = Query::root();
-    query.set_name(Name::from_str("alias2.example.com.").unwrap());
-    query.set_query_type(RecordType::A);
+    let query = Query::new(
+        Name::from_str("alias2.example.com.").unwrap(),
+        RecordType::A,
+    );
 
     question.add_query(query);
 
@@ -1174,9 +1157,7 @@ mod dnssec {
     async fn test_dnskey_and_nsec3() {
         let catalog = make_catalog();
 
-        let mut query = Query::root();
-        query.set_name(Name::from_str("test.com.").unwrap());
-        query.set_query_type(RecordType::DNSKEY);
+        let query = Query::new(Name::from_str("test.com.").unwrap(), RecordType::DNSKEY);
 
         // Check DNSKEY + RRSIG
         {
@@ -1209,9 +1190,7 @@ mod dnssec {
 
         // Check NSEC3
         {
-            let mut query = Query::root();
-            query.set_name(Name::from_str("test.com.").unwrap());
-            query.set_query_type(RecordType::NSEC);
+            let query = Query::new(Name::from_str("test.com.").unwrap(), RecordType::NSEC);
 
             let result = run_query(&catalog, query).await;
             assert!(result.answers.is_empty());
@@ -1255,9 +1234,7 @@ mod dnssec {
 
         // Check NSEC3PARAM
         {
-            let mut query = Query::root();
-            query.set_name(Name::from_str("test.com.").unwrap());
-            query.set_query_type(RecordType::NSEC3PARAM);
+            let query = Query::new(Name::from_str("test.com.").unwrap(), RecordType::NSEC3PARAM);
 
             let result = run_query(&catalog, query).await;
 

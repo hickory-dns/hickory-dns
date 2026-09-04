@@ -172,10 +172,8 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin)
-        .set_query_class(rrset.dns_class())
-        .set_query_type(RecordType::SOA);
+    let mut zone = Query::new(zone_origin, RecordType::SOA);
+    zone.set_query_class(rrset.dns_class());
 
     // build the message
     let mut message = Message::query();
@@ -240,10 +238,8 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin)
-        .set_query_class(rrset.dns_class())
-        .set_query_type(RecordType::SOA);
+    let mut zone = Query::new(zone_origin, RecordType::SOA);
+    zone.set_query_class(rrset.dns_class());
 
     // build the message
     let mut message = Message::query();
@@ -324,10 +320,8 @@ pub fn compare_and_swap(
     assert!(zone_origin.zone_of(new.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin)
-        .set_query_class(new.dns_class())
-        .set_query_type(RecordType::SOA);
+    let mut zone = Query::new(zone_origin, RecordType::SOA);
+    zone.set_query_class(new.dns_class());
 
     // build the message
     let mut message = Message::query();
@@ -392,10 +386,8 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin)
-        .set_query_class(rrset.dns_class())
-        .set_query_type(RecordType::SOA);
+    let mut zone = Query::new(zone_origin, RecordType::SOA);
+    zone.set_query_class(rrset.dns_class());
 
     // build the message
     let mut message = Message::query();
@@ -449,10 +441,8 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     assert!(zone_origin.zone_of(&record.name));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin)
-        .set_query_class(record.dns_class)
-        .set_query_type(RecordType::SOA);
+    let mut zone = Query::new(zone_origin, RecordType::SOA);
+    zone.set_query_class(record.dns_class);
 
     // build the message
     let mut message = Message::query();
@@ -515,10 +505,8 @@ pub fn delete_all(
     assert!(zone_origin.zone_of(&name_of_records));
 
     // for updates, the query section is used for the zone
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin)
-        .set_query_class(dns_class)
-        .set_query_type(RecordType::SOA);
+    let mut zone = Query::new(zone_origin, RecordType::SOA);
+    zone.set_query_class(dns_class);
 
     // build the message
     let mut message = Message::query();
@@ -562,13 +550,13 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
         assert_eq!(zone_origin, soa.mname);
     }
 
-    let mut zone: Query = Query::root();
-    zone.set_name(zone_origin).set_query_class(DNSClass::IN);
-    if last_soa.is_some() {
-        zone.set_query_type(RecordType::IXFR);
+    let query_type = if last_soa.is_some() {
+        RecordType::IXFR
     } else {
-        zone.set_query_type(RecordType::AXFR);
-    }
+        RecordType::AXFR
+    };
+    let mut zone = Query::new(zone_origin, query_type);
+    zone.set_query_class(DNSClass::IN);
 
     // build the message
     let mut message = Message::query();
