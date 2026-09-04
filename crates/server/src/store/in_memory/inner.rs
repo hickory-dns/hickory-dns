@@ -49,6 +49,32 @@ pub(super) struct InnerInMemory {
 }
 
 impl InnerInMemory {
+    /// Returns whether a name owns an RRset or is an empty non-terminal.
+    pub(super) fn name_exists(&self, name: &LowerName) -> bool {
+        // RrKey orders by canonical DNS name, then by numeric record type. Within
+        // each relative/FQDN partition, a name and its descendants are contiguous,
+        // with the name itself first. Only the first key at or after this lower
+        // bound can establish its existence.
+        let contains_name = |search_name| {
+            let start = RrKey::new(search_name, RecordType::Unknown(u16::MIN));
+            self.records
+                .range(start..)
+                .next()
+                .is_some_and(|(key, _)| name.zone_of(key.name()))
+        };
+
+        if contains_name(name.clone()) {
+            return true;
+        }
+
+        // Name ordering separates relative and fully qualified names, whereas
+        // zone_of ignores that distinction. Preserve that behavior even when the
+        // publicly mutable record map contains both forms.
+        let mut other: Name = name.into();
+        other.set_fqdn(!other.is_fqdn());
+        contains_name(other.into())
+    }
+
     #[cfg(feature = "__dnssec")]
     pub(super) fn proof(
         &self,
@@ -969,8 +995,258 @@ fn finish_nsec_record(
 mod tests {
     use std::str::FromStr;
 
+    use super::super::InMemoryZoneHandler;
     use super::*;
-    use crate::proto::rr::{Name, Record, rdata::NS};
+    use crate::{
+        proto::{
+            op::ResponseCode,
+            rr::{
+                Name, Record,
+                rdata::{A, NS},
+            },
+        },
+        zone_handler::{AxfrPolicy, LookupError, ZoneHandler, ZoneType},
+    };
+
+    fn lower_name(name: &str) -> LowerName {
+        Name::from_str(name).unwrap().into()
+    }
+
+    fn insert_rrset(inner: &mut InnerInMemory, name: Name, record_type: RecordType) -> RrKey {
+        let key = RrKey::new((&name).into(), record_type);
+        inner
+            .records
+            .insert(key.clone(), Arc::new(RecordSet::new(name, record_type, 0)));
+        key
+    }
+
+    #[test]
+    fn test_name_exists() {
+        let mut inner = InnerInMemory::default();
+        assert!(!inner.name_exists(&lower_name(".")));
+
+        for owner in [
+            "a.example.com.",
+            "leaf.branch.example.com.",
+            "prefix-other.example.com.",
+            "*.wild.example.com.",
+            "z.example.net.",
+        ] {
+            insert_rrset(&mut inner, Name::from_str(owner).unwrap(), RecordType::A);
+        }
+
+        for name in [
+            ".",
+            "com.",
+            "example.com.",
+            "A.EXAMPLE.COM.",
+            "branch.example.com.",
+            "leaf.branch.example.com.",
+            "wild.example.com.",
+            "*.wild.example.com.",
+        ] {
+            assert!(inner.name_exists(&lower_name(name)), "{name}");
+        }
+
+        for name in [
+            "0.example.com.",
+            "b.example.com.",
+            "bran.example.com.",
+            "child.a.example.com.",
+            "prefix.example.com.",
+            "host.wild.example.com.",
+            "zz.example.com.",
+            "example.org.",
+        ] {
+            assert!(!inner.name_exists(&lower_name(name)), "{name}");
+        }
+    }
+
+    #[test]
+    fn test_name_exists_record_type_boundaries() {
+        for record_type in [RecordType::Unknown(u16::MIN), RecordType::Unknown(u16::MAX)] {
+            let mut inner = InnerInMemory::default();
+            insert_rrset(
+                &mut inner,
+                Name::from_str("leaf.example.com.").unwrap(),
+                record_type,
+            );
+            assert!(inner.name_exists(&lower_name("leaf.example.com.")));
+            assert!(inner.name_exists(&lower_name("example.com.")));
+            assert!(!inner.name_exists(&lower_name("z.example.com.")));
+        }
+    }
+
+    #[test]
+    fn test_name_exists_matches_scan_after_mutation() {
+        let owners = [
+            "a.example.com.",
+            "leaf.branch.example.com.",
+            "branch-other.example.com.",
+            "*.wild.example.com.",
+            "z.example.com.",
+            "example.net.",
+        ];
+        let queries = [
+            ".",
+            "com.",
+            "example.com.",
+            "a.example.com.",
+            "b.example.com.",
+            "branch.example.com.",
+            "leaf.branch.example.com.",
+            "child.leaf.branch.example.com.",
+            "branch-other.example.com.",
+            "wild.example.com.",
+            "*.wild.example.com.",
+            "other.wild.example.com.",
+            "z.example.com.",
+            "zz.example.com.",
+            "example.net.",
+            "example.org.",
+        ];
+        let check = |inner: &InnerInMemory| {
+            for query in queries {
+                for fqdn in [false, true] {
+                    let mut name = Name::from_str(query).unwrap();
+                    name.set_fqdn(fqdn);
+                    let name = LowerName::from(name);
+                    let expected = inner
+                        .records
+                        .keys()
+                        .any(|key| key.name() == &name || name.zone_of(key.name()));
+                    assert_eq!(inner.name_exists(&name), expected, "{name:?}");
+                }
+            }
+        };
+
+        let mut inner = InnerInMemory::default();
+        let mut inserted = Vec::new();
+        check(&inner);
+        for (index, owner) in owners.into_iter().enumerate() {
+            // Interleave both ordering partitions, including numeric type 0 and 65535.
+            for fqdn in [index % 2 == 0, index % 2 != 0] {
+                let mut name = Name::from_str(owner).unwrap();
+                name.set_fqdn(fqdn);
+                let record_type = if fqdn {
+                    RecordType::Unknown(u16::MIN)
+                } else {
+                    RecordType::Unknown(u16::MAX)
+                };
+                inserted.push(insert_rrset(&mut inner, name, record_type));
+                check(&inner);
+            }
+        }
+        for key in inserted.into_iter().rev() {
+            assert!(inner.records.remove(&key).is_some());
+            check(&inner);
+        }
+    }
+
+    async fn lookup_aaaa_error(zone: &InMemoryZoneHandler, name: &str) -> LookupError {
+        zone.lookup(
+            &lower_name(name),
+            RecordType::AAAA,
+            None,
+            LookupOptions::default(),
+        )
+        .await
+        .unwrap_err()
+    }
+
+    #[tokio::test]
+    async fn test_negative_lookup_responses_after_mutation() {
+        let origin = Name::from_str("example.com.").unwrap();
+        let mut zone: InMemoryZoneHandler = InMemoryZoneHandler::empty(
+            origin.clone(),
+            ZoneType::Primary,
+            AxfrPolicy::Deny,
+            #[cfg(feature = "__dnssec")]
+            None,
+        );
+        assert!(zone.upsert_mut(
+            Record::from_rdata(
+                origin,
+                300,
+                RData::SOA(SOA::new(
+                    Name::from_str("ns.example.com.").unwrap(),
+                    Name::from_str("hostmaster.example.com.").unwrap(),
+                    1,
+                    3600,
+                    600,
+                    86400,
+                    300,
+                )),
+            ),
+            1,
+        ));
+        for owner in [
+            "a.example.com.",
+            "leaf.branch.example.com.",
+            "z.example.com.",
+        ] {
+            assert!(zone.upsert_mut(
+                Record::from_rdata(
+                    Name::from_str(owner).unwrap(),
+                    300,
+                    RData::A(A::new(192, 0, 2, 1)),
+                ),
+                1,
+            ));
+        }
+
+        for name in ["example.com.", "a.example.com.", "branch.example.com."] {
+            assert!(
+                matches!(
+                    lookup_aaaa_error(&zone, name).await,
+                    LookupError::NameExists
+                ),
+                "{name}"
+            );
+        }
+        for name in ["0.example.com.", "b.example.com.", "zz.example.com."] {
+            assert!(
+                lookup_aaaa_error(&zone, name).await.is_nx_domain(),
+                "{name}"
+            );
+        }
+        assert!(matches!(
+            lookup_aaaa_error(&zone, "example.net.").await,
+            LookupError::ResponseCode(ResponseCode::Refused)
+        ));
+        let answer = zone
+            .lookup(
+                &lower_name("a.example.com."),
+                RecordType::A,
+                None,
+                LookupOptions::default(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            answer.iter().next().unwrap().data,
+            RData::A(A::new(192, 0, 2, 1))
+        );
+
+        let key = RrKey::new(lower_name("leaf.branch.example.com."), RecordType::A);
+        let rrset = zone.records_mut().await.remove(&key).unwrap();
+        assert!(
+            lookup_aaaa_error(&zone, "branch.example.com.")
+                .await
+                .is_nx_domain()
+        );
+        zone.records_get_mut().insert(key, rrset);
+        assert!(matches!(
+            lookup_aaaa_error(&zone, "branch.example.com.").await,
+            LookupError::NameExists
+        ));
+        zone.clear();
+        assert!(
+            lookup_aaaa_error(&zone, "branch.example.com.")
+                .await
+                .is_nx_domain()
+        );
+    }
 
     #[test]
     fn test_inner_lookup_delegation() {
