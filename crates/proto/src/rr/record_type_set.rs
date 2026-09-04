@@ -188,7 +188,8 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
                     for i in 0..8 {
                         // if the current_bytes most significant bit is set
                         if bit_map & 0b1000_0000 == 0b1000_0000 {
-                            // will fail as param in this call if invalid
+                            // Unwrap loop variable from Restrict<u8>. This is only used in checked
+                            // arithmetic below.
                             let left = left.unverified();
 
                             // len - left is the block in the bitmap, times 8 for the bits, + the
