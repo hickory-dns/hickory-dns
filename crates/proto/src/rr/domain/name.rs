@@ -1352,10 +1352,14 @@ fn read_inner(decoder: &mut BinDecoder<'_>, name: &mut Name) -> Result<(), Decod
                 decoder.pop()?;
                 break;
             }
+        };
+
+        // Early, cheap check for names that are definitely too long:
+        if name.label_data.len() >= 255 {
+            return Err(DecodeError::DomainNameTooLong(name.len()));
         }
     }
 
-    // TODO: should we consider checking this while the name is parsed?
     let len = name.len();
     if len >= 255 {
         return Err(DecodeError::DomainNameTooLong(len));
