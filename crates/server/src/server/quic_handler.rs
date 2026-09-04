@@ -55,22 +55,18 @@ pub(super) async fn handle_quic_with_server(
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
         };
-        let Ok(accept_result) = timeout_result else {
+        let Ok(incoming_opt) = timeout_result else {
             warn!("quic timeout expired during handshake");
             continue;
         };
-        let (streams, src_addr) = match accept_result {
-            Ok(Some((streams, src_addr))) => (streams, src_addr),
-            Ok(None) => break, // Connection is closed.
-            Err(error) => {
-                debug!(%error, "error receiving quic connection");
-                continue;
-            }
+        let Some(incoming) = incoming_opt else {
+            break; // Connection is closed.
         };
 
         // Verify that the source address is safe for responses. We're also relying on the quinn
         // library to actually validate responses before we get here, but this check is still worth
         // doing.
+        let src_addr = incoming.remote_address();
         if let Err(error) = sanitize_src_address(src_addr) {
             warn!(
                 %error, %src_addr,
@@ -79,8 +75,24 @@ pub(super) async fn handle_quic_with_server(
             continue;
         }
 
+        let connecting = match incoming.accept() {
+            Ok(connecting) => connecting,
+            Err(error) => {
+                debug!(%error, "error accepting incoming quic connection");
+                continue;
+            }
+        };
+
         let cx = cx.clone();
         inner_join_set.spawn(async move {
+            let streams = match QuicStreams::new(connecting).await {
+                Ok(streams) => streams,
+                Err(error) => {
+                    debug!(%error, "error completing incoming quic connection");
+                    return;
+                }
+            };
+
             debug!("starting quic stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...

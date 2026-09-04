@@ -10,7 +10,7 @@ use std::io;
 use std::sync::Arc;
 
 use quinn::crypto::rustls::QuicServerConfig;
-use quinn::{Connection, Endpoint, ServerConfig};
+use quinn::{Connecting, Connection, Endpoint, Incoming, ServerConfig};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
@@ -78,19 +78,9 @@ impl QuicServer {
         Ok(Self { endpoint })
     }
 
-    /// Get the next incoming stream
-    ///
-    /// # Returns
-    ///
-    /// A remote connection that could have many potential bi-directional streams and the remote socket address
-    pub async fn next(&mut self) -> Result<Option<(QuicStreams, SocketAddr)>, NetError> {
-        let Some(connecting) = self.endpoint.accept().await else {
-            return Ok(None);
-        };
-
-        let remote_addr = connecting.remote_address();
-        let connection = connecting.await?;
-        Ok(Some((QuicStreams { connection }, remote_addr)))
+    /// Get the next incoming connection.
+    pub async fn next(&mut self) -> Option<Incoming> {
+        self.endpoint.accept().await
     }
 
     /// Returns the address this server is listening on
@@ -108,6 +98,12 @@ pub struct QuicStreams {
 }
 
 impl QuicStreams {
+    /// Complete a QUIC handshake.
+    pub async fn new(connecting: Connecting) -> Result<Self, NetError> {
+        let connection = connecting.await?;
+        Ok(Self { connection })
+    }
+
     /// Get the next bi directional stream from the client
     pub async fn next(&mut self) -> Option<Result<QuicStream, NetError>> {
         match self.connection.accept_bi().await {
