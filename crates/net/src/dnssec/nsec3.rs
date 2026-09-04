@@ -710,41 +710,11 @@ fn find_covering_record<'a>(
     nsec3s: &'a [Nsec3RecordInfo<'a>],
     target_name: &Name,
     target_hashed_name: &[u8],
-    // Strictly speaking we don't need this parameter, we can calculate
-    // base32(target_hashed_name) inside the function.
-    // However, we already have it available at call sites, may as well use
-    // it and save on repeated base32 encodings.
     target_base32_hashed_name: &Label,
 ) -> Option<&'a Nsec3RecordInfo<'a>> {
-    nsec3s.iter().find(|record| {
-        let Some(record_next_hashed_owner_name_base32) =
-            record.nsec3_data.next_hashed_owner_name_base32()
-        else {
-            return false;
-        };
-
-        // Ignore NSEC3 records from outside the zone.
-        if !record.zone_name.zone_of(target_name) {
-            return false;
-        }
-
-        // Matching records don't count as covering records
-        if record.base32_hashed_name == *target_base32_hashed_name {
-            return false;
-        }
-
-        if record.base32_hashed_name < *record_next_hashed_owner_name_base32 {
-            // Normal case: target must be between the hashed owner name and the next hashed owner
-            // name.
-            record.base32_hashed_name < *target_base32_hashed_name
-                && target_hashed_name < record.nsec3_data.next_hashed_owner_name()
-        } else {
-            // Wraparound case: target must be greater than the hashed owner name or less than the
-            // next hashed owner name.
-            *target_base32_hashed_name > record.base32_hashed_name
-                || target_hashed_name < record.nsec3_data.next_hashed_owner_name()
-        }
-    })
+    nsec3s
+        .iter()
+        .find(|record| record.covers(target_name, target_hashed_name, target_base32_hashed_name))
 }
 
 // NSEC3 records use a base32 hashed name as a record name component.
@@ -857,6 +827,47 @@ impl<'a> Nsec3RecordInfo<'a> {
     /// available already, so we take both as separate arguments to avoid redundant work.
     fn matches(&self, name: &Name, base32_hashed_name: &Label) -> bool {
         self.zone_name.zone_of(name) && &self.base32_hashed_name == base32_hashed_name
+    }
+
+    /// Determines whether this NSEC3 record covers a name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name to test against this NSEC3 record
+    /// * `hashed_name` - The hash of `name`
+    /// * `base32_hashed_name` - A base32-encoded label representing the hash of `name`
+    ///
+    /// While `hashed_name` and `base32_hashed_name` could be recomputed from `name`, each call site
+    /// has all three values available already, so we take both as separate arguments to avoid
+    /// redundant work.
+    fn covers(&self, name: &Name, hashed_name: &[u8], base32_hashed_name: &Label) -> bool {
+        let Some(record_next_hashed_owner_name_base32) =
+            self.nsec3_data.next_hashed_owner_name_base32()
+        else {
+            return false;
+        };
+
+        // Ignore NSEC3 records from outside the zone.
+        if !self.zone_name.zone_of(name) {
+            return false;
+        }
+
+        // Matching records don't count as covering records
+        if self.base32_hashed_name == *base32_hashed_name {
+            return false;
+        }
+
+        if self.base32_hashed_name < *record_next_hashed_owner_name_base32 {
+            // Normal case: target must be between the hashed owner name and the next hashed owner
+            // name.
+            self.base32_hashed_name < *base32_hashed_name
+                && hashed_name < self.nsec3_data.next_hashed_owner_name()
+        } else {
+            // Wraparound case: target must be greater than the hashed owner name or less than the
+            // next hashed owner name.
+            *base32_hashed_name > self.base32_hashed_name
+                || hashed_name < self.nsec3_data.next_hashed_owner_name()
+        }
     }
 }
 
