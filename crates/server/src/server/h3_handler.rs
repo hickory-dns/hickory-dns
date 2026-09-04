@@ -66,21 +66,17 @@ pub(super) async fn handle_h3_with_server(
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
         };
-        let Ok(result) = timeout_result else {
+        let Ok(incoming_opt) = timeout_result else {
             warn!("h3 timeout expired during handshake");
             continue;
         };
-        let (connection, src_addr) = match result {
-            Ok(Some((connection, src_addr))) => (connection, src_addr),
-            Ok(None) => break, // Connection is closed.
-            Err(error) => {
-                debug!(%error, "error receiving h3 connection");
-                continue;
-            }
+        let Some(incoming) = incoming_opt else {
+            break; // Connection is closed.
         };
 
         // verify that the src address is safe for responses
         // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+        let src_addr = incoming.remote_address();
         if let Err(error) = sanitize_src_address(src_addr) {
             warn!(
                 %error, %src_addr,
@@ -89,9 +85,25 @@ pub(super) async fn handle_h3_with_server(
             continue;
         }
 
+        let connecting = match incoming.accept() {
+            Ok(connecting) => connecting,
+            Err(error) => {
+                debug!(%error, "error accepting incoming h3 connection");
+                continue;
+            }
+        };
+
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
         inner_join_set.spawn(async move {
+            let connection = match H3Connection::new(connecting).await {
+                Ok(connection) => connection,
+                Err(error) => {
+                    debug!(%error, "error establishing incoming h3 connection");
+                    return;
+                }
+            };
+
             debug!("starting h3 stream request from: {src_addr}");
 
             // TODO: need to consider timeout of total connect...

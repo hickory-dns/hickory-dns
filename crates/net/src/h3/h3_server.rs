@@ -16,7 +16,7 @@ use h3::server::{Connection, RequestStream};
 use h3_quinn::{BidiStream, Endpoint};
 use http::Request;
 use quinn::crypto::rustls::QuicServerConfig;
-use quinn::{EndpointConfig, ServerConfig};
+use quinn::{Connecting, EndpointConfig, Incoming, ServerConfig};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
@@ -85,21 +85,8 @@ impl H3Server {
     /// # Returns
     ///
     /// A remote connection that could accept many potential requests and the remote socket address
-    pub async fn accept(&mut self) -> Result<Option<(H3Connection, SocketAddr)>, NetError> {
-        let Some(connecting) = self.endpoint.accept().await else {
-            return Ok(None);
-        };
-
-        let remote_addr = connecting.remote_address();
-        let connection = connecting.await?;
-        Ok(Some((
-            H3Connection {
-                connection: Connection::new(h3_quinn::Connection::new(connection))
-                    .await
-                    .map_err(|e| NetError::from(format!("h3 connection failed: {e}")))?,
-            },
-            remote_addr,
-        )))
+    pub async fn accept(&mut self) -> Option<Incoming> {
+        self.endpoint.accept().await
     }
 
     /// Returns the address this server is listening on
@@ -117,6 +104,18 @@ pub struct H3Connection {
 }
 
 impl H3Connection {
+    /// Complete a QUIC handshake and set up an HTTP/3 connection.
+    pub async fn new(connecting: Connecting) -> Result<Self, NetError> {
+        let quinn_connection = connecting.await?;
+        let h3_quinn_connection = h3_quinn::Connection::new(quinn_connection);
+        let h3_connection = Connection::new(h3_quinn_connection)
+            .await
+            .map_err(|e| NetError::from(format!("h3 connection failed: {e}")))?;
+        Ok(Self {
+            connection: h3_connection,
+        })
+    }
+
     /// Accept the next request from the client
     pub async fn accept(
         &mut self,
