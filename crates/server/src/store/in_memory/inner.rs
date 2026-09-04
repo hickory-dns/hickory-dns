@@ -291,7 +291,8 @@ impl InnerInMemory {
                     records = records_tmp;
                     _rrsigs = rrsigs_tmp;
                 } else {
-                    let (records_tmp, rrsigs_tmp) = (rrset.records_without_rrsigs(), Vec::with_capacity(0));
+                    let (records_tmp, rrsigs_tmp) =
+                        (rrset.records_without_rrsigs(), Vec::with_capacity(0));
                     records = records_tmp;
                     _rrsigs = rrsigs_tmp;
                 }
