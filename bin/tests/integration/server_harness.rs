@@ -197,7 +197,11 @@ impl Drop for TestServer {
     fn drop(&mut self) {
         match self.child.kill() {
             Ok(()) => info!("killed test server"),
-            Err(err) => warn!("could not kill test server: {err}"),
+            Err(error) => warn!(%error, "could not kill test server"),
+        }
+        match self.child.wait() {
+            Ok(exit_status) => info!(%exit_status, "test server exited"),
+            Err(error) => warn!(%error, "error waiting for test server to exit"),
         }
 
         let mut line = String::new();
