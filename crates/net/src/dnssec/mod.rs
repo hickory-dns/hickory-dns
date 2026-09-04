@@ -170,6 +170,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             // DNSSEC handler chain can validate negative responses.
             Err(NetError::Dns(DnsError::NoRecordsFound(NoRecords {
                 query,
+                soa,
                 authorities,
                 response_code,
                 ..
@@ -182,6 +183,16 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 if let Some(authorities) = authorities {
                     for record in authorities.iter() {
                         msg.add_authority(record.clone());
+                    }
+                }
+
+                // Make sure we preserve the SOA record. It is not obvious whether we need this;
+                // most callers should preserve it, but not every caller might.
+                // TODO: be more principled about how this is handled.
+                if let Some(soa) = soa {
+                    let soa = soa.into_record_of_rdata();
+                    if !msg.authorities.iter().any(|r| r == &soa) {
+                        msg.add_authority(soa);
                     }
                 }
 
@@ -404,7 +415,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 // TODO: is there a cleaner way to prevent cycles in the evaluations?
                 (self.request_depth <= 1 || matches!(
                     rr.record_type(),
-                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3,
+                    RecordType::DNSKEY | RecordType::DS | RecordType::NSEC | RecordType::NSEC3 | RecordType::SOA,
                 ))
             })
             .map(|rr| (rr.name.clone(), rr.record_type()))
@@ -890,9 +901,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     }
 
                     // Case 4: There is an insecure delegation further up the tree.
+                    //
+                    // We check that parent zone is insecure by looking for at least one `Proof::Insecure`
+                    // attached to a record with name that is at or above the child zone. Most servers
+                    // will include an SOA record in NODATA responses, so we should see an insecure
+                    // proof on at least that record.
                     if response
                         .all_sections()
-                        .any(|r| r.proof == Proof::Insecure && zone.zone_of(&r.name))
+                        .any(|r| r.name.zone_of(&zone) && r.proof == Proof::Insecure)
                     {
                         debug!(
                             %zone,
