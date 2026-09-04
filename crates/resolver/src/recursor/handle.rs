@@ -356,7 +356,8 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             if let Some(target_name) = target_name_opt {
                 if name_history.contains(&target_name) {
                     // The CNAME records form a loop.
-                    break;
+                    debug!(%query, %target_name, "CNAME loop detected within response");
+                    return Err(RecursorError::from("CNAME loop detected"));
                 }
                 name_history.push(target_name);
                 effective_qname = target_name;
@@ -374,6 +375,18 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                     record_type: RecordType::CNAME,
                 });
             }
+
+            // Refuse to follow a chain that re-enters a cname already being followed higher up
+            // the stack: the chain has looped back on itself across responses.
+            let _in_flight = limits
+                .try_enter_cnames(&name_history, effective_qname)
+                .inspect_err(|_| {
+                    debug!(
+                        %query,
+                        %effective_qname,
+                        "refusing to re-enter cname already on resolution stack"
+                    );
+                })?;
 
             // Note that we aren't worried about whether the intermediates are local or remote
             // to the original queried name, or included or not included in the original
@@ -923,6 +936,7 @@ pub(crate) struct RequestLimits {
     req_query_count: AtomicU8,
     cname_limit: AtomicU8,
     in_flight_zones: Mutex<HashSet<Name>>,
+    in_flight_cnames: Mutex<HashSet<Name>>,
 }
 
 impl RequestLimits {
@@ -931,6 +945,7 @@ impl RequestLimits {
             req_query_count: AtomicU8::new(0),
             cname_limit: AtomicU8::new(0),
             in_flight_zones: Mutex::new(HashSet::new()),
+            in_flight_cnames: Mutex::new(HashSet::new()),
         }
     }
 
@@ -959,6 +974,36 @@ impl RequestLimits {
             zone: zone.clone(),
         })
     }
+
+    /// Push a CNAME chain onto the resolution stack for the lifetime of the returned guard.
+    /// `chain` is the names walked within a single response, ending with `target`, the name
+    /// about to be resolved via a new query. Any name already on the stack means the chain
+    /// loops back across responses (e.g. `a.zone1 -> b.zone2 -> a.zone1`).
+    ///
+    /// `target` itself is not pushed: it is the next level's query name, and that level pushes it.
+    fn try_enter_cnames<'a>(
+        &'a self,
+        chain: &[&'a Name],
+        target: &Name,
+    ) -> Result<InFlightCnames<'a>, RecursorError> {
+        let mut in_flight = self.in_flight_cnames.lock();
+        if let Some(name) = chain.iter().find(|name| in_flight.contains(*name)) {
+            return Err(RecursorError::from(format!(
+                "cname {name} is already on the resolution stack"
+            )));
+        }
+
+        let names = chain
+            .iter()
+            .copied()
+            .filter(|name| *name != target)
+            .collect::<Vec<_>>();
+        in_flight.extend(names.iter().map(|name| (*name).clone()));
+        Ok(InFlightCnames {
+            limits: self,
+            names,
+        })
+    }
 }
 
 struct InFlightZone<'a> {
@@ -969,6 +1014,20 @@ struct InFlightZone<'a> {
 impl Drop for InFlightZone<'_> {
     fn drop(&mut self) {
         self.limits.in_flight_zones.lock().remove(&self.zone);
+    }
+}
+
+struct InFlightCnames<'a> {
+    limits: &'a RequestLimits,
+    names: Vec<&'a Name>,
+}
+
+impl Drop for InFlightCnames<'_> {
+    fn drop(&mut self) {
+        let mut in_flight = self.limits.in_flight_cnames.lock();
+        for name in &self.names {
+            in_flight.remove(*name);
+        }
     }
 }
 
