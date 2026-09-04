@@ -88,9 +88,10 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                     .decode(sig_base64.as_bytes())
                     .map_err(|e| format!("RRSIG signature decode error: {e:?}"))?;
 
-                let type_covered = RecordType::from_str(tokens[4]).map_err(|_| {
-                    format!("RRSIG covered type error: unexpected type {}", tokens[4])
-                })?;
+                let type_covered =
+                    RecordType::from_str(&tokens[4].to_uppercase()).map_err(|_| {
+                        format!("RRSIG covered type error: unexpected type {}", tokens[4])
+                    })?;
 
                 let rrsig = RRSIG::from_sig(
                     SigInput {
@@ -138,7 +139,7 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
 
                 for rtype in &tokens[5..] {
                     types.push(
-                        RecordType::from_str(rtype)
+                        RecordType::from_str(&rtype.to_uppercase())
                             .map_err(|_| format!("NSEC unexpected covered type: {rtype}"))?,
                     );
                 }
@@ -160,7 +161,7 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
 
                 for rtype in &tokens[9..] {
                     types.push(
-                        RecordType::from_str(rtype)
+                        RecordType::from_str(&rtype.to_uppercase())
                             .map_err(|_| format!("NSEC3 unexpected covered type: {rtype}"))?,
                     );
                 }
