@@ -47,7 +47,8 @@ impl<'a> Parser<'a> {
                 },
 
                 State::Ttl { name } => {
-                    if let Token::CharData(data) = token {
+                    if let Token::CharData(mut data) = token {
+                        data.make_ascii_uppercase();
                         if let Ok(class) = DNSClass::from_str(&data) {
                             State::Type {
                                 name,
@@ -78,7 +79,8 @@ impl<'a> Parser<'a> {
                 }
 
                 State::Type { name, ttl, class } => {
-                    if let Token::CharData(data) = token {
+                    if let Token::CharData(mut data) = token {
+                        data.make_ascii_uppercase();
                         let rtype = RecordType::from_str(&data)?;
 
                         if !matches!(rtype, RecordType::DNSKEY) {

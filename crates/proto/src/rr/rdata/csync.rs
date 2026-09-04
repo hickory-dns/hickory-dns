@@ -155,7 +155,7 @@ impl CSYNC {
         let mut record_types = BTreeSet::new();
 
         for token in tokens {
-            record_types.insert(RecordType::from_str(token)?);
+            record_types.insert(RecordType::from_str(&token.to_uppercase())?);
         }
 
         Ok(Self::new(soa_serial, immediate, soa_minimum, record_types))
