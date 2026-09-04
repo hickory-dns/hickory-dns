@@ -258,11 +258,8 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         }
 
         // add the query
-        let mut query: Query = Query::root();
-        query
-            .set_name(name)
-            .set_query_class(query_class)
-            .set_query_type(query_type);
+        let mut query = Query::new(name, query_type);
+        query.set_query_class(query_class);
         message.add_query(query);
 
         // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7

@@ -56,8 +56,7 @@ async fn test_search() {
     let example = create_example();
     let origin = example.origin().clone();
 
-    let mut query = Query::root();
-    query.set_name(origin.into());
+    let query = Query::new(origin.into(), RecordType::A);
     let request = Request::from_message(
         MessageRequest::mock(*TEST_METADATA, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -87,8 +86,7 @@ async fn test_search_www() {
     let example = create_example();
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
-    let mut query = Query::root();
-    query.set_name(www_name);
+    let query = Query::new(www_name, RecordType::A);
     let request = Request::from_message(
         MessageRequest::mock(*TEST_METADATA, query),
         SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
@@ -1104,10 +1102,8 @@ fn test_tsig_signer(key_name: Name) -> TSigner {
 
 #[cfg(feature = "__dnssec")]
 fn test_update_message(name: Name) -> Message {
-    let mut q = Query::root();
-    q.set_name(name.clone());
+    let mut q = Query::new(name.clone(), RecordType::SOA);
     q.set_query_class(DNSClass::IN);
-    q.set_query_type(RecordType::SOA);
 
     let add_rec = Record::from_rdata(name, 3600, RData::A(A::new(192, 168, 1, 10)));
     let mut message = Message::query();

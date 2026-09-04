@@ -463,8 +463,7 @@ mod tests {
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let key_name: Name = Name::from_ascii("key_name.").unwrap();
         let mut question = Message::query();
-        let mut query: Query = Query::root();
-        query.set_name(origin);
+        let query = Query::new(origin, RecordType::A);
         question.add_query(query);
 
         let sig_key = b"some_key".to_vec();
@@ -493,8 +492,7 @@ mod tests {
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let key_name: Name = Name::from_ascii("key_name.").unwrap();
         let mut question = Message::query();
-        let mut query: Query = Query::root();
-        query.set_name(origin);
+        let query = Query::new(origin, RecordType::A);
         question.add_query(query);
 
         let sig_key = b"some_key".to_vec();
@@ -539,9 +537,8 @@ mod tests {
     fn test_sign_and_verify_message_tsig_reject_invalid_mac() {
         let (mut question, signer) = get_message_and_signer();
 
-        let mut query: Query = Query::root();
-        let origin: Name = Name::parse("example.net.", None).unwrap();
-        query.set_name(origin);
+        let origin = Name::parse("example.net.", None).unwrap();
+        let query = Query::new(origin, RecordType::A);
         question.add_query(query);
 
         assert!(
