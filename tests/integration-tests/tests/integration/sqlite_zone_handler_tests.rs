@@ -1102,8 +1102,7 @@ fn test_tsig_signer(key_name: Name) -> TSigner {
 
 #[cfg(feature = "__dnssec")]
 fn test_update_message(name: Name) -> Message {
-    let mut q = Query::new(name.clone(), RecordType::SOA);
-    q.set_query_class(DNSClass::IN);
+    let q = Query::new(name.clone(), RecordType::SOA);
 
     let add_rec = Record::from_rdata(name, 3600, RData::A(A::new(192, 168, 1, 10)));
     let mut message = Message::query();

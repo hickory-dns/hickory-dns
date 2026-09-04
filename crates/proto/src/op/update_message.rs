@@ -555,8 +555,7 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     } else {
         RecordType::AXFR
     };
-    let mut zone = Query::new(zone_origin, query_type);
-    zone.set_query_class(DNSClass::IN);
+    let zone = Query::new(zone_origin, query_type);
 
     // build the message
     let mut message = Message::query();

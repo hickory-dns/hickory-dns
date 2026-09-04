@@ -391,7 +391,7 @@ mod test {
     use super::*;
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::rdata::{NS, SOA};
-    use crate::proto::rr::{DNSClass, Name, RData, Record, RecordType};
+    use crate::proto::rr::{Name, RData, Record, RecordType};
     use crate::proto::serialize::binary::BinEncodable;
     use crate::xfer::{DnsClientStream, StreamReceiver};
 
@@ -474,11 +474,7 @@ mod test {
 
         let mut request = Message::query();
         request.metadata.recursion_desired = true;
-        request.add_query({
-            let mut q = Query::new(name.clone(), RecordType::A);
-            q.set_query_class(DNSClass::IN);
-            q
-        });
+        request.add_query(Query::new(name.clone(), RecordType::A));
 
         let mut response = request.clone().into_response();
         response.add_answer(Record::from_rdata(
@@ -497,11 +493,7 @@ mod test {
 
         let mut msg = Message::query();
         msg.metadata.recursion_desired = true;
-        msg.add_query({
-            let mut query = Query::new(name, RecordType::AXFR);
-            query.set_query_class(DNSClass::IN);
-            query
-        });
+        msg.add_query(Query::new(name, RecordType::AXFR));
         msg
     }
 

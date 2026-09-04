@@ -164,11 +164,7 @@ async fn test_query_edns_response(client: Client<TokioRuntimeProvider>) {
     // TODO: write builder
     let mut msg = Message::query();
     msg.metadata.recursion_desired = true;
-    msg.add_query({
-        let mut query = Query::new(name.clone(), RecordType::A);
-        query.set_query_class(DNSClass::IN);
-        query
-    });
+    msg.add_query(Query::new(name.clone(), RecordType::A));
 
     edns.set_max_payload(1232).set_version(0);
     edns.options_mut()
