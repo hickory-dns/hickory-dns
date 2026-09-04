@@ -206,10 +206,7 @@ pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &N
 
     // Check for matching record.
     let (hashed_zone_name, base32_hashed_zone_name) = cx.hash_and_label(zone);
-    if let Some(info) = records
-        .iter()
-        .find(|info| info.matches(zone, &base32_hashed_zone_name))
-    {
+    if let Some(info) = find_matching_record(&records, zone, &base32_hashed_zone_name) {
         let type_set = info.nsec3_data.type_set();
         return type_set.contains(RecordType::NS)
             && !type_set.contains(RecordType::DS)
@@ -249,11 +246,7 @@ fn convert_nsec3_records<'a>(
 fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
     // The response is NXDomain but there's a record for query_name
     let (_, base32_hashed_query_name) = cx.hash_and_label(&cx.query.name);
-    if cx
-        .nsec3s
-        .iter()
-        .any(|r| r.matches(&cx.query.name, &base32_hashed_query_name))
-    {
+    if find_matching_record(cx.nsec3s, &cx.query.name, &base32_hashed_query_name).is_some() {
         return cx.proof(Proof::Bogus, "NXDomain response with record for query name");
     }
 
@@ -311,10 +304,8 @@ fn validate_nodata_response(
     // 5. Name is serviced by wildcard that doesn't have a record of this type
 
     let (hashed_query_name, base32_hashed_query_name) = cx.hash_and_label(&cx.query.name);
-    let query_name_record = cx
-        .nsec3s
-        .iter()
-        .find(|record| record.matches(&cx.query.name, &base32_hashed_query_name));
+    let query_name_record =
+        find_matching_record(cx.nsec3s, &cx.query.name, &base32_hashed_query_name);
 
     // Case 2:
     // Name exists but there's no record of this type
@@ -580,12 +571,11 @@ impl<'a> Context<'a> {
 
         let wildcard_name_info = HashedNameInfo::new(wildcard_encloser_name, self);
         let wildcard_record = if matching {
-            self.nsec3s.iter().find(|record| {
-                record.matches(
-                    &wildcard_name_info.name,
-                    &wildcard_name_info.base32_hashed_name,
-                )
-            })
+            find_matching_record(
+                self.nsec3s,
+                &wildcard_name_info.name,
+                &wildcard_name_info.base32_hashed_name,
+            )
         } else {
             find_covering_record(
                 self.nsec3s,
@@ -704,6 +694,16 @@ impl<'a> Context<'a> {
     fn proof(&self, proof: Proof, msg: impl Display) -> Proof {
         nsec3_yield(proof, self.query, msg)
     }
+}
+
+fn find_matching_record<'a>(
+    nsec3s: &'a [Nsec3RecordInfo<'a>],
+    target_name: &Name,
+    target_base32_hashed_name: &Label,
+) -> Option<&'a Nsec3RecordInfo<'a>> {
+    nsec3s
+        .iter()
+        .find(|record| record.matches(target_name, target_base32_hashed_name))
 }
 
 fn find_covering_record<'a>(
