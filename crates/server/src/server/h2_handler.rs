@@ -73,7 +73,7 @@ pub(super) async fn handle_h2_with_acceptor(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let shutdown = cx.shutdown.clone();
+        let shutdown = &cx.shutdown;
         let (tcp_stream, src_addr) = tokio::select! {
             tcp_stream = listener.accept() => match tcp_stream {
                 Ok((t, s)) => (t, s),
