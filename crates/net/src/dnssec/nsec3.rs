@@ -708,7 +708,7 @@ fn find_matching_record<'a>(
 
 fn find_covering_record<'a>(
     nsec3s: &'a [Nsec3RecordInfo<'a>],
-    name: &Name,
+    target_name: &Name,
     target_hashed_name: &[u8],
     // Strictly speaking we don't need this parameter, we can calculate
     // base32(target_hashed_name) inside the function.
@@ -724,7 +724,7 @@ fn find_covering_record<'a>(
         };
 
         // Ignore NSEC3 records from outside the zone.
-        if !record.zone_name.zone_of(name) {
+        if !record.zone_name.zone_of(target_name) {
             return false;
         }
 
