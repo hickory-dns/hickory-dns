@@ -893,6 +893,177 @@ fn validate_response(response: Message, name: &Name, ip: IpAddr) -> bool {
         && response.answers == [Record::from_rdata(name.clone(), 0, ip.into())]
 }
 
+#[tokio::test]
+async fn self_referential_cname_returns_servfail() -> Result<(), NetError> {
+    subscribe();
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("ns.testing.")?;
+
+    // `loop.testing.` aliases directly to itself.
+    let direct = Name::from_ascii("loop.testing.")?;
+    // `alias.testing.` aliases to `target.testing.`, which then aliases to itself.
+    let alias = Name::from_ascii("alias.testing.")?;
+    let target = Name::from_ascii("target.testing.")?;
+
+    let mut responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::cname(TLD_IP, &direct, &direct),
+        MockRecord::cname(TLD_IP, &alias, &target),
+        MockRecord::cname(TLD_IP, &target, &target),
+    ];
+
+    // The QNAME minimization probes for each name are answered with a no-data SOA, so the
+    // zone cut stays at `testing.`.
+    for name in [&direct, &alias, &target] {
+        responses.push(
+            MockRecord::soa(TLD_IP, &tld_zone, &tld_ns, &tld_ns)
+                .with_query_name(name)
+                .with_query_type(RecordType::NS)
+                .with_ttl(3600),
+        );
+    }
+
+    let provider = MockProvider::new(MockNetworkHandler::new(responses));
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ..RecursorOptions::default()
+        },
+        provider.clone(),
+    )?;
+
+    for name in [&direct, &alias, &target] {
+        // The CNAME chain never reaches an A record, so the name is unresolvable and the
+        // recursor must not report success.
+        let result = recursor
+            .resolve(
+                Query::new(name.clone(), RecordType::A),
+                Instant::now(),
+                false,
+            )
+            .await;
+
+        let error = match result {
+            Ok(response) => panic!(
+                "expected an error for {name}, got {} with answers {:?}",
+                response.response_code, response.answers
+            ),
+            Err(error) => error,
+        };
+
+        // The failure must be the loop detection itself, not some other error (the mock
+        // answers unknown queries with SERVFAIL, which would also be a non-negative error).
+        // A loop error is neither NXDOMAIN nor NODATA, so the server renders it as SERVFAIL.
+        assert!(
+            matches!(&error, RecursorError::Message(m) if m.contains("loop")),
+            "expected CNAME loop error for {name}, got {error}"
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn cross_zone_cname_loop_returns_servfail() -> Result<(), NetError> {
+    subscribe();
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("ns.testing.")?;
+
+    // Two zones on separate name servers, each aliasing into the other:
+    //   a.zone1.testing. -> b.zone2.testing. -> a.zone1.testing.
+    // The loop is invisible within any single response and only closes across queries.
+    let zone1 = Name::from_ascii("zone1.testing.")?;
+    let zone1_ns = Name::from_ascii("ns.zone1.testing.")?;
+    let zone2 = Name::from_ascii("zone2.testing.")?;
+    let zone2_ns = Name::from_ascii("ns.zone2.testing.")?;
+    let a = Name::from_ascii("a.zone1.testing.")?;
+    let b = Name::from_ascii("b.zone2.testing.")?;
+
+    let responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &zone1, &zone1_ns),
+        MockRecord::a(TLD_IP, &zone1_ns, LEAF_IP)
+            .with_query_name(&zone1)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::ns(TLD_IP, &zone2, &zone2_ns),
+        MockRecord::a(TLD_IP, &zone2_ns, DELEGATED_LEAF_IP)
+            .with_query_name(&zone2)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::cname(LEAF_IP, &a, &b),
+        MockRecord::soa(LEAF_IP, &zone1, &zone1_ns, &zone1_ns)
+            .with_query_name(&a)
+            .with_query_type(RecordType::NS)
+            .with_ttl(3600),
+        MockRecord::cname(DELEGATED_LEAF_IP, &b, &a),
+        MockRecord::soa(DELEGATED_LEAF_IP, &zone2, &zone2_ns, &zone2_ns)
+            .with_query_name(&b)
+            .with_query_type(RecordType::NS)
+            .with_ttl(3600),
+    ];
+
+    let provider = MockProvider::new(MockNetworkHandler::new(responses));
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            // Disable the response cache so that an undetected loop is visible as repeated
+            // upstream queries rather than being absorbed by cache hits.
+            response_cache_size: 0,
+            ..RecursorOptions::default()
+        },
+        provider.clone(),
+    )?;
+
+    let result = recursor
+        .resolve(Query::new(a.clone(), RecordType::A), Instant::now(), false)
+        .await;
+
+    let error = match result {
+        Ok(response) => panic!(
+            "expected an error for {a}, got {} with answers {:?}",
+            response.response_code, response.answers
+        ),
+        Err(error) => error,
+    };
+    assert!(
+        !error.is_nx_domain(),
+        "expected servfail for {a}, got {error}"
+    );
+    assert!(
+        !error.is_no_records_found(),
+        "expected servfail for {a}, got {error}"
+    );
+
+    // The loop must be detected on its first repeat, so each name server is asked for its
+    // record exactly once rather than until the recursion limit is hit.
+    for (ns, name) in [(LEAF_IP, &a), (DELEGATED_LEAF_IP, &b)] {
+        assert_eq!(
+            provider
+                .queries(&ns)
+                .iter()
+                .filter(|q| q.name == *name && q.query_type == RecordType::A)
+                .count(),
+            1,
+            "expected exactly one A query for {name}",
+        );
+    }
+
+    Ok(())
+}
+
 fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
