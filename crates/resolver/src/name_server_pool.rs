@@ -594,38 +594,6 @@ impl NameServerTransportState {
         };
     }
 
-    /// Returns true if any supported encrypted protocol had a recent success for the given IP
-    /// within the damping period.
-    #[cfg(any(feature = "__tls", feature = "__quic"))]
-    pub(crate) fn any_recent_success(&self, ip: IpAddr, config: &OpportunisticEncryption) -> bool {
-        #[allow(unused_assignments, unused_mut)]
-        let mut tls_success = false;
-        #[allow(unused_assignments, unused_mut)]
-        let mut quic_success = false;
-
-        #[cfg(feature = "__tls")]
-        {
-            tls_success = self.recent_success(ip, Protocol::Tls, config);
-        }
-
-        #[cfg(feature = "__quic")]
-        {
-            quic_success = self.recent_success(ip, Protocol::Quic, config);
-        }
-
-        tls_success || quic_success
-    }
-
-    /// Returns true if any encrypted protocol had a recent success for the given IP within the damping period.
-    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
-    pub(crate) fn any_recent_success(
-        &self,
-        _ip: IpAddr,
-        _config: &OpportunisticEncryption,
-    ) -> bool {
-        false
-    }
-
     /// Returns true if there has been a successful response within the persistence period for the
     /// IP/protocol.
     ///
