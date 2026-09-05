@@ -1,0 +1,119 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3"
+
+# Serving
+#
+#    This section describes the behavior of entities that include
+#    security-aware name server functions.  In many cases such functions
+#    will be part of a security-aware recursive name server, but a
+#    security-aware authoritative name server has some of the same
+#    requirements.  Functions specific to security-aware recursive name
+#    servers are described in Section 3.2; functions specific to
+#    authoritative servers are described in Section 3.1.
+# 
+#    In the following discussion, the terms "SNAME", "SCLASS", and "STYPE"
+#    are as used in [RFC1034].
+# 
+#    A security-aware name server MUST support the EDNS0 ([RFC2671])
+#    message size extension, MUST support a message size of at least 1220
+#    octets, and SHOULD support a message size of 4000 octets.  As IPv6
+#    packets can only be fragmented by the source host, a security aware
+#    name server SHOULD take steps to ensure that UDP datagrams it
+#    transmits over IPv6 are fragmented, if necessary, at the minimum IPv6
+#    MTU, unless the path MTU is known.  Please see [RFC1122], [RFC2460],
+#    and [RFC3226] for further discussion of packet size and fragmentation
+#    issues.
+# 
+#    A security-aware name server that receives a DNS query that does not
+#    include the EDNS OPT pseudo-RR or that has the DO bit clear MUST
+#    treat the RRSIG, DNSKEY, and NSEC RRs as it would any other RRset and
+#    MUST NOT perform any of the additional processing described below.
+#    Because the DS RR type has the peculiar property of only existing in
+#    the parent zone at delegation points, DS RRs always require some
+#    special processing, as described in Section 3.1.4.1.
+# 
+#    Security aware name servers that receive explicit queries for
+#    security RR types that match the content of more than one zone that
+#    it serves (for example, NSEC and RRSIG RRs above and below a
+#    delegation point where the server is authoritative for both zones)
+#    should behave self-consistently.  As long as the response is always
+#    consistent for each query to the name server, the name server MAY
+#    return one of the following:
+# 
+#    o  The above-delegation RRsets.
+#    o  The below-delegation RRsets.
+#    o  Both above and below-delegation RRsets.
+#    o  Empty answer section (no records).
+#    o  Some other response.
+#    o  An error.
+# 
+#    DNSSEC allocates two new bits in the DNS message header: the CD
+#    (Checking Disabled) bit and the AD (Authentic Data) bit.  The CD bit
+#    is controlled by resolvers; a security-aware name server MUST copy
+#    the CD bit from a query into the corresponding response.  The AD bit
+#    is controlled by name servers; a security-aware name server MUST
+#    ignore the setting of the AD bit in queries.  See Sections 3.1.6,
+#    3.2.2, 3.2.3, 4, and 4.9 for details on the behavior of these bits.
+# 
+#    A security aware name server that synthesizes CNAME RRs from DNAME
+#    RRs as described in [RFC2672] SHOULD NOT generate signatures for the
+#    synthesized CNAME RRs.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware name server MUST support the EDNS0 ([RFC2671])
+message size extension, MUST support a message size of at least 1220
+octets, and SHOULD support a message size of 4000 octets.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As IPv6
+packets can only be fragmented by the source host, a security aware
+name server SHOULD take steps to ensure that UDP datagrams it
+transmits over IPv6 are fragmented, if necessary, at the minimum IPv6
+MTU, unless the path MTU is known.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware name server that receives a DNS query that does not
+include the EDNS OPT pseudo-RR or that has the DO bit clear MUST
+treat the RRSIG, DNSKEY, and NSEC RRs as it would any other RRset and
+MUST NOT perform any of the additional processing described below.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+As long as the response is always
+consistent for each query to the name server, the name server MAY
+return one of the following:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The CD bit
+is controlled by resolvers; a security-aware name server MUST copy
+the CD bit from a query into the corresponding response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The AD bit
+is controlled by name servers; a security-aware name server MUST
+ignore the setting of the AD bit in queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A security aware name server that synthesizes CNAME RRs from DNAME
+RRs as described in [RFC2672] SHOULD NOT generate signatures for the
+synthesized CNAME RRs.
+'''
+

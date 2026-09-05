@@ -1,0 +1,85 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-17"
+
+# Multicast DNS Message Size
+#
+#    The 1987 DNS specification [RFC1035] restricts DNS messages carried
+#    by UDP to no more than 512 bytes (not counting the IP or UDP
+#    headers).  For UDP packets carried over the wide-area Internet in
+#    1987, this was appropriate.  For link-local multicast packets on
+#    today's networks, there is no reason to retain this restriction.
+#    Given that the packets are by definition link-local, there are no
+#    Path MTU issues to consider.
+# 
+#    Multicast DNS messages carried by UDP may be up to the IP MTU of the
+#    physical interface, less the space required for the IP header (20
+#    bytes for IPv4; 40 bytes for IPv6) and the UDP header (8 bytes).
+# 
+#    In the case of a single Multicast DNS resource record that is too
+#    large to fit in a single MTU-sized multicast response packet, a
+#    Multicast DNS responder SHOULD send the resource record alone, in a
+#    single IP datagram, using multiple IP fragments.  Resource records
+#    this large SHOULD be avoided, except in the very rare cases where
+#    they really are the appropriate solution to the problem at hand.
+#    Implementers should be aware that many simple devices do not
+#    reassemble fragmented IP datagrams, so large resource records SHOULD
+#    NOT be used except in specialized cases where the implementer knows
+# 
+#    that all receivers implement reassembly, or where the large resource
+#    record contains optional data which is not essential for correct
+#    operation of the client.
+# 
+#    A Multicast DNS packet larger than the interface MTU, which is sent
+#    using fragments, MUST NOT contain more than one resource record.
+# 
+#    Even when fragmentation is used, a Multicast DNS packet, including IP
+#    and UDP headers, MUST NOT exceed 9000 bytes.
+# 
+#    Note that 9000 bytes is also the maximum payload size of an Ethernet
+#    "Jumbo" packet [Jumbo].  However, in practice Ethernet "Jumbo"
+#    packets are not widely used, so it is advantageous to keep packets
+#    under 1500 bytes whenever possible.  Even on hosts that normally
+#    handle Ethernet "Jumbo" packets and IP fragment reassembly, it is
+#    becoming more common for these hosts to implement power-saving modes
+#    where the main CPU goes to sleep and hands off packet reception tasks
+#    to a more limited processor in the network interface hardware, which
+#    may not support Ethernet "Jumbo" packets or IP fragment reassembly.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the case of a single Multicast DNS resource record that is too
+large to fit in a single MTU-sized multicast response packet, a
+Multicast DNS responder SHOULD send the resource record alone, in a
+single IP datagram, using multiple IP fragments.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Resource records
+this large SHOULD be avoided, except in the very rare cases where
+they really are the appropriate solution to the problem at hand.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementers should be aware that many simple devices do not
+reassemble fragmented IP datagrams, so large resource records SHOULD
+NOT be used except in specialized cases where the implementer knows
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS packet larger than the interface MTU, which is sent
+using fragments, MUST NOT contain more than one resource record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Even when fragmentation is used, a Multicast DNS packet, including IP
+and UDP headers, MUST NOT exceed 9000 bytes.
+'''
+

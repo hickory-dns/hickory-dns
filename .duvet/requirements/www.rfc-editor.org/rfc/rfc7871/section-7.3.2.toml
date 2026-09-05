@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.3.2"
+
+# Answering from Cache
+#
+#    Cache lookups are first done as usual for a DNS query, using the
+#    query tuple of <name, type, class>.  Then, the appropriate RRset MUST
+#    be chosen based on the longest prefix matching.  The client address
+#    to use for comparison will depend on whether the Intermediate
+#    Nameserver received an ECS option in its client query.
+# 
+#    o  If no ECS option was provided, the client's address is used.
+# 
+#    o  If there was an ECS option specifying SOURCE PREFIX-LENGTH and
+#       ADDRESS covering the client's address, the client address is used
+#       but SOURCE PREFIX-LENGTH is initially ignored.  If no covering
+#       entry is found and SOURCE PREFIX-LENGTH is shorter than the
+#       configured maximum length allowed for the cache, repeat the cache
+#       lookup for an entry that exactly matches SOURCE PREFIX-LENGTH.
+#       These special entries, which do not cover longer prefix lengths,
+#       occur as described in the previous section.
+# 
+#    o  If there was an ECS option with an ADDRESS, the ADDRESS from it
+#       MAY be used if the local policy allows.  The policy can vary
+#       depending on the agreements the operator of the Intermediate
+#       Nameserver has with Authoritative Nameserver operators; see
+#       Section 12.2.  If the policy does not allow it, a REFUSED response
+#       SHOULD be sent.  See Section 7.5 for more information.
+# 
+#    If a matching network is found and the relevant data is unexpired,
+#    the response is generated as per Section 7.2.
+# 
+#    If no matching network is found, the Intermediate Nameserver MUST
+#    perform resolution as usual.  This is necessary to avoid Tailored
+#    Responses in the cache from being returned to the wrong clients, and
+# 
+#    to avoid a single query coming from a client on a different network
+#    from polluting the cache with a Tailored Response for all the users
+#    of that resolver.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Then, the appropriate RRset MUST
+be chosen based on the longest prefix matching.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+o  If there was an ECS option with an ADDRESS, the ADDRESS from it
+MAY be used if the local policy allows.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the policy does not allow it, a REFUSED response
+SHOULD be sent.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If no matching network is found, the Intermediate Nameserver MUST
+perform resolution as usual.
+'''
+

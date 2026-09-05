@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc9520#section-3.3"
+
+# Requerying Delegation Information
+#
+#    Section 2.1 of [RFC4697] identifies circumstances in which:
+# 
+#    |  ...every name server in a zone's NS RRSet is unreachable (e.g.,
+#    |  during a network outage), unavailable (e.g., the name server
+#    |  process is not running on the server host), or misconfigured
+#    |  (e.g., the name server is not authoritative for the given zone,
+#    |  also known as "lame").
+# 
+#    It prohibits unnecessary "aggressive requerying" to the parent of a
+#    non-responsive zone by sending NS queries.
+# 
+#    The problem of aggressive requerying to parent zones is not limited
+#    to queries of type NS.  This document updates the requirement from
+#    Section 2.1.1 of [RFC4697] to apply more generally:
+# 
+#    |  Upon encountering a zone whose name servers are all non-
+#    |  responsive, a resolver MUST cache the resolution failure.
+#    |  Furthermore, the resolver MUST limit queries to the non-responsive
+#    |  zone's parent zone (and to other ancestor zones) just as it would
+#    |  limit subsequent queries to the non-responsive zone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  Upon encountering a zone whose name servers are all non-
+|  responsive, a resolver MUST cache the resolution failure.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  Furthermore, the resolver MUST limit queries to the non-responsive
+|  zone's parent zone (and to other ancestor zones) just as it would
+|  limit subsequent queries to the non-responsive zone.
+'''
+

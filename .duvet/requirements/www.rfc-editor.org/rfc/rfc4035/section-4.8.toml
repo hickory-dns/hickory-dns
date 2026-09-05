@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.8"
+
+# Synthesized CNAMEs
+#
+#    A validating security-aware resolver MUST treat the signature of a
+#    valid signed DNAME RR as also covering unsigned CNAME RRs that could
+#    have been synthesized from the DNAME RR, as described in [RFC2672],
+#    at least to the extent of not rejecting a response message solely
+#    because it contains such CNAME RRs.  The resolver MAY retain such
+#    CNAME RRs in its cache or in the answers it hands back, but is not
+#    required to do so.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A validating security-aware resolver MUST treat the signature of a
+valid signed DNAME RR as also covering unsigned CNAME RRs that could
+have been synthesized from the DNAME RR, as described in [RFC2672],
+at least to the extent of not rejecting a response message solely
+because it contains such CNAME RRs.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The resolver MAY retain such
+CNAME RRs in its cache or in the answers it hands back, but is not
+required to do so.
+'''
+

@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.4.1"
+
+# Recommendation
+#
+#    Implementers whose name servers support glue fetching SHOULD take
+#    care to avoid sending queries at excessive rates.  Implementations
+#    SHOULD support throttling logic to detect when queries are sent but
+#    no responses are received.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementers whose name servers support glue fetching SHOULD take
+care to avoid sending queries at excessive rates.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations
+SHOULD support throttling logic to detect when queries are sent but
+no responses are received.
+'''
+

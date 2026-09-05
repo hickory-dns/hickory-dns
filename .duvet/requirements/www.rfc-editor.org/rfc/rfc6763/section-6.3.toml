@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6.3"
+
+# DNS TXT Record Format Rules for Use in DNS-SD
+#
+#    DNS-SD uses DNS TXT records to store arbitrary key/value pairs
+#    conveying additional information about the named service.  Each
+#    key/value pair is encoded as its own constituent string within the
+#    DNS TXT record, in the form "key=value" (without the quotation
+#    marks).  Everything up to the first '=' character is the key (Section
+#    6.4).  Everything after the first '=' character to the end of the
+#    string (including subsequent '=' characters, if any) is the value
+#    (Section 6.5).  No quotation marks are required around the value,
+#    even if it contains spaces, '=' characters, or other punctuation
+#    marks.  Each author defining a DNS-SD profile for discovering
+#    instances of a particular type of service should define the base set
+#    of key/value attributes that are valid for that type of service.
+# 
+#    Using this standardized key/value syntax within the TXT record makes
+#    it easier for these base definitions to be expanded later by defining
+#    additional named attributes.  If an implementation sees unknown keys
+#    in a service TXT record, it MUST silently ignore them.
+# 
+#    The target host name and TCP (or UDP) port number of the service are
+#    given in the SRV record.  This information -- target host name and
+#    port number -- MUST NOT be duplicated using key/value attributes in
+#    the TXT record.
+# 
+#    The intention of DNS-SD TXT records is to convey a small amount of
+#    useful additional information about a service.  Ideally, it should
+#    not be necessary for a client to retrieve this additional information
+#    before it can usefully establish a connection to the service.  For a
+#    well-designed application protocol, even if there is no information
+#    at all in the TXT record, it should be possible, knowing only the
+#    host name, port number, and protocol being used, to communicate with
+#    that listening process and then perform version- or feature-
+#    negotiation to determine any further options or capabilities of the
+#    service instance.  For example, when connecting to an AFP (Apple
+#    Filing Protocol) server [AFP] over TCP, the client enters into a
+#    protocol exchange with the server to determine which version of AFP
+#    the server implements and which optional features or capabilities (if
+#    any) are available.
+# 
+#    For protocols designed with adequate in-band version- and feature-
+#    negotiation, any information in the TXT record should be viewed as a
+# 
+#    performance optimization -- when a client discovers many instances of
+#    a service, the TXT record allows the client to know some rudimentary
+#    information about each instance without having to open a TCP
+#    connection to each one and interrogate every service instance
+#    separately.  Care should be taken when doing this to ensure that the
+#    information in the TXT record is in agreement with the information
+#    that would be retrieved by a client connecting over TCP.
+# 
+#    There are legacy protocols that provide no feature negotiation
+#    capability, and in these cases it may be useful to convey necessary
+#    information in the TXT record.  For example, when printing using LPR
+#    [RFC1179], the LPR protocol provides no way for the client to
+#    determine whether a particular printer accepts PostScript, what
+#    version of PostScript, etc.  In this case it is appropriate to embed
+#    this information in the TXT record [BJP], because the alternative
+#    would be worse -- passing around written instructions to the users,
+#    arcane manual configuration of "/etc/printcap" files, etc.
+# 
+#    The engineering decision about what keys to define for the TXT record
+#    needs to be decided on a case-by-case basis for each service type.
+#    For some service types it is appropriate to communicate information
+#    via the TXT record as well as (or instead of) via in-band
+#    communication in the application protocol.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an implementation sees unknown keys
+in a service TXT record, it MUST silently ignore them.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This information -- target host name and
+port number -- MUST NOT be duplicated using key/value attributes in
+the TXT record.
+'''
+

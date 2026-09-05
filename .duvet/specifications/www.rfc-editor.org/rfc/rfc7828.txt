@@ -1,0 +1,619 @@
+
+
+
+
+
+
+Internet Engineering Task Force (IETF)                        P. Wouters
+Request for Comments: 7828                                       Red Hat
+Category: Standards Track                                       J. Abley
+ISSN: 2070-1721                                                Dyn, Inc.
+                                                            S. Dickinson
+                                                                 Sinodun
+                                                               R. Bellis
+                                                                     ISC
+                                                              April 2016
+
+
+                  The edns-tcp-keepalive EDNS0 Option
+
+Abstract
+
+   DNS messages between clients and servers may be received over either
+   UDP or TCP.  UDP transport involves keeping less state on a busy
+   server, but can cause truncation and retries over TCP.  Additionally,
+   UDP can be exploited for reflection attacks.  Using TCP would reduce
+   retransmits and amplification.  However, clients commonly use TCP
+   only for retries and servers typically use idle timeouts on the order
+   of seconds.
+
+   This document defines an EDNS0 option ("edns-tcp-keepalive") that
+   allows DNS servers to signal a variable idle timeout.  This
+   signalling encourages the use of long-lived TCP connections by
+   allowing the state associated with TCP transport to be managed
+   effectively with minimal impact on the DNS transaction time.
+
+Status of This Memo
+
+   This is an Internet Standards Track document.
+
+   This document is a product of the Internet Engineering Task Force
+   (IETF).  It represents the consensus of the IETF community.  It has
+   received public review and has been approved for publication by the
+   Internet Engineering Steering Group (IESG).  Further information on
+   Internet Standards is available in Section 2 of RFC 5741.
+
+   Information about the current status of this document, any errata,
+   and how to provide feedback on it may be obtained at
+   http://www.rfc-editor.org/info/rfc7828.
+
+
+
+
+
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 1]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+Copyright Notice
+
+   Copyright (c) 2016 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
+   2.  Requirements Notation . . . . . . . . . . . . . . . . . . . .   4
+   3.  The edns-tcp-keepalive Option . . . . . . . . . . . . . . . .   5
+     3.1.  Option Format . . . . . . . . . . . . . . . . . . . . . .   5
+     3.2.  Use by DNS Clients  . . . . . . . . . . . . . . . . . . .   5
+       3.2.1.  Sending Queries . . . . . . . . . . . . . . . . . . .   5
+       3.2.2.  Receiving Responses . . . . . . . . . . . . . . . . .   6
+     3.3.  Use by DNS Servers  . . . . . . . . . . . . . . . . . . .   6
+       3.3.1.  Receiving Queries . . . . . . . . . . . . . . . . . .   6
+       3.3.2.  Sending Responses . . . . . . . . . . . . . . . . . .   6
+     3.4.  TCP Session Management  . . . . . . . . . . . . . . . . .   7
+     3.5.  Non-clean Paths . . . . . . . . . . . . . . . . . . . . .   8
+     3.6.  Anycast Considerations  . . . . . . . . . . . . . . . . .   8
+   4.  Intermediary Considerations . . . . . . . . . . . . . . . . .   8
+   5.  Security Considerations . . . . . . . . . . . . . . . . . . .   9
+   6.  IANA Considerations . . . . . . . . . . . . . . . . . . . . .   9
+   7.  References  . . . . . . . . . . . . . . . . . . . . . . . . .   9
+     7.1.  Normative References  . . . . . . . . . . . . . . . . . .   9
+     7.2.  Informative References  . . . . . . . . . . . . . . . . .  10
+   Acknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  11
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .  11
+
+
+
+
+
+
+
+
+
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 2]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+1.  Introduction
+
+   DNS messages between clients and servers may be received over either
+   UDP or TCP [RFC1035].  Historically, DNS clients used APIs that only
+   facilitated sending and receiving a single query over either UDP or
+   TCP.  New APIs and deployment of DNSSEC validating resolvers on hosts
+   that in the past were using stub resolving only is increasing the DNS
+   client base that prefer using long-lived TCP connections.  Long-lived
+   TCP connections can result in lower request latency than the case
+   where UDP transport is used and truncated responses are received.
+   This is because clients that retry over TCP following a truncated UDP
+   response typically only use the TCP session for a single (request,
+   response) pair, continuing with UDP transport for subsequent queries.
+
+   The use of TCP transport requires state to be retained on DNS
+   servers.  If a server is to perform adequately with a significant
+   query load received over TCP, it must manage its available resources
+   to ensure that all established TCP sessions are well-used, and idle
+   connections are closed after an appropriate amount of time.
+
+   UDP transport is stateless, and hence presents a much lower resource
+   burden on a busy DNS server than TCP.  An exchange of DNS messages
+   over UDP can also be completed in a single round trip between
+   communicating hosts, resulting in optimally short transaction times.
+   UDP transport is not without its risks, however.
+
+   A single-datagram exchange over UDP between two hosts can be
+   exploited to enable a reflection attack on a third party.  Response
+   Rate Limiting [RRL] is designed to help mitigate such attacks against
+   authoritative-only servers.  One feature of RRL is to let some amount
+   of responses "slip" through the rate limiter.  These are returned
+   with the TC (truncation) bit set, which causes legitimate clients to
+   resend the same query using TCP transport.
+
+   [RFC1035] specified a maximum DNS message size over UDP transport of
+   512 bytes.  Deployment of DNSSEC [RFC4033] and other protocols
+   subsequently increased the observed frequency at which responses
+   exceed this limit.  EDNS0 [RFC6891] allows DNS messages larger than
+   512 bytes to be exchanged over UDP, with a corresponding increased
+   incidence of fragmentation.  Fragmentation is known to be problematic
+   in general, and has also been implicated in increasing the risk of
+   cache poisoning attacks [fragmentation-considered-poisonous].
+
+   TCP transport is less susceptible to the risks of fragmentation and
+   reflection attacks.  However, TCP transport for DNS as currently
+   deployed has expensive setup overhead, compared to using UDP (when no
+   retry is required).
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 3]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+   The overhead of the three-way TCP handshake for a single DNS
+   transaction is substantial, increasing the transaction time for a
+   single (request, response) pair of DNS messages from 1x RTT to 2x
+   RTT.  There is no such overhead for a session that is already
+   established; therefore, the overhead of the initial TCP handshake is
+   minimised when the resulting session is used to exchange multiple DNS
+   message pairs over a single session.  The extra RTT time for session
+   setup can be represented as the equation (1 + N)/N, where N
+   represents the number of DNS message pairs that utilize the session
+   and the result approaches unity as N increases.
+
+   With increased deployment of DNSSEC and new RR types containing
+   application-specific cryptographic material, there is an increase in
+   the prevalence of truncated responses received over UDP with retries
+   over TCP.  The overhead for a DNS transaction over UDP truncated due
+   to RRL is 3x RTT higher than the overhead imposed on the same
+   transaction initiated over TCP.
+
+   This document proposes a signalling mechanism between DNS clients and
+   servers that encourages the use of long-lived TCP connections by
+   allowing the state associated with TCP transport to be managed
+   effectively with minimal impact on the DNS transaction time.
+
+   This mechanism will be of benefit for both stub-resolver and
+   resolver-authoritative TCP connections.  In the latter case, the
+   persistent nature of the TCP connection can provide improved defence
+   against attacks including DDoS.
+
+   The reduced overhead of this extension adds up significantly when
+   combined with other EDNS0 extensions, such as [CHAIN-QUERY] and
+   [DNS-over-TLS].  For example, the combination of these EDNS0
+   extensions make it possible for hosts on high-latency mobile networks
+   to natively and efficiently perform DNSSEC validation and encrypt
+   queries.
+
+2.  Requirements Notation
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+
+
+
+
+
+
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 4]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+3.  The edns-tcp-keepalive Option
+
+   This document specifies a new EDNS0 [RFC6891] option, edns-tcp-
+   keepalive, which can be used by DNS clients and servers to signal a
+   willingness to keep an idle TCP session open to conduct future DNS
+   transactions, with the idle timeout being specified by the server.
+   This specification does not distinguish between different types of
+   DNS client and server in the use of this option.
+
+   [RFC7766] defines an 'idle DNS-over-TCP session' from both the client
+   and server perspective.  The idle timeout described here begins when
+   the idle condition is met per that definition and should be reset
+   when that condition is lifted, i.e., when a client sends a message or
+   when a server receives a message on an idle connection.
+
+3.1.  Option Format
+
+   The edns-tcp-keepalive option is encoded as follows:
+
+                        1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-------------------------------+-------------------------------+
+   !         OPTION-CODE           !         OPTION-LENGTH         !
+   +-------------------------------+-------------------------------+
+   |           TIMEOUT             !
+   +-------------------------------+
+
+   where:
+
+   OPTION-CODE:   the EDNS0 option code assigned to edns-tcp-keepalive,
+      11
+
+   OPTION-LENGTH:   the value 0 if the TIMEOUT is omitted, the value 2
+      if it is present;
+
+   TIMEOUT:   an idle timeout value for the TCP connection, specified in
+      units of 100 milliseconds, encoded in network byte order.
+
+3.2.  Use by DNS Clients
+
+3.2.1.  Sending Queries
+
+   DNS clients MUST NOT include the edns-tcp-keepalive option in queries
+   sent using UDP transport.
+
+   DNS clients MAY include the edns-tcp-keepalive option in the first
+   query sent to a server using TCP transport to signal their desire to
+   keep the connection open when idle.
+
+
+
+Wouters, et al.              Standards Track                    [Page 5]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+   DNS clients MAY include the edns-tcp-keepalive option in subsequent
+   queries sent to a server using TCP transport to signal their
+   continued desire to keep the connection open when idle.
+
+   Clients MUST specify an OPTION-LENGTH of 0 and omit the TIMEOUT
+   value.
+
+3.2.2.  Receiving Responses
+
+   A DNS client that receives a response using UDP transport that
+   includes the edns-tcp-keepalive option MUST ignore the option.
+
+   A DNS client that receives a response using TCP transport that
+   includes the edns-tcp-keepalive option MAY keep the existing TCP
+   session open when it is idle.  It SHOULD honour the timeout received
+   in that response (overriding any previous timeout) and initiate close
+   of the connection before the timeout expires.
+
+   A DNS client that receives a response that includes the edns-tcp-
+   keepalive option with a TIMEOUT value of 0 SHOULD send no more
+   queries on that connection and initiate closing the connection as
+   soon as it has received all outstanding responses.
+
+   A DNS client that sent a query containing the edns-keepalive-option
+   but receives a response that does not contain the edns-keepalive-
+   option SHOULD assume the server does not support keepalive and behave
+   following the guidance in [RFC7766].  This holds true even if a
+   previous edns-keepalive-option exchange occurred on the existing TCP
+   connection.
+
+3.3.  Use by DNS Servers
+
+3.3.1.  Receiving Queries
+
+   A DNS server that receives a query using UDP transport that includes
+   the edns-tcp-keepalive option MUST ignore the option.
+
+   A DNS server that receives a query using TCP transport that includes
+   the edns-tcp-keepalive option MAY modify the local idle timeout
+   associated with that TCP session if resources permit.
+
+3.3.2.  Sending Responses
+
+   A DNS server that receives a query sent using TCP transport that
+   includes an OPT RR (with or without the edns-tcp-keepalive option)
+   MAY include the edns-tcp-keepalive option in the response to signal
+   the expected idle timeout on a connection.  Servers MUST specify the
+   TIMEOUT value that is currently associated with the TCP session.  It
+
+
+
+Wouters, et al.              Standards Track                    [Page 6]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+   is reasonable for this value to change according to local resource
+   constraints.  The DNS server SHOULD send an edns-tcp-keepalive option
+   with a timeout of 0 if it deems its local resources are too low to
+   service more TCP keepalive sessions or if it wants clients to close
+   currently open connections.
+
+3.4.  TCP Session Management
+
+   Both DNS clients and servers are subject to resource constraints that
+   will limit the extent to which TCP sessions can persist.  Effective
+   limits for the number of active sessions that can be maintained on
+   individual clients and servers should be established, either as
+   configuration options or by interrogation of process limits imposed
+   by the operating system.  Servers that implement edns-tcp-keepalive
+   should also engage in TCP connection management by recycling existing
+   connections when appropriate, closing connections gracefully, and
+   managing request queues to enable fair use.
+
+   In the event that there is greater demand for TCP sessions than can
+   be accommodated, servers may reduce the TIMEOUT value signalled in
+   successive DNS messages to minimise idle time on existing sessions.
+   This also allows, for example, clients with other candidate servers
+   to query to establish new TCP sessions with different servers in
+   expectation that an existing session is likely to be closed or to
+   fall back to UDP.
+
+   Based on TCP session resources, servers may signal a TIMEOUT value of
+   0 to request clients to close connections as soon as possible.  This
+   is useful when server resources become very low or a denial-of-
+   service attack is detected and further maximises the shifting of
+   TIME_WAIT state to well-behaved clients.
+
+   However, it should be noted that RFC 6891 states:
+
+      Lack of presence of an OPT record in a request MUST be taken as an
+      indication that the requestor does not implement any part of this
+      specification and that the responder MUST NOT include an OPT
+      record in its response.
+
+   Since servers must be faithful to this specification even on a
+   persistent TCP connection, it means that (following the initial
+   exchange of timeouts) a server may not be presented with the
+   opportunity to signal a change in the idle timeout associated with a
+   connection if the client does not send any further requests
+   containing EDNS0 OPT RRs.  This limitation makes persistent
+   connection handling via an initial idle timeout signal more
+
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 7]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+   attractive than a mechanism that establishes default persistence and
+   then uses a connection close signal (in a similar manner to HTTP 1.1
+   [RFC7230]).
+
+   If a client includes the edns-tcp-keepalive option in the first
+   query, it SHOULD include an EDNS0 OPT RR periodically in any further
+   messages it sends during the TCP session.  This will increase the
+   chance of the client being notified should the server modify the
+   timeout associated with a session.  The algorithm for choosing when
+   to do this is out of scope of this document and is left up to the
+   implementor and/or operator.
+
+   DNS clients and servers MAY close a TCP session at any time in order
+   to manage local resource constraints.  The algorithm by which clients
+   and servers rank active TCP sessions in order to determine which to
+   close is not specified in this document.
+
+3.5.  Non-clean Paths
+
+   Many paths between DNS clients and servers suffer from poor hygiene,
+   limiting the free flow of DNS messages that include particular EDNS0
+   options or messages that exceed a particular size.  A fallback
+   strategy similar to that described in [RFC6891], Section 6.2.2 SHOULD
+   be employed to avoid persistent interference due to non-clean paths.
+
+3.6.  Anycast Considerations
+
+   DNS servers of various types are commonly deployed using anycast
+   [RFC4786].
+
+   Changes in network topology between clients and anycast servers may
+   cause disruption to TCP sessions making use of edns-tcp-keepalive
+   more often than with TCP sessions that omit it, since the TCP
+   sessions are expected to be longer lived.  It might be possible for
+   anycast servers to avoid disruption due to topology changes by making
+   use of TCP multipath [RFC6824] to anchor the server side of the TCP
+   connection to an unambiguously unicast address.
+
+4.  Intermediary Considerations
+
+   It is RECOMMENDED that DNS intermediaries that terminate TCP
+   connections implement edns-tcp-keepalive.  An intermediary that does
+   not implement edns-tcp-keepalive but sits between a client and server
+   that both support edns-tcp-keepalive might close idle connections
+   unnecessarily.
+
+
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 8]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+5.  Security Considerations
+
+   The edns-tcp-keepalive option can potentially be abused to request
+   large numbers of long-lived sessions in a quick burst.  When a DNS
+   server detects abusive behaviour, it SHOULD immediately close the TCP
+   connection and free the resources used.
+
+   Servers could choose to monitor client behaviour with respect to the
+   edns-tcp-keepalive option to build up profiles of clients that do not
+   honour the specified timeout.
+
+   Readers are advised to familiarise themselves with the security
+   considerations outlined in [RFC7766]
+
+6.  IANA Considerations
+
+   IANA has assigned an EDNS0 option code for the edns-tcp-keepalive
+   option from the "DNS EDNS0 Option Codes (OPT)" registry as follows:
+
+           +-------+--------------------+----------+-----------+
+           | Value | Name               | Status   | Reference |
+           +-------+--------------------+----------+-----------+
+           | 11    | edns-tcp-keepalive | Standard | RFC 7828  |
+           +-------+--------------------+----------+-----------+
+
+7.  References
+
+7.1.  Normative References
+
+   [RFC1035]  Mockapetris, P., "Domain names - implementation and
+              specification", STD 13, RFC 1035, DOI 10.17487/RFC1035,
+              November 1987, <http://www.rfc-editor.org/info/rfc1035>.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <http://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC4033]  Arends, R., Austein, R., Larson, M., Massey, D., and S.
+              Rose, "DNS Security Introduction and Requirements",
+              RFC 4033, DOI 10.17487/RFC4033, March 2005,
+              <http://www.rfc-editor.org/info/rfc4033>.
+
+   [RFC4786]  Abley, J. and K. Lindqvist, "Operation of Anycast
+              Services", BCP 126, RFC 4786, DOI 10.17487/RFC4786,
+              December 2006, <http://www.rfc-editor.org/info/rfc4786>.
+
+
+
+
+
+Wouters, et al.              Standards Track                    [Page 9]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+   [RFC6891]  Damas, J., Graff, M., and P. Vixie, "Extension Mechanisms
+              for DNS (EDNS(0))", STD 75, RFC 6891,
+              DOI 10.17487/RFC6891, April 2013,
+              <http://www.rfc-editor.org/info/rfc6891>.
+
+   [RFC7230]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
+              Protocol (HTTP/1.1): Message Syntax and Routing",
+              RFC 7230, DOI 10.17487/RFC7230, June 2014,
+              <http://www.rfc-editor.org/info/rfc7230>.
+
+   [RFC7766]  Dickinson, J., Dickinson, S., Bellis, R., Mankin, A., and
+              D. Wessels, "DNS Transport over TCP - Implementation
+              Requirements", RFC 7766, DOI 10.17487/RFC7766, March 2016,
+              <http://www.rfc-editor.org/info/rfc7766>.
+
+7.2.  Informative References
+
+   [CHAIN-QUERY]
+              Wouters, P., "Chain Query requests in DNS", Work in
+              Progress, draft-ietf-dnsop-edns-chain-query-07, February
+              2016.
+
+   [DNS-over-TLS]
+              Hu, Z., Zhu, L., Heidemann, J., Mankin, A., Wessels, D.,
+              and P. Hoffman, "Specification for DNS over TLS", Work in
+              Progress, draft-ietf-dprive-dns-over-tls-09, March 2016.
+
+   [fragmentation-considered-poisonous]
+              Herzberg, A. and H. Shulman, "Fragmentation Considered
+              Poisonous", arXiv: 1205.4011, May 2012,
+              <http://arxiv.org/abs/1205.4011>.
+
+   [RFC6824]  Ford, A., Raiciu, C., Handley, M., and O. Bonaventure,
+              "TCP Extensions for Multipath Operation with Multiple
+              Addresses", RFC 6824, DOI 10.17487/RFC6824, January 2013,
+              <http://www.rfc-editor.org/info/rfc6824>.
+
+   [RRL]      Vixie, P. and V. Schryver, "DNS Response Rate Limiting
+              (DNS RRL)", ISC-TN 2012-1-Draft1, April 2012,
+              <https://ftp.isc.org/isc/pubs/tn/isc-tn-2012-1.txt>.
+
+
+
+
+
+
+
+
+
+
+
+Wouters, et al.              Standards Track                   [Page 10]
+
+RFC 7828           The edns-tcp-keepalive EDNS0 Option        April 2016
+
+
+Acknowledgements
+
+   The authors acknowledge the contributions of Jinmei TATUYA and Mark
+   Andrews.  Thanks to Duane Wessels for detailed review and the many
+   others who contributed to the mailing list discussion.
+
+Authors' Addresses
+
+   Paul Wouters
+   Red Hat
+
+   Email: pwouters@redhat.com
+
+
+   Joe Abley
+   Dyn, Inc.
+   103-186 Albert Street
+   London, ON  N6A 1M1
+   Canada
+
+   Phone: +1 519 670 9327
+   Email: jabley@dyn.com
+
+
+   Sara Dickinson
+   Sinodun Internet Technologies
+   Magdalen Centre
+   Oxford Science Park
+   Oxford  OX4 4GA
+   United Kingdom
+
+   Email: sara@sinodun.com
+   URI:   http://sinodun.com
+
+
+   Ray Bellis
+   Internet Systems Consortium, Inc
+   950 Charter Street
+   Redwood City, CA  94063
+   United States
+
+   Phone: +1 650 423 1200
+   Email: ray@isc.org
+   URI:   http://www.isc.org
+
+
+
+
+
+
+
+Wouters, et al.              Standards Track                   [Page 11]
+

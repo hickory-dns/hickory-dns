@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-9.2"
+
+# Use of the AD Bit
+#
+#    The AD bit, as defined by [RFC4035], MUST NOT be set when returning a
+#    response containing a closest (provable) encloser proof in which the
+#    NSEC3 RR that covers the "next closer" name has the Opt-Out bit set.
+# 
+#    This rule is based on what this closest encloser proof actually
+#    proves: names that would be covered by the Opt-Out NSEC3 RR may or
+#    may not exist as insecure delegations.  As such, not all the data in
+#    responses containing such closest encloser proofs will have been
+#    cryptographically verified, so the AD bit cannot be set.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The AD bit, as defined by [RFC4035], MUST NOT be set when returning a
+response containing a closest (provable) encloser proof in which the
+NSEC3 RR that covers the "next closer" name has the Opt-Out bit set.
+'''
+

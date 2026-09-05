@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-4.2.1.1"
+
+# Validating Stub Resolvers
+#
+#    A validating stub resolver sets the DNSSEC OK bit [RFC4035] to
+#    indicate that it wishes to receive additional DNSSEC RRs (i.e., RRSIG
+#    RRs) in the response.  Such validating resolvers SHOULD include the
+#    edns-key-tag option in the OPT RR when sending a DNSKEY query.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Such validating resolvers SHOULD include the
+edns-key-tag option in the OPT RR when sending a DNSKEY query.
+'''
+

@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6.4"
+
+# Response Aggregation
+#
+#    When possible, a responder SHOULD, for the sake of network
+#    efficiency, aggregate as many responses as possible into a single
+#    Multicast DNS response message.  For example, when a responder has
+#    several responses it plans to send, each delayed by a different
+#    interval, then earlier responses SHOULD be delayed by up to an
+#    additional 500 ms if that will permit them to be aggregated with
+#    other responses scheduled to go out a little later.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When possible, a responder SHOULD, for the sake of network
+efficiency, aggregate as many responses as possible into a single
+Multicast DNS response message.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For example, when a responder has
+several responses it plans to send, each delayed by a different
+interval, then earlier responses SHOULD be delayed by up to an
+additional 500 ms if that will permit them to be aggregated with
+other responses scheduled to go out a little later.
+'''
+

@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-4"
+
+# Use of TLSA Records in TLS
+#
+#    Section 2.1 of this document defines the mandatory matching rules for
+#    the data from the TLSA certificate associations and the certificates
+#    received from the TLS server.
+# 
+#    The TLS session that is to be set up MUST be for the specific port
+#    number and transport name that was given in the TLSA query.
+# 
+#    Some specifications for applications that run over TLS, such as
+#    [RFC2818] for HTTP, require that the server's certificate have a
+#    domain name that matches the host name expected by the client.  Some
+#    specifications, such as [RFC6125], detail how to match the identity
+#    given in a PKIX certificate with those expected by the user.
+# 
+#    If a TLSA record has certificate usage 2, the corresponding TLS
+#    server SHOULD send the certificate that is referenced just like it
+#    currently sends intermediate certificates.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The TLS session that is to be set up MUST be for the specific port
+number and transport name that was given in the TLSA query.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a TLSA record has certificate usage 2, the corresponding TLS
+server SHOULD send the certificate that is referenced just like it
+currently sends intermediate certificates.
+'''
+

@@ -1,0 +1,110 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-6"
+
+# Algorithms and Identifiers
+#
+#    The only message digest algorithm specified in the first version of
+#    these specifications [RFC2845] was "HMAC-MD5" (see [RFC1321] and
+#    [RFC2104]).  Although a review of its security some years ago
+#    [RFC6151] concluded that "it may not be urgent to remove HMAC-MD5
+#    from the existing protocols", with the availability of more secure
+#    alternatives, the opportunity has been taken to make the
+#    implementation of this algorithm optional.
+# 
+#    [RFC4635] added mandatory support in TSIG for SHA-1 [FIPS180-4]
+#    [RFC3174].  SHA-1 collisions have been demonstrated [SHA1SHAMBLES],
+#    so the MD5 security considerations described in Section 2 of
+#    [RFC6151] apply to SHA-1 in a similar manner.  Although support for
+#    hmac-sha1 in TSIG is still mandatory for compatibility reasons,
+#    existing uses SHOULD be replaced with hmac-sha256 or other SHA-2
+#    digest algorithms ([FIPS180-4], [RFC3874], [RFC6234]).
+# 
+#    Use of TSIG between two DNS agents is by mutual agreement.  That
+#    agreement can include the support of additional algorithms and
+#    criteria as to which algorithms and truncations are acceptable,
+#    subject to the restriction and guidelines in Section 5.2.2.1.  Key
+#    agreement can be by the TKEY mechanism [RFC2930] or some other
+#    mutually agreeable method.
+# 
+#    Implementations that support TSIG MUST also implement HMAC SHA1 and
+#    HMAC SHA256 and MAY implement gss-tsig and the other algorithms
+#    listed below.  SHA-1 truncated to 96 bits (12 octets) SHOULD be
+#    implemented.
+# 
+#       +==========================+================+=================+
+#       | Algorithm Name           | Implementation | Use             |
+#       +==========================+================+=================+
+#       | HMAC-MD5.SIG-ALG.REG.INT | MAY            | MUST NOT        |
+#       +--------------------------+----------------+-----------------+
+#       | gss-tsig                 | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha1                | MUST           | NOT RECOMMENDED |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha224              | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha256              | MUST           | RECOMMENDED     |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha256-128          | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha384              | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha384-192          | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha512              | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+#       | hmac-sha512-256          | MAY            | MAY             |
+#       +--------------------------+----------------+-----------------+
+# 
+#           Table 3: Algorithms for Implementations Supporting TSIG
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Although support for
+hmac-sha1 in TSIG is still mandatory for compatibility reasons,
+existing uses SHOULD be replaced with hmac-sha256 or other SHA-2
+digest algorithms ([FIPS180-4], [RFC3874], [RFC6234]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations that support TSIG MUST also implement HMAC SHA1 and
+HMAC SHA256 and MAY implement gss-tsig and the other algorithms
+listed below.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SHA-1 truncated to 96 bits (12 octets) SHOULD be
+implemented.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
++==========================+================+=================+
+| Algorithm Name           | Implementation | Use             |
++==========================+================+=================+
+| HMAC-MD5.SIG-ALG.REG.INT | MAY            | MUST NOT        |
++--------------------------+----------------+-----------------+
+| gss-tsig                 | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+| hmac-sha1                | MUST           | NOT RECOMMENDED |
++--------------------------+----------------+-----------------+
+| hmac-sha224              | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+| hmac-sha256              | MUST           | RECOMMENDED     |
++--------------------------+----------------+-----------------+
+| hmac-sha256-128          | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+| hmac-sha384              | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+| hmac-sha384-192          | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+| hmac-sha512              | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+| hmac-sha512-256          | MAY            | MAY             |
++--------------------------+----------------+-----------------+
+'''
+

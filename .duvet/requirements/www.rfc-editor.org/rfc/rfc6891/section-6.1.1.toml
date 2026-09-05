@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.1.1"
+
+# Basic Elements
+#
+#    An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+#    additional data section of a request.
+# 
+#    The OPT RR has RR type 41.
+# 
+#    If an OPT record is present in a received request, compliant
+#    responders MUST include an OPT record in their respective responses.
+# 
+#    An OPT record does not carry any DNS data.  It is used only to
+#    contain control information pertaining to the question-and-answer
+#    sequence of a specific transaction.  OPT RRs MUST NOT be cached,
+#    forwarded, or stored in or loaded from master files.
+# 
+#    The OPT RR MAY be placed anywhere within the additional data section.
+#    When an OPT RR is included within any DNS message, it MUST be the
+#    only OPT RR in that message.  If a query message with more than one
+#    OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
+#    placement flexibility for the OPT RR does not override the need for
+#    the TSIG or SIG(0) RRs to be the last in the additional section
+#    whenever they are present.
+
+[[spec]]
+level = "MAY"
+quote = '''
+An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+additional data section of a request.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an OPT record is present in a received request, compliant
+responders MUST include an OPT record in their respective responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+OPT RRs MUST NOT be cached,
+forwarded, or stored in or loaded from master files.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The OPT RR MAY be placed anywhere within the additional data section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When an OPT RR is included within any DNS message, it MUST be the
+only OPT RR in that message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a query message with more than one
+OPT RR is received, a FORMERR (RCODE=1) MUST be returned.
+'''
+

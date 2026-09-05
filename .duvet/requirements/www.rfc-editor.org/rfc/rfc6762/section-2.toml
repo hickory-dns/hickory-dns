@@ -1,0 +1,86 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-2"
+
+# Conventions and Terminology Used in This Document
+#
+#    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+#    "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+#    document are to be interpreted as described in "Key words for use in
+#    RFCs to Indicate Requirement Levels" [RFC2119].
+# 
+#    When this document uses the term "Multicast DNS", it should be taken
+#    to mean: "Clients performing DNS-like queries for DNS-like resource
+#    records by sending DNS-like UDP query and response messages over IP
+#    Multicast to UDP port 5353".  The design rationale for selecting UDP
+#    port 5353 is discussed in Appendix A.
+# 
+#    This document uses the term "host name" in the strict sense to mean a
+#    fully qualified domain name that has an IPv4 or IPv6 address record.
+#    It does not use the term "host name" in the commonly used but
+#    incorrect sense to mean just the first DNS label of a host's fully
+#    qualified domain name.
+# 
+#    A DNS (or mDNS) packet contains an IP Time to Live (TTL) in the IP
+#    header, which is effectively a hop-count limit for the packet, to
+#    guard against routing loops.  Each resource record also contains a
+#    TTL, which is the number of seconds for which the resource record may
+#    be cached.  This document uses the term "IP TTL" to refer to the IP
+#    header TTL (hop limit), and the term "RR TTL" or just "TTL" to refer
+#    to the resource record TTL (cache lifetime).
+# 
+#    DNS-format messages contain a header, a Question Section, then
+#    Answer, Authority, and Additional Record Sections.  The Answer,
+#    Authority, and Additional Record Sections all hold resource records
+# 
+#    in the same format.  Where this document describes issues that apply
+#    equally to all three sections, it uses the term "Resource Record
+#    Sections" to refer collectively to these three sections.
+# 
+#    This document uses the terms "shared" and "unique" when referring to
+#    resource record sets [RFC1034]:
+# 
+#       A "shared" resource record set is one where several Multicast DNS
+#       responders may have records with the same name, rrtype, and
+#       rrclass, and several responders may respond to a particular query.
+# 
+#       A "unique" resource record set is one where all the records with
+#       that name, rrtype, and rrclass are conceptually under the control
+#       or ownership of a single responder, and it is expected that at
+#       most one responder should respond to a query for that name,
+#       rrtype, and rrclass.  Before claiming ownership of a unique
+#       resource record set, a responder MUST probe to verify that no
+#       other responder already claims ownership of that set, as described
+#       in Section 8.1, "Probing".  (For fault-tolerance and other
+#       reasons, sometimes it is permissible to have more than one
+#       responder answering for a particular "unique" resource record set,
+#       but such cooperating responders MUST give answers containing
+#       identical rdata for these records.  If they do not give answers
+#       containing identical rdata, then the probing step will reject the
+#       data as being inconsistent with what is already being advertised
+#       on the network for those names.)
+# 
+#    Strictly speaking, the terms "shared" and "unique" apply to resource
+#    record sets, not to individual resource records.  However, it is
+#    sometimes convenient to talk of "shared resource records" and "unique
+#    resource records".  When used this way, the terms should be
+#    understood to mean a record that is a member of a "shared" or
+#    "unique" resource record set, respectively.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Before claiming ownership of a unique
+resource record set, a responder MUST probe to verify that no
+other responder already claims ownership of that set, as described
+in Section 8.1, "Probing".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+(For fault-tolerance and other
+reasons, sometimes it is permissible to have more than one
+responder answering for a particular "unique" resource record set,
+but such cooperating responders MUST give answers containing
+identical rdata for these records.
+'''
+

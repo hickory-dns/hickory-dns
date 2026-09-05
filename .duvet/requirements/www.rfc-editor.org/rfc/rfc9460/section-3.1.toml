@@ -1,0 +1,62 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-3.1"
+
+# Handling Resolution Failures
+#
+#    If DNS responses are cryptographically protected (e.g., using DNSSEC
+#    or TLS [DoT] [DoH]) and SVCB resolution fails due to an
+#    authentication error, SERVFAIL response, transport error, or timeout,
+#    the client SHOULD abandon its attempt to reach the service, even if
+#    the client is SVCB-optional.  Otherwise, an active attacker could
+#    mount a downgrade attack by denying the user access to the SvcParams.
+# 
+#    A SERVFAIL error can occur if the domain is DNSSEC-signed, the
+#    recursive resolver is DNSSEC-validating, and the attacker is between
+#    the recursive resolver and the authoritative DNS server.  A transport
+#    error or timeout can occur if an active attacker between the client
+#    and the recursive resolver is selectively dropping SVCB queries or
+#    responses, based on their size or other observable patterns.
+# 
+#    If the client enforces DNSSEC validation on A/AAAA responses, it
+#    SHOULD apply the same validation policy to SVCB.  Otherwise, an
+#    attacker could defeat the A/AAAA protection by forging SVCB responses
+#    that direct the client to other IP addresses.
+# 
+#    If DNS responses are not cryptographically protected, clients MAY
+#    treat SVCB resolution failure as fatal or nonfatal.
+# 
+#    If the client is unable to complete SVCB resolution due to its chain
+#    length limit, the client MUST fall back to the authority endpoint, as
+#    if the service's SVCB record did not exist.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If DNS responses are cryptographically protected (e.g., using DNSSEC
+or TLS [DoT] [DoH]) and SVCB resolution fails due to an
+authentication error, SERVFAIL response, transport error, or timeout,
+the client SHOULD abandon its attempt to reach the service, even if
+the client is SVCB-optional.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the client enforces DNSSEC validation on A/AAAA responses, it
+SHOULD apply the same validation policy to SVCB.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If DNS responses are not cryptographically protected, clients MAY
+treat SVCB resolution failure as fatal or nonfatal.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the client is unable to complete SVCB resolution due to its chain
+length limit, the client MUST fall back to the authority endpoint, as
+if the service's SVCB record did not exist.
+'''
+

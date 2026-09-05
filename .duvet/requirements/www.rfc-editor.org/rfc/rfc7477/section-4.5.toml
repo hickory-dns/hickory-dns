@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-4.5"
+
+# Removal of the CSYNC Records
+#
+#    Children MAY remove the CSYNC record upon noticing that the parent
+#    zone has published the required records, thus eliminating the need
+#    for the parent to continually query for the CSYNC record and all
+#    corresponding records.  By removing the CSYNC record from the child
+#    zone, the parental agent will only need to perform the query for the
+#    CSYNC record and can stop processing when it finds it missing.  This
+#    will reduce resource usage by both the child and the parental agent.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Children MAY remove the CSYNC record upon noticing that the parent
+zone has published the required records, thus eliminating the need
+for the parent to continually query for the CSYNC record and all
+corresponding records.
+'''
+

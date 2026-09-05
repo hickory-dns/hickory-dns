@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9.3"
+
+# Interaction with Alt-Svc
+#
+#    Clients that implement support for both Alt-Svc and HTTPS records and
+#    are making a connection based on a cached Alt-Svc response SHOULD
+#    retrieve any HTTPS records for the Alt-Svc alt-authority and ensure
+#    that their connection attempts are consistent with both the Alt-Svc
+#    parameters and any received HTTPS SvcParams.  If present, the HTTPS
+#    record's TargetName and port are used for connection establishment
+#    (per Section 3).  For example, suppose that "https://example.com"
+#    sends an Alt-Svc field value of:
+# 
+#    Alt-Svc: h2="alt.example:443", h2="alt2.example:443", h3=":8443"
+# 
+#    The client would retrieve the following HTTPS records:
+# 
+#    alt.example.              IN HTTPS 1 . alpn=h2,h3 foo=...
+#    alt2.example.             IN HTTPS 1 alt2b.example. alpn=h3 foo=...
+#    _8443._https.example.com. IN HTTPS 1 alt3.example. (
+#        port=9443 alpn=h2,h3 foo=... )
+# 
+#    Based on these inputs, the following connection attempts would always
+#    be allowed:
+# 
+#    *  HTTP/2 to alt.example:443
+# 
+#    *  HTTP/3 to alt3.example:9443
+# 
+#    *  Fallback to the client's non-Alt-Svc connection behavior
+# 
+#    The following connection attempts would not be allowed:
+# 
+#    *  HTTP/3 to alt.example:443 (not consistent with Alt-Svc)
+# 
+#    *  Any connection to alt2b.example (no ALPN ID consistent with both
+#       the HTTPS record and Alt-Svc)
+# 
+#    *  HTTPS over TCP to any port on alt3.example (not consistent with
+#       Alt-Svc)
+# 
+#    Suppose that "foo" is a SvcParamKey that renders the client SVCB-
+#    reliant.  The following Alt-Svc-only connection attempts would be
+#    allowed only if the client does not support "foo", as they rely on
+#    SVCB-optional fallback behavior:
+# 
+#    *  HTTP/2 to alt2.example:443
+# 
+#    *  HTTP/3 to example.com:8443
+# 
+#    Alt-authorities SHOULD carry the same SvcParams as the origin unless
+#    a deviation is specifically known to be safe.  As noted in
+#    Section 2.4 of [AltSvc], clients MAY disallow any Alt-Svc connection
+#    according to their own criteria, e.g., disallowing Alt-Svc
+#    connections that lack support for privacy features that are available
+#    on the authority endpoint.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients that implement support for both Alt-Svc and HTTPS records and
+are making a connection based on a cached Alt-Svc response SHOULD
+retrieve any HTTPS records for the Alt-Svc alt-authority and ensure
+that their connection attempts are consistent with both the Alt-Svc
+parameters and any received HTTPS SvcParams.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Alt-authorities SHOULD carry the same SvcParams as the origin unless
+a deviation is specifically known to be safe.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+As noted in
+Section 2.4 of [AltSvc], clients MAY disallow any Alt-Svc connection
+according to their own criteria, e.g., disallowing Alt-Svc
+connections that lack support for privacy features that are available
+on the authority endpoint.
+'''
+

@@ -1,0 +1,61 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.2.6"
+
+# Support in Middleboxes
+#
+#    In a network that carries DNS traffic, there could be active
+#    equipment other than that participating directly in the DNS
+#    resolution process (stub and caching resolvers, authoritative
+#    servers) that affects the transmission of DNS messages (e.g.,
+#    firewalls, load balancers, proxies, etc.), referred to here as
+#    "middleboxes".
+# 
+#    Conformant middleboxes MUST NOT limit DNS messages over UDP to 512
+#    bytes.
+# 
+#    Middleboxes that simply forward requests to a recursive resolver MUST
+#    NOT modify and MUST NOT delete the OPT record contents in either
+#    direction.
+# 
+#    Middleboxes that have additional functionality, such as answering
+#    queries or acting as intelligent forwarders, SHOULD be able to
+#    process the OPT record and act based on its contents.  These
+#    middleboxes MUST consider the incoming request and any outgoing
+#    requests as separate transactions if the characteristics of the
+#    messages are different.
+# 
+#    A more in-depth discussion of this type of equipment and other
+#    considerations regarding their interaction with DNS traffic is found
+#    in [RFC5625].
+
+[[spec]]
+level = "MUST"
+quote = '''
+Conformant middleboxes MUST NOT limit DNS messages over UDP to 512
+bytes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Middleboxes that simply forward requests to a recursive resolver MUST
+NOT modify and MUST NOT delete the OPT record contents in either
+direction.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Middleboxes that have additional functionality, such as answering
+queries or acting as intelligent forwarders, SHOULD be able to
+process the OPT record and act based on its contents.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+These
+middleboxes MUST consider the incoming request and any outgoing
+requests as separate transactions if the characteristics of the
+messages are different.
+'''
+

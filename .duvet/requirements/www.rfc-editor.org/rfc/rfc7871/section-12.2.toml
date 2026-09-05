@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-12.2"
+
+# Whitelist
+#
+#    As described previously, it is expected that only a few Recursive
+#    Resolvers will need to use ECS, and that it will generally be enabled
+#    only if it offers a clear benefit to the users.
+# 
+#    To avoid the complexity of implementing a probing and detection
+#    mechanism (and the possible query loss/delay that may come with it),
+#    an implementation could use a whitelist of Authoritative Nameservers
+#    to send the option to, likely specified by their domain name.
+#    Implementations MAY also allow additional configuring of this based
+#    on other criteria, such as zone or query type.  As of the time of
+#    this writing, at least one implementation makes use of a whitelist.
+# 
+#    An advantage of using a whitelist is that partial client address
+#    information is only disclosed to nameservers that are known to use
+#    the information, improving privacy.
+# 
+#    A drawback is scalability.  The operator needs to track which
+#    Authoritative Nameservers support ECS, making it harder for new
+#    Authoritative Nameservers to start using the option.
+# 
+#    Similarly, Authoritative Nameservers can also use whitelists to limit
+#    the feature to only certain clients.  For example, a CDN that does
+#    not want all of their mapping trivially walked might require a legal
+#    agreement with the Recursive Resolver operator, to clearly describe
+#    the acceptable use of the feature.
+# 
+#    The maintenance of access control mechanisms is out of scope for this
+#    protocol definition.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementations MAY also allow additional configuring of this based
+on other criteria, such as zone or query type.
+'''
+

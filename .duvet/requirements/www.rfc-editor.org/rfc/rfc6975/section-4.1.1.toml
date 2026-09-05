@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-4.1.1"
+
+# Validating Stub Resolvers
+#
+#    A validating stub resolver sets the DNSSEC OK (DO) bit [RFC4035] to
+#    indicate that it wishes to receive additional DNSSEC RRs (i.e., RRSIG
+#    RRs) in the response.  Such validating resolvers SHOULD include the
+#    DAU, DHU, and/or the N3U option(s) in the OPT RR when sending a
+#    query.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Such validating resolvers SHOULD include the
+DAU, DHU, and/or the N3U option(s) in the OPT RR when sending a
+query.
+'''
+

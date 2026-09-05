@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-4.4"
+
+# EDNS Client Subnet (ECS)
+#
+#    The EDNS Client Subnet (ECS) option [RFC7871] allows recursive
+#    resolvers to request IP addresses that are suitable for a particular
+#    client IP range.  SVCB records may contain IP addresses (in ipv*hint
+#    SvcParams) or direct users to a subnet-specific TargetName, so
+#    recursive resolvers SHOULD include the same ECS option in SVCB
+#    queries as in A/AAAA queries.
+# 
+#    According to Section 7.3.1 of [RFC7871], "Any records from [the
+#    Additional section] MUST NOT be tied to a network."  Accordingly,
+#    when processing a response whose QTYPE is SVCB-compatible, resolvers
+#    SHOULD treat any records in the Additional section as having SOURCE
+#    PREFIX-LENGTH set to zero and SCOPE PREFIX-LENGTH as specified in the
+#    ECS option.  Authoritative servers MUST omit such records if they are
+#    not suitable for use by any stub resolvers that set SOURCE PREFIX-
+#    LENGTH to zero.  This will cause the resolver to perform a follow-up
+#    query that can receive a properly tailored ECS.  (This is similar to
+#    the usage of CNAME with the ECS option as discussed in [RFC7871],
+#    Section 7.2.1.)
+# 
+#    Authoritative servers that omit Additional records can avoid the
+#    added latency of a follow-up query by following the advice in
+#    Section 10.2.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SVCB records may contain IP addresses (in ipv*hint
+SvcParams) or direct users to a subnet-specific TargetName, so
+recursive resolvers SHOULD include the same ECS option in SVCB
+queries as in A/AAAA queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+According to Section 7.3.1 of [RFC7871], "Any records from [the
+Additional section] MUST NOT be tied to a network."  Accordingly,
+when processing a response whose QTYPE is SVCB-compatible, resolvers
+SHOULD treat any records in the Additional section as having SOURCE
+PREFIX-LENGTH set to zero and SCOPE PREFIX-LENGTH as specified in the
+ECS option.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Authoritative servers MUST omit such records if they are
+not suitable for use by any stub resolvers that set SOURCE PREFIX-
+LENGTH to zero.
+'''
+

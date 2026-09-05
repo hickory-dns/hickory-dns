@@ -1,0 +1,42 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-5.5"
+
+# Direct Unicast Queries to Port 5353
+#
+#    In specialized applications there may be rare situations where it
+#    makes sense for a Multicast DNS querier to send its query via unicast
+#    to a specific machine.  When a Multicast DNS responder receives a
+#    query via direct unicast, it SHOULD respond as it would for "QU"
+#    questions, as described above in Section 5.4.  Since it is possible
+#    for a unicast query to be received from a machine outside the local
+#    link, responders SHOULD check that the source address in the query
+#    packet matches the local subnet for that link (or, in the case of
+#    IPv6, the source address has an on-link prefix) and silently ignore
+#    the packet if not.
+# 
+#    There may be specialized situations, outside the scope of this
+#    document, where it is intended and desirable to create a responder
+#    that does answer queries originating outside the local link.  Such a
+#    responder would need to ensure that these non-local queries are
+#    always answered via unicast back to the querier, since an answer sent
+#    via link-local multicast would not reach a querier outside the local
+#    link.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a Multicast DNS responder receives a
+query via direct unicast, it SHOULD respond as it would for "QU"
+questions, as described above in Section 5.4.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Since it is possible
+for a unicast query to be received from a machine outside the local
+link, responders SHOULD check that the source address in the query
+packet matches the local subnet for that link (or, in the case of
+IPv6, the source address has an on-link prefix) and silently ignore
+the packet if not.
+'''
+

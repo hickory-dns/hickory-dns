@@ -1,0 +1,125 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.2"
+
+# AXFR Response
+#
+#    The AXFR response will consist of one or more messages.  The special
+#    case of a server closing the TCP connection without sending an AXFR
+#    response is covered in Section 2.3.
+# 
+#    An AXFR response that is transferring the zone's contents will
+#    consist of a series (which could be a series of length 1) of DNS
+#    messages.  In such a series, the first message MUST begin with the
+#    SOA resource record of the zone, and the last message MUST conclude
+#    with the same SOA resource record.  Intermediate messages MUST NOT
+#    contain the SOA resource record.  The AXFR server MUST copy the
+#    Question section from the corresponding AXFR query message into the
+#    first response message's Question section.  For subsequent messages,
+#    it MAY do the same or leave the Question section empty.
+# 
+#    The AXFR protocol treats the zone contents as an unordered collection
+#    (or to use the mathematical term, a "set") of RRs.  Except for the
+#    requirement that the transfer must begin and end with the SOA RR,
+#    there is no requirement to send the RRs in any particular order or
+#    grouped into response messages in any particular way.  Although
+#    servers typically do attempt to send related RRs (such as the RRs
+#    forming an RRset, and the RRsets of a name) as a contiguous group or,
+#    when message space allows, in the same response message, they are not
+#    required to do so, and clients MUST accept any ordering and grouping
+#    of the non-SOA RRs.  Each RR SHOULD be transmitted only once, and
+#    AXFR clients MUST ignore any duplicate RRs received.
+# 
+#    Each AXFR response message SHOULD contain a sufficient number of RRs
+#    to reasonably amortize the per-message overhead, up to the largest
+#    number that will fit within a DNS message (taking the required
+#    content of the other sections into account, as described below).
+# 
+#    Some old AXFR clients expect each response message to contain only a
+#    single RR.  To interoperate with such clients, the server MAY
+#    restrict response messages to a single RR.  As there is no standard
+#    way to automatically detect such clients, this typically requires
+#    manual configuration at the server.
+# 
+#    To indicate an error in an AXFR response, the AXFR server sends a
+#    single DNS message when the error condition is detected, with the
+#    response code set to the appropriate value for the condition
+#    encountered.  Such a message terminates the AXFR session; it MUST
+#    contain a copy of the Question section from the AXFR query in its
+#    Question section, but the inclusion of the terminating SOA resource
+#    record is not necessary.
+# 
+#    An AXFR server may send a number of AXFR response messages free of an
+#    error condition before it sends the message indicating an error.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In such a series, the first message MUST begin with the
+SOA resource record of the zone, and the last message MUST conclude
+with the same SOA resource record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Intermediate messages MUST NOT
+contain the SOA resource record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The AXFR server MUST copy the
+Question section from the corresponding AXFR query message into the
+first response message's Question section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+For subsequent messages,
+it MAY do the same or leave the Question section empty.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Although
+servers typically do attempt to send related RRs (such as the RRs
+forming an RRset, and the RRsets of a name) as a contiguous group or,
+when message space allows, in the same response message, they are not
+required to do so, and clients MUST accept any ordering and grouping
+of the non-SOA RRs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each RR SHOULD be transmitted only once, and
+AXFR clients MUST ignore any duplicate RRs received.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Each AXFR response message SHOULD contain a sufficient number of RRs
+to reasonably amortize the per-message overhead, up to the largest
+number that will fit within a DNS message (taking the required
+content of the other sections into account, as described below).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+To interoperate with such clients, the server MAY
+restrict response messages to a single RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Such a message terminates the AXFR session; it MUST
+contain a copy of the Question section from the AXFR query in its
+Question section, but the inclusion of the terminating SOA resource
+record is not necessary.
+'''
+

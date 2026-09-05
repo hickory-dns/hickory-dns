@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc3007#section-4.1"
+
+# - Adding SIGs
+#
+#    An authorized update request MAY include SIG records with each RRset.
+#    Since SIG records (except SIG(0) records) MUST NOT be used for
+#    authentication of the update message, they are not required.
+# 
+#    If a principal is authorized to update SIG records and there are SIG
+#    records in the update, the SIG records are added without
+#    verification.  The server MAY examine SIG records and drop SIGs with
+#    a temporal validity period in the past.
+
+[[spec]]
+level = "MAY"
+quote = '''
+An authorized update request MAY include SIG records with each RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since SIG records (except SIG(0) records) MUST NOT be used for
+authentication of the update message, they are not required.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The server MAY examine SIG records and drop SIGs with
+a temporal validity period in the past.
+'''
+

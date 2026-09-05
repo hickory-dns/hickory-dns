@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.10.2"
+
+# Fallback to AXFR
+#
+#    Fallback to AXFR can happen, for example, if the server is not able
+#    to provide an IXFR for the requested SOA.  Implementations differ in
+#    how long they store zone deltas and how many may be stored at any one
+#    time.
+# 
+#    Just as with IXFR over TCP, after a failed IXFR, an IXoT client
+#    SHOULD request the AXFR on the already open XoT connection.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Just as with IXFR over TCP, after a failed IXFR, an IXoT client
+SHOULD request the AXFR on the already open XoT connection.
+'''
+

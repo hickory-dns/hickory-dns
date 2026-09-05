@@ -1,0 +1,109 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-16"
+
+# Multicast DNS Character Set
+#
+#    Historically, Unicast DNS has been used with a very restricted set of
+#    characters.  Indeed, conventional DNS is usually limited to just
+#    twenty-six letters, ten digits and the hyphen character, not even
+#    allowing spaces or other punctuation.  Attempts to remedy this for
+#    Unicast DNS have been badly constrained by the perceived need to
+#    accommodate old buggy legacy DNS implementations.  In reality, the
+#    DNS specification itself actually imposes no limits on what
+#    characters may be used in names, and good DNS implementations handle
+#    any arbitrary eight-bit data without trouble.  "Clarifications to the
+#    DNS Specification" [RFC2181] directly discusses the subject of
+#    allowable character set in Section 11 ("Name syntax"), and explicitly
+#    states that DNS names may contain arbitrary eight-bit data.  However,
+#    the old rules for ARPANET host names back in the 1980s required host
+#    names to be just letters, digits, and hyphens [RFC1034], and since
+#    the predominant use of DNS is to store host address records, many
+#    have assumed that the DNS protocol itself suffers from the same
+#    limitation.  It might be accurate to say that there could be
+#    hypothetical bad implementations that do not handle eight-bit data
+#    correctly, but it would not be accurate to say that the protocol
+#    doesn't allow names containing eight-bit data.
+# 
+#    Multicast DNS is a new protocol and doesn't (yet) have old buggy
+#    legacy implementations to constrain the design choices.  Accordingly,
+#    it adopts the simple obvious elegant solution: all names in Multicast
+#    DNS MUST be encoded as precomposed UTF-8 [RFC3629] "Net-Unicode"
+#    [RFC5198] text.
+# 
+#    Some users of 16-bit Unicode have taken to stuffing a "zero-width
+#    nonbreaking space" character (U+FEFF) at the start of each UTF-16
+#    file, as a hint to identify whether the data is big-endian or little-
+#    endian, and calling it a "Byte Order Mark" (BOM).  Since there is
+#    only one possible byte order for UTF-8 data, a BOM is neither
+#    necessary nor permitted.  Multicast DNS names MUST NOT contain a
+#    "Byte Order Mark".  Any occurrence of the Unicode character U+FEFF at
+#    the start or anywhere else in a Multicast DNS name MUST be
+#    interpreted as being an actual intended part of the name,
+#    representing (just as for any other legal unicode value) an actual
+#    literal instance of that character (in this case a zero-width non-
+#    breaking space character).
+# 
+#    For names that are restricted to US-ASCII [RFC0020] letters, digits,
+#    and hyphens, the UTF-8 encoding is identical to the US-ASCII
+#    encoding, so this is entirely compatible with existing host names.
+#    For characters outside the US-ASCII range, UTF-8 encoding is used.
+# 
+#    Multicast DNS implementations MUST NOT use any other encodings apart
+#    from precomposed UTF-8 (US-ASCII being considered a compatible subset
+#    of UTF-8).  The reasons for selecting UTF-8 instead of Punycode
+#    [RFC3492] are discussed further in Appendix F.
+# 
+#    The simple rules for case-insensitivity in Unicast DNS [RFC1034]
+#    [RFC1035] also apply in Multicast DNS; that is to say, in name
+#    comparisons, the lowercase letters "a" to "z" (0x61 to 0x7A) match
+#    their uppercase equivalents "A" to "Z" (0x41 to 0x5A).  Hence, if a
+#    querier issues a query for an address record with the name
+#    "myprinter.local.", then a responder having an address record with
+#    the name "MyPrinter.local." should issue a response.  No other
+#    automatic equivalences should be assumed.  In particular, all UTF-8
+#    multibyte characters (codes 0x80 and higher) are compared by simple
+#    binary comparison of the raw byte values.  Accented characters are
+#    *not* defined to be automatically equivalent to their unaccented
+#    counterparts.  Where automatic equivalences are desired, this may be
+#    achieved through the use of programmatically generated CNAME records.
+#    For example, if a responder has an address record for an accented
+#    name Y, and a querier issues a query for a name X, where X is the
+#    same as Y with all the accents removed, then the responder may issue
+#    a response containing two resource records: a CNAME record "X CNAME
+#    Y", asserting that the requested name X (unaccented) is an alias for
+#    the true (accented) name Y, followed by the address record for Y.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Accordingly,
+it adopts the simple obvious elegant solution: all names in Multicast
+DNS MUST be encoded as precomposed UTF-8 [RFC3629] "Net-Unicode"
+[RFC5198] text.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS names MUST NOT contain a
+"Byte Order Mark".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any occurrence of the Unicode character U+FEFF at
+the start or anywhere else in a Multicast DNS name MUST be
+interpreted as being an actual intended part of the name,
+representing (just as for any other legal unicode value) an actual
+literal instance of that character (in this case a zero-width non-
+breaking space character).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS implementations MUST NOT use any other encodings apart
+from precomposed UTF-8 (US-ASCII being considered a compatible subset
+of UTF-8).
+'''
+

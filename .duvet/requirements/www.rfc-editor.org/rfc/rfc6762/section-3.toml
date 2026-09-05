@@ -1,0 +1,129 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-3"
+
+# Multicast DNS Names
+#
+#    A host that belongs to an organization or individual who has control
+#    over some portion of the DNS namespace can be assigned a globally
+#    unique name within that portion of the DNS namespace, such as,
+#    "cheshire.example.com.".  For those of us who have this luxury, this
+#    works very well.  However, the majority of home computer users do not
+#    have easy access to any portion of the global DNS namespace within
+#    which they have the authority to create names.  This leaves the
+#    majority of home computers effectively anonymous for practical
+#    purposes.
+# 
+#    To remedy this problem, this document allows any computer user to
+#    elect to give their computers link-local Multicast DNS host names of
+#    the form: "single-dns-label.local.".  For example, a laptop computer
+#    may answer to the name "MyComputer.local.".  Any computer user is
+#    granted the authority to name their computer this way, provided that
+#    the chosen host name is not already in use on that link.  Having
+#    named their computer this way, the user has the authority to continue
+#    utilizing that name until such time as a name conflict occurs on the
+#    link that is not resolved in the user's favor.  If this happens, the
+#    computer (or its human user) MUST cease using the name, and SHOULD
+#    attempt to allocate a new unique name for use on that link.  These
+#    conflicts are expected to be relatively rare for people who choose
+#    reasonably imaginative names, but it is still important to have a
+#    mechanism in place to handle them when they happen.
+# 
+#    This document specifies that the DNS top-level domain ".local." is a
+#    special domain with special semantics, namely that any fully
+#    qualified name ending in ".local." is link-local, and names within
+#    this domain are meaningful only on the link where they originate.
+#    This is analogous to IPv4 addresses in the 169.254/16 prefix or IPv6
+#    addresses in the FE80::/10 prefix, which are link-local and
+#    meaningful only on the link where they originate.
+# 
+#    Any DNS query for a name ending with ".local." MUST be sent to the
+#    mDNS IPv4 link-local multicast address 224.0.0.251 (or its IPv6
+#    equivalent FF02::FB).  The design rationale for using a fixed
+#    multicast address instead of selecting from a range of multicast
+#    addresses using a hash function is discussed in Appendix B.
+#    Implementers MAY choose to look up such names concurrently via other
+#    mechanisms (e.g., Unicast DNS) and coalesce the results in some
+#    fashion.  Implementers choosing to do this should be aware of the
+#    potential for user confusion when a given name can produce different
+#    results depending on external network conditions (such as, but not
+#    limited to, which name lookup mechanism responds faster).
+# 
+#    It is unimportant whether a name ending with ".local." occurred
+#    because the user explicitly typed in a fully qualified domain name
+#    ending in ".local.", or because the user entered an unqualified
+#    domain name and the host software appended the suffix ".local."
+#    because that suffix appears in the user's search list.  The ".local."
+#    suffix could appear in the search list because the user manually
+#    configured it, or because it was received via DHCP [RFC2132] or via
+#    any other mechanism for configuring the DNS search list.  In this
+#    respect the ".local." suffix is treated no differently from any other
+#    search domain that might appear in the DNS search list.
+# 
+#    DNS queries for names that do not end with ".local." MAY be sent to
+#    the mDNS multicast address, if no other conventional DNS server is
+#    available.  This can allow hosts on the same link to continue
+#    communicating using each other's globally unique DNS names during
+#    network outages that disrupt communication with the greater Internet.
+#    When resolving global names via local multicast, it is even more
+#    important to use DNS Security Extensions (DNSSEC) [RFC4033] or other
+#    security mechanisms to ensure that the response is trustworthy.
+#    Resolving global names via local multicast is a contentious issue,
+#    and this document does not discuss it further, instead concentrating
+#    on the issue of resolving local names using DNS messages sent to a
+#    multicast address.
+# 
+#    This document recommends a single flat namespace for dot-local host
+#    names, (i.e., the names of DNS "A" and "AAAA" records, which map
+#    names to IPv4 and IPv6 addresses), but other DNS record types (such
+#    as those used by DNS-Based Service Discovery [RFC6763]) may contain
+#    as many labels as appropriate for the desired usage, up to a maximum
+#    of 255 bytes, plus a terminating zero byte at the end.  Name length
+#    issues are discussed further in Appendix C.
+# 
+#    Enforcing uniqueness of host names is probably desirable in the
+#    common case, but this document does not mandate that.  It is
+#    permissible for a collection of coordinated hosts to agree to
+#    maintain multiple DNS address records with the same name, possibly
+#    for load-balancing or fault-tolerance reasons.  This document does
+#    not take a position on whether that is sensible.  It is important
+#    that both modes of operation be supported.  The Multicast DNS
+#    protocol allows hosts to verify and maintain unique names for
+#    resource records where that behavior is desired, and it also allows
+#    hosts to maintain multiple resource records with a single shared name
+#    where that behavior is desired.  This consideration applies to all
+#    resource records, not just address records (host names).  In summary:
+#    It is required that the protocol have the ability to detect and
+#    handle name conflicts, but it is not required that this ability be
+#    used for every record.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this happens, the
+computer (or its human user) MUST cease using the name, and SHOULD
+attempt to allocate a new unique name for use on that link.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any DNS query for a name ending with ".local." MUST be sent to the
+mDNS IPv4 link-local multicast address 224.0.0.251 (or its IPv6
+equivalent FF02::FB).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementers MAY choose to look up such names concurrently via other
+mechanisms (e.g., Unicast DNS) and coalesce the results in some
+fashion.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+DNS queries for names that do not end with ".local." MAY be sent to
+the mDNS multicast address, if no other conventional DNS server is
+available.
+'''
+

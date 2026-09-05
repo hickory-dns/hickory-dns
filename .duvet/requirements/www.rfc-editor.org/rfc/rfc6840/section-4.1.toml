@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-4.1"
+
+# Clarifications on Nonexistence Proofs
+#
+#    Section 5.4 of [RFC4035] under-specifies the algorithm for checking
+#    nonexistence proofs.  In particular, the algorithm as presented would
+#    allow a validator to interpret an NSEC or NSEC3 RR from an ancestor
+#    zone as proving the nonexistence of an RR in a child zone.
+# 
+#    An "ancestor delegation" NSEC RR (or NSEC3 RR) is one with:
+# 
+#    o  the NS bit set,
+# 
+#    o  the Start of Authority (SOA) bit clear, and
+# 
+#    o  a signer field that is shorter than the owner name of the NSEC RR,
+#       or the original owner name for the NSEC3 RR.
+# 
+#    Ancestor delegation NSEC or NSEC3 RRs MUST NOT be used to assume
+#    nonexistence of any RRs below that zone cut, which include all RRs at
+#    that (original) owner name other than DS RRs, and all RRs below that
+#    owner name regardless of type.
+# 
+#    Similarly, the algorithm would also allow an NSEC RR at the same
+#    owner name as a DNAME RR, or an NSEC3 RR at the same original owner
+#    name as a DNAME, to prove the nonexistence of names beneath that
+#    DNAME.  An NSEC or NSEC3 RR with the DNAME bit set MUST NOT be used
+#    to assume the nonexistence of any subdomain of that NSEC/NSEC3 RR's
+#    (original) owner name.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Ancestor delegation NSEC or NSEC3 RRs MUST NOT be used to assume
+nonexistence of any RRs below that zone cut, which include all RRs at
+that (original) owner name other than DS RRs, and all RRs below that
+owner name regardless of type.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An NSEC or NSEC3 RR with the DNAME bit set MUST NOT be used
+to assume the nonexistence of any subdomain of that NSEC/NSEC3 RR's
+(original) owner name.
+'''
+

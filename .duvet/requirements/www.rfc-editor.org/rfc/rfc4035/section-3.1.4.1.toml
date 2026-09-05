@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.4.1"
+
+# Responding to Queries for DS RRs
+#
+#    The DS resource record type is unusual in that it appears only on the
+#    parent zone's side of a zone cut.  For example, the DS RRset for the
+#    delegation of "foo.example" is stored in the "example" zone rather
+#    than in the "foo.example" zone.  This requires special processing
+#    rules for both name servers and resolvers, as the name server for the
+#    child zone is authoritative for the name at the zone cut by the
+#    normal DNS rules but the child zone does not contain the DS RRset.
+# 
+#    A security-aware resolver sends queries to the parent zone when
+#    looking for a needed DS RR at a delegation point (see Section 4.2).
+#    However, special rules are necessary to avoid confusing
+#    security-oblivious resolvers which might become involved in
+#    processing such a query (for example, in a network configuration that
+#    forces a security-aware resolver to channel its queries through a
+#    security-oblivious recursive name server).  The rest of this section
+#    describes how a security-aware name server processes DS queries in
+#    order to avoid this problem.
+# 
+#    The need for special processing by a security-aware name server only
+#    arises when all the following conditions are met:
+# 
+#    o  The name server has received a query for the DS RRset at a zone
+#       cut.
+# 
+#    o  The name server is authoritative for the child zone.
+# 
+#    o  The name server is not authoritative for the parent zone.
+# 
+#    o  The name server does not offer recursion.
+# 
+#    In all other cases, the name server either has some way of obtaining
+#    the DS RRset or could not have been expected to have the DS RRset
+#    even by the pre-DNSSEC processing rules, so the name server can
+#    return either the DS RRset or an error response according to the
+#    normal processing rules.
+# 
+#    If all the above conditions are met, however, the name server is
+#    authoritative for SNAME but cannot supply the requested RRset.  In
+#    this case, the name server MUST return an authoritative "no data"
+#    response showing that the DS RRset does not exist in the child zone's
+#    apex.  See Appendix B.8 for an example of such a response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In
+this case, the name server MUST return an authoritative "no data"
+response showing that the DS RRset does not exist in the child zone's
+apex.
+'''
+

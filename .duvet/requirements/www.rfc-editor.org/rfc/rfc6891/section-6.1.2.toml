@@ -1,0 +1,103 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.1.2"
+
+# Wire Format
+#
+#    An OPT RR has a fixed part and a variable set of options expressed as
+#    {attribute, value} pairs.  The fixed part holds some DNS metadata,
+#    and also a small collection of basic extension elements that we
+#    expect to be so popular that it would be a waste of wire space to
+#    encode them as {attribute, value} pairs.
+# 
+#    The fixed part of an OPT RR is structured as follows:
+# 
+#        +------------+--------------+------------------------------+
+#        | Field Name | Field Type   | Description                  |
+#        +------------+--------------+------------------------------+
+#        | NAME       | domain name  | MUST be 0 (root domain)      |
+#        | TYPE       | u_int16_t    | OPT (41)                     |
+#        | CLASS      | u_int16_t    | requestor's UDP payload size |
+#        | TTL        | u_int32_t    | extended RCODE and flags     |
+#        | RDLEN      | u_int16_t    | length of all RDATA          |
+#        | RDATA      | octet stream | {attribute,value} pairs      |
+#        +------------+--------------+------------------------------+
+# 
+#                                OPT RR Format
+# 
+#    The variable part of an OPT RR may contain zero or more options in
+#    the RDATA.  Each option MUST be treated as a bit field.  Each option
+#    is encoded as:
+# 
+#                   +0 (MSB)                            +1 (LSB)
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#     0: |                          OPTION-CODE                          |
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#     2: |                         OPTION-LENGTH                         |
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#     4: |                                                               |
+#        /                          OPTION-DATA                          /
+#        /                                                               /
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+# 
+#    OPTION-CODE
+#       Assigned by the Expert Review process as defined by the DNSEXT
+#       working group and the IESG.
+# 
+#    OPTION-LENGTH
+#       Size (in octets) of OPTION-DATA.
+# 
+#    OPTION-DATA
+#       Varies per OPTION-CODE.  MUST be treated as a bit field.
+# 
+#    The order of appearance of option tuples is not defined.  If one
+#    option modifies the behaviour of another or multiple options are
+#    related to one another in some way, they have the same effect
+#    regardless of ordering in the RDATA wire encoding.
+# 
+#    Any OPTION-CODE values not understood by a responder or requestor
+#    MUST be ignored.  Specifications of such options might wish to
+#    include some kind of signaled acknowledgement.  For example, an
+#    option specification might say that if a responder sees and supports
+#    option XYZ, it MUST include option XYZ in its response.
+
+[[spec]]
+level = "MUST"
+quote = '''
++------------+--------------+------------------------------+
+| Field Name | Field Type   | Description                  |
++------------+--------------+------------------------------+
+| NAME       | domain name  | MUST be 0 (root domain)      |
+| TYPE       | u_int16_t    | OPT (41)                     |
+| CLASS      | u_int16_t    | requestor's UDP payload size |
+| TTL        | u_int32_t    | extended RCODE and flags     |
+| RDLEN      | u_int16_t    | length of all RDATA          |
+| RDATA      | octet stream | {attribute,value} pairs      |
++------------+--------------+------------------------------+
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each option MUST be treated as a bit field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+MUST be treated as a bit field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any OPTION-CODE values not understood by a responder or requestor
+MUST be ignored.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For example, an
+option specification might say that if a responder sees and supports
+option XYZ, it MUST include option XYZ in its response.
+'''
+

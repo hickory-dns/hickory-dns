@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc9558#section-7"
+
+# IANA Considerations
+#
+#    The following entry has been added to the IANA registry for "DNS
+#    Security Algorithm Numbers":
+# 
+#    +========+=============+============+=========+========+===========+
+#    | Number | Description | Mnemonic   | Zone    | Trans. | Reference |
+#    |        |             |            | Signing | Sec.   |           |
+#    +========+=============+============+=========+========+===========+
+#    | 23     | GOST R      | ECC-GOST12 | Y       | *      | RFC 9558  |
+#    |        | 34.10-2012  |            |         |        |           |
+#    +--------+-------------+------------+---------+--------+-----------+
+# 
+#                                  Table 1
+# 
+#    The following entry has been added to the IANA registry for "Digest
+#    Algorithms" in the "Delegation Signer (DS) Resource Record (RR) Type
+#    Digest Algorithms" registry group:
+# 
+#            +=======+===================+==========+===========+
+#            | Value | Description       | Status   | Reference |
+#            +=======+===================+==========+===========+
+#            | 5     | GOST R 34.11-2012 | OPTIONAL | RFC 9558  |
+#            +-------+-------------------+----------+-----------+
+# 
+#                                  Table 2
+
+[[spec]]
+level = "MAY"
+quote = '''
++=======+===================+==========+===========+
+| Value | Description       | Status   | Reference |
++=======+===================+==========+===========+
+| 5     | GOST R 34.11-2012 | OPTIONAL | RFC 9558  |
++-------+-------------------+----------+-----------+
+'''
+

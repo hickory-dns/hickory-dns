@@ -1,0 +1,60 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1"
+
+# Authoritative Name Servers
+#
+#    Upon receiving a relevant query that has the EDNS ([RFC2671]) OPT
+#    pseudo-RR DO bit ([RFC3225]) set, a security-aware authoritative name
+#    server for a signed zone MUST include additional RRSIG, NSEC, and DS
+#    RRs, according to the following rules:
+# 
+#    o  RRSIG RRs that can be used to authenticate a response MUST be
+#       included in the response according to the rules in Section 3.1.1.
+# 
+#    o  NSEC RRs that can be used to provide authenticated denial of
+#       existence MUST be included in the response automatically according
+#       to the rules in Section 3.1.3.
+# 
+#    o  Either a DS RRset or an NSEC RR proving that no DS RRs exist MUST
+#       be included in referrals automatically according to the rules in
+#       Section 3.1.4.
+# 
+#    These rules only apply to responses where the semantics convey
+#    information about the presence or absence of resource records.  That
+#    is, these rules are not intended to rule out responses such as RCODE
+#    4 ("Not Implemented") or RCODE 5 ("Refused").
+# 
+#    DNSSEC does not change the DNS zone transfer protocol.  Section 3.1.5
+#    discusses zone transfer requirements.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Upon receiving a relevant query that has the EDNS ([RFC2671]) OPT
+pseudo-RR DO bit ([RFC3225]) set, a security-aware authoritative name
+server for a signed zone MUST include additional RRSIG, NSEC, and DS
+RRs, according to the following rules:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  RRSIG RRs that can be used to authenticate a response MUST be
+included in the response according to the rules in Section 3.1.1.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  NSEC RRs that can be used to provide authenticated denial of
+existence MUST be included in the response automatically according
+to the rules in Section 3.1.3.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Either a DS RRset or an NSEC RR proving that no DS RRs exist MUST
+be included in referrals automatically according to the rules in
+Section 3.1.4.
+'''
+

@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-4.4"
+
+# Documented Parental Agent Type Support
+#
+#    Parental agents that support processing CSYNC records SHOULD publicly
+#    document the following minimum processing characteristics:
+# 
+#       The fact that they support CSYNC processing
+# 
+#       The Type Bit Map bits they support
+# 
+#       The frequency with which they poll clients (which may also be
+#       configurable by the client)
+# 
+#       If they support the "immediate" flag
+# 
+#       If they poll a child's single nameserver, a configured list of
+#       nameservers, or all of the advertised nameservers when querying
+#       records
+# 
+#       If they support SOA serial number caching to avoid issues with
+#       regression and/or replay
+# 
+#       Where errors for CSYNC processing are published
+# 
+#       If they support sending queries to a "hidden master"
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Parental agents that support processing CSYNC records SHOULD publicly
+document the following minimum processing characteristics:
+'''
+

@@ -1,0 +1,82 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.1"
+
+# ID (Query Identifier)
+#
+#    Multicast DNS implementations SHOULD listen for unsolicited responses
+#    issued by hosts booting up (or waking up from sleep or otherwise
+#    joining the network).  Since these unsolicited responses may contain
+#    a useful answer to a question for which the querier is currently
+#    awaiting an answer, Multicast DNS implementations SHOULD examine all
+#    received Multicast DNS response messages for useful answers, without
+#    regard to the contents of the ID field or the Question Section.  In
+#    Multicast DNS, knowing which particular query message (if any) is
+#    responsible for eliciting a particular response message is less
+#    interesting than knowing whether the response message contains useful
+#    information.
+# 
+#    Multicast DNS implementations MAY cache data from any or all
+#    Multicast DNS response messages they receive, for possible future
+#    use, provided of course that normal TTL aging is performed on these
+#    cached resource records.
+# 
+#    In multicast query messages, the Query Identifier SHOULD be set to
+#    zero on transmission.
+# 
+#    In multicast responses, including unsolicited multicast responses,
+#    the Query Identifier MUST be set to zero on transmission, and MUST be
+#    ignored on reception.
+# 
+#    In legacy unicast response messages generated specifically in
+#    response to a particular (unicast or multicast) query, the Query
+#    Identifier MUST match the ID from the query message.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Multicast DNS implementations SHOULD listen for unsolicited responses
+issued by hosts booting up (or waking up from sleep or otherwise
+joining the network).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Since these unsolicited responses may contain
+a useful answer to a question for which the querier is currently
+awaiting an answer, Multicast DNS implementations SHOULD examine all
+received Multicast DNS response messages for useful answers, without
+regard to the contents of the ID field or the Question Section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Multicast DNS implementations MAY cache data from any or all
+Multicast DNS response messages they receive, for possible future
+use, provided of course that normal TTL aging is performed on these
+cached resource records.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In multicast query messages, the Query Identifier SHOULD be set to
+zero on transmission.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In multicast responses, including unsolicited multicast responses,
+the Query Identifier MUST be set to zero on transmission, and MUST be
+ignored on reception.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In legacy unicast response messages generated specifically in
+response to a particular (unicast or multicast) query, the Query
+Identifier MUST match the ID from the query message.
+'''
+

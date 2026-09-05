@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-8"
+
+# Probing and Announcing on Startup
+#
+#    Typically a Multicast DNS responder should have, at the very least,
+#    address records for all of its active interfaces.  Creating and
+#    advertising an HINFO record on each interface as well can be useful
+#    to network administrators.
+# 
+#    Whenever a Multicast DNS responder starts up, wakes up from sleep,
+#    receives an indication of a network interface "Link Change" event, or
+#    has any other reason to believe that its network connectivity may
+#    have changed in some relevant way, it MUST perform the two startup
+#    steps below: Probing (Section 8.1) and Announcing (Section 8.3).
+
+[[spec]]
+level = "MUST"
+quote = '''
+Whenever a Multicast DNS responder starts up, wakes up from sleep,
+receives an indication of a network interface "Link Change" event, or
+has any other reason to believe that its network connectivity may
+have changed in some relevant way, it MUST perform the two startup
+steps below: Probing (Section 8.1) and Announcing (Section 8.3).
+'''
+

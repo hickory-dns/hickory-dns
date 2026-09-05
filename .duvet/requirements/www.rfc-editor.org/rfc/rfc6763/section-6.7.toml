@@ -1,0 +1,43 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6.7"
+
+# Version Tag
+#
+#    It is recommended that authors defining DNS-SD profiles include an
+#    attribute of the form "txtvers=x", where "x" is a decimal version
+#    number in US-ASCII [RFC20] text (e.g., "txtvers=1" or "txtvers=8"),
+#    in their definition, and require it to be the first key/value pair in
+#    the TXT record.  This information in the TXT record can be useful to
+#    help clients maintain backwards compatibility with older
+#    implementations if it becomes necessary to change or update the
+#    specification over time.  Even if the profile author doesn't
+#    anticipate the need for any future incompatible changes, having a
+#    version number in the TXT record provides useful insurance should
+#    incompatible changes become unavoidable [RFC6709].  Clients SHOULD
+#    ignore TXT records with a txtvers number higher (or lower) than the
+#    version(s) they know how to interpret.
+# 
+#    Note that the version number in the txtvers tag describes the version
+#    of the specification governing the defined keys and the meaning of
+#    those keys for that particular TXT record, not the version of the
+#    application protocol that will be used if the client subsequently
+#    decides to contact that service.  Ideally, every DNS-SD TXT record
+#    specification starts at txtvers=1 and stays that way forever.
+#    Improvements can be made by defining new keys that older clients
+#    silently ignore.  The only reason to increment the version number is
+#    if the old specification is subsequently found to be so horribly
+#    broken that there's no way to do a compatible forward revision, so
+#    the txtvers number has to be incremented to tell all the old clients
+#    they should just not even try to understand this new TXT record.
+# 
+#    If there is a need to indicate which version number(s) of the
+#    application protocol the service implements, the recommended key for
+#    this is "protovers".
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD
+ignore TXT records with a txtvers number higher (or lower) than the
+version(s) they know how to interpret.
+'''
+

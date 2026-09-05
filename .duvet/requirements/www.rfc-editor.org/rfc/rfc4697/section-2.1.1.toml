@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.1.1"
+
+# Recommendation
+#
+#    An iterative resolver MUST NOT send a query for the NS RRSet of a
+#    non-responsive zone to any of the name servers for that zone's parent
+#    zone.  For the purposes of this injunction, a non-responsive zone is
+#    defined as a zone for which every name server listed in the zone's NS
+#    RRSet:
+# 
+#    1.  is not authoritative for the zone (i.e., lame), or
+# 
+#    2.  returns a server failure response (RCODE=2), or
+# 
+#    3.  is dead or unreachable according to Section 7.2 of RFC 2308 [4].
+
+[[spec]]
+level = "MUST"
+quote = '''
+An iterative resolver MUST NOT send a query for the NS RRSet of a
+non-responsive zone to any of the name servers for that zone's parent
+zone.
+'''
+

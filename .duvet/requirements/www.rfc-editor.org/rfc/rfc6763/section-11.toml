@@ -1,0 +1,96 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-11"
+
+# Discovery of Browsing and Registration Domains (Domain Enumeration)
+#
+#    One of the motivations for DNS-based Service Discovery is to enable a
+#    visiting client (e.g., a Wi-Fi-equipped [IEEEW] laptop computer,
+#    tablet, or mobile telephone) arriving on a new network to discover
+#    what services are available on that network, without any manual
+#    configuration.  The logic that discovering services without manual
+#    configuration is a good idea also dictates that discovering
+#    recommended registration and browsing domains without manual
+#    configuration is a similarly good idea.
+# 
+#    This discovery is performed using DNS queries, using Unicast or
+#    Multicast DNS.  Five special RR names are reserved for this purpose:
+# 
+#           b._dns-sd._udp.<domain>.
+#          db._dns-sd._udp.<domain>.
+#           r._dns-sd._udp.<domain>.
+#          dr._dns-sd._udp.<domain>.
+#          lb._dns-sd._udp.<domain>.
+# 
+#    By performing PTR queries for these names, a client can learn,
+#    respectively:
+# 
+#    o  A list of domains recommended for browsing.
+# 
+#    o  A single recommended default domain for browsing.
+# 
+#    o  A list of domains recommended for registering services using
+#       Dynamic Update.
+# 
+#    o  A single recommended default domain for registering services.
+# 
+#    o  The "legacy browsing" or "automatic browsing" domain(s).
+#       Sophisticated client applications that care to present choices of
+#       domain to the user use the answers learned from the previous four
+#       queries to discover the domains to present.  In contrast, many
+#       current applications browse without specifying an explicit domain,
+#       allowing the operating system to automatically select an
+#       appropriate domain on their behalf.  It is for this class of
+#       application that the "automatic browsing" query is provided, to
+# 
+#       allow the network administrator to communicate to the client
+#       operating systems which domain(s) should be used automatically for
+#       these applications.
+# 
+#    These domains are purely advisory.  The client or user is free to
+#    register services and/or browse in any domains.  The purpose of these
+#    special queries is to allow software to create a user interface that
+#    displays a useful list of suggested choices to the user, from which
+#    the user may make an informed selection, or ignore the offered
+#    suggestions and manually enter their own choice.
+# 
+#    The <domain> part of the Domain Enumeration query name may be
+#    "local." (meaning "perform the query using link-local multicast") or
+#    it may be learned through some other mechanism, such as the DHCP
+#    "Domain" option (option code 15) [RFC2132], the DHCP "Domain Search"
+#    option (option code 119) [RFC3397], or IPv6 Router Advertisement
+#    Options [RFC6106].
+# 
+#    The <domain> part of the query name may also be derived a different
+#    way, from the host's IP address.  The host takes its IP address and
+#    calculates the logical AND of that address and its subnet mask, to
+#    derive the 'base' address of the subnet (the 'network address' of
+#    that subnet, or, equivalently, the IP address of the 'all-zero' host
+#    address on that subnet).  It then constructs the conventional DNS
+#    "reverse mapping" name corresponding to that base address, and uses
+#    that as the <domain> part of the name for the queries described
+#    above.  For example, if a host has the address 192.168.12.34, with
+#    the subnet mask 255.255.0.0, then the 'base' address of the subnet is
+#    192.168.0.0, and to discover the recommended automatic browsing
+#    domain(s) for devices on this subnet, the host issues a DNS PTR query
+#    for the name "lb._dns-sd._udp.0.0.168.192.in-addr.arpa."
+# 
+#    Equivalent address-derived Domain Enumeration queries should also be
+#    done for the host's IPv6 address(es).
+# 
+#    Address-derived Domain Enumeration queries SHOULD NOT be done for
+#    IPv4 link-local addresses [RFC3927] or IPv6 link-local addresses
+#    [RFC4862].
+# 
+#    Sophisticated clients may perform Domain Enumeration queries both in
+#    "local." and in one or more unicast domains, using both name-derived
+#    and address-derived queries, and then present the user with an
+#    combined result, aggregating the information received from all
+#    sources.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Address-derived Domain Enumeration queries SHOULD NOT be done for
+IPv4 link-local addresses [RFC3927] or IPv6 link-local addresses
+[RFC4862].
+'''
+

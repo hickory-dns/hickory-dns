@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-5"
+
+# Performance Optimizations
+#
+#    For optimal performance (i.e., minimum connection setup time),
+#    clients SHOULD implement a client-side DNS cache.  Responses in the
+#    Additional section of a SVCB response SHOULD be placed in cache
+#    before performing any follow-up queries.  With this behavior, and
+#    with conforming DNS servers, using SVCB does not add network latency
+#    to connection setup.
+# 
+#    To improve performance when using a non-conforming recursive
+#    resolver, clients SHOULD issue speculative A and/or AAAA queries in
+#    parallel with each SVCB query, based on a predicted value of
+#    TargetName (see Section 10.2).
+# 
+#    After a ServiceMode RRset is received, clients MAY try more than one
+#    option in parallel and MAY prefetch A and AAAA records for multiple
+#    TargetNames.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For optimal performance (i.e., minimum connection setup time),
+clients SHOULD implement a client-side DNS cache.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Responses in the
+Additional section of a SVCB response SHOULD be placed in cache
+before performing any follow-up queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To improve performance when using a non-conforming recursive
+resolver, clients SHOULD issue speculative A and/or AAAA queries in
+parallel with each SVCB query, based on a predicted value of
+TargetName (see Section 10.2).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+After a ServiceMode RRset is received, clients MAY try more than one
+option in parallel and MAY prefetch A and AAAA records for multiple
+TargetNames.
+'''
+

@@ -1,0 +1,149 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6.4"
+
+# Rules for Keys in DNS-SD Key/Value Pairs
+#
+#    The key MUST be at least one character.  DNS-SD TXT record strings
+#    beginning with an '=' character (i.e., the key is missing) MUST be
+#    silently ignored.
+# 
+#    The key SHOULD be no more than nine characters long.  This is because
+#    it is beneficial to keep packet sizes small for the sake of network
+#    efficiency.  When using DNS-SD in conjunction with Multicast DNS
+#    [RFC6762] this is important because multicast traffic is especially
+#    expensive on 802.11 wireless networks [IEEEW], but even when using
+#    conventional Unicast DNS, keeping the TXT records small helps improve
+#    the chance that responses will fit within the original DNS 512-byte
+#    size limit [RFC1035].  Also, each constituent string of a DNS TXT
+#    record is limited to 255 bytes, so excessively long keys reduce the
+#    space available for that key's values.
+# 
+#    The keys in key/value pairs can be as short as a single character.
+#    A key name needs only to be unique and unambiguous within the context
+#    of the service type for which it is defined.  A key name is intended
+#    solely to be a machine-readable identifier, not a human-readable
+#    essay giving detailed discussion of the purpose of a parameter, with
+#    a URL for a web page giving yet more details of the specification.
+#    For ease of development and debugging, it can be valuable to use key
+# 
+#    names that are mnemonic textual names, but excessively verbose keys
+#    are wasteful and inefficient, hence the recommendation to keep them
+#    to nine characters or fewer.
+# 
+#    The characters of a key MUST be printable US-ASCII values (0x20-0x7E)
+#    [RFC20], excluding '=' (0x3D).
+# 
+#    Spaces in the key are significant, whether leading, trailing, or in
+#    the middle -- so don't include any spaces unless you really intend
+#    that.
+# 
+#    Case is ignored when interpreting a key, so "papersize=A4",
+#    "PAPERSIZE=A4", and "Papersize=A4" are all identical.
+# 
+#    If there is no '=' in a DNS-SD TXT record string, then it is a
+#    boolean attribute, simply identified as being present, with no value.
+# 
+#    A given key SHOULD NOT appear more than once in a TXT record.  The
+#    reason for this simplifying rule is to facilitate the creation of
+#    client libraries that parse the TXT record into an internal data
+#    structure (such as a hash table or dictionary object that maps from
+#    keys to values) and then make that abstraction available to client
+#    code.  The rule that a given key may not appear more than once
+#    simplifies these abstractions because they aren't required to support
+#    the case of returning more than one value for a given key.
+# 
+#    If a client receives a TXT record containing the same key more than
+#    once, then the client MUST silently ignore all but the first
+#    occurrence of that attribute.  For client implementations that
+#    process a DNS-SD TXT record from start to end, placing key/value
+#    pairs into a hash table using the key as the hash table key, this
+#    means that if the implementation attempts to add a new key/value pair
+#    into the table and finds an entry with the same key already present,
+#    then the new entry being added should be silently discarded instead.
+#    Client implementations that retrieve key/value pairs by searching the
+#    TXT record for the requested key should search the TXT record from
+#    the start and simply return the first matching key they find.
+# 
+#    When examining a TXT record for a given key, there are therefore four
+#    categories of results that may be returned:
+# 
+#    *  Attribute not present (Absent)
+# 
+#    *  Attribute present, with no value
+#       (e.g., "passreq" -- password required for this service)
+# 
+#    *  Attribute present, with empty value
+#       (e.g., "PlugIns=" -- the server supports plugins, but none are
+#       presently installed)
+# 
+#    *  Attribute present, with non-empty value
+#       (e.g., "PlugIns=JPEG,MPEG2,MPEG4")
+# 
+#    Each author defining a DNS-SD profile for discovering instances of a
+#    particular type of service should define the interpretation of these
+#    different kinds of result.  For example, for some keys, there may be
+#    a natural true/false boolean interpretation:
+# 
+#    *  Absent implies 'false'
+#    *  Present implies 'true'
+# 
+#    For other keys it may be sensible to define other semantics, such as
+#    value/no-value/unknown:
+# 
+#    *  Present with value implies that value.
+#       (e.g., "Color=4" for a four-color ink-jet printer
+#       or "Color=6" for a six-color ink-jet printer)
+# 
+#    *  Present with empty value implies 'false'.
+#       (e.g., not a color printer)
+# 
+#    *  Absent implies 'Unknown'.
+#       (e.g., a print server connected to some unknown printer where the
+#       print server doesn't actually know if the printer does color or
+#       not -- which gives a very bad user experience and should be
+#       avoided wherever possible)
+# 
+#    Note that this is a hypothetical example, not an example of actual
+#    key/value keys used by DNS-SD network printers, which are documented
+#    in the "Bonjour Printing Specification" [BJP].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The key MUST be at least one character.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS-SD TXT record strings
+beginning with an '=' character (i.e., the key is missing) MUST be
+silently ignored.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The key SHOULD be no more than nine characters long.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The characters of a key MUST be printable US-ASCII values (0x20-0x7E)
+[RFC20], excluding '=' (0x3D).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A given key SHOULD NOT appear more than once in a TXT record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a client receives a TXT record containing the same key more than
+once, then the client MUST silently ignore all but the first
+occurrence of that attribute.
+'''
+

@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-5.3"
+
+# Mis-Issue by Authorized Certification Authority
+#
+#    The use of CAA records does not prevent mis-issue by an authorized
+#    CA, i.e., a CA that is authorized to issue certificates for the FQDN
+#    in question by CAA records.
+# 
+#    FQDN holders SHOULD verify that the CAs they authorize to issue
+#    certificates for their FQDNs employ appropriate controls to ensure
+#    that certificates are issued only to authorized parties within their
+#    organization.
+# 
+#    Such controls are most appropriately determined by the FQDN holder
+#    and the authorized CA(s) directly and are thus outside the scope of
+#    this document.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+FQDN holders SHOULD verify that the CAs they authorize to issue
+certificates for their FQDNs employ appropriate controls to ensure
+that certificates are issued only to authorized parties within their
+organization.
+'''
+

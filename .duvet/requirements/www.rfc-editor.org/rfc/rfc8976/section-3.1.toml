@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-3.1"
+
+# Add ZONEMD Placeholder
+#
+#    In preparation for calculating the zone digest(s), any existing
+#    ZONEMD records (and covering RRSIGs) at the zone apex are first
+#    deleted.
+# 
+#    Prior to calculation of the digest, and prior to signing with DNSSEC,
+#    one or more placeholder ZONEMD records are added to the zone apex.
+#    This ensures that denial-of-existence (NSEC, NSEC3) records are
+#    created correctly if the zone is signed with DNSSEC.  If placeholders
+#    were not added prior to signing, the later addition of ZONEMD records
+#    would also require updating the Type Bit Maps field of any apex NSEC/
+#    NSEC3 RRs, which then invalidates the calculated digest value.
+# 
+#    When multiple ZONEMD RRs are published in the zone, e.g., during an
+#    algorithm rollover, each MUST specify a unique Scheme and Hash
+#    Algorithm tuple.
+# 
+#    It is RECOMMENDED that the TTL of the ZONEMD record match the TTL of
+#    the Start of Authority (SOA).  However, the TTL of the ZONEMD record
+#    may be safely ignored during verification in all cases.
+# 
+#    In the placeholder record, the Serial field is set to the current SOA
+#    Serial.  The Scheme field is set to the value for the chosen
+#    collation scheme.  The Hash Algorithm field is set to the value for
+#    the chosen hash algorithm.  Since apex ZONEMD records are excluded
+#    from digest calculation, the value of the Digest field does not
+#    matter at this point in the process.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When multiple ZONEMD RRs are published in the zone, e.g., during an
+algorithm rollover, each MUST specify a unique Scheme and Hash
+Algorithm tuple.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that the TTL of the ZONEMD record match the TTL of
+the Start of Authority (SOA).
+'''
+

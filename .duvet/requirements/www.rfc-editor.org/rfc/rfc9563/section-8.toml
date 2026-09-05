@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc9563#section-8"
+
+# Security Considerations
+#
+#    The security strength of SM2 depends on the size of the key.  A
+#    longer key provides stronger security strength.  The security of ECC-
+#    based algorithms is influenced by the curve it uses, too.
+# 
+#    Like any cryptographic algorithm, it may come to pass that a weakness
+#    is found in either SM2 or SM3.  In this case, the proper remediation
+#    is crypto-agility.  In the case of DNSSEC, the appropriate approach
+#    would be to regenerate appropriate DS, DNSKEY, RRSIG, and NSEC3
+#    records.  Care MUST be taken in this situation to permit appropriate
+#    rollovers, taking into account record caching.  See [RFC7583] for
+#    details.  A suitable replacement algorithm should be both widely
+#    implemented and not known to have weaknesses.
+# 
+#    The security considerations listed in [RFC4509] apply here as well.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Care MUST be taken in this situation to permit appropriate
+rollovers, taking into account record caching.
+'''
+

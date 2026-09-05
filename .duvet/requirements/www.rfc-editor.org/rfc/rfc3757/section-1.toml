@@ -1,0 +1,87 @@
+target = "https://www.rfc-editor.org/rfc/rfc3757#section-1"
+
+# Introduction
+#
+#    "All keys are equal but some keys are more equal than others" [6].
+# 
+#    With the definition of the Delegation Signer Resource Record (DS RR)
+#    [5], it has become important to differentiate between the keys in the
+#    DNSKEY RR set that are (to be) pointed to by parental DS RRs and the
+#    other keys in the DNSKEY RR set.  We refer to these public keys as
+#    Secure Entry Point (SEP) keys.  A SEP key either used to generate a
+#    DS RR or is distributed to resolvers that use the key as the root of
+#    a trusted subtree [3].
+# 
+#    In early deployment tests, the use of two (kinds of) key pairs for
+#    each zone has been prevalent.  For one kind of key pair the private
+#    key is used to sign just the zone's DNSKEY resource record (RR) set.
+#    Its public key is intended to be referenced by a DS RR at the parent
+#    or configured statically in a resolver.  The private key of the other
+#    kind of key pair is used to sign the rest of the zone's data sets.
+#    The former key pair is called a key-signing key (KSK) and the latter
+#    is called a zone-signing key (ZSK).  In practice there have been
+#    usually one of each kind of key pair, but there will be multiples of
+#    each at times.
+# 
+#    It should be noted that division of keys pairs into KSK's and ZSK's
+#    is not mandatory in any definition of DNSSEC, not even with the
+#    introduction of the DS RR.  But, in testing, this distinction has
+#    been helpful when designing key roll over (key super-cession)
+#    schemes.  Given that the distinction has proven helpful, the labels
+#    KSK and ZSK have begun to stick.
+# 
+#    There is a need to differentiate the public keys for the key pairs
+#    that are used for key signing from keys that are not used key signing
+#    (KSKs vs ZSKs).  This need is driven by knowing which DNSKEYs are to
+#    be sent for generating DS RRs, which DNSKEYs are to be distributed to
+#    resolvers, and which keys are fed to the signer application at the
+#    appropriate time.
+# 
+#    In other words, the SEP bit provides an in-band method to communicate
+#    a DNSKEY RR's intended use to third parties.  As an example we
+#    present 3 use cases in which the bit is useful:
+# 
+#       The parent is a registry, the parent and the child use secured DNS
+#       queries and responses, with a preexisting trust-relation, or plain
+#       DNS over a secured channel to exchange the child's DNSKEY RR sets.
+#       Since a DNSKEY RR set will contain a complete DNSKEY RRset the SEP
+#       bit can be used to isolate the DNSKEYs for which a DS RR needs to
+#       be created.
+# 
+#       An administrator has configured a DNSKEY as root for a trusted
+#       subtree into security aware resolver.  Using a special purpose
+#       tool that queries for the KEY RRs from that domain's apex, the
+#       administrator will be able to notice the roll over of the trusted
+#       anchor by a change of the subset of KEY RRs with the DS flag set.
+# 
+#       A signer might use the SEP bit on the public key to determine
+#       which private key to use to exclusively sign the DNSKEY RRset and
+#       which private key to use to sign the other RRsets in the zone.
+# 
+#    As demonstrated in the above examples it is important to be able to
+#    differentiate the SEP keys from the other keys in a DNSKEY RR set in
+#    the flow between signer and (parental) key-collector and in the flow
+#    between the signer and the resolver configuration.  The SEP flag is
+#    to be of no interest to the flow between the verifier and the
+#    authoritative data store.
+# 
+#    The reason for the term "SEP" is a result of the observation that the
+#    distinction between KSK and ZSK key pairs is made by the signer, a
+#    key pair could be used as both a KSK and a ZSK at the same time.  To
+#    be clear, the term SEP was coined to lessen the confusion caused by
+#    the overlap.  (Once this label was applied, it had the side effect of
+#    removing the temptation to have both a KSK flag bit and a ZSK flag
+#    bit.)
+# 
+#    The key words "MAY","MAY NOT", "MUST", "MUST NOT", "REQUIRED",
+#    "RECOMMENDED", "SHOULD", and "SHOULD NOT" in this document are to be
+#    interpreted as described in BCP 14, RFC 2119 [1].
+
+[[spec]]
+level = "MAY"
+quote = '''
+The key words "MAY","MAY NOT", "MUST", "MUST NOT", "REQUIRED",
+"RECOMMENDED", "SHOULD", and "SHOULD NOT" in this document are to be
+interpreted as described in BCP 14, RFC 2119 [1].
+'''
+

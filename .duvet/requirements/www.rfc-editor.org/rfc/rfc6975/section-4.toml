@@ -1,0 +1,54 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-4"
+
+# Client Considerations
+#
+#    A validating end-system resolver sets the DAU, DHU, and/or N3U
+#    option, or combination thereof, in the OPT meta-RR when sending a
+#    query.  The validating end-system resolver MUST also set the DNSSEC
+#    OK bit [RFC4035] to indicate that it wishes to receive DNSSEC RRs in
+#    the response.
+# 
+#    Note that the PRIVATEDNS (253) and/or the PRIVATEOID (254) digital
+#    signature codes both cover a potentially wide range of algorithms and
+#    are likely not useful to a server.  There is no compelling reason for
+#    a client to include these codes in its list of the DAU.  Likewise,
+#    clients MUST NOT include RESERVED codes in any of the options.
+#    Additionally, a client is under no obligation to list every algorithm
+#    it implements and MAY choose to only list algorithms the client
+#    wishes to signal as understood.
+# 
+#    Since the DAU, DHU, and/or N3U options are only set in the query, if
+#    a client sees these options in the response, no action needs to be
+#    taken and the client MUST ignore the option values.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The validating end-system resolver MUST also set the DNSSEC
+OK bit [RFC4035] to indicate that it wishes to receive DNSSEC RRs in
+the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Likewise,
+clients MUST NOT include RESERVED codes in any of the options.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Additionally, a client is under no obligation to list every algorithm
+it implements and MAY choose to only list algorithms the client
+wishes to signal as understood.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since the DAU, DHU, and/or N3U options are only set in the query, if
+a client sees these options in the response, no action needs to be
+taken and the client MUST ignore the option values.
+'''
+

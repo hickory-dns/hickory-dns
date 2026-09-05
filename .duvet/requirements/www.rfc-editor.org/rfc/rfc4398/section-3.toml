@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc4398#section-3"
+
+# Appropriate Owner Names for CERT RRs
+#
+#    It is recommended that certificate CERT RRs be stored under a domain
+#    name related to their subject, i.e., the name of the entity intended
+#    to control the private key corresponding to the public key being
+#    certified.  It is recommended that certificate revocation list CERT
+#    RRs be stored under a domain name related to their issuer.
+# 
+#    Following some of the guidelines below may result in DNS names with
+#    characters that require DNS quoting as per Section 5.1 of RFC 1035
+#    [2].
+# 
+#    The choice of name under which CERT RRs are stored is important to
+#    clients that perform CERT queries.  In some situations, the clients
+#    may not know all information about the CERT RR object it wishes to
+#    retrieve.  For example, a client may not know the subject name of an
+#    X.509 certificate, or the email address of the owner of an OpenPGP
+#    key.  Further, the client might only know the hostname of a service
+#    that uses X.509 certificates or the Key ID of an OpenPGP key.
+# 
+#    Therefore, two owner name guidelines are defined: content-based owner
+#    names and purpose-based owner names.  A content-based owner name is
+#    derived from the content of the CERT RR data; for example, the
+#    Subject field in an X.509 certificate or the User ID field in OpenPGP
+#    keys.  A purpose-based owner name is a name that a client retrieving
+#    CERT RRs ought to know already; for example, the host name of an
+#    X.509 protected service or the Key ID of an OpenPGP key.  The
+#    content-based and purpose-based owner name may be the same; for
+#    example, when a client looks up a key based on the From: address of
+#    an incoming email.
+# 
+#    Implementations SHOULD use the purpose-based owner name guidelines
+#    described in this document and MAY use CNAME RRs at content-based
+#    owner names (or other names), pointing to the purpose-based owner
+#    name.
+# 
+#    Note that this section describes an application-based mapping from
+#    the name space used in a certificate to the name space used by DNS.
+#    The DNS does not infer any relationship amongst CERT resource records
+#    based on similarities or differences of the DNS owner name(s) of CERT
+#    resource records.  For example, if multiple labels are used when
+#    mapping from a CERT identifier to a domain name, then care must be
+#    taken in understanding wildcard record synthesis.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD use the purpose-based owner name guidelines
+described in this document and MAY use CNAME RRs at content-based
+owner names (or other names), pointing to the purpose-based owner
+name.
+'''
+

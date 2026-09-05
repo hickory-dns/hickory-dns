@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.3"
+
+# Closest Encloser Proof
+#
+#    In order to verify a closest encloser proof, the validator MUST find
+#    the longest name, X, such that
+# 
+#    o  X is an ancestor of QNAME that is matched by an NSEC3 RR present
+#       in the response.  This is a candidate for the closest encloser,
+#       and
+# 
+#    o  The name one label longer than X (but still an ancestor of -- or
+#       equal to -- QNAME) is covered by an NSEC3 RR present in the
+#       response.
+# 
+#    One possible algorithm for verifying this proof is as follows:
+# 
+#    1.  Set SNAME=QNAME.  Clear the flag.
+# 
+#    2.  Check whether SNAME exists:
+# 
+#        *  If there is no NSEC3 RR in the response that matches SNAME
+#           (i.e., an NSEC3 RR whose owner name is the same as the hash of
+#           SNAME, prepended as a single label to the zone name), clear
+#           the flag.
+# 
+#        *  If there is an NSEC3 RR in the response that covers SNAME, set
+#           the flag.
+# 
+#        *  If there is a matching NSEC3 RR in the response and the flag
+#           was set, then the proof is complete, and SNAME is the closest
+#           encloser.
+# 
+#        *  If there is a matching NSEC3 RR in the response, but the flag
+#           is not set, then the response is bogus.
+# 
+#    3.  Truncate SNAME by one label from the left, go to step 2.
+# 
+#    Once the closest encloser has been discovered, the validator MUST
+#    check that the NSEC3 RR that has the closest encloser as the original
+#    owner name is from the proper zone.  The DNAME type bit must not be
+#    set and the NS type bit may only be set if the SOA type bit is set.
+#    If this is not the case, it would be an indication that an attacker
+#    is using them to falsely deny the existence of RRs for which the
+#    server is not authoritative.
+# 
+#    In the following descriptions, the phrase "a closest (provable)
+#    encloser proof for X" means that the algorithm above (or an
+#    equivalent algorithm) proves that X does not exist by proving that an
+#    ancestor of X is its closest encloser.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order to verify a closest encloser proof, the validator MUST find
+the longest name, X, such that
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once the closest encloser has been discovered, the validator MUST
+check that the NSEC3 RR that has the closest encloser as the original
+owner name is from the proper zone.
+'''
+

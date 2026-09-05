@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.12"
+
+# Ignore Extra Signatures from Unknown Keys
+#
+#    Validating resolvers MUST disregard RRSIGs in a zone that do not
+#    (currently) have a corresponding DNSKEY in the zone.  Similarly, a
+#    validating resolver MUST disregard RRSIGs with algorithm types that
+#    don't exist in the DNSKEY RRset.
+# 
+#    Good key rollover and algorithm rollover practices, as discussed in
+#    RFC 6781 and its successor documents and as suggested by the rules in
+#    the previous section, may require that such RRSIGs be present in a
+#    zone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Validating resolvers MUST disregard RRSIGs in a zone that do not
+(currently) have a corresponding DNSKEY in the zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Similarly, a
+validating resolver MUST disregard RRSIGs with algorithm types that
+don't exist in the DNSKEY RRset.
+'''
+

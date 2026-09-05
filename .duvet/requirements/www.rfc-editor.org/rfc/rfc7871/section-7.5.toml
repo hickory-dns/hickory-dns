@@ -1,0 +1,86 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.5"
+
+# Transitivity
+#
+#    Generally, ECS options will only be present in DNS messages between a
+#    Recursive Resolver and an Authoritative Nameserver, i.e., one hop.
+#    However, in certain configurations, for example, multi-tier
+#    nameserver setups, it may be necessary to implement transitive
+#    behavior on Intermediate Nameservers.
+# 
+#    Any Intermediate Nameserver that forwards ECS options received from
+#    its clients MUST fully implement the caching behavior described in
+#    Section 7.3.
+# 
+#    An Intermediate Nameserver MAY forward ECS options with address
+#    information.  This information MAY match the source IP address of the
+#    incoming query, and MAY have more or fewer address bits than the
+#    nameserver would normally include in a locally originated ECS option.
+#    If an Intermediate Nameserver receives a query with SOURCE PREFIX-
+#    LENGTH set to 0, it MUST NOT include client address information in
+#    queries made to resolve that client's request (see Section 7.1.2).
+# 
+#    If, for any reason, the Intermediate Nameserver does not want to use
+#    the information in an ECS option it receives (too little address
+#    information, network address from a range not authorized to use the
+#    server, private/unroutable address space, etc.), it SHOULD drop the
+#    query and return a REFUSED response.  Note again that a query MUST
+#    NOT be refused solely because it provides 0 address bits.
+# 
+#    Be aware that at least one major existing implementation does not
+#    return REFUSED and instead just processes the query as though the
+#    problematic information were not present.  This can lead to anomalous
+#    situations, such as a response from the Intermediate Nameserver that
+#    indicates it is tailored for one network (the one passed in the
+#    original query, since the ADDRESS must match) when actually it is for
+#    another network (the one which contains the address that the
+#    Intermediate Nameserver saw as making the query).
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any Intermediate Nameserver that forwards ECS options received from
+its clients MUST fully implement the caching behavior described in
+Section 7.3.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An Intermediate Nameserver MAY forward ECS options with address
+information.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+This information MAY match the source IP address of the
+incoming query, and MAY have more or fewer address bits than the
+nameserver would normally include in a locally originated ECS option.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an Intermediate Nameserver receives a query with SOURCE PREFIX-
+LENGTH set to 0, it MUST NOT include client address information in
+queries made to resolve that client's request (see Section 7.1.2).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If, for any reason, the Intermediate Nameserver does not want to use
+the information in an ECS option it receives (too little address
+information, network address from a range not authorized to use the
+server, private/unroutable address space, etc.), it SHOULD drop the
+query and return a REFUSED response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Note again that a query MUST
+NOT be refused solely because it provides 0 address bits.
+'''
+

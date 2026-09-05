@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.9.3"
+
+# Handling of the AD Bit
+#
+#    A non-validating security-aware stub resolver MAY chose to examine
+#    the setting of the AD bit in response messages that it receives in
+#    order to determine whether the security-aware recursive name server
+#    that sent the response claims to have cryptographically verified the
+#    data in the Answer and Authority sections of the response message.
+#    Note, however, that the responses received by a security-aware stub
+#    resolver are heavily dependent on the local policy of the
+#    security-aware recursive name server.  Therefore, there may be little
+#    practical value in checking the status of the AD bit, except perhaps
+#    as a debugging aid.  In any case, a security-aware stub resolver MUST
+#    NOT place any reliance on signature validation allegedly performed on
+#    its behalf, except when the security-aware stub resolver obtained the
+#    data in question from a trusted security-aware recursive name server
+#    via a secure channel.
+# 
+#    A validating security-aware stub resolver SHOULD NOT examine the
+#    setting of the AD bit in response messages, as, by definition, the
+#    stub resolver performs its own signature validation regardless of the
+#    setting of the AD bit.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A non-validating security-aware stub resolver MAY chose to examine
+the setting of the AD bit in response messages that it receives in
+order to determine whether the security-aware recursive name server
+that sent the response claims to have cryptographically verified the
+data in the Answer and Authority sections of the response message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In any case, a security-aware stub resolver MUST
+NOT place any reliance on signature validation allegedly performed on
+its behalf, except when the security-aware stub resolver obtained the
+data in question from a trusted security-aware recursive name server
+via a secure channel.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A validating security-aware stub resolver SHOULD NOT examine the
+setting of the AD bit in response messages, as, by definition, the
+stub resolver performs its own signature validation regardless of the
+setting of the AD bit.
+'''
+

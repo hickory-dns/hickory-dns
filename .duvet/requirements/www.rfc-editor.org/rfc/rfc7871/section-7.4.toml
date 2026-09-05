@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.4"
+
+# Delegations and Negative Answers
+#
+#    The prohibition against tying ECS data to records from the Authority
+#    and Additional sections left an unfortunate ambiguity in the original
+#    specification, primarily with regard to negative answers.  The
+#    expectation of the original authors was that ECS would only really be
+#    used for address requests and the positive result in the response's
+#    Answer section, which was the use case that was driving the
+#    definition of the protocol.
+# 
+#    For negative answers, some independent implementations of both
+#    resolvers and authorities did not see the section restriction as
+#    necessarily meaning that a given name and type must only have either
+#    positive ECS-tagged answers or a negative answer.  They support being
+#    able to tell one part of the network that the data does not exist,
+#    while telling another part of the network that it does.
+# 
+#    Several other implementations, however, do not support being able to
+#    mix positive and negative answers; thus, interoperability is a
+#    problem.  It is RECOMMENDED that no specific behavior regarding
+#    negative answers be relied upon, but that Authoritative Nameservers
+#    should conservatively expect that Intermediate Nameservers will treat
+#    all negative answers as /0; therefore, they SHOULD set SCOPE PREFIX-
+#    LENGTH accordingly.
+# 
+#    This issue is expected to be revisited in a future revision of the
+#    protocol, possibly blessing the mixing of positive and negative
+#    answers.  There are implications for cache data structures that
+#    developers should consider when writing new ECS code.
+# 
+#    The delegations case is a bit easier to tease out.  In operational
+#    practice, if an authoritative server is using address information to
+#    provide customized delegations, it is the resolver that will be using
+#    the answer for its next iterative query.  Addresses in the Additional
+#    section SHOULD therefore ignore ECS data, and the Authoritative
+#    Nameserver SHOULD return a zero SCOPE PREFIX-LENGTH on delegations.
+#    A Recursive Resolver SHOULD treat a non-zero SCOPE PREFIX LENGTH in a
+#    delegation as though it were zero.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that no specific behavior regarding
+negative answers be relied upon, but that Authoritative Nameservers
+should conservatively expect that Intermediate Nameservers will treat
+all negative answers as /0; therefore, they SHOULD set SCOPE PREFIX-
+LENGTH accordingly.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Addresses in the Additional
+section SHOULD therefore ignore ECS data, and the Authoritative
+Nameserver SHOULD return a zero SCOPE PREFIX-LENGTH on delegations.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A Recursive Resolver SHOULD treat a non-zero SCOPE PREFIX LENGTH in a
+delegation as though it were zero.
+'''
+

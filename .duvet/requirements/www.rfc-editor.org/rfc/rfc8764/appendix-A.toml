@@ -1,0 +1,93 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#appendix-A"
+
+# Problems with the LLQ Protocol
+#
+#    In the course of using LLQ since 2005, some problems were discovered.
+#    Since no further work is being done on the LLQ protocol, this LLQ
+#    specification will not be updated to remedy these problems.
+# 
+#    LLQ's IETF Standards Track successor, "DNS Push Notifications"
+#    [RFC8765], does not suffer from these problems, so all existing LLQ
+#    implementations are RECOMMENDED to migrate to using DNS Push
+#    Notifications, and all new implementations are RECOMMENDED to
+#    implement DNS Push Notifications instead of LLQ.
+# 
+#    Known problems with LLQ are documented here as a cautionary tale
+#    about the challenges of building an application protocol directly
+#    using datagrams (like IP or UDP) without the benefit of a mature and
+#    thoroughly reviewed intervening transport layer (such as TCP or
+#    QUIC).
+# 
+#    An LLQ "Setup Challenge" message from server to client is identical
+#    to an LLQ "ACK + Answers" message from server to client when there
+#    are no current answers for the query.  If there is packet loss,
+#    retransmission, and duplication in the network, then a duplicated
+#    "Setup Challenge" message arriving late at the client would look like
+#    an "ACK + Answers" message with no answers, causing the client to
+#    clear its cache of any records matching the query.
+# 
+#    Section 5.1 of this LLQ specification states, "Servers MUST NOT
+#    garbage collect LLQs that fail to complete the four-way handshake
+#    until the initially granted LLQ-LEASE has elapsed."  This is probably
+#    a mistake since it exposes LLQ servers to an easy resource-exhaustion
+#    denial-of-service attack.  LLQ's replacement, DNS Push Notifications
+#    [RFC8765], is built using DNS Stateful Operations [RFC8490], which
+#    uses TLS over TCP; a benefit of building on TCP is that there are
+#    already established industry best practices to guard against SYN
+#    flooding and similar attacks [SYN] [RFC4953].
+# 
+#    The attempts here to pack multiple questions into a single UDP/IP
+#    packet for efficiency are awkward and lead to error-prone programming
+#    to deal with cases where some requests in a packet succeed and other
+#    requests in the same packet fail.  Fully specifying the correct
+#    handling in all possible cases would be a lot of work to document, a
+#    lot of work to implement, and even more work to thoroughly test.  DNS
+#    Push Notifications [RFC8765] avoids this problem by using an
+#    underlying stream protocol (TLS/TCP) to deal with packing small
+#    multiple messages into larger IP packets for efficiency.
+# 
+#    In some cases, initial LLQ answers are delivered in the "ACK +
+#    Answers" message, and in other cases, such as when all the initial
+#    answers will not fit in a single IP packet, some of the initial
+#    answers are delivered in a subsequent "Add Event" message.  Having
+#    two different ways to accomplish the same thing increases the
+#    possibility for programming errors.  DNS Push Notifications [RFC8765]
+#    corrects this error by having only one single consistent way to
+#    deliver results.
+# 
+#    LLQ is built using UDP, and because UDP has no standardized way of
+#    indicating the start and end of a session, firewalls and NAT gateways
+#    tend to be fairly aggressive about recycling UDP mappings that they
+#    believe to be disused [RFC4787] [RFC5382] [RFC7857].  Using a high
+#    keepalive traffic rate to maintain firewall or NAT mapping state
+#    could remedy this but would largely defeat the purpose of using LLQ
+#    in the first place, which is to provide efficient change notification
+#    without wasteful polling.  Because of this, existing LLQ clients use
+#    the NAT Port Mapping Protocol (NAT-PMP) [RFC6886] and/or Port Control
+#    Protocol (PCP) [RFC6887] to establish longer port mapping lifetimes.
+#    This solves the problem but adds extra complexity and doesn't work
+#    with firewalls and NAT gateways that don't support NAT-PMP or PCP.
+#    By using TCP instead of UDP, the DNS Push Notifications protocol
+#    benefits from better longevity of sessions through firewalls and NAT
+#    gateways that don't support NAT-PMP or PCP.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+LLQ's IETF Standards Track successor, "DNS Push Notifications"
+[RFC8765], does not suffer from these problems, so all existing LLQ
+implementations are RECOMMENDED to migrate to using DNS Push
+Notifications, and all new implementations are RECOMMENDED to
+implement DNS Push Notifications instead of LLQ.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Section 5.1 of this LLQ specification states, "Servers MUST NOT
+garbage collect LLQs that fail to complete the four-way handshake
+until the initially granted LLQ-LEASE has elapsed."  This is probably
+a mistake since it exposes LLQ servers to an easy resource-exhaustion
+denial-of-service attack.
+'''
+

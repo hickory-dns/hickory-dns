@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6"
+
+# Data Syntax for DNS-SD TXT Records
+#
+#    Some services discovered via Service Instance Enumeration may need
+#    more than just an IP address and port number to completely identify
+#    the service instance.  For example, printing via the old Unix LPR
+#    (port 515) protocol [RFC1179] often specifies a queue name [BJP].
+#    This queue name is typically short and cryptic, and need not be shown
+#    to the user.  It should be regarded the same way as the IP address
+#    and port number: it is another component of the addressing
+#    information required to identify a specific instance of a service
+#    being offered by some piece of hardware.  Similarly, a file server
+#    may have multiple volumes, each identified by its own volume name.  A
+#    web server typically has multiple pages, each identified by its own
+#    URL.  In these cases, the necessary additional data is stored in a
+#    TXT record with the same name as the SRV record.  The specific nature
+#    of that additional data, and how it is to be used, is service-
+#    dependent, but the overall syntax of the data in the TXT record is
+#    standardized, as described below.
+# 
+#    Every DNS-SD service MUST have a TXT record in addition to its SRV
+#    record, with the same name, even if the service has no additional
+#    data to store and the TXT record contains no more than a single zero
+#    byte.  This allows a service to have explicit control over the Time
+#    to Live (TTL) of its (empty) TXT record, rather than using the
+#    default negative caching TTL, which would otherwise be used for a "no
+#    error no answer" DNS response.
+# 
+#    Note that this requirement for a mandatory TXT record applies
+#    exclusively to DNS-SD service advertising, i.e., services advertised
+#    using the PTR+SRV+TXT convention specified in this document.  It is
+#    not a requirement of SRV records in general.  The DNS SRV record
+#    datatype [RFC2782] may still be used in other contexts without any
+#    requirement for accompanying PTR and TXT records.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Every DNS-SD service MUST have a TXT record in addition to its SRV
+record, with the same name, even if the service has no additional
+data to store and the TXT record contains no more than a single zero
+byte.
+'''
+

@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-2.2.2"
+
+# The Scheme Field
+#
+#    The Scheme field is an 8-bit unsigned integer that identifies the
+#    methods by which data is collated and presented as input to the
+#    hashing function.
+# 
+#    Herein, SIMPLE, with Scheme value 1, is the only standardized Scheme
+#    defined for ZONEMD records and it MUST be supported by
+#    implementations.  The "ZONEMD Schemes" registry is further described
+#    in Section 5.
+# 
+#    Scheme values 240-254 are allocated for Private Use.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Herein, SIMPLE, with Scheme value 1, is the only standardized Scheme
+defined for ZONEMD records and it MUST be supported by
+implementations.
+'''
+
