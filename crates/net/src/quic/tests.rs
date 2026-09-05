@@ -27,7 +27,7 @@ use crate::{
         op::{Message, Query},
         rr::{Name, RecordType},
     },
-    quic::QuicClientStreamBuilder,
+    quic::{QuicClientStreamBuilder, QuicStreams},
     tls::default_provider,
     xfer::DnsRequestSender,
 };
@@ -35,13 +35,15 @@ use crate::{
 use super::quic_server::QuicServer;
 
 async fn server_responder(mut server: QuicServer) {
-    while let Some((mut conn, addr)) = server
-        .next()
-        .await
-        .expect("failed to get next quic session")
-    {
-        println!("received client request {addr}");
+    while let Some(incoming) = server.next().await {
+        println!("received client request {}", incoming.remote_address());
 
+        let connecting = incoming
+            .accept()
+            .expect("failed to accept next quic connection");
+        let mut conn = QuicStreams::new(connecting)
+            .await
+            .expect("failed to establish next quic connection");
         while let Some(stream) = conn.next().await {
             let mut stream = stream.expect("new client stream failed");
 
