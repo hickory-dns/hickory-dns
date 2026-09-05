@@ -420,6 +420,41 @@ mod tests {
         assert!(response.answers.len() > 1);
     }
 
+    /// RFC 6891 section 7 requires the OPT record to be present even when the response is
+    /// truncated, so answers have to give way to it rather than the other way around.
+    #[test]
+    fn test_opt_record_is_kept_when_truncating() {
+        let answer = Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            0,
+            RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+        );
+
+        let mut edns = Edns::new();
+        edns.set_max_payload(512);
+
+        let request = MessageRequest::mock(
+            Metadata::new(10, MessageType::Query, OpCode::Query),
+            Query::root(),
+        );
+        let mut response = MessageResponseBuilder::from_message_request(&request).build(
+            Metadata::new(10, MessageType::Response, OpCode::Query),
+            iter::repeat(&answer),
+            [],
+            [],
+            [],
+        );
+        response.set_edns(&edns);
+
+        let (_info, buf) = response.encode(Protocol::Udp).expect("failed to encode");
+        assert!(buf.len() <= 512, "response was {} bytes", buf.len());
+
+        let response = Message::from_vec(&buf).expect("failed to decode");
+        assert!(response.metadata.truncation);
+        assert!(response.answers.len() > 1);
+        assert!(response.edns.is_some(), "OPT record was dropped");
+    }
+
     // https://github.com/hickory-dns/hickory-dns/issues/2210
     // If a client sends this DNS request to the hickory 0.24.0 DNS server:
     //
