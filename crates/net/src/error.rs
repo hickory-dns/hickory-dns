@@ -40,6 +40,10 @@ pub enum NetError {
     #[error("resource too busy")]
     Busy,
 
+    /// The connection carrying a request went away before it could be answered.
+    #[error("connection closed before a response was received")]
+    ConnectionClosed,
+
     /// Unable to decode HTTP header value to string
     #[cfg(any(feature = "__https", feature = "__h3"))]
     #[error("header decode error: {0}")]
@@ -199,6 +203,7 @@ impl NetError {
             }
             #[cfg(feature = "__h3")]
             Self::H3(err) => err.is_h3_no_error(),
+            Self::ConnectionClosed => true,
             Self::Io(err) => matches!(
                 err.kind(),
                 io::ErrorKind::ConnectionReset
@@ -231,6 +236,7 @@ impl NetError {
     pub fn as_metrics_label(&self) -> &'static str {
         match self {
             Self::Busy => "busy",
+            Self::ConnectionClosed => "connection_closed",
             #[cfg(any(feature = "__https", feature = "__h3"))]
             Self::Decode(_) => "http_header_decode",
             Self::Dns(dns_err) => dns_err.as_metrics_label(),

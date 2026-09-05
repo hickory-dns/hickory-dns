@@ -138,6 +138,9 @@ impl<P: ConnectionProvider> NameServer<P> {
                 Ok(v) => v,
                 Err((err, protocol)) => {
                     debug!(config = ?self.config, ?protocol, %err, "failed to establish connection to name server");
+                    if err.is_connection_closed() {
+                        self.server_srtt.record_failure();
+                    }
                     return (protocol, Err(err));
                 }
             };
