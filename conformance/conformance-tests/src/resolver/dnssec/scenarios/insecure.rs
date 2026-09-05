@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-use dns_test::client::{Client, DigOutput, DigSettings};
+use dns_test::client::{Client, DigOutput, DigSettings, DigStatus};
 use dns_test::name_server::NameServer;
 use dns_test::record::{A, Record, RecordType};
 use dns_test::zone_file::{Nsec, SignSettings};
@@ -258,4 +258,65 @@ fn no_ds_record_fixture(
     let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &needle_fqdn)?;
 
     Ok((output, resolver.logs()?))
+}
+
+#[test]
+fn two_insecure_delegations() -> Result<(), Error> {
+    let sign_settings = SignSettings::default();
+    let network = Network::new()?;
+    let expected_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
+
+    let mut child_ns = NameServer::new(&dns_test::PEER, FQDN::EXAMPLE_SUBDOMAIN, &network)?;
+    child_ns.add(Record::a(FQDN::EXAMPLE_SUBDOMAIN, expected_ipv4_addr));
+    child_ns.add(Record::a(
+        FQDN::EXAMPLE_SUBDOMAIN.push_label("www"),
+        expected_ipv4_addr,
+    ));
+    let mut unsigned_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_DOMAIN, &network)?;
+    unsigned_ns.referral_nameserver(&child_ns);
+
+    let mut tld_ns = NameServer::new(&dns_test::PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&unsigned_ns);
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&dns_test::PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings)?;
+    let root_hint = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let _root_ns = root_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _unsigned_ns = unsigned_ns.start()?;
+    let _child_ns = child_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+
+    let client = Client::new(&network)?;
+    let settings = *DigSettings::default().recurse().authentic_data();
+
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::EXAMPLE_SUBDOMAIN,
+    )?;
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(!output.answer.is_empty());
+    assert!(!output.flags.authenticated_data);
+
+    let output = client.dig(
+        settings,
+        resolver.ipv4_addr(),
+        RecordType::A,
+        &FQDN::EXAMPLE_SUBDOMAIN.push_label("www"),
+    )?;
+    assert_eq!(output.status, DigStatus::NOERROR);
+    assert!(!output.answer.is_empty());
+    assert!(!output.flags.authenticated_data);
+
+    Ok(())
 }
