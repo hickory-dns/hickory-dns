@@ -610,11 +610,10 @@ where
         // and an OPT record. This MUST also occur when a truncated response (using the DNS
         // header's TC bit) is returned."
         //
-        // The OPT record's owner name is always the root, which always encodes to exactly one
-        // byte regardless of what has already been written, so its encoded size is known ahead
-        // of time. Reserve that much space before encoding the answer, authority and additional
-        // sections, so the OPT record is guaranteed to fit afterward even if those sections end
-        // up truncated.
+        // The OPT belongs in the additional section, which must follow answers and authority on
+        // the wire (parsers assign records to sections by count, not by type), so it cannot be
+        // emitted first. Instead, reserve space: the OPT's owner name is always root (one byte),
+        // so its encoded size is stable and can be measured up front.
         let opt_record = Record::from(&edns);
         let opt_len = {
             let mut buf = Vec::new();
