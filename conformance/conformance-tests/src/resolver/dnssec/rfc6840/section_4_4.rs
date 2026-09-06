@@ -27,7 +27,7 @@
 use std::net::Ipv4Addr;
 
 use dns_test::{
-    Error, FQDN, Implementation, Network, PEER, Resolver,
+    Error, FQDN, Implementation, Network, PEER, Resolver, SUBJECT,
     client::{Client, DigOutput, DigSettings, DigStatus},
     name_server::NameServer,
     record::{Record, RecordType},
@@ -39,6 +39,7 @@ fn forged_delegation_over_nxdomain_nsec() -> Result<(), Error> {
     let output = forged_delegation_test(
         FQDN("name-doesnt-exist.testing.")?,
         SignSettings::default().nsec(Nsec::_1),
+        false,
     )?;
     assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
     Ok(())
@@ -49,6 +50,7 @@ fn forged_delegation_over_nodata_nsec() -> Result<(), Error> {
     let output = forged_delegation_test(
         FQDN("name-exists.testing.")?,
         SignSettings::default().nsec(Nsec::_1),
+        false,
     )?;
     assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
     Ok(())
@@ -63,6 +65,7 @@ fn forged_delegation_over_nxdomain_nsec3() -> Result<(), Error> {
             opt_out: false,
             salt: None,
         }),
+        false,
     )?;
     assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
     Ok(())
@@ -77,6 +80,7 @@ fn forged_delegation_over_nodata_nsec3() -> Result<(), Error> {
             opt_out: false,
             salt: None,
         }),
+        false,
     )?;
     assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
     Ok(())
@@ -93,6 +97,7 @@ fn forged_delegation_over_nxdomain_nsec3_optout() -> Result<(), Error> {
             opt_out: true,
             salt: None,
         }),
+        false,
     )?;
     assert_eq!(output.status, DigStatus::NOERROR, "{output:?}");
     assert!(!output.flags.authenticated_data, "{output:?}");
@@ -108,9 +113,34 @@ fn forged_delegation_over_nxdomain_nsec3_optout() -> Result<(), Error> {
     Ok(())
 }
 
+#[test]
+fn forged_delegation_ignores_unvalidated_nsec() -> Result<(), Error> {
+    let output = forged_delegation_test(
+        FQDN("name-exists.testing.")?,
+        SignSettings::default().nsec(Nsec::_3 {
+            iterations: 1,
+            opt_out: false,
+            salt: None,
+        }),
+        true,
+    )?;
+
+    // The injected NSEC is unsigned, so it must never authenticate the forged delegation as
+    // insecure. It never grants an authenticated answer on any resolver. unbound and hickory
+    // reject the response outright with SERVFAIL; BIND instead serves the record as insecure
+    // (without the AD flag) rather than failing.
+    assert!(!output.flags.authenticated_data, "{output:?}");
+    if !SUBJECT.is_bind() {
+        assert_eq!(output.status, DigStatus::SERVFAIL, "{output:?}");
+    }
+
+    Ok(())
+}
+
 fn forged_delegation_test(
     delegation_name: FQDN,
     sign_settings: SignSettings,
+    inject_unvalidated_nsec: bool,
 ) -> Result<DigOutput, Error> {
     let network = Network::new()?;
     let query_name = delegation_name.push_label("record");
@@ -136,6 +166,7 @@ fn forged_delegation_test(
                 honest_ns.ipv4_addr().to_string(),
                 delegation_name.to_string(),
                 child_ns.fqdn().to_string(),
+                inject_unvalidated_nsec.to_string(),
             ],
             "both",
         ),
