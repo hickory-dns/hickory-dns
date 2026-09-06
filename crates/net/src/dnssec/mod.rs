@@ -772,6 +772,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     // Case 1: Matching NSEC record exists that proves NS is present and DS is not
                     // present. This is definitively an insecure delegation.
                     if response.authorities.iter().any(|record| {
+                        if record.proof != Proof::Secure {
+                            return false;
+                        }
                         let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
                             return false;
                         };
@@ -795,9 +798,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         .authorities
                         .iter()
                         .filter_map(|record| {
+                            if record.proof != Proof::Secure {
+                                return None;
+                            }
+
                             let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &record.data else {
                                 return None;
                             };
+
                             Some((&record.name, nsec3))
                         })
                         .collect::<Vec<_>>();

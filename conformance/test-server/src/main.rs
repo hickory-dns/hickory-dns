@@ -106,6 +106,8 @@ enum HandlerArg {
         ip_address: IpAddr,
         zone: Name,
         nameserver: Name,
+        #[clap(action = clap::ArgAction::Set)]
+        inject_unvalidated_nsec: bool,
     },
     BogusWildcardExpansionNsecSameNameCondition,
     Nsec3WrongZone {
@@ -161,8 +163,10 @@ impl HandlerArg {
                 ip_address,
                 zone,
                 nameserver,
-            } => FORGED_DELEGATION_HANDLER
-                .get_or_init(|| ForgedDelegationHandler::new(ip_address, zone, nameserver)),
+                inject_unvalidated_nsec,
+            } => FORGED_DELEGATION_HANDLER.get_or_init(|| {
+                ForgedDelegationHandler::new(ip_address, zone, nameserver, inject_unvalidated_nsec)
+            }),
             Self::BogusWildcardExpansionNsecSameNameCondition => {
                 &(bogus_wildcard_expansion_nsec_same_name_condition_handler as HandlerMessageFnPtr)
             }

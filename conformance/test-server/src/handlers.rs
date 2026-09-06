@@ -1296,14 +1296,21 @@ pub(crate) struct ForgedDelegationHandler {
     ip_address: IpAddr,
     zone: Name,
     nameserver: Name,
+    inject_unvalidated_nsec: bool,
 }
 
 impl ForgedDelegationHandler {
-    pub(crate) fn new(ip_address: IpAddr, zone: Name, nameserver: Name) -> Self {
+    pub(crate) fn new(
+        ip_address: IpAddr,
+        zone: Name,
+        nameserver: Name,
+        inject_unvalidated_nsec: bool,
+    ) -> Self {
         Self {
             ip_address,
             zone,
             nameserver,
+            inject_unvalidated_nsec,
         }
     }
 }
@@ -1324,6 +1331,19 @@ impl Handler for ForgedDelegationHandler {
         if is_ds_query {
             if response.metadata.response_code == ResponseCode::NXDomain {
                 response.metadata.response_code = ResponseCode::NoError;
+            }
+            if self.inject_unvalidated_nsec {
+                // The real NSEC3 RRset authenticates NODATA at this non-delegation name. Add an
+                // unsigned NSEC RRset that falsely claims the name is a delegation. A validator
+                // must not use this record merely because the rest of the response validates.
+                response.authorities.push(Record::from_rdata(
+                    self.zone.clone(),
+                    3600,
+                    RData::DNSSEC(DNSSECRData::NSEC(NSEC::new(
+                        self.zone.base_name(),
+                        [RecordType::NS, RecordType::NSEC, RecordType::RRSIG],
+                    ))),
+                ));
             }
         } else if is_descendant {
             response.metadata.authoritative = false;
