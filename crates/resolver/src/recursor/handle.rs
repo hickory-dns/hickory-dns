@@ -886,43 +886,43 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         let mut ttl = u32::MAX;
 
         while let Some(next) = futures.next().await {
-            match next {
-                Some(Ok(response)) => {
-                    debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
-                    config.extend(
-                        response
-                            .into_message()
-                            .answers
-                            .into_iter()
-                            .filter_map(|answer| {
-                                let ip = answer.data.ip_addr()?;
-
-                                if self.name_server_filter.denied(ip) {
-                                    debug!(
-                                        %ip,
-                                        "append_ips_from_lookup: ignoring address due to \
-                                        do_not_query"
-                                    );
-                                    None
-                                } else {
-                                    if answer.ttl < ttl {
-                                        ttl = answer.ttl;
-                                    }
-                                    Some(ip)
-                                }
-                            })
-                            .map(|ip| {
-                                name_server_config(ip, &self.pool_context.opportunistic_encryption)
-                            }),
-                    );
-                }
+            let response = match next {
+                Some(Ok(response)) => response,
                 Some(Err(e)) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
+                    continue;
                 }
                 None => {
                     warn!("no response to lookup");
+                    continue;
                 }
-            }
+            };
+
+            debug!("append_ips_from_lookup: A or AAAA response: {response:?}");
+            config.extend(
+                response
+                    .into_message()
+                    .answers
+                    .into_iter()
+                    .filter_map(|answer| {
+                        let ip = answer.data.ip_addr()?;
+
+                        if self.name_server_filter.denied(ip) {
+                            debug!(
+                                %ip,
+                                "append_ips_from_lookup: ignoring address due to \
+                                do_not_query"
+                            );
+                            None
+                        } else {
+                            if answer.ttl < ttl {
+                                ttl = answer.ttl;
+                            }
+                            Some(ip)
+                        }
+                    })
+                    .map(|ip| name_server_config(ip, &self.pool_context.opportunistic_encryption)),
+            );
         }
 
         Ok((ttl, depth))
