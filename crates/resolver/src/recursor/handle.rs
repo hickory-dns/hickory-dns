@@ -913,13 +913,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                                 "append_ips_from_lookup: ignoring address due to \
                                 do_not_query"
                             );
-                            None
-                        } else {
-                            if answer.ttl < ttl {
-                                ttl = answer.ttl;
-                            }
-                            Some(ip)
+                            return None;
                         }
+
+                        if answer.ttl < ttl {
+                            ttl = answer.ttl;
+                        }
+                        Some(ip)
                     })
                     .map(|ip| name_server_config(ip, &self.pool_context.opportunistic_encryption)),
             );
