@@ -919,9 +919,12 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         if answer.ttl < ttl {
                             ttl = answer.ttl;
                         }
-                        Some(ip)
-                    })
-                    .map(|ip| name_server_config(ip, &self.pool_context.opportunistic_encryption)),
+
+                        Some(name_server_config(
+                            ip,
+                            &self.pool_context.opportunistic_encryption,
+                        ))
+                    }),
             );
         }
 
