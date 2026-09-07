@@ -25,7 +25,7 @@ use crate::proto::ProtoError;
 use crate::proto::dnssec::Proof;
 use crate::proto::op::{DnsResponse, Query, ResponseCode};
 use crate::proto::rr::RData;
-use crate::proto::rr::{DNSClass, Name, Record, RecordRef, RecordType, rdata::SOA};
+use crate::proto::rr::{DNSClass, Name, Record, RecordType, rdata::SOA};
 use crate::proto::serialize::binary::DecodeError;
 
 /// The error type for network protocol errors (UDP, TCP, QUIC, H2, H3)
@@ -440,8 +440,6 @@ impl DnsError {
             NXDomain | NoError | Unknown(_) => return Ok(response),
         };
 
-        let soa = response.soa().as_ref().map(RecordRef::to_owned);
-
         // Collect any referral nameservers and associated glue records
         let mut referral_name_servers = vec![];
         for ns in response
@@ -470,33 +468,21 @@ impl DnsError {
             })
         }
 
-        let option_ns = if !referral_name_servers.is_empty() {
-            Some(referral_name_servers.into())
-        } else {
-            None
-        };
-
-        let authorities = if !response.authorities.is_empty() {
-            Some(response.authorities.to_owned().into())
-        } else {
-            None
-        };
-
-        let negative_ttl = response.negative_ttl();
-        let query = response
-            .into_message()
-            .queries
-            .drain(..)
-            .next()
-            .unwrap_or_else(Query::root);
-
         Err(Self::NoRecordsFound(NoRecords {
-            query: Box::new(query),
-            soa: soa.map(Box::new),
-            ns: option_ns,
-            negative_ttl,
+            soa: response.soa().as_ref().map(|soa| Box::new(soa.to_owned())),
+            ns: (!referral_name_servers.is_empty()).then(|| Arc::from(referral_name_servers)),
+            negative_ttl: response.negative_ttl(),
+            authorities: (!response.authorities.is_empty())
+                .then(|| Arc::from(response.authorities.to_owned())),
+            query: Box::new(
+                response
+                    .into_message()
+                    .queries
+                    .drain(..)
+                    .next()
+                    .unwrap_or_else(Query::root),
+            ),
             response_code,
-            authorities,
         }))
     }
 
