@@ -411,8 +411,8 @@ impl DnsError {
         use ResponseCode::*;
         debug!("response: {}", *response);
 
-        match response.response_code {
-            Refused => Err(Self::ResponseCode(Refused)),
+        let response_code = match response.response_code {
+            Refused => return Err(Self::ResponseCode(Refused)),
             code @ ServFail
             | code @ FormErr
             | code @ NotImp
@@ -429,73 +429,75 @@ impl DnsError {
             | code @ BADNAME
             | code @ BADALG
             | code @ BADTRUNC
-            | code @ BADCOOKIE => Err(Self::ResponseCode(code)),
+            | code @ BADCOOKIE => return Err(Self::ResponseCode(code)),
             // Note that some NXDOMAIN and NOERROR responses contain CNAME records in the answer
             // section, those will not be treated as an error.
             code @ NXDomain | code @ NoError
                 if !response.contains_answer() && !response.truncation =>
             {
-                let soa = response.soa().as_ref().map(RecordRef::to_owned);
-
-                // Collect any referral nameservers and associated glue records
-                let mut referral_name_servers = vec![];
-                for ns in response
-                    .authorities
-                    .iter()
-                    .filter(|ns| ns.record_type() == RecordType::NS)
-                {
-                    let glue = response
-                        .additionals
-                        .iter()
-                        .filter_map(|record| {
-                            if let RData::NS(ns_data) = &ns.data {
-                                if record.name == **ns_data
-                                    && matches!(&record.data, RData::A(_) | RData::AAAA(_))
-                                {
-                                    return Some(Record::to_owned(record));
-                                }
-                            }
-
-                            None
-                        })
-                        .collect::<Vec<Record>>();
-                    referral_name_servers.push(ForwardNSData {
-                        ns: Record::to_owned(ns),
-                        glue: glue.into(),
-                    })
-                }
-
-                let option_ns = if !referral_name_servers.is_empty() {
-                    Some(referral_name_servers.into())
-                } else {
-                    None
-                };
-
-                let authorities = if !response.authorities.is_empty() {
-                    Some(response.authorities.to_owned().into())
-                } else {
-                    None
-                };
-
-                let negative_ttl = response.negative_ttl();
-                let query = response
-                    .into_message()
-                    .queries
-                    .drain(..)
-                    .next()
-                    .unwrap_or_else(Query::root);
-
-                Err(Self::NoRecordsFound(NoRecords {
-                    query: Box::new(query),
-                    soa: soa.map(Box::new),
-                    ns: option_ns,
-                    negative_ttl,
-                    response_code: code,
-                    authorities,
-                }))
+                code
             }
-            NXDomain | NoError | Unknown(_) => Ok(response),
+            NXDomain | NoError | Unknown(_) => return Ok(response),
+        };
+
+        let soa = response.soa().as_ref().map(RecordRef::to_owned);
+
+        // Collect any referral nameservers and associated glue records
+        let mut referral_name_servers = vec![];
+        for ns in response
+            .authorities
+            .iter()
+            .filter(|ns| ns.record_type() == RecordType::NS)
+        {
+            let glue = response
+                .additionals
+                .iter()
+                .filter_map(|record| {
+                    if let RData::NS(ns_data) = &ns.data {
+                        if record.name == **ns_data
+                            && matches!(&record.data, RData::A(_) | RData::AAAA(_))
+                        {
+                            return Some(Record::to_owned(record));
+                        }
+                    }
+
+                    None
+                })
+                .collect::<Vec<Record>>();
+            referral_name_servers.push(ForwardNSData {
+                ns: Record::to_owned(ns),
+                glue: glue.into(),
+            })
         }
+
+        let option_ns = if !referral_name_servers.is_empty() {
+            Some(referral_name_servers.into())
+        } else {
+            None
+        };
+
+        let authorities = if !response.authorities.is_empty() {
+            Some(response.authorities.to_owned().into())
+        } else {
+            None
+        };
+
+        let negative_ttl = response.negative_ttl();
+        let query = response
+            .into_message()
+            .queries
+            .drain(..)
+            .next()
+            .unwrap_or_else(Query::root);
+
+        Err(Self::NoRecordsFound(NoRecords {
+            query: Box::new(query),
+            soa: soa.map(Box::new),
+            ns: option_ns,
+            negative_ttl,
+            response_code,
+            authorities,
+        }))
     }
 
     /// Returns the DNS error as a representative string for use as a metrics label.
