@@ -16,7 +16,7 @@ use crate::{
 
 /// A handler for send a response to a client
 #[async_trait::async_trait]
-pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
+pub trait ResponseHandler: Send + Sync + Unpin + 'static {
     // TODO: add associated error type
     //type Error;
 

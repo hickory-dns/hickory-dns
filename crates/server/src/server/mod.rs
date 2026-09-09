@@ -898,7 +898,6 @@ async fn error_response_handler(
     }
 }
 
-#[derive(Clone)]
 pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
     pub(super) request_meta: Metadata,
     query: Option<LowerQuery>,

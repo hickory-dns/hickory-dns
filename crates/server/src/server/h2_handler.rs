@@ -9,7 +9,6 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use ::h2::server;
 use bytes::Bytes;
-use futures_util::lock::Mutex;
 use rustls::server::ResolvesServerCert;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
@@ -189,7 +188,6 @@ pub(crate) async fn h2_handler(
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
-        let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
         tokio::spawn(async move {
             let message_future = h2::message_from(dns_hostname, http_endpoint, request);
             let Ok(result) = timeout(h2_timeout, message_future).await else {
@@ -203,16 +201,20 @@ pub(crate) async fn h2_handler(
                 }
             };
 
-            cx.handle_request(body.freeze(), src_addr, Protocol::Https, responder)
-                .await
+            cx.handle_request(
+                body.freeze(),
+                src_addr,
+                Protocol::Https,
+                HttpsResponseHandle(respond),
+            )
+            .await
         });
 
         // we'll continue handling requests from here.
     }
 }
 
-#[derive(Clone)]
-struct HttpsResponseHandle(Arc<Mutex<server::SendResponse<Bytes>>>);
+struct HttpsResponseHandle(server::SendResponse<Bytes>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for HttpsResponseHandle {
@@ -232,7 +234,7 @@ impl ResponseHandler for HttpsResponseHandle {
         let response = http::response(Version::Http2, bytes.len())?;
 
         debug!("sending response: {:#?}", response);
-        let mut stream = self.0.lock().await.send_response(response, false)?;
+        let mut stream = self.0.send_response(response, false)?;
         stream.send_data(bytes, true)?;
 
         Ok(info)

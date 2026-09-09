@@ -426,7 +426,7 @@ impl Catalog {
                 request,
                 response_edns,
                 now,
-                response_handle.clone(),
+                response_handle,
             )
             .await
         } else {
@@ -435,7 +435,7 @@ impl Catalog {
                 handlers,
                 request,
                 response_edns,
-                response_handle.clone(),
+                response_handle,
                 #[cfg(feature = "metrics")]
                 &self.metrics,
             )

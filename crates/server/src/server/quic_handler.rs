@@ -8,7 +8,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
-use futures_util::lock::Mutex;
 use rustls::server::ResolvesServerCert;
 use tokio::{net, task::JoinSet, time::timeout};
 use tracing::{debug, warn};
@@ -159,10 +158,13 @@ pub(crate) async fn quic_handler(
                 request.len()
             );
 
-            let responder = QuicResponseHandle(Arc::new(Mutex::new(request_stream)));
-
-            cx.handle_request(request, src_addr, Protocol::Quic, responder)
-                .await;
+            cx.handle_request(
+                request,
+                src_addr,
+                Protocol::Quic,
+                QuicResponseHandle(request_stream),
+            )
+            .await;
         });
 
         max_requests -= 1;
@@ -176,8 +178,7 @@ pub(crate) async fn quic_handler(
     Ok(())
 }
 
-#[derive(Clone)]
-struct QuicResponseHandle(Arc<Mutex<QuicStream>>);
+struct QuicResponseHandle(QuicStream);
 
 #[async_trait::async_trait]
 impl ResponseHandler for QuicResponseHandle {
@@ -199,9 +200,9 @@ impl ResponseHandler for QuicResponseHandle {
         let bytes = Bytes::from(bytes);
 
         debug!("sending quic response: {}", bytes.len());
-        let mut lock = self.0.lock().await;
-        lock.send_bytes(bytes).await?;
-        lock.finish().await?;
+        let stream = &mut self.0;
+        stream.send_bytes(bytes).await?;
+        stream.finish().await?;
 
         Ok(info)
     }

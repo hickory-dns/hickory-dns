@@ -8,7 +8,6 @@
 use std::{net::SocketAddr, sync::Arc, task::Context, time::Duration};
 
 use bytes::{Buf, Bytes};
-use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use rustls::server::ResolvesServerCert;
@@ -185,8 +184,7 @@ pub(crate) async fn h3_handler(
                 "Received request body"
             );
 
-            let responder = H3ResponseHandle(Arc::new(Mutex::new(stream)));
-            cx.handle_request(request, src_addr, Protocol::H3, responder)
+            cx.handle_request(request, src_addr, Protocol::H3, H3ResponseHandle(stream))
                 .await
         });
 
@@ -202,8 +200,7 @@ pub(crate) async fn h3_handler(
     Ok(())
 }
 
-#[derive(Clone)]
-struct H3ResponseHandle(Arc<Mutex<RequestStream<BidiStream<Bytes>, Bytes>>>);
+struct H3ResponseHandle(RequestStream<BidiStream<Bytes>, Bytes>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for H3ResponseHandle {
@@ -223,7 +220,7 @@ impl ResponseHandler for H3ResponseHandle {
         let response = http::response(Version::Http3, bytes.len())?;
 
         debug!("sending response: {:#?}", response);
-        let mut stream = self.0.lock().await;
+        let stream = &mut self.0;
         stream.send_response(response).await?;
         stream.send_data(bytes).await?;
         stream.finish().await?;
