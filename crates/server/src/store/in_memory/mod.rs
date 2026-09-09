@@ -351,7 +351,26 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             query_type = inner.replace_any(name);
         }
 
-        let answer = inner.inner_lookup(name, query_type, lookup_options);
+        let answer = match inner.inner_lookup(name, query_type, lookup_options) {
+            Ok(answer) => Some(answer),
+            Err(error) => {
+                // The answer lookup already checked the query's name partition.
+                // Only probe the other form for a miss lacking that evidence;
+                // recursive wildcard/additional lookups do not need this check.
+                let error = if error.is_nx_domain() {
+                    if inner.name_exists_other_form(name) {
+                        LookupError::NameExists
+                    } else if !self.origin().zone_of(name) {
+                        LookupError::from(ResponseCode::Refused)
+                    } else {
+                        error
+                    }
+                } else {
+                    error
+                };
+                return Continue(Err(error));
+            }
+        };
 
         // CNAME chasing: when the answer is a CNAME and the query was for a
         // different type, restart the lookup at the canonical name and collect
@@ -454,21 +473,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             // CNAME chase produced a chain — use it as the answer.
             (Some(chain), _) => LookupRecords::many(lookup_options, chain),
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
-            (None, None) => {
-                return Continue(Err(
-                    // A name/type lookup miss does not imply the name is absent.
-                    // Existing owners and empty non-terminals yield NODATA, not NXDOMAIN
-                    // (RFC 2308 §2.2; RFC 4592 §2.2.2).
-                    if inner.name_exists(name) {
-                        LookupError::NameExists
-                    } else {
-                        LookupError::from(match self.origin().zone_of(name) {
-                            true => ResponseCode::NXDomain,
-                            false => ResponseCode::Refused,
-                        })
-                    },
-                ));
-            }
+            (None, None) => unreachable!("lookup misses return before answer processing"),
         };
 
         Continue(Ok(AuthLookup::answers(

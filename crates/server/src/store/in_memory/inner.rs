@@ -25,15 +25,16 @@ use crate::{
             rdata::{DNSSECRData, NSEC, NSEC3, NSEC3PARAM, RRSIG},
         },
     },
-    zone_handler::{LookupError, Nsec3QueryInfo},
+    zone_handler::Nsec3QueryInfo,
 };
 
 use super::maybe_next_name;
 use crate::{
+    proto::op::ResponseCode,
     proto::rr::{
         DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey, rdata::SOA,
     },
-    zone_handler::LookupOptions,
+    zone_handler::{LookupError, LookupOptions},
 };
 
 #[derive(Default)]
@@ -49,32 +50,6 @@ pub(super) struct InnerInMemory {
 }
 
 impl InnerInMemory {
-    /// Returns whether a name owns an RRset or is an empty non-terminal.
-    pub(super) fn name_exists(&self, name: &LowerName) -> bool {
-        // RrKey orders by canonical DNS name, then by numeric record type. Within
-        // each relative/FQDN partition, a name and its descendants are contiguous,
-        // with the name itself first. Only the first key at or after this lower
-        // bound can establish its existence.
-        let contains_name = |search_name| {
-            let start = RrKey::new(search_name, RecordType::Unknown(u16::MIN));
-            self.records
-                .range(start..)
-                .next()
-                .is_some_and(|(key, _)| name.zone_of(key.name()))
-        };
-
-        if contains_name(name.clone()) {
-            return true;
-        }
-
-        // Name ordering separates relative and fully qualified names, whereas
-        // zone_of ignores that distinction. Preserve that behavior even when the
-        // publicly mutable record map contains both forms.
-        let mut other: Name = name.into();
-        other.set_fqdn(!other.is_fqdn());
-        contains_name(other.into())
-    }
-
     #[cfg(feature = "__dnssec")]
     pub(super) fn proof(
         &self,
@@ -220,12 +195,13 @@ impl InnerInMemory {
         }
     }
 
+    /// A miss retains whether the original name owns records or has descendants.
     pub(super) fn inner_lookup(
         &self,
         name: &LowerName,
         record_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Option<Arc<RecordSet>> {
+    ) -> Result<Arc<RecordSet>, LookupError> {
         // Check for delegation
         let mut search_name = name.clone();
         while !search_name.is_root() {
@@ -241,7 +217,7 @@ impl InnerInMemory {
                 // Don't return a referral, DS record resides in the parent zone.
                 (Some(_), false) if ds_exact => {}
                 // Return a delegation point: NS exists without SOA.
-                (Some(ns), false) => return Some(ns.clone()),
+                (Some(ns), false) => return Ok(ns.clone()),
                 // Zone apex: NS with SOA - we're at the top of the zone
                 (Some(_), true) => break,
                 // No NS, keep walking up.
@@ -251,18 +227,44 @@ impl InnerInMemory {
             search_name = search_name.base_name();
         }
 
-        // this range covers all the records for any of the RecordTypes at a given label.
+        let (lookup, name_exists) = self.lookup_records(name, record_type);
+        if let Some(rrset) = lookup {
+            return Ok(rrset.clone());
+        }
+        // Preserve wildcard selection even when the original name exists.
+        if let Some(rrset) = self.inner_lookup_wildcard(name, record_type, lookup_options) {
+            return Ok(rrset);
+        }
+        if name_exists {
+            Err(LookupError::NameExists)
+        } else {
+            Err(ResponseCode::NXDomain.into())
+        }
+    }
+
+    fn lookup_records(
+        &self,
+        name: &LowerName,
+        record_type: RecordType,
+    ) -> (Option<&Arc<RecordSet>>, bool) {
+        // Keep the first key from the answer lookup to also establish whether
+        // the name owns records or is an empty non-terminal. Canonical ordering
+        // places the owner before its descendants within each FQDN partition.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
         let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
+        let mut records = self.records.range(&start_range_key..).peekable();
+        let name_exists = records
+            .peek()
+            .is_some_and(|(key, _)| name.zone_of(key.name()));
 
         fn aname_covers_type(key_type: RecordType, query_type: RecordType) -> bool {
             (query_type == RecordType::A || query_type == RecordType::AAAA)
                 && key_type == RecordType::ANAME
         }
 
-        let lookup = self
-            .records
-            .range(&start_range_key..&end_range_key)
+        let lookup = records
+            // Preserve the original exclusive record-type upper bound.
+            .take_while(|(key, _)| *key < &end_range_key)
             // remember CNAME can be the only record at a particular label
             .find(|(key, _)| {
                 key.record_type == record_type
@@ -271,11 +273,19 @@ impl InnerInMemory {
             })
             .map(|(_key, rr_set)| rr_set);
 
-        // TODO: maybe unwrap this recursion.
-        match lookup {
-            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
-            l => l.cloned(),
-        }
+        (lookup, name_exists)
+    }
+
+    pub(super) fn name_exists_other_form(&self, name: &LowerName) -> bool {
+        // zone_of ignores the relative/FQDN distinction, unlike map ordering.
+        // Only a negative lookup lacking evidence above needs this other probe.
+        let mut other: Name = name.into();
+        other.set_fqdn(!other.is_fqdn());
+        let start = RrKey::new(other.into(), RecordType::Unknown(u16::MIN));
+        self.records
+            .range(start..)
+            .next()
+            .is_some_and(|(key, _)| name.zone_of(key.name()))
     }
 
     fn inner_lookup_wildcard(
@@ -291,7 +301,7 @@ impl InnerInMemory {
 
         let mut wildcard = name.clone().into_wildcard();
         loop {
-            let Some(rrset) = self.inner_lookup(&wildcard, record_type, lookup_options) else {
+            let Ok(rrset) = self.inner_lookup(&wildcard, record_type, lookup_options) else {
                 let parent = wildcard.base_name();
                 if parent.is_root() {
                     return None;
@@ -387,14 +397,14 @@ impl InnerInMemory {
 
             match self.inner_lookup(&next_name, query_type, lookup_options) {
                 // Intermediate CNAME — keep chasing.
-                Some(rr_set) if rr_set.record_type() == RecordType::CNAME => chain.push(rr_set),
+                Ok(rr_set) if rr_set.record_type() == RecordType::CNAME => chain.push(rr_set),
                 // Terminal record (A, AAAA, MX, etc.).
-                Some(rr_set) => {
+                Ok(rr_set) => {
                     chain.push(rr_set);
                     break;
                 }
                 // Target not in this zone.
-                None => break,
+                Err(_) => break,
             }
         }
 
@@ -452,7 +462,7 @@ impl InnerInMemory {
                 let additional = self.inner_lookup(&search, *query_type, lookup_options);
                 names.insert(search);
 
-                let Some(additional) = additional else {
+                let Ok(additional) = additional else {
                     continue;
                 };
 
@@ -1013,6 +1023,13 @@ mod tests {
         Name::from_str(name).unwrap().into()
     }
 
+    // Test the map lookup separately from delegation/wildcard traversal, which
+    // requires fully qualified query names.
+    fn name_exists(inner: &InnerInMemory, name: &LowerName) -> bool {
+        let (_, exists) = inner.lookup_records(name, RecordType::AAAA);
+        exists || inner.name_exists_other_form(name)
+    }
+
     fn insert_rrset(inner: &mut InnerInMemory, name: Name, record_type: RecordType) -> RrKey {
         let key = RrKey::new((&name).into(), record_type);
         inner
@@ -1022,9 +1039,71 @@ mod tests {
     }
 
     #[test]
+    fn test_lookup_records_keeps_first_answer_and_name_state() {
+        let mut inner = InnerInMemory::default();
+        let owner = Name::from_str("host.example.com.").unwrap();
+        insert_rrset(&mut inner, owner.clone(), RecordType::A);
+        insert_rrset(&mut inner, owner.clone(), RecordType::TXT);
+        let name = LowerName::from(owner);
+        for record_type in [RecordType::A, RecordType::TXT] {
+            let (answer, exists) = inner.lookup_records(&name, record_type);
+            assert!(exists);
+            assert_eq!(answer.unwrap().record_type(), record_type);
+        }
+        let (answer, exists) = inner.lookup_records(&name, RecordType::AAAA);
+        assert!(answer.is_none());
+        assert!(exists);
+        let (answer, exists) = inner.lookup_records(&lower_name("example.com."), RecordType::A);
+        assert!(answer.is_none());
+        assert!(exists);
+    }
+
+    #[test]
+    fn test_negative_state_preserves_wildcard_fallback() {
+        let mut inner = InnerInMemory::default();
+        insert_rrset(
+            &mut inner,
+            Name::from_str("*.example.com.").unwrap(),
+            RecordType::A,
+        );
+        insert_rrset(
+            &mut inner,
+            Name::from_str("host.example.com.").unwrap(),
+            RecordType::TXT,
+        );
+        for query in ["new.example.com.", "host.example.com."] {
+            let name = lower_name(query);
+            let answer = inner
+                .inner_lookup(&name, RecordType::A, LookupOptions::default())
+                .unwrap();
+            assert_eq!(answer.record_type(), RecordType::A);
+            assert_eq!(LowerName::from(answer.name()), name);
+        }
+        assert!(matches!(
+            inner.inner_lookup(
+                &lower_name("host.example.com."),
+                RecordType::AAAA,
+                LookupOptions::default()
+            ),
+            Err(LookupError::NameExists)
+        ));
+        // Preserve the existing wildcard NODATA behavior; changing it is separate.
+        assert!(
+            inner
+                .inner_lookup(
+                    &lower_name("new.example.com."),
+                    RecordType::AAAA,
+                    LookupOptions::default()
+                )
+                .unwrap_err()
+                .is_nx_domain()
+        );
+    }
+
+    #[test]
     fn test_name_exists() {
         let mut inner = InnerInMemory::default();
-        assert!(!inner.name_exists(&lower_name(".")));
+        assert!(!name_exists(&inner, &lower_name(".")));
 
         for owner in [
             "a.example.com.",
@@ -1046,7 +1125,7 @@ mod tests {
             "wild.example.com.",
             "*.wild.example.com.",
         ] {
-            assert!(inner.name_exists(&lower_name(name)), "{name}");
+            assert!(name_exists(&inner, &lower_name(name)), "{name}");
         }
 
         for name in [
@@ -1059,7 +1138,7 @@ mod tests {
             "zz.example.com.",
             "example.org.",
         ] {
-            assert!(!inner.name_exists(&lower_name(name)), "{name}");
+            assert!(!name_exists(&inner, &lower_name(name)), "{name}");
         }
     }
 
@@ -1072,9 +1151,9 @@ mod tests {
                 Name::from_str("leaf.example.com.").unwrap(),
                 record_type,
             );
-            assert!(inner.name_exists(&lower_name("leaf.example.com.")));
-            assert!(inner.name_exists(&lower_name("example.com.")));
-            assert!(!inner.name_exists(&lower_name("z.example.com.")));
+            assert!(name_exists(&inner, &lower_name("leaf.example.com.")));
+            assert!(name_exists(&inner, &lower_name("example.com.")));
+            assert!(!name_exists(&inner, &lower_name("z.example.com.")));
         }
     }
 
@@ -1116,7 +1195,7 @@ mod tests {
                         .records
                         .keys()
                         .any(|key| key.name() == &name || name.zone_of(key.name()));
-                    assert_eq!(inner.name_exists(&name), expected, "{name:?}");
+                    assert_eq!(name_exists(inner, &name), expected, "{name:?}");
                 }
             }
         };
@@ -1211,6 +1290,27 @@ mod tests {
                 "{name}"
             );
         }
+        // A fully qualified query must still see relative owners/descendants
+        // inserted directly into the publicly mutable record map.
+        let mut relative = Name::from_str("leaf.relative.example.com.").unwrap();
+        relative.set_fqdn(false);
+        let key = RrKey::new(LowerName::from(&relative), RecordType::A);
+        zone.records_get_mut().insert(
+            key.clone(),
+            Arc::new(RecordSet::new(relative, RecordType::A, 300)),
+        );
+        for name in ["leaf.relative.example.com.", "relative.example.com."] {
+            assert!(matches!(
+                lookup_aaaa_error(&zone, name).await,
+                LookupError::NameExists
+            ));
+        }
+        zone.records_get_mut().remove(&key);
+        assert!(
+            lookup_aaaa_error(&zone, "relative.example.com.")
+                .await
+                .is_nx_domain()
+        );
         assert!(matches!(
             lookup_aaaa_error(&zone, "example.net.").await,
             LookupError::ResponseCode(ResponseCode::Refused)
@@ -1281,7 +1381,7 @@ mod tests {
         let result =
             inner.inner_lookup(&query_name.into(), RecordType::A, LookupOptions::default());
 
-        assert!(result.is_some());
+        assert!(result.is_ok());
         let rrset = result.unwrap();
         assert_eq!(rrset.record_type(), RecordType::NS);
         assert_eq!(rrset.name(), &sub);
@@ -1292,7 +1392,7 @@ mod tests {
             RecordType::DS,
             LookupOptions::default(),
         );
-        assert!(result.is_none());
+        assert!(matches!(result, Err(LookupError::NameExists)));
 
         // Lookup NS record at delegation point (should return NS record)
         let result = inner.inner_lookup(
@@ -1300,7 +1400,7 @@ mod tests {
             RecordType::NS,
             LookupOptions::default(),
         );
-        assert!(result.is_some());
+        assert!(result.is_ok());
         let rrset = result.unwrap();
         assert_eq!(rrset.record_type(), RecordType::NS);
         assert_eq!(rrset.name(), &sub);
