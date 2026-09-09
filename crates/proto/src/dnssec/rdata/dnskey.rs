@@ -136,27 +136,27 @@ impl DNSKEY {
     ) -> Result<Self, ParseError> {
         let flags_str = tokens
             .next()
-            .ok_or(ParseError::Message("flags not present"))?;
+            .ok_or_else(|| ParseError::from("flags not present"))?;
         let protocol_str = tokens
             .next()
-            .ok_or(ParseError::Message("protocol not present"))?;
+            .ok_or_else(|| ParseError::from("protocol not present"))?;
         let algorithm_str = tokens
             .next()
-            .ok_or(ParseError::Message("algorithm not present"))?;
+            .ok_or_else(|| ParseError::from("algorithm not present"))?;
 
         let flags = u16::from_str(flags_str)?;
 
         let protocol = u8::from_str(protocol_str)?;
 
         if protocol != 3 {
-            return Err(ParseError::Message("protocol field must be 3"));
+            return Err(ParseError::from("protocol field must be 3"));
         }
 
         let algorithm = Algorithm::from_u8(algorithm_str.parse()?);
 
         let public_key_str = tokens.collect::<String>();
         if public_key_str.is_empty() {
-            return Err(ParseError::Message("public key not present"));
+            return Err(ParseError::from("public key not present"));
         }
 
         let public_key = data_encoding::BASE64.decode(public_key_str.as_bytes())?;

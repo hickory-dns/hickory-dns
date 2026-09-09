@@ -142,13 +142,13 @@ impl CAA {
     ) -> Result<CAA, ParseError> {
         let flags_str: &str = tokens
             .next()
-            .ok_or(ParseError::Message("caa flags not present"))?;
+            .ok_or_else(|| ParseError::from("caa flags not present"))?;
         let tag_str: &str = tokens
             .next()
-            .ok_or(ParseError::Message("caa tag not present"))?;
+            .ok_or_else(|| ParseError::from("caa tag not present"))?;
         let value_str: &str = tokens
             .next()
-            .ok_or(ParseError::Message("caa value not present"))?;
+            .ok_or_else(|| ParseError::from("caa value not present"))?;
 
         // parse the flags
         let flags = flags_str.parse::<u8>()?;

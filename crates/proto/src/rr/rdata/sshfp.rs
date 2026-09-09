@@ -112,7 +112,7 @@ impl SSHFP {
         mut tokens: I,
     ) -> Result<Self, ParseError> {
         fn missing_field<E: From<ParseError>>(field: &str) -> E {
-            ParseError::Msg(format!("SSHFP {field} field missing")).into()
+            ParseError::from(format!("SSHFP {field} field missing")).into()
         }
         let (algorithm, fingerprint_type) = {
             let mut parse_u8 = |field: &str| {
@@ -134,7 +134,7 @@ impl SSHFP {
                 .as_bytes(),
         )?;
         if tokens.next().is_some() {
-            return Err(ParseError::Message("too many fields for SSHFP"));
+            return Err(ParseError::from("too many fields for SSHFP"));
         }
         Ok(Self::new(algorithm, fingerprint_type, fingerprint))
     }

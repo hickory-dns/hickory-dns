@@ -154,13 +154,13 @@ impl DS {
     ) -> Result<Self, ParseError> {
         let tag_str: &str = tokens
             .next()
-            .ok_or(ParseError::Message("key tag not present"))?;
+            .ok_or_else(|| ParseError::from("key tag not present"))?;
         let algorithm_str: &str = tokens
             .next()
-            .ok_or(ParseError::Message("algorithm not present"))?;
+            .ok_or_else(|| ParseError::from("algorithm not present"))?;
         let digest_type_str: &str = tokens
             .next()
-            .ok_or(ParseError::Message("digest type not present"))?;
+            .ok_or_else(|| ParseError::from("digest type not present"))?;
         let tag: u16 = tag_str.parse()?;
         let algorithm = match algorithm_str {
             // Mnemonics from Appendix A.1.
@@ -177,13 +177,13 @@ impl DS {
         let digest_type = DigestType::from(u8::from_str(digest_type_str)?);
         let digest_str: String = tokens.collect();
         if digest_str.is_empty() {
-            return Err(ParseError::Message("digest not present"));
+            return Err(ParseError::from("digest not present"));
         }
         let mut digest = Vec::with_capacity(digest_str.len() / 2);
         let mut s = digest_str.as_str();
         while s.len() >= 2 {
             if !s.is_char_boundary(2) {
-                return Err(ParseError::Message("digest contains non hexadecimal text"));
+                return Err(ParseError::from("digest contains non hexadecimal text"));
             }
             let (byte_str, rest) = s.split_at(2);
             s = rest;

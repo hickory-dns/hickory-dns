@@ -1071,9 +1071,7 @@ impl RData {
             RecordType::MX => Self::MX(MX::from_tokens(tokens, origin)?),
             RecordType::NAPTR => Self::NAPTR(NAPTR::from_tokens(tokens, origin)?),
             RecordType::NULL => {
-                return Err(ParseError::Message(
-                    "parse is not implemented for NULL record",
-                ));
+                return Err(ParseError::from("parse is not implemented for NULL record"));
             }
             RecordType::NS => Self::NS(NS(Name::from_tokens(tokens, origin)?)),
             RecordType::OPENPGPKEY => Self::OPENPGPKEY(OPENPGPKEY::from_tokens(tokens)?),

@@ -230,9 +230,7 @@ impl SVCB {
             let mut value = key_value.next();
             if let Some(value) = value.as_mut() {
                 if *value == "\"" {
-                    return Err(ParseError::Message(
-                        "SVCB SvcbParams cannot be a single quote",
-                    ));
+                    return Err(ParseError::from("SVCB SvcbParams cannot be a single quote"));
                 }
 
                 if value.starts_with('"') && value.ends_with('"') {
@@ -267,7 +265,7 @@ fn parse_value(key: SvcParamKey, value: Option<&str>) -> Result<SvcParamValue, P
         SvcParamKey::Ipv6Hint => parse_ipv6_hint(value),
         SvcParamKey::EchConfigList => parse_ech_config(value),
         SvcParamKey::Key(_) => parse_unknown(value),
-        SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => Err(ParseError::Message(
+        SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => Err(ParseError::from(
             "Bad Key type or unsupported, see generic key option, e.g. key1234",
         )),
     }
@@ -277,11 +275,11 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
     let mut lex = Lexer::new(value);
     let ch_data = lex
         .next_token()?
-        .ok_or(ParseError::Message("expected character data"))?;
+        .ok_or_else(|| ParseError::from("expected character data"))?;
 
     match ch_data {
         Token::CharData(data) => Ok(data),
-        _ => Err(ParseError::Message("expected character data")),
+        _ => Err(ParseError::from("expected character data")),
     }
 }
 
@@ -305,7 +303,7 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
 ///
 /// Currently this does not validate that the mandatory section matches the other keys
 fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or(ParseError::Message("expected at least one Mandatory field"))?;
+    let value = value.ok_or_else(|| ParseError::from("expected at least one Mandatory field"))?;
 
     let mandatories = parse_list::<SvcParamKey>(value)?;
     Ok(SvcParamValue::Mandatory(Mandatory(mandatories)))
@@ -325,7 +323,7 @@ fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///
 /// This does not currently check to see if the ALPN code is legitimate
 fn parse_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or(ParseError::Message("expected at least one ALPN code"))?;
+    let value = value.ok_or_else(|| ParseError::from("expected at least one ALPN code"))?;
 
     let alpns = parse_list::<String>(value)?;
     Ok(SvcParamValue::Alpn(Alpn(alpns)))
@@ -341,7 +339,7 @@ fn parse_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 /// ```
 fn parse_no_default_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     if value.is_some() {
-        return Err(ParseError::Message("no value expected for NoDefaultAlpn"));
+        return Err(ParseError::from("no value expected for NoDefaultAlpn"));
     }
 
     Ok(SvcParamValue::NoDefaultAlpn)
@@ -356,7 +354,7 @@ fn parse_no_default_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseErro
 ///   SvcParam MUST NOT contain escape sequences.
 /// ```
 fn parse_port(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or(ParseError::Message("a port number for the port option"))?;
+    let value = value.ok_or_else(|| ParseError::from("a port number for the port option"))?;
 
     let value = parse_char_data(value)?;
     let port = u16::from_str(&value)?;
@@ -372,7 +370,7 @@ fn parse_port(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///   this SvcParamValue MUST NOT contain escape sequences.
 /// ```
 fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or(ParseError::Message("expected at least one ipv4 hint"))?;
+    let value = value.ok_or_else(|| ParseError::from("expected at least one ipv4 hint"))?;
 
     let hints = parse_list::<A>(value)?;
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
@@ -387,7 +385,7 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///   this SvcParamValue MUST NOT contain escape sequences.
 /// ```
 fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or(ParseError::Message("expected at least one ipv6 hint"))?;
+    let value = value.ok_or_else(|| ParseError::from("expected at least one ipv6 hint"))?;
 
     let hints = parse_list::<AAAA>(value)?;
     Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
@@ -404,9 +402,8 @@ fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
 ///  contain escape sequences.
 /// ```
 fn parse_ech_config(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
-    let value = value.ok_or(ParseError::Message(
-        "expected a base64 encoded string for EchConfig",
-    ))?;
+    let value =
+        value.ok_or_else(|| ParseError::from("expected a base64 encoded string for EchConfig"))?;
 
     let value = parse_char_data(value)?;
     let ech_config_bytes = data_encoding::BASE64.decode(value.as_bytes())?;

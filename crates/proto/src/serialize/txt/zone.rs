@@ -221,7 +221,7 @@ impl<'a> Parser<'a> {
                             // and should probably be configurable by user.
 
                             if stack > MAX_INCLUDE_LEVEL {
-                                return Err(ParseError::Message(
+                                return Err(ParseError::from(
                                     "Max depth level for nested $INCLUDE is reached",
                                 ));
                             }
@@ -234,7 +234,7 @@ impl<'a> Parser<'a> {
                                     .expect("file has to have parent folder")
                                     .join(include),
                                 (false, None) => {
-                                    return Err(ParseError::Message(
+                                    return Err(ParseError::from(
                                         "Relative $INCLUDE is not supported",
                                     ));
                                 }
@@ -248,7 +248,7 @@ impl<'a> Parser<'a> {
                             continue 'outer;
                         }
                         (Token::CharData(_), Some(_)) => {
-                            return Err(ParseError::Message(
+                            return Err(ParseError::from(
                                 "Domain name for $INCLUDE is not supported",
                             ));
                         }
@@ -326,7 +326,7 @@ impl<'a> Parser<'a> {
         // build the Authority and return.
         let origin = cx
             .origin
-            .ok_or(ParseError::Message("$ORIGIN was not specified"))?;
+            .ok_or_else(|| ParseError::from("$ORIGIN was not specified"))?;
         Ok((origin, cx.records))
     }
 }

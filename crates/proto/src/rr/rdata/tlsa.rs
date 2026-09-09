@@ -394,17 +394,17 @@ impl TLSA {
 
         let token: &str = iter
             .next()
-            .ok_or(ParseError::Message("TLSA usage field missing"))?;
+            .ok_or_else(|| ParseError::from("TLSA usage field missing"))?;
         let cert_usage = CertUsage::from(to_u8(token)?);
 
         let token = iter
             .next()
-            .ok_or(ParseError::Message("TLSA selector field missing"))?;
+            .ok_or_else(|| ParseError::from("TLSA selector field missing"))?;
         let selector = to_u8(token)?.into();
 
         let token = iter
             .next()
-            .ok_or(ParseError::Message("TLSA matching field missing"))?;
+            .ok_or_else(|| ParseError::from("TLSA matching field missing"))?;
         let matching = to_u8(token)?.into();
 
         // these are all in hex: "a string of hexadecimal characters"
@@ -423,7 +423,7 @@ impl TLSA {
                 cert_data,
             })
         } else {
-            Err(ParseError::Message("TLSA data field missing"))
+            Err(ParseError::from("TLSA data field missing"))
         }
     }
 }

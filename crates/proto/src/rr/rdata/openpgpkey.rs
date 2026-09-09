@@ -64,12 +64,12 @@ impl OPENPGPKEY {
     pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
         mut tokens: I,
     ) -> Result<Self, ParseError> {
-        let encoded_public_key = tokens.next().ok_or(ParseError::Message(
-            "OPENPGPKEY public key field is missing",
-        ))?;
+        let encoded_public_key = tokens
+            .next()
+            .ok_or_else(|| ParseError::from("OPENPGPKEY public key field is missing"))?;
         let public_key = data_encoding::BASE64.decode(encoded_public_key.as_bytes())?;
         if tokens.next().is_some() {
-            return Err(ParseError::Message("too many fields for OPENPGPKEY"));
+            return Err(ParseError::from("too many fields for OPENPGPKEY"));
         }
         Ok(Self::new(public_key))
     }

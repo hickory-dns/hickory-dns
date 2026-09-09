@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::{borrow::Cow, string::String};
 #[cfg(feature = "std")]
 use std::io;
 
@@ -21,17 +21,13 @@ pub enum ParseError {
     #[error("invalid numerical character: {0}")]
     CharToInt(char),
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An error with an arbitrary message
     #[error("{0}")]
-    Message(&'static str),
+    Message(Cow<'static, str>),
 
     /// A token is missing
     #[error("token is missing: {0}")]
     MissingToken(String),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
 
     /// A time string could not be parsed
     #[error("invalid time string: {0}")]
@@ -81,9 +77,8 @@ impl Clone for ParseError {
         use ParseError::*;
         match self {
             CharToInt(c) => CharToInt(*c),
-            Message(msg) => Message(msg),
+            Message(msg) => Message(msg.clone()),
             MissingToken(s) => MissingToken(s.clone()),
-            Msg(msg) => Msg(msg.clone()),
             ParseTime(s) => ParseTime(s.clone()),
             UnexpectedToken(token) => UnexpectedToken(token.clone()),
 
@@ -108,13 +103,13 @@ impl From<data_encoding::DecodeError> for ParseError {
 
 impl From<&'static str> for ParseError {
     fn from(msg: &'static str) -> Self {
-        Self::Message(msg)
+        Self::Message(msg.into())
     }
 }
 
 impl From<String> for ParseError {
     fn from(msg: String) -> Self {
-        Self::Msg(msg)
+        Self::Message(msg.into())
     }
 }
 
