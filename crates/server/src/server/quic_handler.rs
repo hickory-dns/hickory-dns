@@ -49,15 +49,9 @@ pub(super) async fn handle_quic_with_server(
 ) -> Result<(), NetError> {
     let mut inner_join_set = JoinSet::new();
     loop {
-        let future = cx
-            .shutdown
-            .run_until_cancelled(timeout(handshake_timeout, server.next()));
-        let Some(timeout_result) = future.await else {
+        let future = cx.shutdown.run_until_cancelled(server.next());
+        let Some(accept_result) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
-        };
-        let Ok(accept_result) = timeout_result else {
-            warn!("quic timeout expired during handshake");
-            continue;
         };
         let (streams, src_addr) = match accept_result {
             Ok(Some((streams, src_addr))) => (streams, src_addr),

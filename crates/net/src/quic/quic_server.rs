@@ -8,12 +8,14 @@
 use core::net::SocketAddr;
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Connection, Endpoint, ServerConfig};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
+use tokio::time::timeout;
 
 use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
 
@@ -89,7 +91,9 @@ impl QuicServer {
         };
 
         let remote_addr = connecting.remote_address();
-        let connection = connecting.await?;
+        let connection = timeout(Duration::from_secs(5), connecting)
+            .await
+            .map_err(|_| NetError::from("quic timeout expired during handshake"))??;
         Ok(Some((QuicStreams { connection }, remote_addr)))
     }
 
