@@ -9,8 +9,7 @@
 
 #![deny(missing_docs)]
 
-use std::io;
-use std::sync::Arc;
+use std::{borrow::Cow, io, sync::Arc};
 
 use thiserror::Error;
 use tracing::warn;
@@ -38,13 +37,9 @@ pub enum RecursorError {
         record_type: RecordType,
     },
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An error with an arbitrary message
     #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
+    Message(Cow<'static, str>),
 
     /// Upstream DNS authority returned an empty RRset
     #[error("negative response")]
@@ -167,13 +162,13 @@ impl From<ProtoError> for RecursorError {
 
 impl From<String> for RecursorError {
     fn from(msg: String) -> Self {
-        Self::Msg(msg)
+        Self::Message(msg.into())
     }
 }
 
 impl From<&'static str> for RecursorError {
     fn from(msg: &'static str) -> Self {
-        Self::Message(msg)
+        Self::Message(msg.into())
     }
 }
 
@@ -185,8 +180,7 @@ impl Clone for RecursorError {
                 count: *count,
                 record_type: *record_type,
             },
-            Message(msg) => Message(msg),
-            Msg(msg) => Msg(msg.clone()),
+            Message(msg) => Message(msg.clone()),
             Negative(ns) => Negative(ns.clone()),
             ForwardNS(ns) => ForwardNS(ns.clone()),
             Io(io) => Io(io::Error::from(io.kind())),
