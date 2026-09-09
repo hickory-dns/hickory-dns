@@ -59,15 +59,9 @@ pub(super) async fn handle_h3_with_server(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let future = cx
-            .shutdown
-            .run_until_cancelled(timeout(handshake_timeout, server.accept()));
-        let Some(timeout_result) = future.await else {
+        let future = cx.shutdown.run_until_cancelled(server.accept());
+        let Some(incoming_opt) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
-        };
-        let Ok(incoming_opt) = timeout_result else {
-            warn!("h3 timeout expired during handshake");
-            continue;
         };
         let Some(incoming) = incoming_opt else {
             break; // Connection is closed.
@@ -95,7 +89,12 @@ pub(super) async fn handle_h3_with_server(
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
         inner_join_set.spawn(async move {
-            let connection = match H3Connection::new(connecting).await {
+            let handshake_future = H3Connection::new(connecting);
+            let Ok(connection_result) = timeout(handshake_timeout, handshake_future).await else {
+                warn!("h3 timeout expired during handshake");
+                return;
+            };
+            let connection = match connection_result {
                 Ok(connection) => connection,
                 Err(error) => {
                     debug!(%error, "error establishing incoming h3 connection");

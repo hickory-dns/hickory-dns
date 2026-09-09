@@ -48,15 +48,9 @@ pub(super) async fn handle_quic_with_server(
 ) -> Result<(), NetError> {
     let mut inner_join_set = JoinSet::new();
     loop {
-        let future = cx
-            .shutdown
-            .run_until_cancelled(timeout(handshake_timeout, server.next()));
-        let Some(timeout_result) = future.await else {
+        let future = cx.shutdown.run_until_cancelled(server.next());
+        let Some(incoming_opt) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
-        };
-        let Ok(incoming_opt) = timeout_result else {
-            warn!("quic timeout expired during handshake");
-            continue;
         };
         let Some(incoming) = incoming_opt else {
             break; // Connection is closed.
@@ -84,7 +78,12 @@ pub(super) async fn handle_quic_with_server(
 
         let cx = cx.clone();
         inner_join_set.spawn(async move {
-            let streams = match QuicStreams::new(connecting).await {
+            let handshake_future = QuicStreams::new(connecting);
+            let Ok(streams_result) = timeout(handshake_timeout, handshake_future).await else {
+                warn!("quic timeout expired during handshake");
+                return;
+            };
+            let streams = match streams_result {
                 Ok(streams) => streams,
                 Err(error) => {
                     debug!(%error, "error completing incoming quic connection");
