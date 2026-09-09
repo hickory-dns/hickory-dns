@@ -564,7 +564,7 @@ mod tests {
         let past_the_future = now + Duration::from_secs(6);
 
         let entry = Entry {
-            result: Err(NetError::Message("test error")).into(),
+            result: Err(NetError::from("test error")).into(),
             original_time: now,
             valid_until: future,
         };

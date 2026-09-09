@@ -636,7 +636,7 @@ where
     ) -> Self {
         let name = names
             .pop()
-            .ok_or(NetError::Message("can not lookup for no names"));
+            .ok_or_else(|| NetError::from("can not lookup for no names"));
 
         let query = match name {
             Ok(name) => {

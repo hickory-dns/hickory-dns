@@ -12,6 +12,7 @@
 #[cfg(target_os = "android")]
 use core::error::Error;
 use core::num::ParseIntError;
+use std::borrow::Cow;
 use std::io;
 use std::sync::Arc;
 
@@ -80,13 +81,9 @@ pub enum NetError {
     #[error("JNI error: {0}")]
     Jni(Arc<dyn Error + Send + Sync>),
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An error with an arbitrary message
     #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
+    Message(Cow<'static, str>),
 
     /// No connections available
     #[error("no connections available")]
@@ -318,8 +315,8 @@ impl NetError {
             Self::ForeignClassRecord { .. } => "foreign_class_record",
             Self::Truncated => "truncated",
 
-            // Don't report these because the format is arbitrary, and in the case of Msg, dynamic.
-            Self::Message(_) | Self::Msg(_) => "message",
+            // Don't report these because the format is arbitrary, and possibly dynamic.
+            Self::Message(_) => "message",
         }
     }
 }
@@ -368,13 +365,13 @@ impl From<io::Error> for NetError {
 
 impl From<String> for NetError {
     fn from(msg: String) -> Self {
-        Self::Msg(msg)
+        Self::Message(msg.into())
     }
 }
 
 impl From<&'static str> for NetError {
     fn from(msg: &'static str) -> Self {
-        Self::Message(msg)
+        Self::Message(msg.into())
     }
 }
 
@@ -587,7 +584,7 @@ mod tests {
                 .is_connection_closed()
         );
         assert!(!NetError::Timeout.is_connection_closed());
-        assert!(!NetError::Message("server error").is_connection_closed());
+        assert!(!NetError::from("server error").is_connection_closed());
     }
 
     #[cfg(feature = "__https")]
