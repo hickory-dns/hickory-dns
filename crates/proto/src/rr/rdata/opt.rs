@@ -701,9 +701,7 @@ impl BinEncodable for ClientSubnet {
                 if addr_len <= octets.len() {
                     encoder.emit_slice(&octets[0..addr_len])?
                 } else {
-                    return Err(ProtoError::Message(
-                        "Invalid addr length for encode EcsOption",
-                    ));
+                    return Err(ProtoError::from("Invalid addr length for encode EcsOption"));
                 }
             }
             IpAddr::V6(ip) => {
@@ -715,9 +713,7 @@ impl BinEncodable for ClientSubnet {
                 if addr_len <= octets.len() {
                     encoder.emit_slice(&octets[0..addr_len])?
                 } else {
-                    return Err(ProtoError::Message(
-                        "Invalid addr length for encode EcsOption",
-                    ));
+                    return Err(ProtoError::from("Invalid addr length for encode EcsOption"));
                 }
             }
         }

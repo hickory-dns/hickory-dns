@@ -9,6 +9,7 @@
 
 #![deny(missing_docs)]
 
+use alloc::borrow::Cow;
 use alloc::boxed::Box;
 use alloc::string::String;
 #[cfg(feature = "wasm-bindgen")]
@@ -59,13 +60,9 @@ pub enum ProtoError {
     #[error("maximum buffer size exceeded: {0}")]
     MaxBufferSizeExceeded(usize),
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An error with an arbitrary message
     #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
+    Message(Cow<'static, str>),
 
     /// Not all records were able to be written
     #[non_exhaustive]
@@ -98,13 +95,13 @@ pub enum ProtoError {
 
 impl From<String> for ProtoError {
     fn from(msg: String) -> Self {
-        Self::Msg(msg)
+        Self::Message(msg.into())
     }
 }
 
 impl From<&'static str> for ProtoError {
     fn from(msg: &'static str) -> Self {
-        Self::Message(msg)
+        Self::Message(msg.into())
     }
 }
 

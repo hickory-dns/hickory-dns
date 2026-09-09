@@ -642,7 +642,7 @@ impl FromStr for SvcParamKey {
         /// keys are in the format of key#, e.g. key12344, with a max value of u16
         fn parse_unknown_key(key: &str) -> Result<SvcParamKey, ProtoError> {
             let key_value = key.strip_prefix("key").ok_or_else(|| {
-                ProtoError::Msg(format!("bad formatted key ({key}), expected key1234"))
+                ProtoError::from(format!("bad formatted key ({key}), expected key1234"))
             })?;
 
             Ok(SvcParamKey::Key(u16::from_str(key_value)?))

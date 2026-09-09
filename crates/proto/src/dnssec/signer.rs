@@ -278,7 +278,7 @@ impl DnssecSigner {
     pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
         self.key
             .sign(tbs)
-            .map_err(|e| ProtoError::Msg(format!("signing error: {e}")))
+            .map_err(|e| ProtoError::from(format!("signing error: {e}")))
     }
 
     /// The name of the signing entity, e.g. the DNS server name.

@@ -554,9 +554,7 @@ fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(u16, bool)> {
 
     match u16::try_from(count) {
         Ok(count) => Ok((count, truncated)),
-        Err(_) => Err(ProtoError::Message(
-            "too many records to fit in header count",
-        )),
+        Err(_) => Err(ProtoError::from("too many records to fit in header count")),
     }
 }
 
@@ -631,9 +629,7 @@ where
         queries: match u16::try_from(query_count) {
             Ok(count) => count,
             Err(_) => {
-                return Err(ProtoError::Message(
-                    "too many queries to fit in header count",
-                ));
+                return Err(ProtoError::from("too many queries to fit in header count"));
             }
         },
         answers: answer_count.0,
