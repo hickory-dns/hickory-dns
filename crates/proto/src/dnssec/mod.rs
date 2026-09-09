@@ -7,6 +7,7 @@
 
 //! dns security extension related modules
 
+use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::slice;
@@ -323,13 +324,9 @@ pub enum DnsSecError {
     #[error("hmac validation failure")]
     HmacInvalid,
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An error with an arbitrary message
     #[error("{0}")]
-    Message(&'static str),
-
-    /// An error with an arbitrary message, stored as String
-    #[error("{0}")]
-    Msg(String),
+    Message(Cow<'static, str>),
 
     // foreign
     /// An error got returned by the hickory-proto crate
@@ -356,13 +353,13 @@ pub enum DnsSecError {
 
 impl From<String> for DnsSecError {
     fn from(msg: String) -> Self {
-        Self::Msg(msg)
+        Self::Message(msg.into())
     }
 }
 
 impl From<&'static str> for DnsSecError {
     fn from(msg: &'static str) -> Self {
-        Self::Message(msg)
+        Self::Message(msg.into())
     }
 }
 
@@ -371,11 +368,10 @@ impl Clone for DnsSecError {
         use DnsSecError::*;
         match self {
             HmacInvalid => HmacInvalid,
-            Message(msg) => Message(msg),
-            Msg(msg) => Msg(msg.clone()),
+            Message(msg) => Message(msg.clone()),
             // foreign
             Proto(proto) => Proto(proto.clone()),
-            RingKeyRejected(r) => Msg(format!("Ring rejected key: {r}")),
+            RingKeyRejected(r) => Self::from(format!("Ring rejected key: {r}")),
             RingUnspecified(_r) => RingUnspecified(ring_like::Unspecified),
             TsigUnsupportedMacAlgorithm(alg) => TsigUnsupportedMacAlgorithm(alg.clone()),
             TsigWrongKey => TsigWrongKey,

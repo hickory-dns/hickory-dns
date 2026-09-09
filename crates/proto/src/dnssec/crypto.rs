@@ -86,7 +86,7 @@ impl EcdsaSigningKey {
         } else if algorithm == Algorithm::ECDSAP384SHA384 {
             &ECDSA_P384_SHA384_FIXED_SIGNING
         } else {
-            return Err(DnsSecError::Message("unsupported algorithm"));
+            return Err(DnsSecError::from("unsupported algorithm"));
         };
 
         #[cfg(all(feature = "dnssec-aws-lc-rs", not(feature = "dnssec-ring")))]
@@ -117,7 +117,7 @@ impl EcdsaSigningKey {
         } else if algorithm == Algorithm::ECDSAP384SHA384 {
             &ECDSA_P384_SHA384_FIXED_SIGNING
         } else {
-            return Err(DnsSecError::Message("unsupported algorithm"));
+            return Err(DnsSecError::from("unsupported algorithm"));
         };
 
         let pkcs8 = EcdsaKeyPair::generate_pkcs8(alg, &rng)?;
