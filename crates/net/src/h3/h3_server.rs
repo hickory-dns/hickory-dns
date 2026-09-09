@@ -10,6 +10,7 @@
 use core::net::SocketAddr;
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use bytes::Bytes;
 use h3::server::{Connection, RequestStream};
@@ -20,6 +21,7 @@ use quinn::{EndpointConfig, ServerConfig};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
+use tokio::time::timeout;
 
 use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
 
@@ -91,15 +93,17 @@ impl H3Server {
         };
 
         let remote_addr = connecting.remote_address();
-        let connection = connecting.await?;
-        Ok(Some((
-            H3Connection {
-                connection: Connection::new(h3_quinn::Connection::new(connection))
-                    .await
-                    .map_err(|e| NetError::from(format!("h3 connection failed: {e}")))?,
-            },
-            remote_addr,
-        )))
+        let future = async {
+            let connection = connecting.await?;
+            let connection = Connection::new(h3_quinn::Connection::new(connection))
+                .await
+                .map_err(|e| NetError::from(format!("h3 connection failed: {e}")))?;
+            Ok::<_, NetError>(H3Connection { connection })
+        };
+        let Ok(result) = timeout(Duration::from_secs(5), future).await else {
+            return Err(NetError::from("h3 timeout expired during handshake"));
+        };
+        Ok(Some((result?, remote_addr)))
     }
 
     /// Returns the address this server is listening on

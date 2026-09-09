@@ -60,15 +60,9 @@ pub(super) async fn handle_h3_with_server(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let future = cx
-            .shutdown
-            .run_until_cancelled(timeout(handshake_timeout, server.accept()));
-        let Some(timeout_result) = future.await else {
+        let future = cx.shutdown.run_until_cancelled(server.accept());
+        let Some(result) = future.await else {
             break; // A graceful shutdown was initiated. Break out of the loop.
-        };
-        let Ok(result) = timeout_result else {
-            warn!("h3 timeout expired during handshake");
-            continue;
         };
         let (connection, src_addr) = match result {
             Ok(Some((connection, src_addr))) => (connection, src_addr),
