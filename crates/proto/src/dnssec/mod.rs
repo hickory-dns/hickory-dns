@@ -645,4 +645,147 @@ mod tests {
             DnssecSummary::Insecure
         );
     }
+
+    /// Pin down the behavior of DnssecSummary on all possible combinations of proofs.
+    #[test]
+    fn summary_powerset() {
+        let name = Name::from_ascii("www.example.").unwrap();
+
+        assert_eq!(
+            DnssecSummary::from_records([].iter()),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records([a_record(&name, Proof::Secure)].iter()),
+            DnssecSummary::Secure
+        );
+        assert_eq!(
+            DnssecSummary::from_records([a_record(&name, Proof::Insecure)].iter()),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records([a_record(&name, Proof::Bogus)].iter()),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records([a_record(&name, Proof::Indeterminate)].iter()),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Insecure)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Bogus)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Insecure),
+                    a_record(&name, Proof::Bogus)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Insecure),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Bogus),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Insecure),
+                    a_record(&name, Proof::Bogus)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Insecure),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Insecure
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Bogus),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Insecure),
+                    a_record(&name, Proof::Bogus),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+        assert_eq!(
+            DnssecSummary::from_records(
+                [
+                    a_record(&name, Proof::Secure),
+                    a_record(&name, Proof::Insecure),
+                    a_record(&name, Proof::Bogus),
+                    a_record(&name, Proof::Indeterminate)
+                ]
+                .iter()
+            ),
+            DnssecSummary::Bogus
+        );
+    }
 }
