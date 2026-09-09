@@ -1277,7 +1277,9 @@ fn read_inner(decoder: &mut BinDecoder<'_>, name: &mut Name) -> Result<(), Decod
                         // remaining six bits of the length field limit the label to 63 octets or
                         // less.
                         name.set_fqdn(true);
-                        LabelParseState::Root
+                        // need to pop() the 0 off the stack...
+                        decoder.pop()?;
+                        break;
                     }
                     None => {
                         // Valid names on the wire should end in a 0-octet, signifying the end of
@@ -1346,11 +1348,6 @@ fn read_inner(decoder: &mut BinDecoder<'_>, name: &mut Name) -> Result<(), Decod
                 decoder = &mut decoder_tmp;
                 name_start = decoder.index();
                 LabelParseState::LabelLengthOrPointer
-            }
-            LabelParseState::Root => {
-                // need to pop() the 0 off the stack...
-                decoder.pop()?;
-                break;
             }
         };
 
@@ -1426,7 +1423,6 @@ enum LabelParseState {
     LabelLengthOrPointer, // basically the start of the FSM
     Label,                // storing length of the label, must be < 63
     Pointer,              // location of pointer in slice,
-    Root,                 // root is the end of the labels list for an FQDN
 }
 
 impl FromStr for Name {
