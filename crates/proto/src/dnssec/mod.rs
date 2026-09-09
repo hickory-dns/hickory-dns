@@ -399,26 +399,21 @@ impl DnssecSummary {
     ///
     /// RRSIGs are skipped, since only the RRSIG used for verification carries the RRset's proof.
     pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
-        let mut all_secure = None;
+        let mut is_empty = true;
+        let mut accumulator = Self::Secure;
         for record in records {
             if record.record_type() == RecordType::RRSIG {
                 continue;
             }
 
-            match &record.proof {
-                Proof::Secure => {
-                    all_secure.get_or_insert(true);
-                }
-                Proof::Bogus => return Self::Bogus,
-                _ => all_secure = Some(false),
-            }
+            is_empty = false;
+            accumulator = accumulator.update(record.proof);
         }
 
-        if all_secure.unwrap_or(false) {
-            Self::Secure
-        } else {
-            Self::Insecure
+        if is_empty {
+            return Self::Insecure;
         }
+        accumulator
     }
 
     /// Combine this DNSSEC status with another [`Proof`] value.
