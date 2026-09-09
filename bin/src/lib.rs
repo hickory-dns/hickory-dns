@@ -716,6 +716,8 @@ fn build_tcp_listener(
     };
 
     sock.set_reuse_address(true)?;
+    #[cfg(unix)]
+    sock.set_reuse_port(true)?;
     sock.set_nonblocking(true)?;
 
     let s_addr = SocketAddr::new(ip, port);
@@ -740,6 +742,9 @@ fn build_udp_socket(
         s
     };
 
+    sock.set_reuse_address(true)?;
+    #[cfg(unix)]
+    sock.set_reuse_port(true)?;
     sock.set_nonblocking(true)?;
 
     #[cfg(unix)]
