@@ -9,6 +9,7 @@
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::cmp::Ordering;
 use core::slice;
 
 #[cfg(feature = "serde")]
@@ -418,14 +419,37 @@ impl DnssecSummary {
 
     /// Combine this DNSSEC status with another [`Proof`] value.
     pub fn update(self, proof: Proof) -> Self {
-        match (self, proof) {
-            (Self::Secure, Proof::Secure) => Self::Secure,
-            (Self::Bogus, _) | (_, Proof::Bogus) => Self::Bogus,
-            (
-                Self::Secure | Self::Insecure,
-                Proof::Secure | Proof::Insecure | Proof::Indeterminate,
-            ) => Self::Insecure,
+        Ord::min(self, Self::from(proof))
+    }
+}
+
+impl From<Proof> for DnssecSummary {
+    fn from(value: Proof) -> Self {
+        match value {
+            Proof::Secure => Self::Secure,
+            Proof::Insecure | Proof::Indeterminate => Self::Insecure,
+            Proof::Bogus => Self::Bogus,
         }
+    }
+}
+
+impl Ord for DnssecSummary {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Self::Secure, Self::Secure)
+            | (Self::Bogus, Self::Bogus)
+            | (Self::Insecure, Self::Insecure) => Ordering::Equal,
+            (Self::Secure, Self::Insecure | Self::Bogus) => Ordering::Greater,
+            (Self::Bogus, Self::Secure | Self::Insecure) => Ordering::Less,
+            (Self::Insecure, Self::Secure) => Ordering::Less,
+            (Self::Insecure, Self::Bogus) => Ordering::Greater,
+        }
+    }
+}
+
+impl PartialOrd for DnssecSummary {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
