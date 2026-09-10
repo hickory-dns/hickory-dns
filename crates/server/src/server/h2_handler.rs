@@ -73,21 +73,19 @@ pub(super) async fn handle_h2_with_acceptor(
     let mut inner_join_set = JoinSet::new();
     loop {
         let shutdown = &cx.shutdown;
-        let (tcp_stream, src_addr) = tokio::select! {
-            tcp_stream = listener.accept() => match tcp_stream {
-                Ok((t, s)) => (t, s),
-                Err(error) => {
-                    debug!(%error, "error receiving HTTPS tcp_stream error");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
-                    }
-                    continue;
-                },
-            },
-            _ = shutdown.cancelled() => {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            },
+        let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
+            // A graceful shutdown was initiated. Break out of the loop.
+            break;
+        };
+        let (tcp_stream, src_addr) = match result {
+            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            Err(error) => {
+                debug!(%error, "error receiving HTTPS tcp_stream error");
+                if is_unrecoverable_socket_error(&error) {
+                    break;
+                }
+                continue;
+            }
         };
 
         // verify that the src address is safe for responses

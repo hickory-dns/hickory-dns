@@ -9,7 +9,7 @@ use hyper_util::{
     service::TowerToHyperService,
 };
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
-use tokio::{net::TcpListener, select, task::JoinHandle};
+use tokio::{net::TcpListener, task::JoinHandle};
 use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceBuilder};
 use tower_http::compression::CompressionLayer;
@@ -49,20 +49,19 @@ impl PrometheusServer {
         let join_handle = tokio::spawn(async move {
             let builder = Builder::new(TokioExecutor::new());
             loop {
-                let stream = select! {
-                    result = listener.accept() => {
-                        match result {
-                            Ok((stream, _)) => stream,
-                            Err(error) => {
-                                debug!(%error, "error accepting connection");
-                                continue;
-                            }
-                        }
-                    },
-                    _ = cancellation_token.cancelled() => {
-                        drop(listener);
-                        break;
-                    },
+                let Some(result) = cancellation_token
+                    .run_until_cancelled(listener.accept())
+                    .await
+                else {
+                    drop(listener);
+                    break;
+                };
+                let stream = match result {
+                    Ok((stream, _)) => stream,
+                    Err(error) => {
+                        debug!(%error, "error accepting connection");
+                        continue;
+                    }
                 };
                 let io = TokioIo::new(stream);
                 let svc = TowerToHyperService::new(

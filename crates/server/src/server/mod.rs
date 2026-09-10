@@ -450,15 +450,16 @@ async fn handle_udp(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let message = tokio::select! {
-            message = stream.next() => match message {
-                None => break,
-                Some(message) => message,
-            },
-            _ = cx.shutdown.cancelled() => break,
+        let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
+            // Graceful shutdown
+            break;
+        };
+        let Some(message_res) = option else {
+            // End of stream
+            break;
         };
 
-        let message = match message {
+        let message = match message_res {
             Err(error) => {
                 warn!(%error, "error receiving message on udp_socket");
                 if is_unrecoverable_socket_error(&error) {
@@ -509,21 +510,19 @@ async fn handle_tcp(
     debug!("register tcp: {listener:?}");
     let mut inner_join_set = JoinSet::new();
     loop {
-        let (tcp_stream, src_addr) = tokio::select! {
-            tcp_stream = listener.accept() => match tcp_stream {
-                Ok((t, s)) => (t, s),
-                Err(error) => {
-                    debug!(%error, "error receiving TCP tcp_stream error");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
-                    }
-                    continue;
-                },
-            },
-            _ = cx.shutdown.cancelled() => {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            },
+        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+            // A graceful shutdown was initiated. Break out of the loop.
+            break;
+        };
+        let (tcp_stream, src_addr) = match result {
+            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            Err(error) => {
+                debug!(%error, "error receiving TCP tcp_stream error");
+                if is_unrecoverable_socket_error(&error) {
+                    break;
+                }
+                continue;
+            }
         };
 
         // verify that the src address is safe for responses
@@ -585,21 +584,19 @@ async fn handle_tls(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let (tcp_stream, src_addr) = tokio::select! {
-            tcp_stream = listener.accept() => match tcp_stream {
-                Ok((t, s)) => (t, s),
-                Err(error) => {
-                    debug!(%error, "error receiving TLS tcp_stream error");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
-                    }
-                    continue;
-                },
-            },
-            _ = cx.shutdown.cancelled() => {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            },
+        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+            // A graceful shutdown was initiated. Break out of the loop.
+            break;
+        };
+        let (tcp_stream, src_addr) = match result {
+            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            Err(error) => {
+                debug!(%error, "error receiving TLS tcp_stream error");
+                if is_unrecoverable_socket_error(&error) {
+                    break;
+                }
+                continue;
+            }
         };
 
         // verify that the src address is safe for responses
