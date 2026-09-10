@@ -53,6 +53,7 @@ impl PrometheusServer {
                     .run_until_cancelled(listener.accept())
                     .await
                 else {
+                    // Close the socket first, before draining in-flight connections.
                     drop(listener);
                     break;
                 };
