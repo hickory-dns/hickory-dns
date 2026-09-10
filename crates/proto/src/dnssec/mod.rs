@@ -400,21 +400,19 @@ impl DnssecSummary {
     ///
     /// RRSIGs are skipped, since only the RRSIG used for verification carries the RRset's proof.
     pub fn from_records<'a>(records: impl Iterator<Item = &'a Record>) -> Self {
-        let mut is_empty = true;
-        let mut accumulator = Self::Secure;
+        let mut accumulator: Option<Self> = None;
         for record in records {
             if record.record_type() == RecordType::RRSIG {
                 continue;
             }
 
-            is_empty = false;
-            accumulator = accumulator.update(record.proof);
+            accumulator = Some(match accumulator {
+                Some(old) => old.update(record.proof),
+                None => Self::from(record.proof),
+            });
         }
 
-        if is_empty {
-            return Self::Insecure;
-        }
-        accumulator
+        accumulator.unwrap_or(Self::Insecure)
     }
 
     /// Combine this DNSSEC status with another [`Proof`] value.
