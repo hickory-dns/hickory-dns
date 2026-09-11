@@ -56,9 +56,16 @@ pub(super) async fn handle_quic_with_server(
             break; // Connection is closed.
         };
 
-        // Verify that the source address is safe for responses. We're also relying on the quinn
-        // library to actually validate responses before we get here, but this check is still worth
-        // doing.
+        // If the remote address isn't validated, send a retry packet to request that the client try
+        // connecting again, with address validation.
+        if !incoming.remote_address_validated() {
+            if let Err(error) = incoming.retry() {
+                warn!(%error, "could not send retry packet");
+            }
+            continue;
+        }
+
+        // Verify that the source address is safe for responses.
         let src_addr = incoming.remote_address();
         if let Err(error) = sanitize_src_address(src_addr) {
             warn!(
