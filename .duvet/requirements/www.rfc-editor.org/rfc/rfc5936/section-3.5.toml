@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-3.5"
+
+# Occluded Names
+#
+#    Dynamic Update [RFC2136] operations, and in particular their
+#    interaction with DNAME [RFC2672], can have a side effect of occluding
+#    names in a zone.  The addition of a delegation point via dynamic
+#    update will render all subordinate domain names to be in a limbo,
+#    still part of the zone but not available to the lookup process.  The
+#    addition of a DNAME resource record has the same impact.  The
+#    subordinate names are said to be "occluded".
+# 
+#    Occluded names MUST be included in AXFR responses.  An AXFR client
+#    MUST be able to identify and handle occluded names.  The rationale
+#    for this action is based on a speedy recovery if the dynamic update
+#    operation was in error and is to be undone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Occluded names MUST be included in AXFR responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An AXFR client
+MUST be able to identify and handle occluded names.
+'''
+

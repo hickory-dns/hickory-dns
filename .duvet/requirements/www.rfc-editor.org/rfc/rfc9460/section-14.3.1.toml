@@ -1,0 +1,75 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-14.3.1"
+
+# Procedure
+#
+#    A registration MUST include the following fields:
+# 
+#    Number:  Wire-format numeric identifier (range 0-65535)
+#    Name:  Unique presentation name
+#    Meaning:  A short description
+#    Reference:  Location of specification or registration source
+#    Change Controller:  Person or entity, with contact information if
+#       appropriate
+# 
+#    The characters in the registered Name field entry MUST be lowercase
+#    alphanumeric or "-" (Section 2.1).  The name MUST NOT start with
+#    "key" or "invalid".
+# 
+#    The registration policy for new entries is Expert Review ([RFC8126],
+#    Section 4.5).  The designated expert MUST ensure that the reference
+#    is stable and publicly available and that it specifies how to convert
+#    the SvcParamValue's presentation format to wire format.  The
+#    reference MAY be any individual's Internet-Draft or a document from
+#    any other source with similar assurances of stability and
+#    availability.  An entry MAY specify a reference of the form "Same as
+#    (other key name)" if it uses the same presentation and wire formats
+#    as an existing key.
+# 
+#    This arrangement supports the development of new parameters while
+#    ensuring that zone files can be made interoperable.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A registration MUST include the following fields:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The characters in the registered Name field entry MUST be lowercase
+alphanumeric or "-" (Section 2.1).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name MUST NOT start with
+"key" or "invalid".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The designated expert MUST ensure that the reference
+is stable and publicly available and that it specifies how to convert
+the SvcParamValue's presentation format to wire format.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The
+reference MAY be any individual's Internet-Draft or a document from
+any other source with similar assurances of stability and
+availability.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An entry MAY specify a reference of the form "Same as
+(other key name)" if it uses the same presentation and wire formats
+as an existing key.
+'''
+

@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.6"
+
+# Handling of the CD and AD Bits
+#
+#    A security-aware resolver MAY set a query's CD bit in order to
+#    indicate that the resolver takes responsibility for performing
+#    whatever authentication its local policy requires on the RRsets in
+#    the response.  See Section 3.2 for the effect this bit has on the
+#    behavior of security-aware recursive name servers.
+# 
+#    A security-aware resolver MUST clear the AD bit when composing query
+#    messages to protect against buggy name servers that blindly copy
+#    header bits that they do not understand from the query message to the
+#    response message.
+# 
+#    A resolver MUST disregard the meaning of the CD and AD bits in a
+#    response unless the response was obtained by using a secure channel
+#    or the resolver was specifically configured to regard the message
+#    header bits without using a secure channel.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A security-aware resolver MAY set a query's CD bit in order to
+indicate that the resolver takes responsibility for performing
+whatever authentication its local policy requires on the RRsets in
+the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver MUST clear the AD bit when composing query
+messages to protect against buggy name servers that blindly copy
+header bits that they do not understand from the query message to the
+response message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A resolver MUST disregard the meaning of the CD and AD bits in a
+response unless the response was obtained by using a secure channel
+or the resolver was specifically configured to regard the message
+header bits without using a secure channel.
+'''
+

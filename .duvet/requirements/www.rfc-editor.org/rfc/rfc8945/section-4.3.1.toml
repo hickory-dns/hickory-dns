@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-4.3.1"
+
+# Request MAC
+#
+#    Only included in the computation of a MAC for a response message (or
+#    the first message in a multi-message response), the validated request
+#    MAC MUST be included in the MAC computation.  If the request MAC
+#    failed to validate, an unsigned error message MUST be returned
+#    instead (Section 5.3.2).
+# 
+#    The request's MAC, comprising the following fields, is digested in
+#    wire format:
+# 
+#       +==========+=========================+========================+
+#       | Field    | Type                    | Description            |
+#       +==========+=========================+========================+
+#       | MAC Size | Unsigned 16-bit integer | in network byte order  |
+#       +----------+-------------------------+------------------------+
+#       | MAC Data | octet sequence          | exactly as transmitted |
+#       +----------+-------------------------+------------------------+
+# 
+#                            Table 1: Request's MAC
+# 
+#    Special considerations apply to the TSIG calculation for the second
+#    and subsequent messages in a response that consists of multiple DNS
+#    messages (e.g., a zone transfer).  These are described in
+#    Section 5.3.1.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Only included in the computation of a MAC for a response message (or
+the first message in a multi-message response), the validated request
+MAC MUST be included in the MAC computation.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the request MAC
+failed to validate, an unsigned error message MUST be returned
+instead (Section 5.3.2).
+'''
+

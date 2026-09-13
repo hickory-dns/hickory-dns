@@ -1,0 +1,88 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-8.3"
+
+# Announcing
+#
+#    The second startup step is that the Multicast DNS responder MUST send
+#    an unsolicited Multicast DNS response containing, in the Answer
+#    Section, all of its newly registered resource records (both shared
+#    records, and unique records that have completed the probing step).
+#    If there are too many resource records to fit in a single packet,
+#    multiple packets should be used.
+# 
+#    In the case of shared records (e.g., the PTR records used by DNS-
+#    Based Service Discovery [RFC6763]), the records are simply placed as
+#    is into the Answer Section of the DNS response.
+# 
+#    In the case of records that have been verified to be unique in the
+#    previous step, they are placed into the Answer Section of the DNS
+#    response with the most significant bit of the rrclass set to one.
+#    The most significant bit of the rrclass for a record in the Answer
+#    Section of a response message is the Multicast DNS cache-flush bit
+#    and is discussed in more detail below in Section 10.2, "Announcements
+#    to Flush Outdated Cache Entries".
+# 
+#    The Multicast DNS responder MUST send at least two unsolicited
+#    responses, one second apart.  To provide increased robustness against
+#    packet loss, a responder MAY send up to eight unsolicited responses,
+#    provided that the interval between unsolicited responses increases by
+#    at least a factor of two with every response sent.
+# 
+#    A Multicast DNS responder MUST NOT send announcements in the absence
+#    of information that its network connectivity may have changed in some
+#    relevant way.  In particular, a Multicast DNS responder MUST NOT send
+#    regular periodic announcements as a matter of course.
+# 
+#    Whenever a Multicast DNS responder receives any Multicast DNS
+#    response (solicited or otherwise) containing a conflicting resource
+#    record, the conflict MUST be resolved as described in Section 9,
+#    "Conflict Resolution".
+
+[[spec]]
+level = "MUST"
+quote = '''
+The second startup step is that the Multicast DNS responder MUST send
+an unsolicited Multicast DNS response containing, in the Answer
+Section, all of its newly registered resource records (both shared
+records, and unique records that have completed the probing step).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Multicast DNS responder MUST send at least two unsolicited
+responses, one second apart.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+To provide increased robustness against
+packet loss, a responder MAY send up to eight unsolicited responses,
+provided that the interval between unsolicited responses increases by
+at least a factor of two with every response sent.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS responder MUST NOT send announcements in the absence
+of information that its network connectivity may have changed in some
+relevant way.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In particular, a Multicast DNS responder MUST NOT send
+regular periodic announcements as a matter of course.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Whenever a Multicast DNS responder receives any Multicast DNS
+response (solicited or otherwise) containing a conflicting resource
+record, the conflict MUST be resolved as described in Section 9,
+"Conflict Resolution".
+'''
+

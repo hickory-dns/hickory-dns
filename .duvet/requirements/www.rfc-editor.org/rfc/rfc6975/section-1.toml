@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-1"
+
+# Introduction
+#
+#    The DNS Security Extensions (DNSSEC), [RFC4033], [RFC4034], and
+#    [RFC4035], were developed to provide origin authentication and
+#    integrity protection for DNS data by using digital signatures.  Each
+#    digital signature (RRSIG) Resource Record (RR) contains an algorithm
+#    code number that corresponds to a DNSSEC public key (DNSKEY) RR.
+#    These algorithm codes tell validators which cryptographic algorithm
+#    was used to generate the digital signature.
+# 
+#    Likewise, the Delegation Signer (DS) RRs and Hashed Authenticated
+#    Denial of Existence (NSEC3) RRs use a hashed value as part of their
+#    resource record data (RDATA) and, like digital signature algorithms,
+#    these hash algorithms have code numbers.  All three algorithm codes
+#    (RRSIG/DNSKEY, DS, and NSEC3) are maintained in unique IANA
+#    registries.
+# 
+#    This document sets specifies a way for validating end-system
+#    resolvers to tell a server in a DNS query which digital signature
+#    and/or hash algorithms they support.  This is done using the new
+#    Extension Mechanisms for DNS (EDNS0) options specified below in
+#    Section 2 for use in the OPT meta-RR [RFC6891].  These three new
+#    EDNS0 option codes are all OPTIONAL to implement and use.
+# 
+#    These proposed EDNS0 options serve to measure the acceptance and use
+#    of new digital signing algorithms.  These signaling options can be
+#    used by zone administrators as a gauge to measure the successful
+#    deployment of code that implements the newly deployed digital
+#    signature algorithm, DS hash, and the NSEC3 hash algorithm used with
+#    DNSSEC.  A zone administrator is able to determine when to stop
+#    signing with a superseded algorithm when the server sees that a
+#    significant number of its clients signal that they are able to accept
+#    the new algorithm.  Note that this survey may be conducted over a
+#    period of years before a tipping point is seen.
+# 
+#    This document does not seek to introduce another process for
+#    including new algorithms for use with DNSSEC.  It also does not
+#    address the question of which algorithms are to be included in any
+#    official list of mandatory or recommended cryptographic algorithms
+#    for use with DNSSEC.  Rather, this document specifies a means by
+#    which a client query can signal the set of algorithms and hashes that
+#    it implements.
+
+[[spec]]
+level = "MAY"
+quote = '''
+These three new
+EDNS0 option codes are all OPTIONAL to implement and use.
+'''
+

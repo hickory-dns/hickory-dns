@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-8.2"
+
+# DNS Caching
+#
+#    Implementations of this protocol rely heavily on the DNS, and are
+#    thus prone to security attacks based on the deliberate
+#    mis-association of TLSA records and DNS names.  Implementations need
+#    to be cautious in assuming the continuing validity of an association
+#    between a TLSA record and a DNS name.
+# 
+#    In particular, implementations SHOULD rely on their DNS resolver for
+#    confirmation of an association between a TLSA record and a DNS name,
+#    rather than caching the result of previous domain name lookups.  Many
+#    platforms already can cache domain name lookups locally when
+#    appropriate, and they SHOULD be configured to do so.  It is proper
+#    for these lookups to be cached, however, only when the TTL (Time To
+#    Live) information reported by the DNS makes it likely that the cached
+#    information will remain useful.
+# 
+#    If implementations cache the results of domain name lookups in order
+#    to achieve a performance improvement, they MUST observe the TTL
+#    information reported by DNS.  Implementations that fail to follow
+#    this rule could be spoofed or have access denied when a previously
+#    accessed server's TLSA record changes, such as during a certificate
+#    rollover.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In particular, implementations SHOULD rely on their DNS resolver for
+confirmation of an association between a TLSA record and a DNS name,
+rather than caching the result of previous domain name lookups.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Many
+platforms already can cache domain name lookups locally when
+appropriate, and they SHOULD be configured to do so.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If implementations cache the results of domain name lookups in order
+to achieve a performance improvement, they MUST observe the TTL
+information reported by DNS.
+'''
+

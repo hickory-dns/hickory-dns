@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc7129#section-5.1"
+
+# Opt-Out
+#
+#    Hashing mitigates the zone-walking issue of NSEC.  The other issue,
+#    the high costs of securing a delegation to an insecure zone, is
+#    tackled with Opt-Out.  When using Opt-Out, names that are an insecure
+#    delegation (and empty non-terminals that are only derived from
+#    insecure delegations) don't require an NSEC3 record.  For each
+#    insecure delegation, the zone size can be decreased (compared with a
+#    fully signed zone without using Opt-Out) with at least two records:
+#    one NSEC3 record and one corresponding RRSIG record.  If the insecure
+#    delegation would introduce empty non-terminals, even more records can
+#    be omitted from the zone.
+# 
+#    Opt-Out NSEC3 records are not able to prove or deny the existence of
+#    the insecure delegations.  In other words, those delegations do not
+#    benefit from the cryptographic security that DNSSEC provides.
+# 
+#    A recently discovered corner case (see RFC Errata ID 3441 [Err3441])
+#    shows that not only those delegations remain insecure but also the
+#    empty non-terminal space that is derived from those delegations.
+# 
+#    Because the names in this empty non-terminal space do exist according
+#    to the definition in [RFC4592], the server should respond to queries
+#    for these names with a NODATA response.  However, the validator
+#    requires an NSEC3 record proving the NODATA response ([RFC5155],
+#    Section 8.5):
+# 
+#       The validator MUST verify that an NSEC3 RR that matches QNAME is
+#       present and that both the QTYPE and the CNAME type are not set in
+#       its Type Bit Maps field.
+# 
+#    A way to resolve this contradiction in the specification is to always
+#    provide empty non-terminals with an NSEC3 record, even if it is only
+#    derived from an insecure delegation.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The validator MUST verify that an NSEC3 RR that matches QNAME is
+present and that both the QTYPE and the CNAME type are not set in
+its Type Bit Maps field.
+'''
+

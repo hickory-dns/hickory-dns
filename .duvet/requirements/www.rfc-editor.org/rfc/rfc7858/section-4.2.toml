@@ -1,0 +1,121 @@
+target = "https://www.rfc-editor.org/rfc/rfc7858#section-4.2"
+
+# Out-of-Band Key-Pinned Privacy Profile
+#
+#    The out-of-band key-pinned privacy profile can be used in
+#    environments where an established trust relationship already exists
+#    between DNS clients and servers (e.g., stub-to-recursive in
+#    enterprise networks, actively maintained contractual service
+# 
+#    relationships, or a client using a public DNS resolver).  The result
+#    of this profile is that the client has strong guarantees about the
+#    privacy of its DNS data by connecting only to servers it can
+#    authenticate.  Operators of a DNS-over-TLS service in this profile
+#    are expected to provide pins that are specific to the service being
+#    pinned (i.e., public keys belonging directly to the end entity or to
+#    a service-specific private certificate authority (CA)) and not to a
+#    public key(s) of a generic public CA.
+# 
+#    In this profile, clients authenticate servers by matching a set of
+#    SPKI Fingerprints in an analogous manner to that described in
+#    [RFC7469].  With this out-of-band key-pinned privacy profile, client
+#    administrators SHOULD deploy a backup pin along with the primary pin,
+#    for the reasons explained in [RFC7469].  A backup pin is especially
+#    helpful in the event of a key rollover, so that a server operator
+#    does not have to coordinate key transitions with all its clients
+#    simultaneously.  After a change of keys on the server, an updated pin
+#    set SHOULD be distributed to all clients in some secure way in
+#    preparation for future key rollover.  The mechanism for an
+#    out-of-band pin set update is out of scope for this document.
+# 
+#    Such a client will only use DNS servers for which an SPKI Fingerprint
+#    pin set has been provided.  The possession of a trusted pre-deployed
+#    pin set allows the client to detect and prevent person-in-the-middle
+#    and downgrade attacks.
+# 
+#    However, a configured DNS server may be temporarily unavailable when
+#    configuring a network.  For example, for clients on networks that
+#    require authentication through web-based login, such authentication
+#    may rely on DNS interception and spoofing.  Techniques such as those
+#    used by DNSSEC-trigger [DNSSEC-TRIGGER] MAY be used during network
+#    configuration, with the intent to transition to the designated DNS
+#    provider after authentication.  The user MUST be alerted whenever
+#    possible that the DNS is not private during such bootstrap.
+# 
+#    Upon successful TLS connection and handshake, the client computes the
+#    SPKI Fingerprints for the public keys found in the validated server's
+#    certificate chain (or in the raw public key, if the server provides
+#    that instead).  If a computed fingerprint exactly matches one of the
+#    configured pins, the client continues with the connection as normal.
+#    Otherwise, the client MUST treat the SPKI validation failure as a
+#    non-recoverable error.  Appendix A provides a detailed example of how
+#    this authentication could be performed in practice.
+# 
+#    Implementations of this privacy profile MUST support the calculation
+#    of a fingerprint as the SHA-256 [RFC6234] hash of the DER-encoded
+#    ASN.1 representation of the SPKI of an X.509 certificate.
+# 
+#    Implementations MUST support the representation of a SHA-256
+#    fingerprint as a base64-encoded character string [RFC4648].
+#    Additional fingerprint types MAY also be supported.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+With this out-of-band key-pinned privacy profile, client
+administrators SHOULD deploy a backup pin along with the primary pin,
+for the reasons explained in [RFC7469].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+After a change of keys on the server, an updated pin
+set SHOULD be distributed to all clients in some secure way in
+preparation for future key rollover.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Techniques such as those
+used by DNSSEC-trigger [DNSSEC-TRIGGER] MAY be used during network
+configuration, with the intent to transition to the designated DNS
+provider after authentication.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The user MUST be alerted whenever
+possible that the DNS is not private during such bootstrap.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Otherwise, the client MUST treat the SPKI validation failure as a
+non-recoverable error.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations of this privacy profile MUST support the calculation
+of a fingerprint as the SHA-256 [RFC6234] hash of the DER-encoded
+ASN.1 representation of the SPKI of an X.509 certificate.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations MUST support the representation of a SHA-256
+fingerprint as a base64-encoded character string [RFC4648].
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Additional fingerprint types MAY also be supported.
+'''
+

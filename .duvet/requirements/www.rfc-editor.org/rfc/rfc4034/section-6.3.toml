@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-6.3"
+
+# Canonical RR Ordering within an RRset
+#
+#    For the purposes of DNS security, RRs with the same owner name,
+#    class, and type are sorted by treating the RDATA portion of the
+#    canonical form of each RR as a left-justified unsigned octet sequence
+#    in which the absence of an octet sorts before a zero octet.
+# 
+#    [RFC2181] specifies that an RRset is not allowed to contain duplicate
+#    records (multiple RRs with the same owner name, class, type, and
+#    RDATA).  Therefore, if an implementation detects duplicate RRs when
+#    putting the RRset in canonical form, it MUST treat this as a protocol
+#    error.  If the implementation chooses to handle this protocol error
+#    in the spirit of the robustness principle (being liberal in what it
+#    accepts), it MUST remove all but one of the duplicate RR(s) for the
+#    purposes of calculating the canonical form of the RRset.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Therefore, if an implementation detects duplicate RRs when
+putting the RRset in canonical form, it MUST treat this as a protocol
+error.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the implementation chooses to handle this protocol error
+in the spirit of the robustness principle (being liberal in what it
+accepts), it MUST remove all but one of the duplicate RR(s) for the
+purposes of calculating the canonical form of the RRset.
+'''
+

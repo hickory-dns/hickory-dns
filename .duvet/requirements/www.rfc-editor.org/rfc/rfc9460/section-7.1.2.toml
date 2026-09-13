@@ -1,0 +1,87 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-7.1.2"
+
+# Use
+#
+#    To establish a connection to the endpoint, clients MUST
+# 
+#    1.  Let SVCB-ALPN-Intersection be the set of protocols in the SVCB
+#        ALPN set that the client supports.
+# 
+#    2.  Let Intersection-Transports be the set of transports (e.g., TLS,
+#        DTLS, QUIC) implied by the protocols in SVCB-ALPN-Intersection.
+# 
+#    3.  For each transport in Intersection-Transports, construct a
+#        ProtocolNameList containing the Identification Sequences of all
+#        the client's supported ALPN protocols for that transport, without
+#        regard to the SVCB ALPN set.
+# 
+#    For example, if the SVCB ALPN set is ["http/1.1", "h3"] and the
+#    client supports HTTP/1.1, HTTP/2, and HTTP/3, the client could
+#    attempt to connect using TLS over TCP with a ProtocolNameList of
+#    ["http/1.1", "h2"] and could also attempt a connection using QUIC
+#    with a ProtocolNameList of ["h3"].
+# 
+#    Once the client has constructed a ClientHello, protocol negotiation
+#    in that handshake proceeds as specified in [ALPN], without regard to
+#    the SVCB ALPN set.
+# 
+#    Clients MAY implement a fallback procedure, using a less-preferred
+#    transport if more-preferred transports fail to connect.  This
+#    fallback behavior is vulnerable to manipulation by a network attacker
+#    who blocks the more-preferred transports, but it may be necessary for
+#    compatibility with existing networks.
+# 
+#    With this procedure in place, an attacker who can modify DNS and
+#    network traffic can prevent a successful transport connection but
+#    cannot otherwise interfere with ALPN protocol selection.  This
+#    procedure also ensures that each ProtocolNameList includes at least
+#    one protocol from the SVCB ALPN set.
+# 
+#    Clients SHOULD NOT attempt connection to a service endpoint whose
+#    SVCB ALPN set does not contain any supported protocols.
+# 
+#    To ensure consistency of behavior, clients MAY reject the entire SVCB
+#    RRset and fall back to basic connection establishment if all of the
+#    compatible RRs indicate "no-default-alpn", even if connection could
+#    have succeeded using a non-default ALPN protocol.
+# 
+#    Zone operators SHOULD ensure that at least one RR in each RRset
+#    supports the default transports.  This enables compatibility with the
+#    greatest number of clients.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To establish a connection to the endpoint, clients MUST
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Clients MAY implement a fallback procedure, using a less-preferred
+transport if more-preferred transports fail to connect.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD NOT attempt connection to a service endpoint whose
+SVCB ALPN set does not contain any supported protocols.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+To ensure consistency of behavior, clients MAY reject the entire SVCB
+RRset and fall back to basic connection establishment if all of the
+compatible RRs indicate "no-default-alpn", even if connection could
+have succeeded using a non-default ALPN protocol.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Zone operators SHOULD ensure that at least one RR in each RRset
+supports the default transports.
+'''
+

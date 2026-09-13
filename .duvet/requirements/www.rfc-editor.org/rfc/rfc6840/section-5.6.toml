@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.6"
+
+# Setting the DO Bit on Replies
+#
+#    As stated in Section 3 of [RFC3225], the DNSSEC OK (DO) bit of the
+#    query MUST be copied in the response.  However, in order to
+#    interoperate with implementations that ignore this rule on sending,
+#    resolvers MUST ignore the DO bit in responses.
+
+[[spec]]
+level = "MUST"
+quote = '''
+As stated in Section 3 of [RFC3225], the DNSSEC OK (DO) bit of the
+query MUST be copied in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, in order to
+interoperate with implementations that ignore this rule on sending,
+resolvers MUST ignore the DO bit in responses.
+'''
+

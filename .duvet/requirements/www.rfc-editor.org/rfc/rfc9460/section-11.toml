@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-11"
+
+# Interaction with Other Standards
+#
+#    This standard is intended to reduce connection latency and improve
+#    user privacy.  Server operators implementing this standard SHOULD
+#    also implement TLS 1.3 [RFC8446] and Online Certificate Status
+#    Protocol (OCSP) Stapling (i.e., Certificate Status Request in
+#    Section 8 of [RFC6066]), both of which confer substantial performance
+#    and privacy benefits when used in combination with SVCB records.
+# 
+#    To realize the greatest privacy benefits, this proposal is intended
+#    for use over a privacy-preserving DNS transport (like DNS over TLS
+#    [DoT] or DNS over HTTPS [DoH]).  However, performance improvements,
+#    and some modest privacy improvements, are possible without the use of
+#    those standards.
+# 
+#    Any specification for the use of SVCB with a protocol MUST have an
+#    entry for its scheme under the SVCB RR type in the IANA DNS
+#    "Underscored and Globally Scoped DNS Node Names" registry [Attrleaf].
+#    The scheme MUST have an entry in the "Uniform Resource Identifier
+#    (URI) Schemes" registry [RFC7595] and MUST have a defined
+#    specification for use with SVCB.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Server operators implementing this standard SHOULD
+also implement TLS 1.3 [RFC8446] and Online Certificate Status
+Protocol (OCSP) Stapling (i.e., Certificate Status Request in
+Section 8 of [RFC6066]), both of which confer substantial performance
+and privacy benefits when used in combination with SVCB records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any specification for the use of SVCB with a protocol MUST have an
+entry for its scheme under the SVCB RR type in the IANA DNS
+"Underscored and Globally Scoped DNS Node Names" registry [Attrleaf].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The scheme MUST have an entry in the "Uniform Resource Identifier
+(URI) Schemes" registry [RFC7595] and MUST have a defined
+specification for use with SVCB.
+'''
+

@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc5001#section-2.1"
+
+# Resolver Behavior
+#
+#    A resolver signals its desire for information identifying a name
+#    server by sending an empty NSID option (Section 2.3) in an EDNS OPT
+#    pseudo-RR in the query message.
+# 
+#    The resolver MUST NOT include any NSID payload data in the query
+#    message.
+# 
+#    The semantics of an NSID request are not transitive.  That is: the
+#    presence of an NSID option in a query is a request that the name
+#    server which receives the query identify itself.  If the name server
+#    side of a recursive name server receives an NSID request, the client
+#    is asking the recursive name server to identify itself; if the
+#    resolver side of the recursive name server wishes to receive
+#    identifying information, it is free to add NSID requests in its own
+#    queries, but that is a separate matter.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The resolver MUST NOT include any NSID payload data in the query
+message.
+'''
+

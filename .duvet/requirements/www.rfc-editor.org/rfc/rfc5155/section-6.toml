@@ -1,0 +1,68 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-6"
+
+# Opt-Out
+#
+#    In this specification, as in [RFC4033], [RFC4034] and [RFC4035], NS
+#    RRSets at delegation points are not signed and may be accompanied by
+#    a DS RRSet.  With the Opt-Out bit clear, the security status of the
+#    child zone is determined by the presence or absence of this DS RRSet,
+#    cryptographically proven by the signed NSEC3 RR at the hashed owner
+#    name of the delegation.  Setting the Opt-Out flag modifies this by
+#    allowing insecure delegations to exist within the signed zone without
+#    a corresponding NSEC3 RR at the hashed owner name of the delegation.
+# 
+#    An Opt-Out NSEC3 RR is said to cover a delegation if the hash of the
+#    owner name or "next closer" name of the delegation is between the
+#    owner name of the NSEC3 RR and the next hashed owner name.
+# 
+#    An Opt-Out NSEC3 RR does not assert the existence or non-existence of
+#    the insecure delegations that it may cover.  This allows for the
+#    addition or removal of these delegations without recalculating or re-
+#    signing RRs in the NSEC3 RR chain.  However, Opt-Out NSEC3 RRs do
+#    assert the (non)existence of other, authoritative RRSets.
+# 
+#    An Opt-Out NSEC3 RR MAY have the same original owner name as an
+#    insecure delegation.  In this case, the delegation is proven insecure
+#    by the lack of a DS bit in the type map and the signed NSEC3 RR does
+#    assert the existence of the delegation.
+# 
+#    Zones using Opt-Out MAY contain a mixture of Opt-Out NSEC3 RRs and
+#    non-Opt-Out NSEC3 RRs.  If an NSEC3 RR is not Opt-Out, there MUST NOT
+#    be any hashed owner names of insecure delegations (nor any other RRs)
+#    between it and the name indicated by the next hashed owner name in
+#    the NSEC3 RDATA.  If it is Opt-Out, it MUST only cover hashed owner
+#    names or hashed "next closer" names of insecure delegations.
+# 
+#    The effects of the Opt-Out flag on signing, serving, and validating
+#    responses are covered in following sections.
+
+[[spec]]
+level = "MAY"
+quote = '''
+An Opt-Out NSEC3 RR MAY have the same original owner name as an
+insecure delegation.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Zones using Opt-Out MAY contain a mixture of Opt-Out NSEC3 RRs and
+non-Opt-Out NSEC3 RRs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an NSEC3 RR is not Opt-Out, there MUST NOT
+be any hashed owner names of insecure delegations (nor any other RRs)
+between it and the name indicated by the next hashed owner name in
+the NSEC3 RDATA.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If it is Opt-Out, it MUST only cover hashed owner
+names or hashed "next closer" names of insecure delegations.
+'''
+

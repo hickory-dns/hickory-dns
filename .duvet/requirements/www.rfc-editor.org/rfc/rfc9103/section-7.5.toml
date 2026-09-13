@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.5"
+
+# XoT Transfers
+#
+#    For a zone transfer between two endpoints to be considered protected
+#    with XoT, all XFR requests and responses for that zone MUST be sent
+#    over TLS connections, where at a minimum:
+# 
+#    *  The client MUST authenticate the server by use of an
+#       authentication domain name using a Strict Privacy profile, as
+#       described in [RFC8310].
+# 
+#    *  The server MUST validate the client is authorized to request or
+#       proxy a zone transfer by using one or both of the following
+#       methods:
+# 
+#       -  mutual TLS (mTLS)
+# 
+#       -  an IP-based ACL (which can be either per message or per
+#          connection) combined with a valid TSIG/SIG(0) signature on the
+#          XFR request
+# 
+#    If only one method is selected, then mTLS is preferred because it
+#    provides strong cryptographic protection at both endpoints.
+# 
+#    Authentication mechanisms are discussed in full in Section 9, and the
+#    rationale for the above requirement is discussed in Section 10.
+#    Transfer group policies are discussed in Section 11.
+
+[[spec]]
+level = "MUST"
+quote = '''
+For a zone transfer between two endpoints to be considered protected
+with XoT, all XFR requests and responses for that zone MUST be sent
+over TLS connections, where at a minimum:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The client MUST authenticate the server by use of an
+authentication domain name using a Strict Privacy profile, as
+described in [RFC8310].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  The server MUST validate the client is authorized to request or
+proxy a zone transfer by using one or both of the following
+methods:
+'''
+

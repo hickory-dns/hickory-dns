@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc5702#section-3"
+
+# RRSIG Resource Records
+#
+#    The value of the signature field in the RRSIG RR follows the RSASSA-
+#    PKCS1-v1_5 signature scheme and is calculated as follows.  The values
+#    for the RDATA fields that precede the signature data are specified in
+#    [RFC4034].
+# 
+#    hash = SHA-XXX(data)
+# 
+#    Here XXX is either 256 or 512, depending on the algorithm used, as
+#    specified in FIPS PUB 180-3; "data" is the wire format data of the
+#    resource record set that is signed, as specified in [RFC4034].
+# 
+#    signature = ( 00 | 01 | FF* | 00 | prefix | hash ) ** e (mod n)
+# 
+#    Here "|" is concatenation; "00", "01", "FF", and "00" are fixed
+#    octets of corresponding hexadecimal value; "e" is the private
+#    exponent of the signing RSA key; and "n" is the public modulus of the
+#    signing key.  The FF octet MUST be repeated the exact number of times
+#    so that the total length of the concatenated term in parentheses
+#    equals the length of the modulus of the signer's public key ("n").
+# 
+#    The "prefix" is intended to make the use of standard cryptographic
+#    libraries easier.  These specifications are taken directly from the
+#    specifications of RSASSA-PKCS1-v1_5 in PKCS #1 v2.1 (Section 8.2 of
+#    [RFC3447]), and EMSA-PKCS1-v1_5 encoding in PKCS #1 v2.1 (Section 9.2
+#    of [RFC3447]).  The prefixes for the different algorithms are
+#    specified below.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The FF octet MUST be repeated the exact number of times
+so that the total length of the concatenated term in parentheses
+equals the length of the modulus of the signer's public key ("n").
+'''
+

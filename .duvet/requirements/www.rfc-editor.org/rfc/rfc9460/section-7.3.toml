@@ -1,0 +1,121 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-7.3"
+
+# "ipv4hint" and "ipv6hint"
+#
+#    The "ipv4hint" and "ipv6hint" keys convey IP addresses that clients
+#    MAY use to reach the service.  If A and AAAA records for TargetName
+#    are locally available, the client SHOULD ignore these hints.
+#    Otherwise, clients SHOULD perform A and/or AAAA queries for
+#    TargetName per Section 3, and clients SHOULD use the IP address in
+#    those responses for future connections.  Clients MAY opt to terminate
+#    any connections using the addresses in hints and instead switch to
+#    the addresses in response to the TargetName query.  Failure to use A
+#    and/or AAAA response addresses could negatively impact load balancing
+#    or other geo-aware features and thereby degrade client performance.
+# 
+#    The presentation value SHALL be a comma-separated list (Appendix A.1)
+#    of one or more IP addresses of the appropriate family in standard
+#    textual format [RFC5952] [RFC4001].  To enable simpler parsing, this
+#    SvcParamValue MUST NOT contain escape sequences.
+# 
+#    The wire format for each parameter is a sequence of IP addresses in
+#    network byte order (for the respective address family).  Like an A or
+#    AAAA RRset, the list of addresses represents an unordered collection,
+#    and clients SHOULD pick addresses to use in a random order.  An empty
+#    list of addresses is invalid.
+# 
+#    When selecting between IPv4 and IPv6 addresses to use, clients may
+#    use an approach such as Happy Eyeballs [HappyEyeballsV2].  When only
+#    "ipv4hint" is present, NAT64 clients may synthesize IPv6 addresses as
+#    specified in [RFC7050] or ignore the "ipv4hint" key and wait for AAAA
+#    resolution (Section 3).  For best performance, server operators
+#    SHOULD include an "ipv6hint" parameter whenever they include an
+#    "ipv4hint" parameter.
+# 
+#    These parameters are intended to minimize additional connection
+#    latency when a recursive resolver is not compliant with the
+#    requirements in Section 4 and SHOULD NOT be included if most clients
+#    are using compliant recursive resolvers.  When TargetName is the
+#    service name or the owner name (which can be written as "."), server
+#    operators SHOULD NOT include these hints, because they are unlikely
+#    to convey any performance benefit.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The "ipv4hint" and "ipv6hint" keys convey IP addresses that clients
+MAY use to reach the service.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If A and AAAA records for TargetName
+are locally available, the client SHOULD ignore these hints.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Otherwise, clients SHOULD perform A and/or AAAA queries for
+TargetName per Section 3, and clients SHOULD use the IP address in
+those responses for future connections.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Clients MAY opt to terminate
+any connections using the addresses in hints and instead switch to
+the addresses in response to the TargetName query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The presentation value SHALL be a comma-separated list (Appendix A.1)
+of one or more IP addresses of the appropriate family in standard
+textual format [RFC5952] [RFC4001].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To enable simpler parsing, this
+SvcParamValue MUST NOT contain escape sequences.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Like an A or
+AAAA RRset, the list of addresses represents an unordered collection,
+and clients SHOULD pick addresses to use in a random order.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For best performance, server operators
+SHOULD include an "ipv6hint" parameter whenever they include an
+"ipv4hint" parameter.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+These parameters are intended to minimize additional connection
+latency when a recursive resolver is not compliant with the
+requirements in Section 4 and SHOULD NOT be included if most clients
+are using compliant recursive resolvers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When TargetName is the
+service name or the owner name (which can be written as "."), server
+operators SHOULD NOT include these hints, because they are unlikely
+to convey any performance benefit.
+'''
+

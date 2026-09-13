@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.10"
+
+# CD (Checking Disabled) Bit
+#
+#    In both multicast query and multicast response messages, the Checking
+#    Disabled bit [RFC2535] MUST be zero on transmission, and MUST be
+#    ignored on reception.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both multicast query and multicast response messages, the Checking
+Disabled bit [RFC2535] MUST be zero on transmission, and MUST be
+ignored on reception.
+'''
+

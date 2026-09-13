@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-7"
+
+# Response Reordering
+#
+#    RFC 1035 is ambiguous on the question of whether TCP responses may be
+#    reordered -- the only relevant text is in Section 4.2.1, which
+#    relates to UDP:
+# 
+#       Queries or their responses may be reordered by the network, or by
+#       processing in name servers, so resolvers should not depend on them
+#       being returned in order.
+# 
+#    For the avoidance of future doubt, this requirement is clarified.
+#    Authoritative servers and recursive resolvers are RECOMMENDED to
+#    support the preparing of responses in parallel and sending them out
+#    of order, regardless of the transport protocol in use.  Stub and
+#    recursive resolvers MUST be able to process responses that arrive in
+#    a different order than that in which the requests were sent,
+#    regardless of the transport protocol in use.
+# 
+#    In order to achieve performance on par with UDP, recursive resolvers
+#    SHOULD process TCP queries in parallel and return individual
+#    responses as soon as they are available, possibly out of order.
+# 
+#    Since pipelined responses can arrive out of order, clients MUST match
+#    responses to outstanding queries on the same TCP connection using the
+#    Message ID.  If the response contains a question section, the client
+#    MUST match the QNAME, QCLASS, and QTYPE fields.  Failure by clients
+#    to properly match responses to outstanding queries can have serious
+#    consequences for interoperability.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authoritative servers and recursive resolvers are RECOMMENDED to
+support the preparing of responses in parallel and sending them out
+of order, regardless of the transport protocol in use.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Stub and
+recursive resolvers MUST be able to process responses that arrive in
+a different order than that in which the requests were sent,
+regardless of the transport protocol in use.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In order to achieve performance on par with UDP, recursive resolvers
+SHOULD process TCP queries in parallel and return individual
+responses as soon as they are available, possibly out of order.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since pipelined responses can arrive out of order, clients MUST match
+responses to outstanding queries on the same TCP connection using the
+Message ID.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the response contains a question section, the client
+MUST match the QNAME, QCLASS, and QTYPE fields.
+'''
+

@@ -1,0 +1,54 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-11.2"
+
+# Birthday Attacks
+#
+#    ECS adds information to the DNS query tuple (q-tuple).  This allows
+#    an attacker to send a caching Intermediate Nameserver multiple
+#    queries with spoofed IP addresses either in the ECS option or as the
+#    source IP.  These queries will trigger multiple outgoing queries with
+#    the same name, type, and class, just with different address
+#    information in the ECS option.
+# 
+#    With multiple queries for the same name in flight, the attacker has a
+#    higher chance of success to send a matching response with SCOPE
+#    PREFIX-LENGTH set to 0 to get it cached for all hosts.
+# 
+#    To counter this, the ECS option in a response packet MUST contain the
+#    full FAMILY, ADDRESS, and SOURCE PREFIX-LENGTH fields from the
+#    corresponding query.  Intermediate Nameservers processing a response
+#    MUST verify that these match, and they SHOULD discard the entire
+#    response if they do not.
+# 
+#    The requirement to discard is categorized as "SHOULD" instead of
+#    "MUST" because it stands in opposition to the instruction in
+#    Section 7.3, which states that a response lacking an ECS option
+#    should be treated as though it had one of SCOPE PREFIX-LENGTH of 0.
+#    If that is always true, then an attacker does not need to worry about
+#    matching the original ECS option data and just needs to flood back
+#    responses that have no ECS option at all.
+# 
+#    This type of attack could be detected in ongoing operations by
+#    marking whether the responding nameserver had previously been sending
+#    ECS options and/or by taking note of an incoming flood of bogus
+#    responses and flagging the relevant query for re-resolution.  This
+#    type of detection is more complex than existing nameserver responses
+#    to spoof floods, and it would also need to be sensitive to a
+#    nameserver legitimately stopping ECS replies even though it had
+#    previously given them.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To counter this, the ECS option in a response packet MUST contain the
+full FAMILY, ADDRESS, and SOURCE PREFIX-LENGTH fields from the
+corresponding query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Intermediate Nameservers processing a response
+MUST verify that these match, and they SHOULD discard the entire
+response if they do not.
+'''
+

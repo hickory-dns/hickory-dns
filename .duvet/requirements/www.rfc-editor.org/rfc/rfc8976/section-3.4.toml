@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-3.4"
+
+# Update ZONEMD RR
+#
+#    The calculated zone digest is inserted into the placeholder ZONEMD
+#    RR.  Repeat for each digest if multiple digests are to be published.
+# 
+#    If the zone is signed with DNSSEC, the RRSIG record(s) covering the
+#    ZONEMD RRset MUST then be added or updated.  Because the ZONEMD
+#    placeholder was added prior to signing, the zone will already have
+#    the appropriate denial-of-existence (NSEC, NSEC3) records.
+# 
+#    Some DNSSEC implementations (especially "online signing") might
+#    update the SOA serial number whenever a new signature is made.  To
+#    preserve the calculated digest, generation of a ZONEMD signature MUST
+#    NOT also result in a change to the SOA serial number.  The ZONEMD RR
+#    and the matching SOA MUST be published at the same time.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the zone is signed with DNSSEC, the RRSIG record(s) covering the
+ZONEMD RRset MUST then be added or updated.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To
+preserve the calculated digest, generation of a ZONEMD signature MUST
+NOT also result in a change to the SOA serial number.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The ZONEMD RR
+and the matching SOA MUST be published at the same time.
+'''
+

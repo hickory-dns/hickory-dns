@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-7.1"
+
+# "alpn" and "no-default-alpn"
+#
+#    The "alpn" and "no-default-alpn" SvcParamKeys together indicate the
+#    set of Application-Layer Protocol Negotiation (ALPN) protocol
+#    identifiers [ALPN] and associated transport protocols supported by
+#    this service endpoint (the "SVCB ALPN set").
+# 
+#    As with Alt-Svc [AltSvc], each ALPN protocol identifier is used to
+#    identify the application protocol and associated suite of protocols
+#    supported by the endpoint (the "protocol suite").  The presence of an
+#    ALPN protocol identifier in the SVCB ALPN set indicates that this
+#    service endpoint, described by TargetName and the other parameters
+#    (e.g., "port"), offers service with the protocol suite associated
+#    with this ALPN identifier.
+# 
+#    Clients filter the set of ALPN identifiers to match the protocol
+#    suites they support, and this informs the underlying transport
+#    protocol used (such as QUIC over UDP or TLS over TCP).  ALPN protocol
+#    identifiers that do not uniquely identify a protocol suite (e.g., an
+#    Identification Sequence that can be used with both TLS and DTLS) are
+#    not compatible with this SvcParamKey and MUST NOT be included in the
+#    SVCB ALPN set.
+
+[[spec]]
+level = "MUST"
+quote = '''
+ALPN protocol
+identifiers that do not uniquely identify a protocol suite (e.g., an
+Identification Sequence that can be used with both TLS and DTLS) are
+not compatible with this SvcParamKey and MUST NOT be included in the
+SVCB ALPN set.
+'''
+

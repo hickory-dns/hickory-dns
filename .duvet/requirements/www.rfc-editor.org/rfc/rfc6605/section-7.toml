@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc6605#section-7"
+
+# IANA Considerations
+#
+#    This document updates the IANA registry for digest types in DS
+#    records, currently called "Delegation Signer (DS) Resource Record
+#    (RR) Type Digest Algorithms".  The following entry has been added:
+# 
+#    Value          4
+#    Digest Type    SHA-384
+#    Status         OPTIONAL
+# 
+#    This document updates the IANA registry "Domain Name System Security
+#    (DNSSEC) Algorithm Numbers".  The following two entries have been
+#    added to the registry:
+# 
+#    Number         13
+#    Description    ECDSA Curve P-256 with SHA-256
+#    Mnemonic       ECDSAP256SHA256
+#    Zone Signing   Y
+#    Trans. Sec.    *
+#    Reference      This document
+# 
+#    Number         14
+#    Description    ECDSA Curve P-384 with SHA-384
+#    Mnemonic       ECDSAP384SHA384
+#    Zone Signing   Y
+#    Trans. Sec.    *
+#    Reference      This document
+# 
+#    * There has been no determination of standardization of the
+#      use of this algorithm with Transaction Security.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Value          4
+Digest Type    SHA-384
+Status         OPTIONAL
+'''
+

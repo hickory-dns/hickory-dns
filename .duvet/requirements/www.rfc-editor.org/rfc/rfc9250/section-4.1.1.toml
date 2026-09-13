@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.1.1"
+
+# Port Selection
+#
+#    By default, a DNS server that supports DoQ MUST listen for and accept
+#    QUIC connections on the dedicated UDP port 853 (Section 8), unless
+#    there is a mutual agreement to use another port.
+# 
+#    By default, a DNS client desiring to use DoQ with a particular server
+#    MUST establish a QUIC connection to UDP port 853 on the server,
+#    unless there is a mutual agreement to use another port.
+# 
+#    DoQ connections MUST NOT use UDP port 53.  This recommendation
+#    against use of port 53 for DoQ is to avoid confusion between DoQ and
+#    the use of DNS over UDP [RFC1035].  The risk of confusion exists even
+#    if two parties agreed on port 53, as other parties without knowledge
+#    of that agreement might still try to use that port.
+# 
+#    In the stub to recursive scenario, the use of port 443 as a mutually
+#    agreed alternative port can be operationally beneficial, since port
+#    443 is used by many services using QUIC and HTTP-3 and is thus less
+#    likely to be blocked than other ports.  Several mechanisms for stubs
+#    to discover recursives offering encrypted transports, including the
+#    use of custom ports, are the subject of ongoing work.
+
+[[spec]]
+level = "MUST"
+quote = '''
+By default, a DNS server that supports DoQ MUST listen for and accept
+QUIC connections on the dedicated UDP port 853 (Section 8), unless
+there is a mutual agreement to use another port.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+By default, a DNS client desiring to use DoQ with a particular server
+MUST establish a QUIC connection to UDP port 853 on the server,
+unless there is a mutual agreement to use another port.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DoQ connections MUST NOT use UDP port 53.
+'''
+

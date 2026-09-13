@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.2"
+
+# Server Processing of Request
+#
+#    If an incoming message contains a TSIG record, it MUST be the last
+#    record in the additional section.  Multiple TSIG records are not
+#    allowed.  If multiple TSIG records are detected or a TSIG record is
+#    present in any other position, the DNS message is dropped and a
+#    response with RCODE 1 (FORMERR) MUST be returned.  Upon receipt of a
+#    message with exactly one correctly placed TSIG RR, a copy of the TSIG
+#    RR is stored and the TSIG RR is removed from the DNS message and
+#    decremented out of the DNS message header's ARCOUNT.
+# 
+#    If the TSIG RR cannot be interpreted, the server MUST regard the
+#    message as corrupt and return a FORMERR to the server.  Otherwise,
+#    the server is REQUIRED to return a TSIG RR in the response.
+# 
+#    To validate the received TSIG RR, the server MUST perform the
+#    following checks in the following order:
+# 
+#    1.  Check key
+# 
+#    2.  Check MAC
+# 
+#    3.  Check time values
+# 
+#    4.  Check truncation policy
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an incoming message contains a TSIG record, it MUST be the last
+record in the additional section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If multiple TSIG records are detected or a TSIG record is
+present in any other position, the DNS message is dropped and a
+response with RCODE 1 (FORMERR) MUST be returned.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the TSIG RR cannot be interpreted, the server MUST regard the
+message as corrupt and return a FORMERR to the server.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Otherwise,
+the server is REQUIRED to return a TSIG RR in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To validate the received TSIG RR, the server MUST perform the
+following checks in the following order:
+'''
+

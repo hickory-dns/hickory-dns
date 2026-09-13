@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-4.2"
+
+# The NSEC RR Presentation Format
+#
+#    The presentation format of the RDATA portion is as follows:
+# 
+#    The Next Domain Name field is represented as a domain name.
+# 
+#    The Type Bit Maps field is represented as a sequence of RR type
+#    mnemonics.  When the mnemonic is not known, the TYPE representation
+#    described in [RFC3597], Section 5, MUST be used.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When the mnemonic is not known, the TYPE representation
+described in [RFC3597], Section 5, MUST be used.
+'''
+

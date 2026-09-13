@@ -1,0 +1,110 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-5.2.4"
+
+# ACK + Answers
+#
+#    Upon receiving a correct Challenge Response, a server MUST return an
+#    acknowledgment, completing the LLQ setup, and provide all current
+#    answers to the question(s).
+# 
+#    To acknowledge a successful Challenge Response, i.e., a Challenge
+#    Response in which the LLQ-ID and LLQ-LEASE echoed by the client match
+#    the values issued by the server, the server MUST send a DNS response
+#    containing all available answers to the question(s) contained in the
+#    original Setup Request, along with all additional resource records
+#    appropriate for those answers in the Additional section.  The
+#    Additional section also contains LLQ OPTIONS formatted as follows:
+# 
+#      +---------------+------------+---------------------------------+
+#      | Field Name    | Field Type | Description                     |
+#      +===============+============+=================================+
+#      | OPTION-CODE   | u_int16_t  | LLQ (1)                         |
+#      +---------------+------------+---------------------------------+
+#      | OPTION-LENGTH | u_int16_t  | Length of following fields (18) |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-VERSION   | u_int16_t  | Version of LLQ protocol         |
+#      |               |            | implemented in server (1)       |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-OPCODE    | u_int16_t  | LLQ-SETUP (1)                   |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-ERROR     | u_int16_t  | NO-ERROR (0)                    |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-ID        | u_int64_t  | Originally granted ID, echoed   |
+#      |               |            | in client's Response            |
+#      +---------------+------------+---------------------------------+
+#      | LLQ-LEASE     | u_int32_t  | Remaining life of LLQ, in       |
+#      |               |            | seconds                         |
+#      +---------------+------------+---------------------------------+
+# 
+#            Table 6: Successful ACK + Answers LLQ OPTION Format
+# 
+#    If there is a significant delay in receiving a Challenge Response, or
+#    multiple Challenge Responses are issued (possibly because they were
+#    lost en route to the client, causing the client to resend the
+#    Challenge Response), the server MAY decrement the LLQ-LEASE by the
+#    time elapsed since the Setup Challenge was initially issued.
+# 
+#    If the setup is completed over UDP and all initially available
+#    answers to the question(s), additional records, and the OPT pseudo-RR
+#    do not fit in a single IP packet, some or all additional records
+#    (excluding the OPT pseudo-RR) MUST be omitted.  If, after omission of
+#    all additional records, the answers still do not fit in a single
+#    message, answers MUST be removed until the message fits in a single
+#    IP packet.  These answers not delivered in the ACK + Answers MUST be
+#    delivered without undue delay to the client via Add Events
+#    (Section 6, "Event Responses").
+
+[[spec]]
+level = "MUST"
+quote = '''
+Upon receiving a correct Challenge Response, a server MUST return an
+acknowledgment, completing the LLQ setup, and provide all current
+answers to the question(s).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To acknowledge a successful Challenge Response, i.e., a Challenge
+Response in which the LLQ-ID and LLQ-LEASE echoed by the client match
+the values issued by the server, the server MUST send a DNS response
+containing all available answers to the question(s) contained in the
+original Setup Request, along with all additional resource records
+appropriate for those answers in the Additional section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If there is a significant delay in receiving a Challenge Response, or
+multiple Challenge Responses are issued (possibly because they were
+lost en route to the client, causing the client to resend the
+Challenge Response), the server MAY decrement the LLQ-LEASE by the
+time elapsed since the Setup Challenge was initially issued.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the setup is completed over UDP and all initially available
+answers to the question(s), additional records, and the OPT pseudo-RR
+do not fit in a single IP packet, some or all additional records
+(excluding the OPT pseudo-RR) MUST be omitted.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If, after omission of
+all additional records, the answers still do not fit in a single
+message, answers MUST be removed until the message fits in a single
+IP packet.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+These answers not delivered in the ACK + Answers MUST be
+delivered without undue delay to the client via Add Events
+(Section 6, "Event Responses").
+'''
+

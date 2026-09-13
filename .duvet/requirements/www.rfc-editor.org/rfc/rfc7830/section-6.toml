@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc7830#section-6"
+
+# Security Considerations
+#
+#    Padding DNS packets obviously increases their size, and will
+#    therefore lead to increased traffic.
+# 
+#    The use of the EDNS(0) padding only provides a benefit when DNS
+#    packets are not transported in cleartext.  Further, it is possible
+#    that EDNS(0) padding may make DNS amplification attacks easier.
+#    Therefore, implementations MUST NOT use this option if the DNS
+#    transport is not encrypted.
+# 
+#    Padding length might be affected by lower-level compression.
+#    Therefore (as described in Section 3.3 of [RFC7525]), implementations
+#    and deployments SHOULD disable compression at the Transport Layer
+#    Security (TLS) level.
+# 
+#    The payload of the "Padding" option could (like many other fields in
+#    the DNS protocol) be used as a covert channel.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Therefore, implementations MUST NOT use this option if the DNS
+transport is not encrypted.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore (as described in Section 3.3 of [RFC7525]), implementations
+and deployments SHOULD disable compression at the Transport Layer
+Security (TLS) level.
+'''
+

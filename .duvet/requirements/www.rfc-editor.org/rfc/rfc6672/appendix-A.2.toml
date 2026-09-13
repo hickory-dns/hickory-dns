@@ -1,0 +1,49 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#appendix-A.2"
+
+# Changes to Client Behavior
+#
+#    Major changes to client behavior from the original DNAME
+#    specification are summarized below:
+# 
+#    o  Clients MUST be able to accept synthesized CNAME RR's with a TTL
+#       of either zero or the TTL of the DNAME RR that accompanies the
+#       CNAME RR.
+# 
+#    o  DNSSEC-aware clients SHOULD cache DNAME RRs and MAY cache
+#       synthesized CNAME RRs they receive in the same response.  DNSSEC-
+#       aware clients SHOULD also check the NSEC/NSEC3 type bitmap to
+#       verify that DNAME redirection is to be done.  DNSSEC validators
+#       MUST understand DNAME (Section 5.3).
+# 
+#    o  The revised client algorithm is detailed in Section 3.4.1.
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Clients MUST be able to accept synthesized CNAME RR's with a TTL
+of either zero or the TTL of the DNAME RR that accompanies the
+CNAME RR.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  DNSSEC-aware clients SHOULD cache DNAME RRs and MAY cache
+synthesized CNAME RRs they receive in the same response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNSSEC-
+aware clients SHOULD also check the NSEC/NSEC3 type bitmap to
+verify that DNAME redirection is to be done.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNSSEC validators
+MUST understand DNAME (Section 5.3).
+'''
+

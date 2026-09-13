@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.10.3"
+
+# Padding of IXoT Responses
+#
+#    The goal of padding IXoT responses is to obfuscate the incremental
+#    changes to the zone between SOA updates to minimize information
+#    leakage about zone update activity and growth.  Both the size and
+#    timing of the IXoT responses could reveal information.
+# 
+#    IXFR responses can vary greatly in size from the order of 100 bytes
+#    for one or two record updates to tens of thousands of bytes for
+#    large, dynamic DNSSEC-signed zones.  The frequency of IXFR responses
+#    can also depend greatly on if and how the zone is DNSSEC signed.
+# 
+#    In order to guarantee support for future padding policies, it is
+#    stated here that secondary implementations MUST be resilient to
+#    receiving padded IXoT responses.
+# 
+#    Recommendation of specific policies for padding IXoT responses are
+#    out of scope for this specification.  Detailed considerations of such
+#    padding policies, the use of traffic obfuscation techniques (such as
+#    generating fake XFR traffic), and the trade-offs involved are
+#    expected to be the subject of future work.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order to guarantee support for future padding policies, it is
+stated here that secondary implementations MUST be resilient to
+receiving padded IXoT responses.
+'''
+

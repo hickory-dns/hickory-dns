@@ -1,0 +1,110 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#section-3"
+
+# DNS Security Algorithm Numbers Registry Column Values
+#
+#    Initial values for the use and implementation recommendation columns
+#    in the "DNS Security Algorithm Numbers" registry under the "Domain
+#    Name System Security (DNSSEC) Algorithm Numbers" registry group are
+#    shown in Table 2.
+# 
+#    When there are multiple RECOMMENDED algorithms in the "Use for"
+#    columns, operators should choose the best algorithm according to
+#    local policy.
+# 
+#    +===+===============+===========+===========+===========+===========+
+#    |No.|Mnemonics      |Use for    |Use for    |Implement  |Implement  |
+#    |   |               |DNSSEC     |DNSSEC     |for DNSSEC |for DNSSEC |
+#    |   |               |Signing    |Validation |Signing    |Validation |
+#    +===+===============+===========+===========+===========+===========+
+#    |1  |RSAMD5         |MUST NOT   |MUST NOT   |MUST NOT   |MUST NOT   |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |3  |DSA            |MUST NOT   |MUST NOT   |MUST NOT   |MUST NOT   |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |5  |RSASHA1        |NOT        |RECOMMENDED|NOT        |MUST       |
+#    |   |               |RECOMMENDED|           |RECOMMENDED|           |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |6  |DSA-NSEC3-SHA1 |MUST NOT   |MUST NOT   |MUST NOT   |MUST NOT   |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |7  |RSASHA1-NSEC3- |NOT        |RECOMMENDED|NOT        |MUST       |
+#    |   |SHA1           |RECOMMENDED|           |RECOMMENDED|           |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |8  |RSASHA256      |RECOMMENDED|RECOMMENDED|MUST       |MUST       |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |10 |RSASHA512      |NOT        |RECOMMENDED|NOT        |MUST       |
+#    |   |               |RECOMMENDED|           |RECOMMENDED|           |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |12 |ECC-GOST       |MUST NOT   |MAY        |MUST NOT   |MAY        |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |13 |ECDSAP256SHA256|RECOMMENDED|RECOMMENDED|MUST       |MUST       |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |14 |ECDSAP384SHA384|MAY        |RECOMMENDED|MAY        |RECOMMENDED|
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |15 |ED25519        |RECOMMENDED|RECOMMENDED|RECOMMENDED|RECOMMENDED|
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |16 |ED448          |MAY        |RECOMMENDED|MAY        |RECOMMENDED|
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |17 |SM2SM3         |MAY        |MAY        |MAY        |MAY        |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |23 |ECC-GOST12     |MAY        |MAY        |MAY        |MAY        |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |253|PRIVATEDNS     |MAY        |MAY        |MAY        |MAY        |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+#    |254|PRIVATEOID     |MAY        |MAY        |MAY        |MAY        |
+#    +---+---------------+-----------+-----------+-----------+-----------+
+# 
+#        Table 2: Initial Values for the DNS Security Algorithm Numbers
+#                               Registry Columns
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When there are multiple RECOMMENDED algorithms in the "Use for"
+columns, operators should choose the best algorithm according to
+local policy.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
++===+===============+===========+===========+===========+===========+
+|No.|Mnemonics      |Use for    |Use for    |Implement  |Implement  |
+|   |               |DNSSEC     |DNSSEC     |for DNSSEC |for DNSSEC |
+|   |               |Signing    |Validation |Signing    |Validation |
++===+===============+===========+===========+===========+===========+
+|1  |RSAMD5         |MUST NOT   |MUST NOT   |MUST NOT   |MUST NOT   |
++---+---------------+-----------+-----------+-----------+-----------+
+|3  |DSA            |MUST NOT   |MUST NOT   |MUST NOT   |MUST NOT   |
++---+---------------+-----------+-----------+-----------+-----------+
+|5  |RSASHA1        |NOT        |RECOMMENDED|NOT        |MUST       |
+|   |               |RECOMMENDED|           |RECOMMENDED|           |
++---+---------------+-----------+-----------+-----------+-----------+
+|6  |DSA-NSEC3-SHA1 |MUST NOT   |MUST NOT   |MUST NOT   |MUST NOT   |
++---+---------------+-----------+-----------+-----------+-----------+
+|7  |RSASHA1-NSEC3- |NOT        |RECOMMENDED|NOT        |MUST       |
+|   |SHA1           |RECOMMENDED|           |RECOMMENDED|           |
++---+---------------+-----------+-----------+-----------+-----------+
+|8  |RSASHA256      |RECOMMENDED|RECOMMENDED|MUST       |MUST       |
++---+---------------+-----------+-----------+-----------+-----------+
+|10 |RSASHA512      |NOT        |RECOMMENDED|NOT        |MUST       |
+|   |               |RECOMMENDED|           |RECOMMENDED|           |
++---+---------------+-----------+-----------+-----------+-----------+
+|12 |ECC-GOST       |MUST NOT   |MAY        |MUST NOT   |MAY        |
++---+---------------+-----------+-----------+-----------+-----------+
+|13 |ECDSAP256SHA256|RECOMMENDED|RECOMMENDED|MUST       |MUST       |
++---+---------------+-----------+-----------+-----------+-----------+
+|14 |ECDSAP384SHA384|MAY        |RECOMMENDED|MAY        |RECOMMENDED|
++---+---------------+-----------+-----------+-----------+-----------+
+|15 |ED25519        |RECOMMENDED|RECOMMENDED|RECOMMENDED|RECOMMENDED|
++---+---------------+-----------+-----------+-----------+-----------+
+|16 |ED448          |MAY        |RECOMMENDED|MAY        |RECOMMENDED|
++---+---------------+-----------+-----------+-----------+-----------+
+|17 |SM2SM3         |MAY        |MAY        |MAY        |MAY        |
++---+---------------+-----------+-----------+-----------+-----------+
+|23 |ECC-GOST12     |MAY        |MAY        |MAY        |MAY        |
++---+---------------+-----------+-----------+-----------+-----------+
+|253|PRIVATEDNS     |MAY        |MAY        |MAY        |MAY        |
++---+---------------+-----------+-----------+-----------+-----------+
+|254|PRIVATEOID     |MAY        |MAY        |MAY        |MAY        |
++---+---------------+-----------+-----------+-----------+-----------+
+'''
+

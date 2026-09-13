@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-4.3"
+
+# The Timestamp Sub-Field
+#
+#    The Timestamp value prevents Replay Attacks and MUST be checked by
+#    the server to be within a defined period of time.  The DNS server
+#    SHOULD allow cookies within a 1-hour period in the past and a
+#    5-minute period into the future to allow operation of low-volume
+#    clients and some limited time skew between the DNS servers in the
+#    anycast set.
+# 
+#    The Timestamp value specifies a date and time in the form of a 32-bit
+#    *unsigned* number of seconds elapsed since 1 January 1970 00:00:00
+#    UTC, ignoring leap seconds, in network byte order.  All comparisons
+#    involving these fields MUST use "Serial number arithmetic", as
+#    defined in [RFC1982].  [RFC1982] specifies how the differences should
+#    be handled.  This handles any relative time window less than 68
+#    years, at any time in the future (2038, 2106, 2256, 22209, or later.)
+# 
+#    The DNS server SHOULD generate a new Server Cookie at least if the
+#    received Server Cookie from the client is more than half an hour old,
+#    but it MAY generate a new cookie more often than that.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Timestamp value prevents Replay Attacks and MUST be checked by
+the server to be within a defined period of time.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The DNS server
+SHOULD allow cookies within a 1-hour period in the past and a
+5-minute period into the future to allow operation of low-volume
+clients and some limited time skew between the DNS servers in the
+anycast set.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+All comparisons
+involving these fields MUST use "Serial number arithmetic", as
+defined in [RFC1982].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The DNS server SHOULD generate a new Server Cookie at least if the
+received Server Cookie from the client is more than half an hour old,
+but it MAY generate a new cookie more often than that.
+'''
+

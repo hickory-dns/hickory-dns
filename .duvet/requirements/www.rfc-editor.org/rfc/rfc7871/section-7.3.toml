@@ -1,0 +1,95 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.3"
+
+# Handling ECS Responses and Caching
+#
+#    When an Intermediate Nameserver receives a response containing an ECS
+#    option and without the TC bit set, it SHOULD cache the result based
+#    on the data in the option.  If the TC bit was set, the Intermediate
+#    Resolver SHOULD retry the query over TCP to get the complete Answer
+#    section for caching.
+# 
+#    If FAMILY, SOURCE PREFIX-LENGTH, and SOURCE PREFIX-LENGTH bits of
+#    ADDRESS in the response don't match the non-zero fields in the
+#    corresponding query, the full response MUST be dropped, as described
+#    in Section 11.  In a response to a query that specified only SOURCE
+#    PREFIX-LENGTH for privacy masking, the FAMILY and ADDRESS fields MUST
+#    contain the appropriate non-zero information that the Authoritative
+#    Nameserver used to generate the answer, so that it can be cached
+#    accordingly.
+# 
+#    If no ECS option is contained in the response, the Intermediate
+#    Nameserver SHOULD treat this as being equivalent to having received a
+#    SCOPE PREFIX-LENGTH of 0, which is an answer suitable for all client
+#    addresses.  See further discussion on the security implications of
+#    this in Section 11.
+# 
+#    If a REFUSED response is received from an Authoritative Nameserver,
+#    an ECS-aware resolver MUST retry the query without ECS to distinguish
+#    the response from one where the Authoritative Nameserver is not
+#    responsible for the name, which is a common convention for the
+#    REFUSED status.  Similarly, a client of a Recursive Resolver SHOULD
+# 
+#    retry after receiving a REFUSED response because it is not
+#    sufficiently clear whether the REFUSED response was because of the
+#    ECS option or some other reason.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When an Intermediate Nameserver receives a response containing an ECS
+option and without the TC bit set, it SHOULD cache the result based
+on the data in the option.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the TC bit was set, the Intermediate
+Resolver SHOULD retry the query over TCP to get the complete Answer
+section for caching.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If FAMILY, SOURCE PREFIX-LENGTH, and SOURCE PREFIX-LENGTH bits of
+ADDRESS in the response don't match the non-zero fields in the
+corresponding query, the full response MUST be dropped, as described
+in Section 11.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In a response to a query that specified only SOURCE
+PREFIX-LENGTH for privacy masking, the FAMILY and ADDRESS fields MUST
+contain the appropriate non-zero information that the Authoritative
+Nameserver used to generate the answer, so that it can be cached
+accordingly.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If no ECS option is contained in the response, the Intermediate
+Nameserver SHOULD treat this as being equivalent to having received a
+SCOPE PREFIX-LENGTH of 0, which is an answer suitable for all client
+addresses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a REFUSED response is received from an Authoritative Nameserver,
+an ECS-aware resolver MUST retry the query without ECS to distinguish
+the response from one where the Authoritative Nameserver is not
+responsible for the name, which is a common convention for the
+REFUSED status.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Similarly, a client of a Recursive Resolver SHOULD
+'''
+

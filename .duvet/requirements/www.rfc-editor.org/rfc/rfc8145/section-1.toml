@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-1"
+
+# Introduction
+#
+#    The DNS Security Extensions (DNSSEC) [RFC4033] [RFC4034] [RFC4035]
+#    were developed to provide origin authentication and integrity
+#    protection for DNS data by using digital signatures.  DNSSEC uses
+#    Key Tags to efficiently match signatures to the keys from which they
+#    are generated.  The Key Tag is a 16-bit value computed from the RDATA
+#    portion of a DNSKEY resource record (RR) using a formula not unlike a
+#    ones-complement checksum.  RRSIG RRs contain a Key Tag field whose
+#    value is equal to the Key Tag of the DNSKEY RR that validates the
+#    signature.
+# 
+#    Likewise, Delegation Signer (DS) RRs also contain a Key Tag field
+#    whose value is equal to the Key Tag of the DNSKEY RR to which it
+#    refers.
+# 
+#    This document specifies how validating resolvers can tell a server,
+#    in a DNS query, which DNSSEC key(s) they would use to validate the
+#    server's responses.  It describes two independent methods for
+#    conveying Key Tag information between clients and servers:
+# 
+#    1.  placing an EDNS option in the OPT RR [RFC6891] that contains the
+#        Key Tags (described in Section 4)
+# 
+#    2.  periodically sending special "Key Tag queries" to a server
+#        authoritative for the zone (described in Section 5)
+# 
+#    Each of these new signaling mechanisms is OPTIONAL to implement and
+#    use.  These mechanisms serve to measure the acceptance and use of new
+#    DNSSEC trust anchors and key signing keys (KSKs).  This signaling
+#    data can be used by zone administrators as a gauge to measure the
+#    successful deployment of new keys.  This is of particular interest
+#    for the DNS root zone in the event of key and/or algorithm rollovers
+#    that rely on [RFC5011] to automatically update a validating DNS
+#    resolver's trust anchor.
+# 
+#    This document does not introduce new processes for rolling keys or
+#    updating trust anchors.  Rather, it specifies a means by which a DNS
+#    query can signal the set of keys that a client uses for DNSSEC
+#    validation.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Each of these new signaling mechanisms is OPTIONAL to implement and
+use.
+'''
+

@@ -1,0 +1,80 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-9"
+
+# IANA Considerations
+#
+#    The IANA has assigned RR type code 41 for OPT.
+# 
+#    [RFC2671] specified a number of IANA subregistries within "DOMAIN
+#    NAME SYSTEM PARAMETERS":
+# 
+#    o  DNS EDNS(0) Options
+# 
+#    o  EDNS Version Number
+# 
+#    o  EDNS Header Flags
+# 
+#    Additionally, two entries were generated in existing registries:
+# 
+#    o  EDNS Extended Label Type in the DNS Label Types registry
+# 
+#    o  Bad OPT Version in the DNS RCODES registry
+# 
+#    IANA has updated references to [RFC2671] in these entries and
+#    subregistries to this document.
+# 
+#    [RFC2671] created the DNS Label Types registry.  This registry is to
+#    remain open.
+# 
+#    The registration procedure for the DNS Label Types registry is
+#    Standards Action.
+# 
+#    This document assigns option code 65535 in the DNS EDNS0 Options
+#    registry to "Reserved for future expansion".
+# 
+#    The current status of the IANA registry for EDNS Option Codes at the
+#    time of publication of this document is
+# 
+#    o  0-4 assigned, per references in the registry
+# 
+#    o  5-65000 Available for assignment, unassigned
+# 
+#    o  65001-65534 Local/Experimental use
+# 
+#    o  65535 Reserved for future expansion
+# 
+#    [RFC2671] expands the RCODE space from 4 bits to 12 bits.  This
+#    allows more than the 16 distinct RCODE values allowed in [RFC1035].
+#    IETF Review is required to add a new RCODE.
+# 
+#    This document assigns EDNS Extended RCODE 16 to "BADVERS" in the DNS
+#    RCODES registry.
+# 
+#    [RFC2671] called for the recording of assignment of extended label
+#    types 0bxx111111 as "Reserved for future extended label types"; the
+#    IANA registry currently contains "Reserved for future expansion".
+#    This request implied, at that time, a request to open a new registry
+#    for extended label types, but due to the possibility of ambiguity,
+#    new text registrations were instead made within the general DNS Label
+#    Types registry, which also registers entries originally defined by
+#    [RFC1035].  There is therefore no Extended Label Types registry, with
+#    all label types registered in the DNS Label Types registry.
+# 
+#    This document deprecates Binary Labels.  Therefore, the status for
+#    the DNS Label Types registration "Binary Labels" is now "Historic".
+# 
+#    IETF Standards Action is required for assignments of new EDNS(0)
+#    flags.  Flags SHOULD be used only when necessary for DNS resolution
+#    to function.  For many uses, an EDNS Option Code may be preferred.
+# 
+#    IETF Standards Action is required to create new entries in the EDNS
+#    Version Number registry.  Within the EDNS Option Code space, Expert
+#    Review is required for allocation of an EDNS Option Code.  Per this
+#    document, IANA maintains a registry for the EDNS Option Code space.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Flags SHOULD be used only when necessary for DNS resolution
+to function.
+'''
+

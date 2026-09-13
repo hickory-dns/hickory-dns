@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.3"
+
+# OPCODE
+#
+#    In both multicast query and multicast response messages, the OPCODE
+#    MUST be zero on transmission (only standard queries are currently
+#    supported over multicast).  Multicast DNS messages received with an
+#    OPCODE other than zero MUST be silently ignored.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both multicast query and multicast response messages, the OPCODE
+MUST be zero on transmission (only standard queries are currently
+supported over multicast).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS messages received with an
+OPCODE other than zero MUST be silently ignored.
+'''
+

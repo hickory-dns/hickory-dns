@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-3.2.2"
+
+# Receiving Responses
+#
+#    A DNS client that receives a response using UDP transport that
+#    includes the edns-tcp-keepalive option MUST ignore the option.
+# 
+#    A DNS client that receives a response using TCP transport that
+#    includes the edns-tcp-keepalive option MAY keep the existing TCP
+#    session open when it is idle.  It SHOULD honour the timeout received
+#    in that response (overriding any previous timeout) and initiate close
+#    of the connection before the timeout expires.
+# 
+#    A DNS client that receives a response that includes the edns-tcp-
+#    keepalive option with a TIMEOUT value of 0 SHOULD send no more
+#    queries on that connection and initiate closing the connection as
+#    soon as it has received all outstanding responses.
+# 
+#    A DNS client that sent a query containing the edns-keepalive-option
+#    but receives a response that does not contain the edns-keepalive-
+#    option SHOULD assume the server does not support keepalive and behave
+#    following the guidance in [RFC7766].  This holds true even if a
+#    previous edns-keepalive-option exchange occurred on the existing TCP
+#    connection.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DNS client that receives a response using UDP transport that
+includes the edns-tcp-keepalive option MUST ignore the option.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS client that receives a response using TCP transport that
+includes the edns-tcp-keepalive option MAY keep the existing TCP
+session open when it is idle.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It SHOULD honour the timeout received
+in that response (overriding any previous timeout) and initiate close
+of the connection before the timeout expires.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A DNS client that receives a response that includes the edns-tcp-
+keepalive option with a TIMEOUT value of 0 SHOULD send no more
+queries on that connection and initiate closing the connection as
+soon as it has received all outstanding responses.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A DNS client that sent a query containing the edns-keepalive-option
+but receives a response that does not contain the edns-keepalive-
+option SHOULD assume the server does not support keepalive and behave
+following the guidance in [RFC7766].
+'''
+

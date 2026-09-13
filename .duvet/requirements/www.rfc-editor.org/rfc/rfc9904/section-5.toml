@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#section-5"
+
+# Security Considerations
+#
+#    The security of cryptographic systems depends on the strength of both
+#    the cryptographic algorithms chosen and the keys used with those
+#    algorithms.  The security also depends on the engineering of the
+#    protocol used by the system to ensure that there are no non-
+#    cryptographic ways to bypass the security of the overall system.
+# 
+#    This document concerns itself with the selection of cryptographic
+#    algorithms for the use of DNSSEC, specifically with the selection of
+#    "mandatory-to-implement" algorithms.  In this document, the
+#    algorithms identified as MUST or RECOMMENDED to implement are not
+#    known to be broken at the current time, and cryptographic research so
+#    far leads us to believe that they are likely to remain adequately
+#    secure unless significant and unexpected discovery is made.  However,
+#    this isn't necessarily forever, and it is expected that future
+#    documents will be issued from time to time to reflect the current
+#    best practices in this area.
+# 
+#    Retiring an algorithm too soon would result in a zone signed with the
+#    retired algorithm being downgraded to the equivalent of an unsigned
+#    zone.  Therefore, algorithm deprecation must be done only after
+#    careful consideration and ideally slowly when possible.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this document, the
+algorithms identified as MUST or RECOMMENDED to implement are not
+known to be broken at the current time, and cryptographic research so
+far leads us to believe that they are likely to remain adequately
+secure unless significant and unexpected discovery is made.
+'''
+

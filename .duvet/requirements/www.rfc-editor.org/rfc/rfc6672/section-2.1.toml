@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-2.1"
+
+# Format
+#
+#    The DNAME RR has mnemonic DNAME and type code 39 (decimal).  It is
+#    CLASS-insensitive.
+# 
+#    Its RDATA is comprised of a single field, <target>, which contains a
+#    fully qualified domain name that MUST be sent in uncompressed form
+#    [RFC1035] [RFC3597].  The <target> field MUST be present.  The
+#    presentation format of <target> is that of a domain name [RFC1035].
+#    The presentation format of the RR is as follows:
+# 
+#            <owner> <ttl> <class> DNAME <target>
+# 
+#    The effect of the DNAME RR is the substitution of the record's
+#    <target> for its owner name, as a suffix of a domain name.  This
+#    substitution is to be applied for all names below the owner name of
+#    the DNAME RR.  This substitution has to be applied for every DNAME RR
+#    found in the resolution process, which allows fairly lengthy valid
+#    chains of DNAME RRs.
+# 
+#    Details of the substitution process, methods to avoid conflicting
+#    resource records, and rules for specific corner cases are given in
+#    the following subsections.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Its RDATA is comprised of a single field, <target>, which contains a
+fully qualified domain name that MUST be sent in uncompressed form
+[RFC1035] [RFC3597].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The <target> field MUST be present.
+'''
+

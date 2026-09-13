@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-4.1"
+
+# The HTTP Request
+#
+#    A DoH client encodes a single DNS query into an HTTP request using
+#    either the HTTP GET or POST method and the other requirements of this
+#    section.  The DoH server defines the URI used by the request through
+#    the use of a URI Template.
+# 
+#    The URI Template defined in this document is processed without any
+#    variables when the HTTP method is POST.  When the HTTP method is GET,
+#    the single variable "dns" is defined as the content of the DNS
+#    request (as described in Section 6), encoded with base64url
+#    [RFC4648].
+# 
+#    Future specifications for new media types for DoH MUST define the
+#    variables used for URI Template processing with this protocol.
+# 
+#    DoH servers MUST implement both the POST and GET methods.
+# 
+#    When using the POST method, the DNS query is included as the message
+#    body of the HTTP request, and the Content-Type request header field
+#    indicates the media type of the message.  POSTed requests are
+#    generally smaller than their GET equivalents.
+# 
+#    Using the GET method is friendlier to many HTTP cache
+#    implementations.
+# 
+#    The DoH client SHOULD include an HTTP Accept request header field to
+#    indicate what type of content can be understood in response.
+#    Irrespective of the value of the Accept request header field, the
+#    client MUST be prepared to process "application/dns-message" (as
+#    described in Section 6) responses but MAY also process other DNS-
+#    related media types it receives.
+# 
+#    In order to maximize HTTP cache friendliness, DoH clients using media
+#    formats that include the ID field from the DNS message header, such
+#    as "application/dns-message", SHOULD use a DNS ID of 0 in every DNS
+#    request.  HTTP correlates the request and response, thus eliminating
+#    the need for the ID in a media type such as "application/dns-
+#    message".  The use of a varying DNS ID can cause semantically
+#    equivalent DNS queries to be cached separately.
+# 
+#    DoH clients can use HTTP/2 padding and compression [RFC7540] in the
+#    same way that other HTTP/2 clients use (or don't use) them.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Future specifications for new media types for DoH MUST define the
+variables used for URI Template processing with this protocol.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DoH servers MUST implement both the POST and GET methods.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The DoH client SHOULD include an HTTP Accept request header field to
+indicate what type of content can be understood in response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Irrespective of the value of the Accept request header field, the
+client MUST be prepared to process "application/dns-message" (as
+described in Section 6) responses but MAY also process other DNS-
+related media types it receives.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In order to maximize HTTP cache friendliness, DoH clients using media
+formats that include the ID field from the DNS message header, such
+as "application/dns-message", SHOULD use a DNS ID of 0 in every DNS
+request.
+'''
+

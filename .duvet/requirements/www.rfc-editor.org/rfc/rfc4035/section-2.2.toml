@@ -1,0 +1,104 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-2.2"
+
+# Including RRSIG RRs in a Zone
+#
+#    For each authoritative RRset in a signed zone, there MUST be at least
+#    one RRSIG record that meets the following requirements:
+# 
+#    o  The RRSIG owner name is equal to the RRset owner name.
+# 
+#    o  The RRSIG class is equal to the RRset class.
+# 
+#    o  The RRSIG Type Covered field is equal to the RRset type.
+# 
+#    o  The RRSIG Original TTL field is equal to the TTL of the RRset.
+# 
+#    o  The RRSIG RR's TTL is equal to the TTL of the RRset.
+# 
+#    o  The RRSIG Labels field is equal to the number of labels in the
+#       RRset owner name, not counting the null root label and not
+#       counting the leftmost label if it is a wildcard.
+# 
+#    o  The RRSIG Signer's Name field is equal to the name of the zone
+#       containing the RRset.
+# 
+#    o  The RRSIG Algorithm, Signer's Name, and Key Tag fields identify a
+#       zone key DNSKEY record at the zone apex.
+# 
+#    The process for constructing the RRSIG RR for a given RRset is
+#    described in [RFC4034].  An RRset MAY have multiple RRSIG RRs
+#    associated with it.  Note that as RRSIG RRs are closely tied to the
+#    RRsets whose signatures they contain, RRSIG RRs, unlike all other DNS
+# 
+#    RR types, do not form RRsets.  In particular, the TTL values among
+#    RRSIG RRs with a common owner name do not follow the RRset rules
+#    described in [RFC2181].
+# 
+#    An RRSIG RR itself MUST NOT be signed, as signing an RRSIG RR would
+#    add no value and would create an infinite loop in the signing
+#    process.
+# 
+#    The NS RRset that appears at the zone apex name MUST be signed, but
+#    the NS RRsets that appear at delegation points (that is, the NS
+#    RRsets in the parent zone that delegate the name to the child zone's
+#    name servers) MUST NOT be signed.  Glue address RRsets associated
+#    with delegations MUST NOT be signed.
+# 
+#    There MUST be an RRSIG for each RRset using at least one DNSKEY of
+#    each algorithm in the zone apex DNSKEY RRset.  The apex DNSKEY RRset
+#    itself MUST be signed by each algorithm appearing in the DS RRset
+#    located at the delegating parent (if any).
+
+[[spec]]
+level = "MUST"
+quote = '''
+For each authoritative RRset in a signed zone, there MUST be at least
+one RRSIG record that meets the following requirements:
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An RRset MAY have multiple RRSIG RRs
+associated with it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An RRSIG RR itself MUST NOT be signed, as signing an RRSIG RR would
+add no value and would create an infinite loop in the signing
+process.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The NS RRset that appears at the zone apex name MUST be signed, but
+the NS RRsets that appear at delegation points (that is, the NS
+RRsets in the parent zone that delegate the name to the child zone's
+name servers) MUST NOT be signed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Glue address RRsets associated
+with delegations MUST NOT be signed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+There MUST be an RRSIG for each RRset using at least one DNSKEY of
+each algorithm in the zone apex DNSKEY RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The apex DNSKEY RRset
+itself MUST be signed by each algorithm appearing in the DS RRset
+located at the delegating parent (if any).
+'''
+

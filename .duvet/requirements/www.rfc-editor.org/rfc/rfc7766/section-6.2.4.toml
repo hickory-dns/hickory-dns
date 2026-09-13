@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-6.2.4"
+
+# Teardown
+#
+#    Under normal operation DNS clients typically initiate connection
+#    closing on idle connections; however, DNS servers can close the
+#    connection if the idle timeout set by local policy is exceeded.
+#    Also, connections can be closed by either end under unusual
+#    conditions such as defending against an attack or system failure/
+#    reboot.
+# 
+#    DNS clients SHOULD retry unanswered queries if the connection closes
+#    before receiving all outstanding responses.  No specific retry
+#    algorithm is specified in this document.
+# 
+#    If a DNS server finds that a DNS client has closed a TCP session (or
+#    if the session has been otherwise interrupted) before all pending
+#    responses have been sent, then the server MUST NOT attempt to send
+#    those responses.  Of course, the DNS server MAY cache those
+#    responses.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS clients SHOULD retry unanswered queries if the connection closes
+before receiving all outstanding responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a DNS server finds that a DNS client has closed a TCP session (or
+if the session has been otherwise interrupted) before all pending
+responses have been sent, then the server MUST NOT attempt to send
+those responses.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Of course, the DNS server MAY cache those
+responses.
+'''
+

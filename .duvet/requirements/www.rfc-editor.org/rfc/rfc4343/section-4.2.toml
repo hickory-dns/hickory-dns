@@ -1,0 +1,59 @@
+target = "https://www.rfc-editor.org/rfc/rfc4343#section-4.2"
+
+# DNS Input Case Preservation
+#
+#    Originally, DNS data came from an ASCII Master File as defined in
+#    [STD13] or a zone transfer.  DNS Dynamic update and incremental zone
+#    transfers [RFC1995] have been added as a source of DNS data [RFC2136,
+#    RFC3007].  When a node in the DNS name tree is created by any of such
+#    inputs, no case conversion is done.  Thus, the case of ASCII labels
+#    is preserved if they are for nodes being created.  However, when a
+#    name label is input for a node that already exists in DNS data being
+#    held, the situation is more complex.  Implementations are free to
+#    retain the case first loaded for such a label, to allow new input to
+#    override the old case, or even to maintain separate copies preserving
+#    the input case.
+# 
+#    For example, if data with owner name "foo.bar.example" [RFC3092] is
+#    loaded and then later data with owner name "xyz.BAR.example" is
+#    input, the name of the label on the "bar.example" node (i.e., "bar")
+#    might or might not be changed to "BAR" in the DNS stored data.  Thus,
+#    later retrieval of data stored under "xyz.bar.example" in this case
+#    can use "xyz.BAR.example" in all returned data, use "xyz.bar.example"
+#    in all returned data, or even, when more than one RR is being
+#    returned, use a mixture of these two capitalizations.  This last case
+# 
+#    is unlikely, as optimization of answer length through indirect labels
+#    tends to cause only one copy of the name tail ("bar.example" or
+#    "BAR.example") to be used for all returned RRs.  Note that none of
+#    this has any effect on the number or completeness of the RR set
+#    returned, only on the case of the names in the RR set returned.
+# 
+#    The same considerations apply when inputting multiple data records
+#    with owner names differing only in case.  For example, if an "A"
+#    record is the first resource record stored under owner name
+#    "xyz.BAR.example" and then a second "A" record is stored under
+#    "XYZ.BAR.example", the second MAY be stored with the first (lower
+#    case initial label) name, the second MAY override the first so that
+#    only an uppercase initial label is retained, or both capitalizations
+#    MAY be kept in the DNS stored data.  In any case, a retrieval with
+#    either capitalization will retrieve all RRs with either
+#    capitalization.
+# 
+#    Note that the order of insertion into a server database of the DNS
+#    name tree nodes that appear in a Master File is not defined so that
+#    the results of inconsistent capitalization in a Master File are
+#    unpredictable output capitalization.
+
+[[spec]]
+level = "MAY"
+quote = '''
+For example, if an "A"
+record is the first resource record stored under owner name
+"xyz.BAR.example" and then a second "A" record is stored under
+"XYZ.BAR.example", the second MAY be stored with the first (lower
+case initial label) name, the second MAY override the first so that
+only an uppercase initial label is retained, or both capitalizations
+MAY be kept in the DNS stored data.
+'''
+

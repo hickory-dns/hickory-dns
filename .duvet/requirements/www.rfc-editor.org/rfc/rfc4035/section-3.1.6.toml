@@ -1,0 +1,69 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.6"
+
+# The AD and CD Bits in an Authoritative Response
+#
+#    The CD and AD bits are designed for use in communication between
+#    security-aware resolvers and security-aware recursive name servers.
+#    These bits are for the most part not relevant to query processing by
+#    security-aware authoritative name servers.
+# 
+#    A security-aware name server does not perform signature validation
+#    for authoritative data during query processing, even when the CD bit
+#    is clear.  A security-aware name server SHOULD clear the CD bit when
+#    composing an authoritative response.
+# 
+#    A security-aware name server MUST NOT set the AD bit in a response
+#    unless the name server considers all RRsets in the Answer and
+#    Authority sections of the response to be authentic.  A security-aware
+#    name server's local policy MAY consider data from an authoritative
+#    zone to be authentic without further validation.  However, the name
+#    server MUST NOT do so unless the name server obtained the
+#    authoritative zone via secure means (such as a secure zone transfer
+#    mechanism) and MUST NOT do so unless this behavior has been
+#    configured explicitly.
+# 
+#    A security-aware name server that supports recursion MUST follow the
+#    rules for the CD and AD bits given in Section 3.2 when generating a
+#    response that involves data obtained via recursion.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A security-aware name server SHOULD clear the CD bit when
+composing an authoritative response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware name server MUST NOT set the AD bit in a response
+unless the name server considers all RRsets in the Answer and
+Authority sections of the response to be authentic.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A security-aware
+name server's local policy MAY consider data from an authoritative
+zone to be authentic without further validation.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, the name
+server MUST NOT do so unless the name server obtained the
+authoritative zone via secure means (such as a secure zone transfer
+mechanism) and MUST NOT do so unless this behavior has been
+configured explicitly.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware name server that supports recursion MUST follow the
+rules for the CD and AD bits given in Section 3.2 when generating a
+response that involves data obtained via recursion.
+'''
+

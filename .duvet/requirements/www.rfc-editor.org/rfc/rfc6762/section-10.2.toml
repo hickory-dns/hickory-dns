@@ -1,0 +1,167 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-10.2"
+
+# Announcements to Flush Outdated Cache Entries
+#
+#    Whenever a host has a resource record with new data, or with what
+#    might potentially be new data (e.g., after rebooting, waking from
+#    sleep, connecting to a new network link, or changing IP address), the
+#    host needs to inform peers of that new data.  In cases where the host
+#    has not been continuously connected and participating on the network
+#    link, it MUST first probe to re-verify uniqueness of its unique
+#    records, as described above in Section 8.1, "Probing".
+# 
+#    Having completed the Probing step, if necessary, the host MUST then
+#    send a series of unsolicited announcements to update cache entries in
+#    its neighbor hosts.  In these unsolicited announcements, if the
+#    record is one that has been verified unique, the host sets the most
+#    significant bit of the rrclass field of the resource record.  This
+#    bit, the cache-flush bit, tells neighboring hosts that this is not a
+#    shared record type.  Instead of merging this new record additively
+#    into the cache in addition to any previous records with the same
+#    name, rrtype, and rrclass, all old records with that name, rrtype,
+#    and rrclass that were received more than one second ago are declared
+#    invalid, and marked to expire from the cache in one second.
+# 
+#    The semantics of the cache-flush bit are as follows: normally when a
+#    resource record appears in a Resource Record Section of the DNS
+#    response it means, "This is an assertion that this information is
+#    true".  When a resource record appears in a Resource Record Section
+#    of the DNS response with the cache-flush bit set, it means, "This is
+#    an assertion that this information is the truth and the whole truth,
+#    and anything you may have heard more than a second ago regarding
+#    records of this name/rrtype/rrclass is no longer true".
+# 
+#    To accommodate the case where the set of records from one host
+#    constituting a single unique RRSet is too large to fit in a single
+#    packet, only cache records that are more than one second old are
+# 
+#    flushed.  This allows the announcing host to generate a quick burst
+#    of packets back-to-back on the wire containing all the members of the
+#    RRSet.  When receiving records with the cache-flush bit set, all
+#    records older than one second are marked to be deleted one second in
+#    the future.  One second after the end of the little packet burst, any
+#    records not represented within that packet burst will then be expired
+#    from all peer caches.
+# 
+#    Any time a host sends a response packet containing some members of a
+#    unique RRSet, it MUST send the entire RRSet, preferably in a single
+#    packet, or if the entire RRSet will not fit in a single packet, in a
+#    quick burst of packets sent as close together as possible.  The host
+#    MUST set the cache-flush bit on all members of the unique RRSet.
+# 
+#    Another reason for waiting one second before deleting stale records
+#    from the cache is to accommodate bridged networks.  For example, a
+#    host's address record announcement on a wireless interface may be
+#    bridged onto a wired Ethernet and may cause that same host's Ethernet
+#    address records to be flushed from peer caches.  The one-second delay
+#    gives the host the chance to see its own announcement arrive on the
+#    wired Ethernet, and immediately re-announce its Ethernet interface's
+#    address records so that both sets remain valid and live in peer
+#    caches.
+# 
+#    These rules, about when to set the cache-flush bit and about sending
+#    the entire rrset, apply regardless of *why* the response message is
+#    being generated.  They apply to startup announcements as described in
+#    Section 8.3, "Announcing", and to responses generated as a result of
+#    receiving query messages.
+# 
+#    The cache-flush bit is only set in records in the Resource Record
+#    Sections of Multicast DNS responses sent to UDP port 5353.
+# 
+#    The cache-flush bit MUST NOT be set in any resource records in a
+#    response message sent in legacy unicast responses to UDP ports other
+#    than 5353.
+# 
+#    The cache-flush bit MUST NOT be set in any resource records in the
+#    Known-Answer list of any query message.
+# 
+#    The cache-flush bit MUST NOT ever be set in any shared resource
+#    record.  To do so would cause all the other shared versions of this
+#    resource record with different rdata from different responders to be
+#    immediately deleted from all the caches on the network.
+# 
+#    The cache-flush bit does *not* apply to questions listed in the
+#    Question Section of a Multicast DNS message.  The top bit of the
+#    rrclass field in questions is used for an entirely different purpose
+#    (see Section 5.4, "Questions Requesting Unicast Responses").
+# 
+#    Note that the cache-flush bit is NOT part of the resource record
+#    class.  The cache-flush bit is the most significant bit of the second
+#    16-bit word of a resource record in a Resource Record Section of a
+#    Multicast DNS message (the field conventionally referred to as the
+#    rrclass field), and the actual resource record class is the least
+#    significant fifteen bits of this field.  There is no Multicast DNS
+#    resource record class 0x8001.  The value 0x8001 in the rrclass field
+#    of a resource record in a Multicast DNS response message indicates a
+#    resource record with class 1, with the cache-flush bit set.  When
+#    receiving a resource record with the cache-flush bit set,
+#    implementations should take care to mask off that bit before storing
+#    the resource record in memory, or otherwise ensure that it is given
+#    the correct semantic interpretation.
+# 
+#    The reuse of the top bit of the rrclass field only applies to
+#    conventional resource record types that are subject to caching, not
+#    to pseudo-RRs like OPT [RFC2671], TSIG [RFC2845], TKEY [RFC2930],
+#    SIG0 [RFC2931], etc., that pertain only to a particular transport
+#    level message and not to any actual DNS data.  Since pseudo-RRs
+#    should never go into the Multicast DNS cache, the concept of a cache-
+#    flush bit for these types is not applicable.  In particular, the
+#    rrclass field of an OPT record encodes the sender's UDP payload size,
+#    and should be interpreted as a sixteen-bit length value in the range
+#    0-65535, not a one-bit flag and a fifteen-bit length.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In cases where the host
+has not been continuously connected and participating on the network
+link, it MUST first probe to re-verify uniqueness of its unique
+records, as described above in Section 8.1, "Probing".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Having completed the Probing step, if necessary, the host MUST then
+send a series of unsolicited announcements to update cache entries in
+its neighbor hosts.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any time a host sends a response packet containing some members of a
+unique RRSet, it MUST send the entire RRSet, preferably in a single
+packet, or if the entire RRSet will not fit in a single packet, in a
+quick burst of packets sent as close together as possible.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The host
+MUST set the cache-flush bit on all members of the unique RRSet.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The cache-flush bit MUST NOT be set in any resource records in a
+response message sent in legacy unicast responses to UDP ports other
+than 5353.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The cache-flush bit MUST NOT be set in any resource records in the
+Known-Answer list of any query message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The cache-flush bit MUST NOT ever be set in any shared resource
+record.
+'''
+

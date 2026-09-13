@@ -1,0 +1,98 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-4.1.2"
+
+# The Type Bit Maps Field
+#
+#    The Type Bit Maps field identifies the RRset types that exist at the
+#    NSEC RR's owner name.
+# 
+#    The RR type space is split into 256 window blocks, each representing
+#    the low-order 8 bits of the 16-bit RR type space.  Each block that
+#    has at least one active RR type is encoded using a single octet
+#    window number (from 0 to 255), a single octet bitmap length (from 1
+#    to 32) indicating the number of octets used for the window block's
+#    bitmap, and up to 32 octets (256 bits) of bitmap.
+# 
+#    Blocks are present in the NSEC RR RDATA in increasing numerical
+#    order.
+# 
+#       Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
+# 
+#       where "|" denotes concatenation.
+# 
+#    Each bitmap encodes the low-order 8 bits of RR types within the
+#    window block, in network bit order.  The first bit is bit 0.  For
+#    window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds
+#    to RR type 2 (NS), and so forth.  For window block 1, bit 1
+#    corresponds to RR type 257, and bit 2 to RR type 258.  If a bit is
+#    set, it indicates that an RRset of that type is present for the NSEC
+#    RR's owner name.  If a bit is clear, it indicates that no RRset of
+#    that type is present for the NSEC RR's owner name.
+# 
+#    Bits representing pseudo-types MUST be clear, as they do not appear
+#    in zone data.  If encountered, they MUST be ignored upon being read.
+# 
+#    Blocks with no types present MUST NOT be included.  Trailing zero
+#    octets in the bitmap MUST be omitted.  The length of each block's
+#    bitmap is determined by the type code with the largest numerical
+#    value, within that block, among the set of RR types present at the
+#    NSEC RR's owner name.  Trailing zero octets not specified MUST be
+#    interpreted as zero octets.
+# 
+#    The bitmap for the NSEC RR at a delegation point requires special
+#    attention.  Bits corresponding to the delegation NS RRset and the RR
+#    types for which the parent zone has authoritative data MUST be set;
+#    bits corresponding to any non-NS RRset for which the parent is not
+#    authoritative MUST be clear.
+# 
+#    A zone MUST NOT include an NSEC RR for any domain name that only
+#    holds glue records.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Bits representing pseudo-types MUST be clear, as they do not appear
+in zone data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If encountered, they MUST be ignored upon being read.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Blocks with no types present MUST NOT be included.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Trailing zero
+octets in the bitmap MUST be omitted.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Trailing zero octets not specified MUST be
+interpreted as zero octets.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Bits corresponding to the delegation NS RRset and the RR
+types for which the parent zone has authoritative data MUST be set;
+bits corresponding to any non-NS RRset for which the parent is not
+authoritative MUST be clear.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A zone MUST NOT include an NSEC RR for any domain name that only
+holds glue records.
+'''
+

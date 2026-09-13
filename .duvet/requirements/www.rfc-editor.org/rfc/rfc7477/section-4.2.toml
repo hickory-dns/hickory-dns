@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-4.2"
+
+# Child Nameserver Selection
+#
+#    Parental agents will need to poll child nameservers in search of
+#    CSYNC records and related data records.
+# 
+#    Parental agents MAY perform best-possible verification by querying
+#    all NS records for available data to determine which has the most
+#    recent SOA and CSYNC version (in an ideal world, they would all be
+#    equal, but this is not possible in practice due to synchronization
+#    delays and transfer failures).
+# 
+#    Parental agents may offer a configuration interface to allow child
+#    operators to specify which nameserver should be considered the master
+#    to send data queries, too.  Note that this master could be a
+#    different nameserver than the publicly listed nameservers in the NS
+#    set (i.e., it may be a "hidden master").
+# 
+#    Parental agents with a large number of clients may choose to offer a
+#    programmatic interface to let their children indicate that new CSYNC
+#    records and data are available for polling rather than polling every
+#    child on a frequent basis.
+# 
+#    Children that wish to phase out a nameserver will need to publish the
+#    CSYNC record to remove the nameserver and then wait for the parental
+#    agent to process the published record before turning off the service.
+#    This is required because the child cannot control which nameserver in
+#    the existing NS set the parental agent may choose to query when
+#    performing CSYNC processing.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Parental agents MAY perform best-possible verification by querying
+all NS records for available data to determine which has the most
+recent SOA and CSYNC version (in an ideal world, they would all be
+equal, but this is not possible in practice due to synchronization
+delays and transfer failures).
+'''
+

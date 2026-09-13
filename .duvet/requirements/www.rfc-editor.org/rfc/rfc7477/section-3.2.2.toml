@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-3.2.2"
+
+# The A and AAAA Types
+#
+#    The A and AAAA type flags indicates that the A and AAAA address glue
+#    records for in-bailiwick NS records within the child zone should be
+#    copied verbatim (with the exception of the TTL field, for which the
+#    parent MAY want to select a different value) into the parent's
+#    delegation information.
+# 
+#    Queries should be sent by the parental agent to determine the A and
+#    AAAA record addresses for each NS record within a NS set for the
+#    child that are in bailiwick.
+# 
+#    Note: only the matching types should be queried.  For example, if the
+#    AAAA bit has not been set, then the AAAA records (if any) in the
+#    parent's delegation should remain as is.  If a given address type is
+#    set and the child's zone contains no data for that type (as proven by
+#    appropriate NSEC or NSEC3 records), then the result in the parent's
+#    delegation records for the child should be an empty set.  However, if
+#    the end result of processing would leave no glue records present in
+#    the parent zone for any of the of the in-bailiwick NS records, then
+#    the parent MUST NOT update the glue address records.  That is, if the
+#    result of the processing would leave no in-bailiwick A or AAAA
+#    records when there are in-bailiwick NS records, then processing of
+#    the address records cannot happen as it would leave the parent/child
+#    relationship without any address linkage.
+# 
+#    The procedure for querying for A and AAAA records MUST occur after
+#    the procedure, if required, for querying for NS records as defined in
+#    Section 3.2.1.  This ensures that the right set of NS records is used
+#    as provided by the current NS set of the child.  That is, for CSYNC
+#    records that have the NS bit set, the NS set used should be the one
+#    pulled from the child while processing the CSYNC record.  For CSYNC
+#    records without the NS bit set, the existing NS records within the
+#    parent should be used to determine which A and/or AAAA records to
+#    update.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The A and AAAA type flags indicates that the A and AAAA address glue
+records for in-bailiwick NS records within the child zone should be
+copied verbatim (with the exception of the TTL field, for which the
+parent MAY want to select a different value) into the parent's
+delegation information.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, if
+the end result of processing would leave no glue records present in
+the parent zone for any of the of the in-bailiwick NS records, then
+the parent MUST NOT update the glue address records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The procedure for querying for A and AAAA records MUST occur after
+the procedure, if required, for querying for NS records as defined in
+Section 3.2.1.
+'''
+

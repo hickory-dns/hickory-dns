@@ -1,0 +1,49 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-5.4"
+
+# Suppression or Spoofing of CAA Records
+#
+#    Suppression of a CAA record or insertion of a bogus CAA record could
+#    enable an attacker to obtain a certificate from an Issuer that was
+#    not authorized to issue for an affected FQDN.
+# 
+#    Where possible, Issuers SHOULD perform DNSSEC validation to detect
+#    missing or modified CAA RRsets.
+# 
+#    In cases where DNSSEC is not deployed for a corresponding FQDN, an
+#    Issuer SHOULD attempt to mitigate this risk by employing appropriate
+#    DNS security controls.  For example, all portions of the DNS lookup
+#    process SHOULD be performed against the authoritative nameserver.
+#    Data cached by third parties MUST NOT be relied on as the sole source
+#    of DNS CAA information but MAY be used to support additional
+#    anti-spoofing or anti-suppression controls.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Where possible, Issuers SHOULD perform DNSSEC validation to detect
+missing or modified CAA RRsets.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In cases where DNSSEC is not deployed for a corresponding FQDN, an
+Issuer SHOULD attempt to mitigate this risk by employing appropriate
+DNS security controls.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For example, all portions of the DNS lookup
+process SHOULD be performed against the authoritative nameserver.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Data cached by third parties MUST NOT be relied on as the sole source
+of DNS CAA information but MAY be used to support additional
+anti-spoofing or anti-suppression controls.
+'''
+

@@ -1,0 +1,70 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-3"
+
+# Signaling DNSSEC Algorithm Understood (DAU), DS Hash Understood
+#
+#     (DHU), and NSEC3 Hash Understood (N3U) Using EDNS
+# 
+#    The EDNS0 specification outlined in [RFC6891] defines a way to
+#    include new options using a standardized mechanism.  These options
+#    are contained in the RDATA of the OPT meta-RR.  This document defines
+#    three new EDNS0 options for a client to signal which digital
+#    signature and/or hash algorithms the client supports.  These options
+#    can be used independently of each other and MAY appear in any order
+#    in the OPT RR.  Each option code can appear only once in an OPT RR.
+# 
+#    The figure below shows how each option is defined in the RDATA of the
+#    OPT RR specified in [RFC6891]:
+# 
+#        0                       8                      16
+#        +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#        |                  OPTION-CODE                  |
+#        +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#        |                  LIST-LENGTH                  |
+#        +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#        |       ALG-CODE        |        ...            /
+#        +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+# 
+#    OPTION-CODE is the code for the given signaling option.  The options
+#    are:
+# 
+#    o  DNSSEC Algorithm Understood (DAU) option for DNSSEC digital
+#       signing algorithms.  Its value is fixed at 5.
+# 
+#    o  DS Hash Understood (DHU) option for DS RR hash algorithms.  Its
+#       value is fixed at 6.
+# 
+#    o  NSEC3 Hash Understood (N3U) option for NSEC3 hash algorithms.  Its
+#       value is fixed at 7.
+# 
+#    LIST-LENGTH is the length of the list of digital signatures or hash
+#    algorithm codes in octets.  Each algorithm code occupies a single
+#    octet.
+# 
+#    ALG-CODE is the list of assigned values of DNSSEC zone signing
+#    algorithms, DS hash algorithms, or NSEC3 hash algorithms (depending
+#    on the OPTION-CODE in use) that the client declares to be supported.
+#    The order of the code values can be arbitrary and MUST NOT be used to
+#    infer preference.
+# 
+#    If all three options are included in the OPT RR, there is a potential
+#    for the OPT RR to take up considerable size in the DNS message.
+#    However, in practical terms, including all three options is likely to
+#    take up 22-32 octets (average of 6-10 digital signature algorithms,
+#    3-5 DS hash algorithms, and 1-5 NSEC3 hash algorithms) including the
+#    EDNS0 option codes and option lengths in potential future examples.
+
+[[spec]]
+level = "MAY"
+quote = '''
+These options
+can be used independently of each other and MAY appear in any order
+in the OPT RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The order of the code values can be arbitrary and MUST NOT be used to
+infer preference.
+'''
+

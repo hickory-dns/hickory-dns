@@ -1,0 +1,149 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-7.1"
+
+# Refresh Request
+#
+#    If the client desires to maintain the LLQ beyond the duration
+#    specified in the LLQ-LEASE field of the ACK + Answers
+#    (Section 5.2.4), the client MUST send a Refresh Request.  A Refresh
+#    Request is identical to an LLQ Challenge Response (Section 5.2.3) but
+#    with the LLQ-OPCODE set to LLQ-REFRESH.  Unlike a Challenge Response,
+#    a Refresh Request returns no answers.
+# 
+#    The client SHOULD refresh an LLQ when 80% of its LLQ-LEASE has
+#    elapsed.
+# 
+#    As a means of reducing network traffic, when constructing refresh
+#    messages the client SHOULD include all LLQs established with a given
+#    server, even those not yet close to expiration.  However, at least
+#    one LLQ MUST have elapsed at least 80% of its original LLQ-LEASE.
+#    The client MUST NOT include additional LLQs if doing so would cause
+#    the message to no longer fit in a single IP packet.  In this case,
+#    the LLQs furthest from expiration should be omitted such that the
+#    message fits in a single IP packet.  (These LLQs SHOULD be refreshed
+#    in a separate message when 80% of one or more of their lease lives
+#    have elapsed.)  When refreshing multiple LLQs simultaneously, the
+#    message contains multiple questions and a single OPT pseudo-RR with
+#    multiple LLQ OPTIONS, one per question, with the LLQ OPTIONS in the
+#    same order as the questions they correspond to.
+# 
+#    The client SHOULD specify the original LLQ-LEASE granted in the LLQ
+#    response as the desired LLQ-LEASE in the Refresh Request.  If
+#    refreshing multiple LLQs simultaneously, the client SHOULD request
+#    the same LLQ-LEASE for all LLQs being refreshed (with the exception
+#    of termination requests; see below).
+# 
+#    To terminate an LLQ prior to its scheduled expiration (for instance,
+#    when the client terminates a DNS-based Service Discovery browse
+#    operation or when a client is about to go to sleep or shut down), the
+#    client specifies an LLQ-LEASE value of 0.
+# 
+#    The client MUST listen for an acknowledgment from the server.  The
+#    client MAY retry up to two more times (for a total of 3 attempts)
+#    before considering the server down or unreachable.  The client MUST
+#    NOT retry a first time before 90% of the LLQ-LEASE has expired and
+#    MUST NOT retry again before 95% of the LLQ-LEASE has expired.  If the
+#    server is determined to be down, the client MAY periodically attempt
+#    to re-establish the LLQ via an LLQ Setup Request message.  The client
+#    MUST NOT attempt the LLQ Setup Request more than once per hour.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the client desires to maintain the LLQ beyond the duration
+specified in the LLQ-LEASE field of the ACK + Answers
+(Section 5.2.4), the client MUST send a Refresh Request.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD refresh an LLQ when 80% of its LLQ-LEASE has
+elapsed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As a means of reducing network traffic, when constructing refresh
+messages the client SHOULD include all LLQs established with a given
+server, even those not yet close to expiration.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, at least
+one LLQ MUST have elapsed at least 80% of its original LLQ-LEASE.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST NOT include additional LLQs if doing so would cause
+the message to no longer fit in a single IP packet.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+(These LLQs SHOULD be refreshed
+in a separate message when 80% of one or more of their lease lives
+have elapsed.)  When refreshing multiple LLQs simultaneously, the
+message contains multiple questions and a single OPT pseudo-RR with
+multiple LLQ OPTIONS, one per question, with the LLQ OPTIONS in the
+same order as the questions they correspond to.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD specify the original LLQ-LEASE granted in the LLQ
+response as the desired LLQ-LEASE in the Refresh Request.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If
+refreshing multiple LLQs simultaneously, the client SHOULD request
+the same LLQ-LEASE for all LLQs being refreshed (with the exception
+of termination requests; see below).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST listen for an acknowledgment from the server.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The
+client MAY retry up to two more times (for a total of 3 attempts)
+before considering the server down or unreachable.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST
+NOT retry a first time before 90% of the LLQ-LEASE has expired and
+MUST NOT retry again before 95% of the LLQ-LEASE has expired.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the
+server is determined to be down, the client MAY periodically attempt
+to re-establish the LLQ via an LLQ Setup Request message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client
+MUST NOT attempt the LLQ Setup Request more than once per hour.
+'''
+

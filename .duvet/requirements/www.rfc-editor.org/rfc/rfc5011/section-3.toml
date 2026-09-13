@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-3"
+
+# Changes to DNSKEY RDATA Wire Format
+#
+#    Bit 8 of the DNSKEY Flags field is designated as the 'REVOKE' flag.
+#    If this bit is set to '1', AND the resolver sees an RRSIG(DNSKEY)
+#    signed by the associated key, then the resolver MUST consider this
+#    key permanently invalid for all purposes except for validating the
+#    revocation.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this bit is set to '1', AND the resolver sees an RRSIG(DNSKEY)
+signed by the associated key, then the resolver MUST consider this
+key permanently invalid for all purposes except for validating the
+revocation.
+'''
+

@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc3597#section-6"
+
+# Equality Comparison
+#
+#    Certain DNS protocols, notably Dynamic Update [RFC2136], require RRs
+#    to be compared for equality.  Two RRs of the same unknown type are
+#    considered equal when their RDATA is bitwise equal.  To ensure that
+#    the outcome of the comparison is identical whether the RR is known to
+#    the server or not, specifications for new RR types MUST NOT specify
+#    type-specific comparison rules.
+# 
+#    This implies that embedded domain names, being included in the
+#    overall bitwise comparison, are compared in a case-sensitive manner.
+# 
+#    As a result, when a new RR type contains one or more embedded domain
+#    names, it is possible to have multiple RRs owned by the same name
+#    that differ only in the character case of the embedded domain
+#    name(s).  This is similar to the existing possibility of multiple TXT
+#    records differing only in character case, and not expected to cause
+#    any problems in practice.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To ensure that
+the outcome of the comparison is identical whether the RR is known to
+the server or not, specifications for new RR types MUST NOT specify
+type-specific comparison rules.
+'''
+

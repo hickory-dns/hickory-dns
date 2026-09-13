@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-12"
+
+# DNS Additional Record Generation
+#
+#    DNS has an efficiency feature whereby a DNS server may place
+#    additional records in the additional section of the DNS message.
+#    These additional records are records that the client did not
+#    explicitly request, but the server has reasonable grounds to expect
+#    that the client might request them shortly, so including them can
+#    save the client from having to issue additional queries.
+# 
+#    This section recommends which additional records SHOULD be generated
+#    to improve network efficiency, for both Unicast and Multicast DNS-SD
+#    responses.
+# 
+#    Note that while servers SHOULD add these additional records for
+#    efficiency purposes, as with all DNS additional records, it is the
+#    client's responsibility to determine whether or not to trust them.
+# 
+#    Generally speaking, stub resolvers that talk to a single recursive
+#    name server for all their queries will trust all records they receive
+#    from that recursive name server (whom else would they ask?).
+#    Recursive name servers that talk to multiple authoritative name
+#    servers should verify that any records they receive from a given
+#    authoritative name server are "in bailiwick" for that server, and
+#    ignore them if not.
+# 
+#    Clients MUST be capable of functioning correctly with DNS servers
+#    (and Multicast DNS Responders) that fail to generate these additional
+#    records automatically, by issuing subsequent queries for any further
+#    record(s) they require.  The additional-record generation rules in
+#    this section are RECOMMENDED for improving network efficiency, but
+#    are not required for correctness.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+This section recommends which additional records SHOULD be generated
+to improve network efficiency, for both Unicast and Multicast DNS-SD
+responses.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Note that while servers SHOULD add these additional records for
+efficiency purposes, as with all DNS additional records, it is the
+client's responsibility to determine whether or not to trust them.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients MUST be capable of functioning correctly with DNS servers
+(and Multicast DNS Responders) that fail to generate these additional
+records automatically, by issuing subsequent queries for any further
+record(s) they require.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The additional-record generation rules in
+this section are RECOMMENDED for improving network efficiency, but
+are not required for correctness.
+'''
+

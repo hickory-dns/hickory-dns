@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-2.1"
+
+# NSEC3 Support
+#
+#    [RFC5155] describes the use and behavior of the NSEC3 and NSEC3PARAM
+#    records for hashed denial of existence.  Validator implementations
+#    are strongly encouraged to include support for NSEC3 because a number
+#    of highly visible zones use it.  Validators that do not support
+#    validation of responses using NSEC3 will be hampered in validating
+#    large portions of the DNS space.
+# 
+#    [RFC5155] is now considered part of the DNS Security Document Family
+#    as described by Section 10 of [RFC4033].
+# 
+#    Note that the algorithm identifiers defined in [RFC5155] (DSA-NSEC3-
+#    SHA1 and RSASHA1-NSEC3-SHA1) and [RFC5702] (RSASHA256 and RSASHA512)
+#    signal that a zone might be using NSEC3, rather than NSEC.  The zone
+#    may be using either, and validators supporting these algorithms MUST
+#    support both NSEC3 and NSEC responses.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The zone
+may be using either, and validators supporting these algorithms MUST
+support both NSEC3 and NSEC responses.
+'''
+

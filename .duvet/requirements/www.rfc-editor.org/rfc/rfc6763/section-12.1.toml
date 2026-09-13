@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-12.1"
+
+# PTR Records
+#
+#    When including a DNS-SD Service Instance Enumeration or Selective
+#    Instance Enumeration (subtype) PTR record in a response packet, the
+#    server/responder SHOULD include the following additional records:
+# 
+#    o  The SRV record(s) named in the PTR rdata.
+#    o  The TXT record(s) named in the PTR rdata.
+#    o  All address records (type "A" and "AAAA") named in the SRV rdata.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When including a DNS-SD Service Instance Enumeration or Selective
+Instance Enumeration (subtype) PTR record in a response packet, the
+server/responder SHOULD include the following additional records:
+'''
+

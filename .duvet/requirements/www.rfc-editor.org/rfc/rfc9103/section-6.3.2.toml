@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6.3.2"
+
+# AXFRs and IXFRs on the Same Connection
+#
+#    Neither [RFC1995] nor [RFC5936] explicitly discuss the use of a
+#    single TCP connection for both IXFR and AXFR requests.  [RFC5936]
+#    does make the general statement:
+# 
+#    |  Non-AXFR session traffic can also use an open connection.
+# 
+#    In this document, the above is clarified to indicate that
+#    implementations capable of both AXFR and IXFR and compliant with this
+#    specification SHOULD:
+# 
+#    *  use the same TCP connection for both AXFR and IXFR requests to the
+#       same primary,
+# 
+#    *  pipeline such requests (if they pipeline XFR requests in general)
+#       and MAY intermingle them, and
+# 
+#    *  send the response(s) for each request as soon as they are
+#       available, i.e., responses MAY be sent intermingled.
+# 
+#    For some current implementations, adding all the above functionality
+#    would introduce significant code complexity.  In such a case, there
+#    will need to be an assessment of the trade-off between that and the
+#    performance benefits of the above for XFR.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this document, the above is clarified to indicate that
+implementations capable of both AXFR and IXFR and compliant with this
+specification SHOULD:
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+*  pipeline such requests (if they pipeline XFR requests in general)
+and MAY intermingle them, and
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+*  send the response(s) for each request as soon as they are
+available, i.e., responses MAY be sent intermingled.
+'''
+

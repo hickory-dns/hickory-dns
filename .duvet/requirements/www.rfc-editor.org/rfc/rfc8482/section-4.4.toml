@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-4.4"
+
+# Transport Considerations
+#
+#    A DNS responder MAY behave differently when processing ANY queries
+#    received over different transports, e.g., by providing a conventional
+#    ANY response over TCP whilst using one of the other mechanisms
+#    specified in this document in the case where a query was received
+#    using UDP.
+# 
+#    Implementers MAY provide configuration options to allow operators to
+#    specify different behavior over different transports.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS responder MAY behave differently when processing ANY queries
+received over different transports, e.g., by providing a conventional
+ANY response over TCP whilst using one of the other mechanisms
+specified in this document in the case where a query was received
+using UDP.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementers MAY provide configuration options to allow operators to
+specify different behavior over different transports.
+'''
+

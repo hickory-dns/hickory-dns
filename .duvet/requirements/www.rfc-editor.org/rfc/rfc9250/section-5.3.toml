@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.3"
+
+# Address Validation
+#
+#    Section 8 of [RFC9000], the QUIC transport specification, defines
+#    Address Validation procedures to avoid servers being used in address
+#    amplification attacks.  DoQ implementations MUST conform to this
+#    specification, which limits the worst-case amplification to a factor
+#    3.
+# 
+#    DoQ implementations SHOULD consider configuring servers to use the
+#    Address Validation using Retry Packets procedure defined in
+#    Section 8.1.2 of [RFC9000], the QUIC transport specification.  This
+#    procedure imposes a 1-RTT delay for verifying the return routability
+#    of the source address of a client, similar to the DNS Cookies
+#    mechanism [RFC7873].
+# 
+#    DoQ implementations that configure Address Validation using Retry
+#    Packets SHOULD implement the Address Validation for Future
+#    Connections procedure defined in Section 8.1.3 of [RFC9000], the QUIC
+#    transport specification.  This defines how servers can send NEW_TOKEN
+#    frames to clients after the client address is validated in order to
+#    avoid the 1-RTT penalty during subsequent connections by the client
+#    from the same address.
+
+[[spec]]
+level = "MUST"
+quote = '''
+DoQ implementations MUST conform to this
+specification, which limits the worst-case amplification to a factor
+3.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DoQ implementations SHOULD consider configuring servers to use the
+Address Validation using Retry Packets procedure defined in
+Section 8.1.2 of [RFC9000], the QUIC transport specification.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DoQ implementations that configure Address Validation using Retry
+Packets SHOULD implement the Address Validation for Future
+Connections procedure defined in Section 8.1.3 of [RFC9000], the QUIC
+transport specification.
+'''
+

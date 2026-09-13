@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc3445#section-3"
+
+# Definition of the KEY RR
+#
+#    The KEY RR uses type 25 and is used as resource record for storing
+#    DNSSEC keys.  The RDATA for a KEY RR consists of flags, a protocol
+#    octet, the algorithm number octet, and the public key itself.  The
+#    format is as follows:
+# 
+#    ---------------------------------------------------------------------
+# 
+#                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+#     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |              flags            |   protocol    |   algorithm   |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                                                               /
+#    /                        public key                             /
+#    /                                                               /
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# 
+#                              KEY RR Format
+# 
+#    ---------------------------------------------------------------------
+# 
+#    In the flags field, all bits except bit 7 are reserved and MUST be
+#    zero.  If Bit 7 (Zone bit) is set to 1, then the KEY is a DNS Zone
+#    key.  If Bit 7 is set to 0, the KEY is not a zone key.  SIG(0)/TKEY
+#    are examples of DNSSEC keys that are not zone keys.
+# 
+#    The protocol field MUST be set to 3.
+# 
+#    The algorithm and public key fields are not changed.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the flags field, all bits except bit 7 are reserved and MUST be
+zero.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The protocol field MUST be set to 3.
+'''
+

@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc2308#section-7.2"
+
+# Dead / Unreachable Server (OPTIONAL)
+#
+#    Dead / Unreachable servers are servers that fail to respond in any
+#    way to a query or where the transport layer has provided an
+#    indication that the server does not exist or is unreachable.  A
+#    server may be deemed to be dead or unreachable if it has not
+#    responded to an outstanding query within 120 seconds.
+# 
+#    Examples of transport layer indications are:
+# 
+#       ICMP error messages indicating host, net or port unreachable.
+#       TCP resets
+#       IP stack error messages providing similar indications to those above.
+# 
+#    A server MAY cache a dead server indication.  If it does so it MUST
+#    NOT be deemed dead for longer than five (5) minutes.  The indication
+#    MUST be stored against query tuple <query name, type, class, server
+#    IP address> unless there was a transport layer indication that the
+#    server does not exist, in which case it applies to all queries to
+#    that specific IP address.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A server MAY cache a dead server indication.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If it does so it MUST
+NOT be deemed dead for longer than five (5) minutes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The indication
+MUST be stored against query tuple <query name, type, class, server
+IP address> unless there was a transport layer indication that the
+server does not exist, in which case it applies to all queries to
+that specific IP address.
+'''
+

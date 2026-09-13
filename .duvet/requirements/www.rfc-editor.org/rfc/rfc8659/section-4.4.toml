@@ -1,0 +1,42 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-4.4"
+
+# CAA iodef Property
+#
+#    The iodef Property specifies a means of reporting certificate issue
+#    requests or cases of certificate issue for domains for which the
+#    Property appears in the Relevant RRset, when those requests or
+#    issuances violate the security policy of the Issuer or the FQDN
+#    holder.
+# 
+#    The Incident Object Description Exchange Format (IODEF) [RFC7970] is
+#    used to present the incident report in machine-readable form.
+# 
+#    The iodef Property Tag takes a URL as its Property Value.  The URL
+#    scheme type determines the method used for reporting:
+# 
+#    mailto:  The IODEF report is reported as a MIME email attachment to
+#       an SMTP email that is submitted to the mail address specified.
+#       The mail message sent SHOULD contain a brief text message to alert
+#       the recipient to the nature of the attachment.
+# 
+#    http or https:  The IODEF report is submitted as a web service
+#       request to the HTTP address specified using the protocol specified
+#       in [RFC6546].
+# 
+#    These are the only supported URL schemes.
+# 
+#    The following RRset specifies that reports may be made by means of
+#    email with the IODEF data as an attachment, a web service [RFC6546],
+#    or both:
+# 
+#    report.example.com         CAA 0 issue "ca1.example.net"
+#    report.example.com         CAA 0 iodef "mailto:security@example.com"
+#    report.example.com         CAA 0 iodef "https://iodef.example.com/"
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The mail message sent SHOULD contain a brief text message to alert
+the recipient to the nature of the attachment.
+'''
+

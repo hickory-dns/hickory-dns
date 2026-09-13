@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-1"
+
+# Introduction
+#
+#    Most DNS [RFC1034] transactions take place over UDP [RFC768].  TCP
+#    [RFC793] is always used for full zone transfers (using AXFR) and is
+#    often used for messages whose sizes exceed the DNS protocol's
+#    original 512-byte limit.  The growing deployment of DNS Security
+#    (DNSSEC) and IPv6 has increased response sizes and therefore the use
+#    of TCP.  The need for increased TCP use has also been driven by the
+#    protection it provides against address spoofing and therefore
+#    exploitation of DNS in reflection/amplification attacks.  It is now
+#    widely used in Response Rate Limiting [RRL1] [RRL2].  Additionally,
+#    recent work on DNS privacy solutions such as [DNS-over-TLS] is
+#    another motivation to revisit DNS-over-TCP requirements.
+# 
+#    Section 6.1.3.2 of [RFC1123] states:
+# 
+#       DNS resolvers and recursive servers MUST support UDP, and SHOULD
+#       support TCP, for sending (non-zone-transfer) queries.
+# 
+#    However, some implementors have taken the text quoted above to mean
+#    that TCP support is an optional feature of the DNS protocol.
+# 
+#    The majority of DNS server operators already support TCP, and the
+#    default configuration for most software implementations is to support
+#    TCP.  The primary audience for this document is those implementors
+#    whose limited support for TCP restricts interoperability and hinders
+#    deployment of new DNS features.
+# 
+#    This document therefore updates the core DNS protocol specifications
+#    such that support for TCP is henceforth a REQUIRED part of a full DNS
+#    protocol implementation.
+# 
+#    There are several advantages and disadvantages to the increased use
+#    of TCP (see Appendix A) as well as implementation details that need
+#    to be considered.  This document addresses these issues and presents
+#    TCP as a valid transport alternative for DNS.  It extends the content
+#    of [RFC5966], with additional considerations and lessons learned from
+#    research, developments, and implementation of TCP in DNS and in other
+#    Internet protocols.
+# 
+#    Whilst this document makes no specific requirements for operators of
+#    DNS servers to meet, it does offer some suggestions to operators to
+#    help ensure that support for TCP on their servers and network is
+#    optimal.  It should be noted that failure to support TCP (or the
+#    blocking of DNS over TCP at the network layer) will probably result
+#    in resolution failure and/or application-level timeouts.
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS resolvers and recursive servers MUST support UDP, and SHOULD
+support TCP, for sending (non-zone-transfer) queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This document therefore updates the core DNS protocol specifications
+such that support for TCP is henceforth a REQUIRED part of a full DNS
+protocol implementation.
+'''
+

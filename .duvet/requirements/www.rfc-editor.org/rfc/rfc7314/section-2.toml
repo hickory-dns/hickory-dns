@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc7314#section-2"
+
+# Expire EDNS Option (Query)
+#
+#    The EDNS [RFC6891] EXPIRE option has the value <9>.  The EDNS EXPIRE
+#    option MAY be included on any QUERY, though usually this is only done
+#    on SOA, AXFR, and IXFR queries involved in zone maintenance.  This is
+#    done by adding a zero-length EDNS EXPIRE option to the options field
+#    of the OPT record when the query is made.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The EDNS EXPIRE
+option MAY be included on any QUERY, though usually this is only done
+on SOA, AXFR, and IXFR queries involved in zone maintenance.
+'''
+

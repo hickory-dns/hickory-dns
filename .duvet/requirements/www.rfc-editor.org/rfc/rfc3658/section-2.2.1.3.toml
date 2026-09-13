@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2.1.3"
+
+# Modification on use of KEY RR in the construction of Responses
+#
+#    This section updates RFC 2535 section 3.5 by replacing it with the
+#    following:
+# 
+#    A query for KEY RR MUST NOT trigger any additional section
+#    processing.  Security aware resolvers will include corresponding SIG
+#    records in the answer section.
+# 
+#    KEY records SHOULD NOT be added to the additional records section in
+#    response to any query.
+# 
+#    RFC 2535 specified that KEY records be added to the additional
+#    section when SOA or NS records were included in an answer.  This was
+#    done to reduce round trips (in the case of SOA) and to force out NULL
+#    KEYs (in the NS case).  As this document obsoletes NULL keys, there
+#    is no need for the inclusion of KEYs with NSs.  Furthermore, as SOAs
+#    are included in the authority section of negative answers, including
+#    the KEYs each time will cause redundant transfers of KEYs.
+# 
+#    RFC 2535 section 3.5 also included a rule for adding the KEY RRset to
+#    the response for a query for A and AAAA types.  As Restrict KEY
+#    [RFC3445] eliminated use of KEY RR by all applications, this rule is
+#    no longer needed.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A query for KEY RR MUST NOT trigger any additional section
+processing.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+KEY records SHOULD NOT be added to the additional records section in
+response to any query.
+'''
+

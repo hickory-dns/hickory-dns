@@ -1,0 +1,213 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-4"
+
+# Verifying Zone Digest
+#
+#    The recipient of a zone that has a ZONEMD RR verifies the zone by
+#    calculating the digest as follows:
+# 
+#       |  Note: If multiple ZONEMD RRs are present in the zone, e.g.,
+#       |  during an algorithm rollover, a match using any one of the
+#       |  recipient's supported Schemes and Hash Algorithms is sufficient
+#       |  to verify the zone.  The verifier MAY ignore a ZONEMD RR if its
+#       |  Scheme and Hash Algorithm violates local policy.
+# 
+#    1.  The verifier MUST first determine whether or not to expect DNSSEC
+#        records in the zone.  By examining locally configured trust
+#        anchors and, if necessary, querying for and validating Delegation
+#        Signer (DS) RRs in the parent zone, the verifier knows whether or
+#        not the zone to be verified should include DNSSEC keys and
+#        signatures.  For zones where signatures are not expected, or if
+#        DNSSEC validation is not performed, digest verification continues
+#        at step 4 below.
+# 
+#    2.  For zones where signatures are expected, the existence of the
+#        apex ZONEMD record MUST be validated.  If the DNSSEC data proves
+#        the ZONEMD RRset does not exist, digest verification cannot
+#        occur.  If the DNSSEC data proves the ZONEMD does exist, but is
+#        not found in the zone, digest verification MUST NOT be considered
+#        successful.
+# 
+#    3.  For zones where signatures are expected, the SOA and ZONEMD
+#        RRsets MUST have valid signatures, chaining up to a trust anchor.
+#        If DNSSEC validation of the SOA or ZONEMD RRsets fails, digest
+#        verification MUST NOT be considered successful.
+# 
+#    4.  When multiple ZONEMD RRs are present, each MUST specify a unique
+#        Scheme and Hash Algorithm tuple.  If the ZONEMD RRset contains
+#        more than one RR with the same Scheme and Hash Algorithm, digest
+#        verification for those ZONEMD RRs MUST NOT be considered
+#        successful.
+# 
+#    5.  Loop over all apex ZONEMD RRs and perform the following steps:
+# 
+#        a.  The SOA Serial field MUST exactly match the ZONEMD Serial
+#            field.  If the fields do not match, digest verification MUST
+#            NOT be considered successful with this ZONEMD RR.
+# 
+#        b.  The Scheme field MUST be checked.  If the verifier does not
+#            support the given scheme, verification MUST NOT be considered
+#            successful with this ZONEMD RR.
+# 
+#        c.  The Hash Algorithm field MUST be checked.  If the verifier
+#            does not support the given hash algorithm, verification MUST
+#            NOT be considered successful with this ZONEMD RR.
+# 
+#        d.  The Digest field size MUST be checked.  If the size of the
+#            given Digest field is smaller than 12 octets, or if the size
+#            is not equal to the size expected for the corresponding Hash
+#            Algorithm, verification MUST NOT be considered successful
+#            with this ZONEMD RR.
+# 
+#        e.  The zone digest is computed over the zone data as described
+#            in Section 3.3 using the Scheme and Hash Algorithm for the
+#            current ZONEMD RR.
+# 
+#        f.  The computed digest is compared to the received digest.  If
+#            the two digest values match, verification is considered
+#            successful.  Otherwise, verification MUST NOT be considered
+#            successful for this ZONEMD RR.
+# 
+#    Each time zone verification is performed, the verifier SHOULD report
+#    the status as either successful or unsuccessful.  When unsuccessful,
+#    the verifier SHOULD report the reason(s) that verification did not
+#    succeed.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The verifier MAY ignore a ZONEMD RR if its
+|  Scheme and Hash Algorithm violates local policy.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The verifier MUST first determine whether or not to expect DNSSEC
+records in the zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For zones where signatures are expected, the existence of the
+apex ZONEMD record MUST be validated.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the DNSSEC data proves the ZONEMD does exist, but is
+not found in the zone, digest verification MUST NOT be considered
+successful.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For zones where signatures are expected, the SOA and ZONEMD
+RRsets MUST have valid signatures, chaining up to a trust anchor.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If DNSSEC validation of the SOA or ZONEMD RRsets fails, digest
+verification MUST NOT be considered successful.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When multiple ZONEMD RRs are present, each MUST specify a unique
+Scheme and Hash Algorithm tuple.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the ZONEMD RRset contains
+more than one RR with the same Scheme and Hash Algorithm, digest
+verification for those ZONEMD RRs MUST NOT be considered
+successful.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The SOA Serial field MUST exactly match the ZONEMD Serial
+field.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the fields do not match, digest verification MUST
+NOT be considered successful with this ZONEMD RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Scheme field MUST be checked.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the verifier does not
+support the given scheme, verification MUST NOT be considered
+successful with this ZONEMD RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Hash Algorithm field MUST be checked.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the verifier
+does not support the given hash algorithm, verification MUST
+NOT be considered successful with this ZONEMD RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Digest field size MUST be checked.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the size of the
+given Digest field is smaller than 12 octets, or if the size
+is not equal to the size expected for the corresponding Hash
+Algorithm, verification MUST NOT be considered successful
+with this ZONEMD RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Otherwise, verification MUST NOT be considered
+successful for this ZONEMD RR.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Each time zone verification is performed, the verifier SHOULD report
+the status as either successful or unsuccessful.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When unsuccessful,
+the verifier SHOULD report the reason(s) that verification did not
+succeed.
+'''
+

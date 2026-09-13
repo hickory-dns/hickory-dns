@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-2.2.4"
+
+# The Digest Field
+#
+#    The Digest field is a variable-length sequence of octets containing
+#    the output of the hash algorithm.  The length of the Digest field is
+#    determined by deducting the fixed size of the Serial, Scheme, and
+#    Hash Algorithm fields from the RDATA size in the ZONEMD RR header.
+# 
+#    The Digest field MUST NOT be shorter than 12 octets.  Digests for the
+#    SHA384 and SHA512 hash algorithms specified herein are never
+#    truncated.  Digests for future hash algorithms MAY be truncated but
+#    MUST NOT be truncated to a length that results in less than 96 bits
+#    (12 octets) of equivalent strength.
+# 
+#    Section 3 describes how to calculate the digest for a zone.
+#    Section 4 describes how to use the digest to verify the contents of a
+#    zone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Digest field MUST NOT be shorter than 12 octets.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Digests for future hash algorithms MAY be truncated but
+MUST NOT be truncated to a length that results in less than 96 bits
+(12 octets) of equivalent strength.
+'''
+
