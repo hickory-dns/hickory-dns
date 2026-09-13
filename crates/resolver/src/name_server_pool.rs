@@ -417,7 +417,10 @@ impl<P: ConnectionProvider> PoolState<P> {
                     // If the server is busy, try it again later if necessary.
                     NetError::Busy => busy.push(server),
                     // If the connection failed or timed out, try another one.
-                    NetError::Io(_) | NetError::NoConnections | NetError::Timeout => {}
+                    NetError::ConnectionClosed
+                    | NetError::Io(_)
+                    | NetError::NoConnections
+                    | NetError::Timeout => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
                     NetError::Dns(DnsError::NoRecordsFound(NoRecords {
@@ -435,6 +438,12 @@ impl<P: ConnectionProvider> PoolState<P> {
 
 /// Compare two errors to see if one contains a server response.
 fn most_specific(previous: NetError, current: NetError) -> NetError {
+    match (&previous, &current) {
+        (NetError::NoConnections, NetError::ConnectionClosed) => return current,
+        (NetError::ConnectionClosed, NetError::NoConnections) => return previous,
+        _ => (),
+    }
+
     match (&previous, &current) {
         (
             NetError::Dns(DnsError::NoRecordsFound { .. }),
@@ -1015,7 +1024,10 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use super::*;
-    use crate::config::{NameServerConfig, ResolverConfig, ServerOrderingStrategy};
+    use crate::config::{
+        ConnectionConfig, NameServerConfig, ResolverConfig, ServerOrderingStrategy,
+    };
+    use crate::connection_provider::ConnectionProvider;
     use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
     use crate::net::xfer::{DnsHandle, FirstAnswer, Protocol};
     use crate::proto::op::{DnsRequestOptions, Message, Query};
@@ -1193,6 +1205,98 @@ mod tests {
             !response.answers.is_empty(),
             "expected A record in response"
         );
+    }
+
+    #[tokio::test]
+    async fn test_pool_retries_on_connection_closed() {
+        subscribe();
+
+        let closed_ip = IpAddr::from([192, 0, 2, 1]);
+        let good_ip = IpAddr::from([192, 0, 2, 2]);
+        let query_name = Name::from_str("example.com.").expect("query name should be valid");
+
+        let handler = MockNetworkHandler::new(vec![MockRecord::a(good_ip, &query_name, good_ip)]);
+        let provider = ConnectionClosedProvider {
+            inner: MockProvider::new(handler),
+            closed_ip,
+        };
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+        let closed_server = Arc::new(NameServer::new(
+            [],
+            NameServerConfig::udp(closed_ip),
+            &opts,
+            provider.clone(),
+        ));
+        let good_server = Arc::new(NameServer::new(
+            [],
+            NameServerConfig::udp(good_ip),
+            &opts,
+            provider,
+        ));
+        let initial_srtt = closed_server.decayed_srtt();
+        let pool = NameServerPool::from_nameservers(
+            vec![closed_server.clone(), good_server],
+            Arc::new(PoolContext::new(
+                opts,
+                TlsConfig::new().expect("TLS configuration should be valid"),
+            )),
+        );
+
+        let response = pool
+            .lookup(
+                Query::new(query_name, RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .expect("pool should try the second server after the first connection closes");
+
+        assert_eq!(response.answers.len(), 1);
+        assert!(closed_server.decayed_srtt() > initial_srtt);
+    }
+
+    #[test]
+    fn test_connection_closed_is_more_specific_than_no_connections() {
+        for error in [
+            most_specific(NetError::NoConnections, NetError::ConnectionClosed),
+            most_specific(NetError::ConnectionClosed, NetError::NoConnections),
+        ] {
+            assert!(matches!(&error, NetError::ConnectionClosed));
+            assert!(error.is_connection_closed());
+        }
+    }
+
+    #[derive(Clone)]
+    struct ConnectionClosedProvider {
+        inner: MockProvider,
+        closed_ip: IpAddr,
+    }
+
+    impl ConnectionProvider for ConnectionClosedProvider {
+        type Conn = <MockProvider as ConnectionProvider>::Conn;
+        type FutureConn = Pin<Box<dyn Future<Output = Result<Self::Conn, NetError>> + Send>>;
+        type RuntimeProvider = MockProvider;
+
+        fn new_connection(
+            &self,
+            ip: IpAddr,
+            config: &ConnectionConfig,
+            cx: &PoolContext,
+        ) -> Result<Self::FutureConn, NetError> {
+            if ip == self.closed_ip {
+                return Ok(Box::pin(future::ready(Err(NetError::ConnectionClosed))));
+            }
+
+            self.inner.new_connection(ip, config, cx)
+        }
+
+        fn runtime_provider(&self) -> &Self::RuntimeProvider {
+            &self.inner
+        }
     }
 
     /// Regression test: when a server times out, its server-level SRTT should be penalized

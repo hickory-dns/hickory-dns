@@ -265,9 +265,12 @@ impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
 
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         let mut sender = self.sender.clone();
-        let try_send = sender.try_send(request).map_err(|_| {
+        let try_send = sender.try_send(request).map_err(|error| {
             debug!("unable to enqueue message");
-            NetError::Busy
+            match error.is_disconnected() {
+                true => NetError::ConnectionClosed,
+                false => NetError::Busy,
+            }
         });
 
         match try_send {
@@ -333,11 +336,7 @@ impl Stream for DnsResponseReceiver {
             *self = match &mut *self {
                 Self::Receiver(receiver) => {
                     let receiver = Pin::new(receiver);
-                    let future = ready!(
-                        receiver
-                            .poll(cx)
-                            .map_err(|_| NetError::from("receiver was canceled"))
-                    )?;
+                    let future = ready!(receiver.poll(cx).map_err(|_| NetError::ConnectionClosed))?;
                     Self::Received(future)
                 }
                 Self::Received(stream) => {
@@ -483,3 +482,46 @@ pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 ///
 /// Under high load, a larger buffer prevents messages from being dropped due to backpressure.
 const DEFAULT_STREAM_BUFFER_SIZE: usize = 32;
+
+#[cfg(test)]
+mod tests {
+    use futures_util::StreamExt;
+
+    use crate::proto::op::Message;
+    use crate::runtime::TokioRuntimeProvider;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn a_dropped_request_reports_a_closed_connection() {
+        let (sender, receiver) = oneshot::channel();
+        let mut response = DnsResponseReceiver::Receiver(receiver);
+        drop(sender);
+
+        let err = response
+            .next()
+            .await
+            .expect("the receiver yields the failure")
+            .expect_err("a dropped request cannot produce a response");
+        assert!(matches!(&err, NetError::ConnectionClosed));
+        assert!(err.is_connection_closed());
+    }
+
+    #[tokio::test]
+    async fn a_request_sent_to_a_closed_exchange_reports_a_closed_connection() {
+        let (sender, receiver) = mpsc::channel(1);
+        drop(receiver);
+        let handle = BufDnsRequestStreamHandle::<TokioRuntimeProvider> {
+            sender,
+            _phantom: PhantomData,
+        };
+
+        let err = handle
+            .send(DnsRequest::from(Message::query()))
+            .next()
+            .await
+            .expect("the response stream yields the send failure")
+            .expect_err("a closed exchange cannot accept a request");
+        assert!(matches!(err, NetError::ConnectionClosed));
+    }
+}
