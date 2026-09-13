@@ -21,6 +21,7 @@ use quinn::{
     ClientConfig, Connection, Endpoint, TransportConfig, VarInt, crypto::rustls::QuicClientConfig,
 };
 use tokio::time::timeout;
+use tracing::debug;
 
 use crate::{
     error::NetError,
@@ -355,17 +356,43 @@ pub(crate) async fn connect_quic(
 
     endpoint.set_default_client_config(client_config);
 
+    let local_addr = endpoint.local_addr().ok();
+    debug!(
+        %addr,
+        %server_name,
+        ?local_addr,
+        ?protocol,
+        early_data_enabled,
+        "starting QUIC connect"
+    );
     let connecting = endpoint.connect(addr, &server_name)?;
+    debug!(
+        %addr,
+        %server_name,
+        ?local_addr,
+        "QUIC connecting handle created"
+    );
     // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
 
-    Ok(if early_data_enabled {
+    if early_data_enabled {
         match connecting.into_0rtt() {
-            Ok((new_connection, _)) => new_connection,
-            Err(connecting) => connecting.await?,
+            Ok((new_connection, _)) => {
+                debug!(%addr, %server_name, ?local_addr, "QUIC 0-RTT connection ready");
+                Ok(new_connection)
+            }
+            Err(connecting) => {
+                debug!(%addr, %server_name, ?local_addr, "awaiting QUIC handshake");
+                let connection = connecting.await?;
+                debug!(%addr, %server_name, ?local_addr, "QUIC handshake completed");
+                Ok(connection)
+            }
         }
     } else {
-        connecting.await?
-    })
+        debug!(%addr, %server_name, ?local_addr, "awaiting QUIC handshake");
+        let connection = connecting.await?;
+        debug!(%addr, %server_name, ?local_addr, "QUIC handshake completed");
+        Ok(connection)
+    }
 }
 
 impl Default for QuicClientStreamBuilder {
