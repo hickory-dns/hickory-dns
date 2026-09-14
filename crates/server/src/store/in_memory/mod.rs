@@ -460,20 +460,14 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             (Some(chain), _) => LookupRecords::many(lookup_options, chain),
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
             (None, None) => {
-                return Continue(Err(
-                    if inner
-                        .records
-                        .keys()
-                        .any(|key| key.name() == name || name.zone_of(key.name()))
-                    {
-                        LookupError::NameExists
-                    } else {
-                        LookupError::from(match self.origin().zone_of(name) {
-                            true => ResponseCode::NXDomain,
-                            false => ResponseCode::Refused,
-                        })
-                    },
-                ));
+                return Continue(Err(if inner.node_exists(name) {
+                    LookupError::NameExists
+                } else {
+                    LookupError::from(match self.origin().zone_of(name) {
+                        true => ResponseCode::NXDomain,
+                        false => ResponseCode::Refused,
+                    })
+                }));
             }
         };
 

@@ -254,6 +254,20 @@ impl InnerInMemory {
             .map(|(_key, rr_set)| rr_set)
     }
 
+    /// Whether the node at `name` exists, which it does when any record is stored at it or below
+    /// it.
+    ///
+    /// A name holding no records of its own exists as an empty non-terminal when a subdomain of it
+    /// holds some (RFC 4592 §2.2.2).
+    pub(super) fn node_exists(&self, name: &LowerName) -> bool {
+        // records are keyed in canonical name order, so a name is followed by its own subtree.
+        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
+        self.records
+            .range(&start_range_key..)
+            .next()
+            .is_some_and(|(key, _)| name.zone_of(key.name()))
+    }
+
     fn inner_lookup_wildcard(
         &self,
         name: &LowerName,
