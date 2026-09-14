@@ -14,7 +14,6 @@ use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
     task::JoinSet,
-    time::timeout,
 };
 use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
@@ -31,13 +30,14 @@ use crate::{
         xfer::Protocol,
     },
     proto::rr::Record,
+    server::optional_timeout,
     zone_handler::MessageResponse,
 };
 
 /// handle h2 using the default TLS server config.
 pub(super) async fn handle_h2(
     listener: TcpListener,
-    handshake_timeout: Duration,
+    handshake_timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     http_endpoint: String,
@@ -60,7 +60,7 @@ pub(super) async fn handle_h2(
 /// handle h2 using a specific TlsAcceptor.
 pub(super) async fn handle_h2_with_acceptor(
     listener: TcpListener,
-    handshake_timeout: Duration,
+    handshake_timeout: Option<Duration>,
     tls_acceptor: TlsAcceptor,
     dns_hostname: Option<String>,
     http_endpoint: String,
@@ -103,7 +103,8 @@ pub(super) async fn handle_h2_with_acceptor(
 
             // TODO: need to consider timeout of total connect...
             // take the created stream...
-            let Ok(tls_stream) = timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) =
+                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
             else {
                 warn!("https timeout expired during handshake");
                 return;
@@ -142,7 +143,7 @@ pub(super) async fn handle_h2_with_acceptor(
 pub(crate) async fn h2_handler(
     io: impl AsyncRead + AsyncWrite + Unpin,
     src_addr: SocketAddr,
-    h2_timeout: Duration,
+    h2_timeout: Option<Duration>,
     dns_hostname: Option<Arc<str>>,
     http_endpoint: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -164,7 +165,7 @@ pub(crate) async fn h2_handler(
     loop {
         let future = cx
             .shutdown
-            .run_until_cancelled(timeout(h2_timeout, h2.accept()));
+            .run_until_cancelled(optional_timeout(h2_timeout, h2.accept()));
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
         };
@@ -188,7 +189,7 @@ pub(crate) async fn h2_handler(
         let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
             let message_future = h2::message_from(dns_hostname, http_endpoint, request);
-            let Ok(result) = timeout(h2_timeout, message_future).await else {
+            let Ok(result) = optional_timeout(h2_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };
             let body = match result {

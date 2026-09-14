@@ -351,6 +351,8 @@ impl DnsServer {
             listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
         }
 
+        let tcp_request_timeout = (!tcp_request_timeout.is_zero()).then_some(tcp_request_timeout);
+
         let mut setup = ServerSetup {
             listen_addrs,
             server: &mut server,
@@ -501,7 +503,10 @@ impl DnsServer {
 struct ServerSetup<'a> {
     listen_addrs: Vec<IpAddr>,
     server: &'a mut Server<Catalog>,
-    tcp_request_timeout: Duration,
+    /// Optional timeout for all servers.
+    ///
+    /// This affects connection setup, handshakes, idle connections, and receiving requests.
+    tcp_request_timeout: Option<Duration>,
     #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
     cert_resolver: Option<Arc<dyn ResolvesServerCert>>,
     #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
