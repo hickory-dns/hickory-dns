@@ -79,6 +79,55 @@ async fn name_error() {
     .await;
 }
 
+/// A name error whose closest encloser is the apex, two labels above the query name.
+#[tokio::test]
+async fn name_error_nonexistent_parent() {
+    subscribe();
+
+    let (key, public_key) = generate_key();
+    let catalog = example_zone_catalog(key);
+    let zone_name = Name::parse("example.", None).unwrap();
+    let (mut client, _honest_server) =
+        setup_dnssec_client_server(catalog, &public_key, zone_name.into()).await;
+
+    let query_name = Name::parse("a.y.example.", None).unwrap();
+    let query_type = RecordType::A;
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, query_type)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
+
+    let nsec_count = response
+        .all_sections()
+        .filter(|record| record.record_type() == RecordType::NSEC)
+        .count();
+    assert_eq!(nsec_count, 2);
+
+    let dnskey_response = fetch_dnskey(&mut client).await;
+
+    // Proves name does not exist.
+    test_exclude_nsec(
+        &query_name,
+        query_type,
+        &response,
+        &dnskey_response,
+        Name::parse("xx.example.", None).unwrap(),
+    )
+    .await;
+
+    // Proves covering wildcard name does not exist.
+    test_exclude_nsec(
+        &query_name,
+        query_type,
+        &response,
+        &dnskey_response,
+        Name::parse("example.", None).unwrap(),
+    )
+    .await;
+}
+
 /// Based on RFC 4035 section B.3.
 #[tokio::test]
 async fn no_data_error() {
