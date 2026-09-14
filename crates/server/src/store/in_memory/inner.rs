@@ -225,6 +225,15 @@ impl InnerInMemory {
             search_name = search_name.base_name();
         }
 
+        // TODO: maybe unwrap this recursion.
+        match self.rr_set_of_type(name, record_type) {
+            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
+            l => l.cloned(),
+        }
+    }
+
+    /// The RRset stored at `name` that answers a query for `record_type`, if there is one.
+    fn rr_set_of_type(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
         // this range covers all the records for any of the RecordTypes at a given label.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
         let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
@@ -234,8 +243,7 @@ impl InnerInMemory {
                 && key_type == RecordType::ANAME
         }
 
-        let lookup = self
-            .records
+        self.records
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
             .find(|(key, _)| {
@@ -243,13 +251,7 @@ impl InnerInMemory {
                     || key.record_type == RecordType::CNAME
                     || aname_covers_type(key.record_type, record_type)
             })
-            .map(|(_key, rr_set)| rr_set);
-
-        // TODO: maybe unwrap this recursion.
-        match lookup {
-            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
-            l => l.cloned(),
-        }
+            .map(|(_key, rr_set)| rr_set)
     }
 
     fn inner_lookup_wildcard(
