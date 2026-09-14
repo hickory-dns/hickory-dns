@@ -37,6 +37,7 @@ test-support.path = "tests/test-support"
 # logging
 tracing = { version = "0.1.30", default-features = false }
 tracing-subscriber = { version = "0.3.10", default-features = false }
+tracing-journald = "0.3.2"
 thiserror = { version = "2", default-features = false }
 
 # metrics
