@@ -479,6 +479,7 @@ impl Rollback {
         let Self { offset, pointers } = self;
         encoder.offset = offset;
         encoder.name_pointers.truncate(pointers);
+        encoder.trim();
     }
 }
 
@@ -495,7 +496,7 @@ mod tests {
         rr::Name,
         rr::{
             RData, Record, RecordType,
-            rdata::{CNAME, SRV},
+            rdata::{CNAME, SRV, TXT},
         },
     };
 
@@ -597,6 +598,45 @@ mod tests {
             ProtoError::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
+    }
+
+    #[cfg(any(feature = "std", feature = "no-std-rand"))]
+    #[test]
+    fn test_message_truncation_trims_buffer() {
+        // A response whose answers do not fit within the 512-byte non-EDNS UDP payload
+        // limit. Encoding must truncate part way through a record, and the partially
+        // written record must be rolled back without leaving trailing bytes in the buffer
+        // beyond the records that were actually emitted.
+        let name = Name::from_str("example.com.").unwrap();
+        let mut msg = Message::query();
+        msg.add_query(Query::new(name.clone(), RecordType::TXT));
+        for _ in 0..3 {
+            msg.add_answer(Record::from_rdata(
+                name.clone(),
+                0,
+                RData::TXT(TXT::new(vec!["a".repeat(255)])),
+            ));
+        }
+
+        let mut buf = vec![];
+        let mut encoder = BinEncoder::new(&mut buf);
+        encoder.set_max_size(512);
+        msg.emit(&mut encoder).unwrap();
+        drop(encoder);
+
+        // The encoded message must respect the payload limit...
+        assert!(
+            buf.len() <= 512,
+            "encoded {} bytes exceeds limit",
+            buf.len()
+        );
+
+        // ...and must not contain any bytes from the record that did not fit. If the
+        // partial record were left behind, decoding (which stops after the header's record
+        // counts) would drop those trailing bytes, so a clean re-encode would be shorter.
+        let decoded = Message::from_vec(&buf).unwrap();
+        assert!(decoded.truncation);
+        assert_eq!(decoded.to_vec().unwrap(), buf);
     }
 
     #[cfg(any(feature = "std", feature = "no-std-rand"))]
