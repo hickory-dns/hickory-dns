@@ -11,7 +11,7 @@ use bytes::{Buf, Bytes};
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet, time::timeout};
+use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
 
 use super::{
@@ -29,12 +29,13 @@ use crate::{
         xfer::Protocol,
     },
     proto::rr::Record,
+    server::optional_timeout,
     zone_handler::MessageResponse,
 };
 
 pub(super) async fn handle_h3(
     socket: net::UdpSocket,
-    timeout: Duration,
+    timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -51,7 +52,7 @@ pub(super) async fn handle_h3(
 
 pub(super) async fn handle_h3_with_server(
     mut server: H3Server,
-    handshake_timeout: Duration,
+    handshake_timeout: Option<Duration>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -98,7 +99,8 @@ pub(super) async fn handle_h3_with_server(
         let dns_hostname = dns_hostname.clone();
         inner_join_set.spawn(async move {
             let handshake_future = H3Connection::new(connecting);
-            let Ok(connection_result) = timeout(handshake_timeout, handshake_future).await else {
+            let Ok(connection_result) = optional_timeout(handshake_timeout, handshake_future).await
+            else {
                 warn!("h3 timeout expired during handshake");
                 return;
             };
@@ -130,7 +132,7 @@ pub(super) async fn handle_h3_with_server(
 pub(crate) async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
-    h3_timeout: Duration,
+    h3_timeout: Option<Duration>,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -141,7 +143,7 @@ pub(crate) async fn h3_handler(
     loop {
         let future = cx
             .shutdown
-            .run_until_cancelled(timeout(h3_timeout, connection.accept()));
+            .run_until_cancelled(optional_timeout(h3_timeout, connection.accept()));
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
         };
@@ -173,7 +175,7 @@ pub(crate) async fn h3_handler(
                 BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
                 None,
             );
-            let Ok(request_res) = timeout(h3_timeout, fetch_future).await else {
+            let Ok(request_res) = optional_timeout(h3_timeout, fetch_future).await else {
                 return; //Timeout while reading request.
             };
             let request = match request_res {

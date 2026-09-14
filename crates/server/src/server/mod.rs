@@ -7,6 +7,13 @@
 
 //! `Server` component for hosting a domain name servers operations.
 
+#[cfg(any(
+    feature = "__tls",
+    feature = "__quic",
+    feature = "__https",
+    feature = "__h3"
+))]
+use std::future::Future;
 use std::{
     fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -19,8 +26,13 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(feature = "__tls")]
-use tokio::time::timeout;
+#[cfg(any(
+    feature = "__tls",
+    feature = "__quic",
+    feature = "__https",
+    feature = "__h3"
+))]
+use tokio::time::{error::Elapsed, timeout};
 use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
@@ -123,7 +135,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_listener(
         &mut self,
         listener: net::TcpListener,
-        timeout: Duration,
+        timeout: Option<Duration>,
         response_buffer_size: usize,
     ) {
         self.join_set.spawn(handle_tcp(
@@ -154,7 +166,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_tls_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
-        handshake_timeout: Duration,
+        handshake_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
         self.join_set.spawn(handle_tls(
@@ -183,7 +195,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
-        timeout: Duration,
+        timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
         Self::register_tls_listener_with_tls_config(
@@ -213,7 +225,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_https_listener(
         &mut self,
         listener: net::TcpListener,
-        handshake_timeout: Duration,
+        handshake_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
         http_endpoint: String,
@@ -252,7 +264,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_https_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
-        handshake_timeout: Duration,
+        handshake_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
         http_endpoint: String,
@@ -286,7 +298,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_quic_listener(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Duration,
+        timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
         let cx = self.context.clone();
@@ -321,7 +333,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_quic_listener_and_tls_config(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Duration,
+        timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
         let cx = self.context.clone();
@@ -351,7 +363,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_h3_listener(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Duration,
+        timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
@@ -386,7 +398,7 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_h3_listener_with_tls_config(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Duration,
+        timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
@@ -503,7 +515,7 @@ async fn handle_udp(
 
 async fn handle_tcp(
     listener: net::TcpListener,
-    timeout: Duration,
+    timeout: Option<Duration>,
     response_buffer_size: usize,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -576,7 +588,7 @@ async fn handle_tcp(
 async fn handle_tls(
     listener: net::TcpListener,
     tls_config: Arc<ServerConfig>,
-    handshake_timeout: Duration,
+    handshake_timeout: Option<Duration>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?listener, "registered tls");
@@ -615,7 +627,8 @@ async fn handle_tls(
             debug!(%src_addr, "starting TLS request");
 
             // perform the TLS
-            let Ok(tls_stream) = timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) =
+                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
             else {
                 warn!("tls timeout expired during handshake");
                 return;
@@ -1011,6 +1024,23 @@ fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
     matches!(err.kind(), io::ErrorKind::NotConnected)
 }
 
+/// Optionally applies a timeout to a future.
+#[cfg(any(
+    feature = "__tls",
+    feature = "__quic",
+    feature = "__https",
+    feature = "__h3"
+))]
+async fn optional_timeout<T>(
+    timeout_opt: Option<Duration>,
+    future: impl Future<Output = T>,
+) -> Result<T, Elapsed> {
+    match timeout_opt {
+        Some(timeout_duration) => timeout(timeout_duration, future).await,
+        None => Ok(future.await),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1129,7 +1159,7 @@ mod tests {
             server.register_socket(UdpSocket::bind(self.udp_addr).await.unwrap());
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
-                Duration::from_secs(1),
+                Some(Duration::from_secs(1)),
                 32,
             );
 
@@ -1139,7 +1169,7 @@ mod tests {
                 server
                     .register_tls_listener(
                         TcpListener::bind(self.rustls_addr).await.unwrap(),
-                        Duration::from_secs(30),
+                        Some(Duration::from_secs(30)),
                         cert_key,
                     )
                     .unwrap();
@@ -1151,7 +1181,7 @@ mod tests {
                 server
                     .register_https_listener(
                         TcpListener::bind(self.https_rustls_addr).await.unwrap(),
-                        Duration::from_secs(1),
+                        Some(Duration::from_secs(1)),
                         cert_key,
                         None,
                         "/dns-query".into(),
@@ -1165,7 +1195,7 @@ mod tests {
                 server
                     .register_quic_listener(
                         UdpSocket::bind(self.quic_addr).await.unwrap(),
-                        Duration::from_secs(1),
+                        Some(Duration::from_secs(1)),
                         cert_key,
                     )
                     .unwrap();
@@ -1177,7 +1207,7 @@ mod tests {
                 server
                     .register_h3_listener(
                         UdpSocket::bind(self.h3_addr).await.unwrap(),
-                        Duration::from_secs(1),
+                        Some(Duration::from_secs(1)),
                         cert_key,
                         None,
                     )

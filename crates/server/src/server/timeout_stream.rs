@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use futures_util::FutureExt;
 use futures_util::stream::{Stream, StreamExt};
-use tokio::time::Sleep;
+use tokio::time::{Sleep, sleep};
 use tracing::{debug, warn};
 
 /// This wraps the underlying Stream in a timeout.
@@ -14,7 +14,7 @@ use tracing::{debug, warn};
 /// Any `Ok(Poll::Ready(_))` from the underlying Stream will reset the timeout.
 pub struct TimeoutStream<S> {
     stream: S,
-    timeout_duration: Duration,
+    timeout_duration: Option<Duration>,
     timeout: Option<Pin<Box<Sleep>>>,
 }
 
@@ -25,7 +25,7 @@ impl<S> TimeoutStream<S> {
     ///
     /// * `stream` - stream to wrap
     /// * `timeout_duration` - timeout between each request, once exceed the connection is killed
-    pub fn new(stream: S, timeout_duration: Duration) -> Self {
+    pub fn new(stream: S, timeout_duration: Option<Duration>) -> Self {
         Self {
             stream,
             timeout_duration,
@@ -33,12 +33,8 @@ impl<S> TimeoutStream<S> {
         }
     }
 
-    fn timeout(timeout_duration: Duration) -> Option<Pin<Box<Sleep>>> {
-        if timeout_duration > Duration::from_millis(0) {
-            Some(Box::pin(tokio::time::sleep(timeout_duration)))
-        } else {
-            None
-        }
+    fn timeout(timeout_duration: Option<Duration>) -> Option<Pin<Box<Sleep>>> {
+        timeout_duration.map(|timeout_duration| Box::pin(sleep(timeout_duration)))
     }
 }
 
@@ -116,7 +112,7 @@ mod tests {
         let sequence = iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(io::Error::other);
         let core = Runtime::new().expect("could not get core");
 
-        let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360));
+        let timeout_stream = TimeoutStream::new(sequence, Some(Duration::from_secs(360)));
 
         let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
         assert_eq!(val.expect("nothing in stream").ok(), Some(1));
@@ -147,7 +143,7 @@ mod tests {
         subscribe();
 
         let core = Runtime::new().expect("could not get core");
-        let timeout_stream = TimeoutStream::new(NeverStream {}, Duration::from_millis(1));
+        let timeout_stream = TimeoutStream::new(NeverStream {}, Some(Duration::from_millis(1)));
 
         assert!(
             core.block_on(timeout_stream.into_future())
