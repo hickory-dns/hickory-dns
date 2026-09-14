@@ -866,7 +866,7 @@ fn parse_nsid_payload(raw_payload: &str) -> Result<NSIDPayload, ProtoError> {
 #[cfg(target_family = "unix")]
 const DEFAULT_USER: &str = "nobody";
 #[cfg(target_family = "unix")]
-const DEFAULT_GROUP: &str = "nobody";
+const DEFAULT_GROUP: &str = "nogroup";
 
 #[cfg(test)]
 mod tests {

@@ -144,7 +144,7 @@ pub(crate) struct Config {
     /// Group to run the server as.
     ///
     /// Only supported on Unix-like platforms. If the real or effective UID of the hickory process
-    /// is root, we will attempt to change to this group (or to nobody if no group is specified here.)
+    /// is root, we will attempt to change to this group (or to nogroup if no group is specified here.)
     pub group: Option<String>,
     /// Whether to drop privileges on startup. Defaults to true.
     /// Set to false in container/namespace environments where
