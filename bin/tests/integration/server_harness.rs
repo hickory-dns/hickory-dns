@@ -115,6 +115,7 @@ impl TestServer {
         .arg(format!(
             "--zonedir={server_path}/tests/test-data/test_configs"
         ))
+        .arg("--logging=stdout")
         .arg(format!("--port={}", 0));
         #[cfg(feature = "__tls")]
         command.arg(format!("--tls-port={}", 0));
