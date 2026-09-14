@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashSet, btree_map},
     sync::Arc,
 };
 #[cfg(feature = "__dnssec")]
@@ -297,17 +297,13 @@ impl InnerInMemory {
 
     /// The RRset stored at `name` that answers a query for `record_type`, if there is one.
     fn rr_set_of_type(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
-        // this range covers all the records for any of the RecordTypes at a given label.
-        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
-        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
-
         fn aname_covers_type(key_type: RecordType, query_type: RecordType) -> bool {
             (query_type == RecordType::A || query_type == RecordType::AAAA)
                 && key_type == RecordType::ANAME
         }
 
-        self.records
-            .range(&start_range_key..&end_range_key)
+        self.records_from(name)
+            .take_while(|(key, _)| key.name() == name)
             // remember CNAME can be the only record at a particular label
             .find(|(key, _)| {
                 key.record_type == record_type
@@ -315,6 +311,21 @@ impl InnerInMemory {
                     || aname_covers_type(key.record_type, record_type)
             })
             .map(|(_key, rr_set)| rr_set)
+    }
+
+    /// Whether `name` exists, which it does when it or a name below it owns records (RFC 4592
+    /// §2.2.2).
+    pub(super) fn name_exists(&self, name: &LowerName) -> bool {
+        // canonical order puts the names below `name` right after it
+        self.records_from(name)
+            .next()
+            .is_some_and(|(key, _)| name.zone_of(key.name()))
+    }
+
+    /// The records of `name` and of every name after it, in canonical order.
+    fn records_from(&self, name: &LowerName) -> btree_map::Range<'_, RrKey, Arc<RecordSet>> {
+        self.records
+            .range(RrKey::new(name.clone(), RecordType::Unknown(u16::MIN))..)
     }
 
     /// Chase a CNAME chain to its terminal record (RFC 1034 §3.6.2).
