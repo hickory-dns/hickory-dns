@@ -815,6 +815,10 @@ impl SvcParamValue {
             }
         };
 
+        if !decoder.is_empty() {
+            return Err(DecodeError::ExtraData);
+        }
+
         Ok(value)
     }
 }
@@ -1910,6 +1914,13 @@ mod tests {
                 }
             };
         }
+    }
+
+    #[test]
+    fn test_svcparamvalue_extra_data_strict() {
+        let data = [0x00, 0x50, 0x00];
+        let mut decoder = BinDecoder::new(&data);
+        SvcParamValue::read(SvcParamKey::Port, &mut decoder).unwrap_err();
     }
 
     const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
