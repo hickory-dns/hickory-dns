@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 #[cfg(feature = "metrics")]
 use metrics_process::Collector;
 #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
@@ -70,6 +70,10 @@ pub struct DnsServer {
     /// Turn on `DEBUG` messages (default is only `INFO`)
     #[clap(short = 'd', long = "debug", conflicts_with = "quiet")]
     pub debug: bool,
+
+    /// Set target for logging.
+    #[clap(long = "logging")]
+    pub logging: Option<Logging>,
 
     /// Path to configuration file of named server
     #[clap(
@@ -172,6 +176,7 @@ impl DnsServer {
             workers: _, // Used in `main()`
             quiet: _,   // Used in `main()`
             debug: _,   // Used in `main()`
+            logging: _, // Used in `main()`
             config,
             zonedir,
             port,
@@ -496,6 +501,15 @@ impl DnsServer {
 
         Ok(())
     }
+}
+
+#[derive(ValueEnum, Debug, PartialEq, Eq, Clone)]
+pub enum Logging {
+    /// Print formatted logs to standard output.
+    Stdout,
+    /// Send structured logs to systemd journal (selected automatically if journal is detected)
+    #[cfg(feature = "systemd")]
+    Journal,
 }
 
 struct ServerSetup<'a> {
