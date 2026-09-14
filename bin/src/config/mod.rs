@@ -488,6 +488,10 @@ impl ZoneConfig {
     // TODO this is a little ugly for the parse, b/c there is no terminal char
     /// returns the name of the Zone, i.e. the `example.com` of `www.example.com.`
     pub(crate) fn zone(&self) -> Result<Name, ProtoError> {
+        if self.zone.is_empty() {
+            return Err(ProtoError::from("zone name cannot be empty"));
+        }
+
         Name::parse(&self.zone, Some(&Name::new()))
     }
 
