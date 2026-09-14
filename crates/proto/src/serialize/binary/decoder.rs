@@ -385,6 +385,10 @@ pub enum DecodeError {
     /// Invalid UTF-8 data
     #[error("invalid UTF-8: {0}")]
     Utf8(#[from] alloc::string::FromUtf8Error),
+
+    /// Length-delimited field contained extra data after parsing contents
+    #[error("extra data at end of length-delimited field")]
+    ExtraData,
 }
 
 #[cfg(test)]
