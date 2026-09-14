@@ -242,6 +242,59 @@ async fn no_synthesis_5() {
     assert_eq!(response.answers, []);
 }
 
+/// A wildcard's NS RRset does not delegate, so a query for another type is still answered from
+/// the wildcard.
+#[tokio::test]
+async fn wildcard_ns_does_not_delegate() {
+    subscribe();
+
+    let (mut client, _server) = setup_wildcard_ns().await;
+
+    let query_name = Name::parse("host.example.", None).unwrap();
+    let query_type = RecordType::TXT;
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, query_type)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+    assert!(
+        response
+            .answers
+            .iter()
+            .any(|record| record.record_type() == query_type && record.name == query_name)
+    );
+    assert!(
+        !response
+            .authorities
+            .iter()
+            .any(|record| record.record_type() == RecordType::NS)
+    );
+}
+
+/// A query for NS is answered from the wildcard's NS RRset.
+#[tokio::test]
+async fn wildcard_ns_answers_an_ns_query() {
+    subscribe();
+
+    let (mut client, _server) = setup_wildcard_ns().await;
+
+    let query_name = Name::parse("host.example.", None).unwrap();
+    let query_type = RecordType::NS;
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, query_type)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+    assert!(
+        response
+            .answers
+            .iter()
+            .any(|record| record.record_type() == query_type && record.name == query_name)
+    );
+}
+
 /// ```text
 /// $ORIGIN example.
 /// example.                 3600 IN  SOA   <SOA RDATA>
@@ -387,6 +440,85 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     server.register_socket(udp_socket);
 
     // Client setup
+    let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
+    let (client, bg) = Client::from_sender(stream);
+    tokio::spawn(bg);
+
+    (client, server)
+}
+
+/// A zone whose wildcard owns an NS RRset, which [RFC 4592 section
+/// 4.2](https://datatracker.ietf.org/doc/html/rfc4592#section-4.2) leaves undefined.
+///
+/// ```text
+/// $ORIGIN example.
+/// example.                 3600 IN  SOA   <SOA RDATA>
+/// example.                 3600     NS    ns.example.com.
+/// *.example.               3600     NS    ns.example.net.
+/// *.example.               3600     TXT   "this is a wildcard"
+/// ```
+async fn setup_wildcard_ns() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
+    let origin = Name::parse("example.", None).unwrap();
+
+    const SERIAL: u32 = 1;
+    const TTL: u32 = 3600;
+
+    let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+        origin.clone(),
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        #[cfg(feature = "__dnssec")]
+        None,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            origin.clone(),
+            TTL,
+            RData::SOA(SOA::new(
+                Name::parse("mname", Some(&origin)).unwrap(),
+                Name::parse("rname", Some(&origin)).unwrap(),
+                SERIAL,
+                3600,
+                300,
+                3600000,
+                TTL,
+            )),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            origin.clone(),
+            TTL,
+            RData::NS(NS(Name::parse("ns.example.com.", None).unwrap())),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("*", Some(&origin)).unwrap(),
+            TTL,
+            RData::NS(NS(Name::parse("ns.example.net.", None).unwrap())),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("*", Some(&origin)).unwrap(),
+            TTL,
+            RData::TXT(TXT::new(vec!["this is a wildcard".to_string()])),
+        ),
+        SERIAL,
+    );
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
+
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let local_addr = udp_socket.local_addr().unwrap();
+    let mut server = Server::new(catalog);
+    server.register_socket(udp_socket);
+
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
     let (client, bg) = Client::from_sender(stream);
     tokio::spawn(bg);
