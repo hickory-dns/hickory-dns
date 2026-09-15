@@ -42,15 +42,18 @@ pub struct TXT {
 }
 
 impl TXT {
+    /// Creates a new TXT record data from bytes.
+    ///
+    /// Fails if any element of the iterator is longer than 255 bytes, or if the total length of
+    /// all elements exceeds 65535 bytes.
+    pub fn try_new(
+        txt_data: impl Iterator<Item = impl Into<Box<[u8]>>>,
+    ) -> Result<Self, ParseError> {
+        Self::new_inner(txt_data.map(Into::into).collect::<Box<[_]>>())
+    }
+
     /// Creates a new TXT record data.
-    ///
-    /// # Arguments
-    ///
-    /// * `txt_data` - the set of strings which make up the txt_data.
-    ///
-    /// # Return value
-    ///
-    /// The new TXT record data.
+    #[deprecated(since = "0.26.4", note = "use `try_new()` or `try_from()` instead")]
     pub fn new(txt_data: Vec<String>) -> Self {
         Self {
             txt_data: txt_data
@@ -62,15 +65,7 @@ impl TXT {
     }
 
     /// Creates a new TXT record data from bytes.
-    /// Allows creating binary record data.
-    ///
-    /// # Arguments
-    ///
-    /// * `txt_data` - the set of bytes which make up the txt_data.
-    ///
-    /// # Return value
-    ///
-    /// The new TXT record data.
+    #[deprecated(since = "0.26.4", note = "use `try_new()` or `try_from()` instead")]
     pub fn from_bytes(txt_data: Vec<&[u8]>) -> Self {
         Self {
             txt_data: txt_data
@@ -163,6 +158,14 @@ impl RecordData for TXT {
     }
 }
 
+impl TryFrom<String> for TXT {
+    type Error = ParseError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new_inner(Box::new([value.into_boxed_str().into()]))
+    }
+}
+
 impl fmt::Display for TXT {
     /// Format a [TXT] with lossy conversion of invalid utf8.
     ///
@@ -176,8 +179,7 @@ impl fmt::Display for TXT {
     /// # use hickory_proto::rr::rdata::TXT;
     /// let first_bytes = b"Invalid utf8 <\xF0\x90\x80>.";
     /// let second_bytes = b" Valid utf8 <\xF0\x9F\xA4\xA3>";
-    /// let rdata: Vec<&[u8]> = vec![first_bytes, second_bytes];
-    /// let txt = TXT::from_bytes(rdata);
+    /// let txt = TXT::new([first_bytes.to_vec(), second_bytes.to_vec()].into_iter()).unwrap();
     ///
     /// let tested = format!("{}", txt);
     /// assert_eq!(
@@ -199,7 +201,6 @@ impl fmt::Display for TXT {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use alloc::string::ToString;
     #[cfg(feature = "std")]
     use std::println;
 
@@ -207,7 +208,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let rdata = TXT::new(vec!["Test me some".to_string(), "more please".to_string()]);
+        let rdata =
+            TXT::try_new([b"Test me some".to_vec(), b"more please".to_vec()].into_iter()).unwrap();
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
@@ -226,7 +228,7 @@ mod tests {
     #[test]
     fn publish_binary_txt_record() {
         let bin_data = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
-        let rdata = TXT::from_bytes(vec![b"Test me some", &bin_data]);
+        let rdata = TXT::try_new([b"Test me some".to_vec(), bin_data].into_iter()).unwrap();
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
