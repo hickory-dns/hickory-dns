@@ -72,7 +72,7 @@ pub struct BlocklistZoneHandler {
     sinkhole_ipv4: Ipv4Addr,
     sinkhole_ipv6: Ipv6Addr,
     ttl: u32,
-    block_message: Option<String>,
+    block_message: Option<TXT>,
     consult_action: BlocklistConsultAction,
     log_clients: bool,
     #[cfg(feature = "metrics")]
@@ -96,7 +96,7 @@ impl BlocklistZoneHandler {
             sinkhole_ipv4: config.sinkhole_ipv4.unwrap_or(Ipv4Addr::UNSPECIFIED),
             sinkhole_ipv6: config.sinkhole_ipv6.unwrap_or(Ipv6Addr::UNSPECIFIED),
             ttl: config.ttl,
-            block_message: config.block_message,
+            block_message: config.block_message.map(|msg| TXT::new(vec![msg])),
             consult_action: config.consult_action,
             log_clients: config.log_clients,
             #[cfg(feature = "metrics")]
@@ -306,7 +306,7 @@ impl BlocklistZoneHandler {
             records.push(Record::from_rdata(
                 name.clone(),
                 self.ttl,
-                RData::TXT(TXT::new(vec![block_message.clone()])),
+                RData::TXT(block_message.clone()),
             ));
         }
 
