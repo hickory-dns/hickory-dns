@@ -100,23 +100,16 @@ impl InnerInMemory {
             records.push(cover);
         }
 
-        let wildcard_match = {
-            let wildcard = qname.clone().into_wildcard();
-            self.records.keys().any(|rr_key| rr_key.name == wildcard)
-        };
+        // add the NSEC3 record that covers or matches the relevant wildcard name, as applicable
+        let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
+        let rr_key = RrKey::new(
+            info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
+            RecordType::NSEC3,
+        );
 
-        if wildcard_match {
-            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
-            let rr_key = RrKey::new(
-                info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
-                RecordType::NSEC3,
-            );
-
-            if let Some(record) = self.records.get(&rr_key) {
-                records.push(record.clone());
-            }
+        if let Some(record) = self.records.get(&rr_key) {
+            records.push(record.clone());
         } else if qtype != RecordType::DS {
-            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
             if let Some(cover) = self.find_cover(&wildcard_at_closest_encloser, zone, &info)? {
                 records.push(cover);
             }
