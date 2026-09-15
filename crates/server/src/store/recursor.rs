@@ -137,6 +137,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
     async fn nsec_records(
         &self,
         _name: &LowerName,
+        _has_wildcard_match: bool,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Err(LookupError::from(io::Error::other(
