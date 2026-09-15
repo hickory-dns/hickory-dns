@@ -315,7 +315,7 @@ impl<P: ConnectionProvider> PoolState<P> {
         let mut servers = VecDeque::from(servers);
         let mut backoff = Duration::from_millis(20);
         let mut busy = SmallVec::<[Arc<NameServer<P>>; 2]>::new();
-        let mut err = NetError::NoConnections;
+        let mut err = None;
         let mut policy = ConnectionPolicy::default();
 
         loop {
@@ -350,7 +350,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     backoff *= 2;
                     continue;
                 }
-                return Err(err);
+                return Err(err.unwrap_or(NetError::NoConnections));
             }
 
             // Track all servers in the parallel batch so we can penalize any
@@ -388,7 +388,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     Ok(response) if response.truncation => {
                         debug!("truncated response received, retrying over TCP");
                         policy.disable_udp = true;
-                        err = NetError::Truncated;
+                        err = Some(NetError::Truncated);
                         servers.push_front(server);
                         continue;
                     }
@@ -427,7 +427,10 @@ impl<P: ConnectionProvider> PoolState<P> {
                     _ => return Err(e),
                 }
 
-                err = most_specific(err, e);
+                err = Some(match err {
+                    Some(previous) => most_specific(previous, e),
+                    None => e,
+                });
             }
         }
     }
