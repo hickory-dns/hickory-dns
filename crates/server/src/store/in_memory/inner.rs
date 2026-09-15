@@ -100,23 +100,18 @@ impl InnerInMemory {
             records.push(cover);
         }
 
-        let wildcard_match = {
-            let wildcard = qname.clone().into_wildcard();
-            self.records.keys().any(|rr_key| rr_key.name == wildcard)
-        };
+        // The wildcard that could have answered is the one at the closest encloser (RFC 4592
+        // §3.3.1). The NSEC3 matching it denies the type there (RFC 5155 §7.2.5), and where the
+        // chain has no such record the NSEC3 covering it denies the wildcard (§7.2.2).
+        let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
+        let rr_key = RrKey::new(
+            info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
+            RecordType::NSEC3,
+        );
 
-        if wildcard_match {
-            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
-            let rr_key = RrKey::new(
-                info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
-                RecordType::NSEC3,
-            );
-
-            if let Some(record) = self.records.get(&rr_key) {
-                records.push(record.clone());
-            }
+        if let Some(record) = self.records.get(&rr_key) {
+            records.push(record.clone());
         } else if qtype != RecordType::DS {
-            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
             if let Some(cover) = self.find_cover(&wildcard_at_closest_encloser, zone, &info)? {
                 records.push(cover);
             }
