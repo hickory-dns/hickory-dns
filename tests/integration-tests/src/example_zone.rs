@@ -59,11 +59,15 @@ pub fn create_example() -> InMemoryZoneHandler {
         Record::from_rdata(
             origin.clone(),
             60,
-            RData::TXT(TXT::new(vec![
-                "$Id: example.com 4415 2015-08-24 \
+            RData::TXT(
+                TXT::try_new(
+                    [b"$Id: example.com 4415 2015-08-24 \
                  20:12:23Z davids $"
-                    .to_string(),
-            ])),
+                        .to_vec()]
+                    .into_iter(),
+                )
+                .unwrap(),
+            ),
         ),
         0,
     );
@@ -108,7 +112,7 @@ pub fn create_example() -> InMemoryZoneHandler {
         Record::from_rdata(
             www_name.clone(),
             86400,
-            RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])),
+            RData::TXT(TXT::try_from("v=spf1 -all".to_string()).unwrap()),
         ),
         0,
     );

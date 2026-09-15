@@ -306,7 +306,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         Record::from_rdata(
             Name::parse("*", Some(&origin)).unwrap(),
             TTL,
-            RData::TXT(TXT::new(vec!["this is a wildcard".to_string()])),
+            RData::TXT(TXT::try_from("this is a wildcard".to_string()).unwrap()),
         ),
         SERIAL,
     );
@@ -322,7 +322,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
         Record::from_rdata(
             Name::parse("sub.*", Some(&origin)).unwrap(),
             TTL,
-            RData::TXT(TXT::new(vec!["this is not a wildcard".to_string()])),
+            RData::TXT(TXT::try_from("this is not a wildcard".to_string()).unwrap()),
         ),
         SERIAL,
     );
