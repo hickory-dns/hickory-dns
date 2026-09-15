@@ -225,10 +225,17 @@ impl InnerInMemory {
             search_name = search_name.base_name();
         }
 
-        match self.rr_set_of_type(name, record_type) {
-            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
-            l => l.cloned(),
+        if let Some(rr_set) = self.rr_set_of_type(name, record_type) {
+            return Some(rr_set.clone());
         }
+
+        // RFC 1034 §4.3.2 step 3(a) answers a name that exists from that name alone. Only step
+        // 3(c), reached where a label does not exist, looks for a wildcard.
+        if self.node_exists(name) {
+            return None;
+        }
+
+        self.inner_lookup_wildcard(name, record_type, lookup_options)
     }
 
     /// The RRset stored at `name` that answers a query for `record_type`, if there is one.

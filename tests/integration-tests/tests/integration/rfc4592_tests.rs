@@ -120,7 +120,6 @@ async fn wildcard_synthesis_3() {
 ///         because host1.example. exists
 /// ```
 #[tokio::test]
-#[ignore = "hickory does not check for blocking names"]
 async fn no_synthesis_1() {
     subscribe();
 
@@ -144,7 +143,6 @@ async fn no_synthesis_1() {
 ///    QNAME=sub.*.example., QTYPE=MX, QCLASS=IN
 ///         because sub.*.example. exists
 /// ```
-#[ignore = "hickory does not check for blocking names"]
 #[tokio::test]
 async fn no_synthesis_2() {
     subscribe();
