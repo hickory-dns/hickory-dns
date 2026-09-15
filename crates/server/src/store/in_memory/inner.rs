@@ -285,7 +285,7 @@ impl InnerInMemory {
     /// That is the wildcard immediately below `name`'s closest encloser, its deepest existing
     /// ancestor: the source of synthesis of RFC 4592 §3.3.1. A wildcard higher up may not answer,
     /// since the existing ancestor blocks it.
-    fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
+    pub(super) fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
         if name.is_root() {
             return None;
         }
