@@ -184,6 +184,24 @@ async fn no_synthesis_3() {
     assert_eq!(response.answers, []);
 }
 
+/// The QNAME of `no_synthesis_3`, asked for a type the zone's wildcards do hold.
+#[tokio::test]
+async fn no_synthesis_3_mx() {
+    subscribe();
+
+    let (mut client, _server) = setup().await;
+
+    let query_name = Name::parse("_telnet._tcp.host1.example.", None).unwrap();
+    let query_type = RecordType::MX;
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, query_type)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
+    assert_eq!(response.answers, []);
+}
+
 /// ```text
 /// The following responses would not be synthesized from any of the
 /// wildcards in the zone:
@@ -223,7 +241,6 @@ async fn no_synthesis_4() {
 ///         because *.example. exists
 /// ```
 #[tokio::test]
-#[ignore = "hickory does not treat wildcards as blocking themselves"]
 async fn no_synthesis_5() {
     subscribe();
 
@@ -238,6 +255,29 @@ async fn no_synthesis_5() {
     print_response(&response);
     assert_eq!(response.metadata.response_code, ResponseCode::NXDomain);
     assert_eq!(response.answers, []);
+}
+
+/// An asterisk label in the query name has no special meaning (RFC 4592 section 2.3).
+#[tokio::test]
+async fn asterisk_label_in_query_name() {
+    subscribe();
+
+    let (mut client, _server) = setup().await;
+
+    let query_name = Name::parse("*.absent.example.", None).unwrap();
+    let query_type = RecordType::MX;
+    let response = client
+        .query(query_name.clone(), DNSClass::IN, query_type)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+    assert!(
+        response
+            .answers
+            .iter()
+            .any(|record| record.record_type() == query_type && record.name == query_name)
+    );
 }
 
 /// A wildcard's NS RRset does not delegate, so a query for another type is still answered from

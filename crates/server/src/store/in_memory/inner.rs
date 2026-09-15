@@ -235,7 +235,7 @@ impl InnerInMemory {
             return None;
         }
 
-        self.inner_lookup_wildcard(name, record_type, lookup_options)
+        self.synthesize(name, record_type, lookup_options)
     }
 
     /// The RRset stored at `name` that answers a query for `record_type`, if there is one.
@@ -274,31 +274,39 @@ impl InnerInMemory {
             .is_some_and(|(key, _)| name.zone_of(key.name()))
     }
 
-    fn inner_lookup_wildcard(
+    /// The one wildcard that may answer for `name`, whether or not it exists.
+    ///
+    /// That is the wildcard immediately below `name`'s closest encloser, its deepest existing
+    /// ancestor: the source of synthesis of RFC 4592 §3.3.1. A wildcard higher up may not answer,
+    /// since the existing ancestor blocks it.
+    fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
+        if name.is_root() {
+            return None;
+        }
+
+        let mut next_closer = name.clone();
+        loop {
+            let encloser = next_closer.base_name();
+            if self.node_exists(&encloser) {
+                return Some(next_closer.into_wildcard());
+            }
+            if encloser.is_root() {
+                return None;
+            }
+            next_closer = encloser;
+        }
+    }
+
+    /// Answer for `name` from its source of synthesis (RFC 4592 §3.3.1).
+    fn synthesize(
         &self,
         name: &LowerName,
         record_type: RecordType,
         #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
         lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
-        // if this is a wildcard or a root, both should break continued lookups
-        if name.is_wildcard() || name.is_root() {
-            return None;
-        }
-
-        let mut wildcard = name.clone().into_wildcard();
-        let rrset = loop {
-            if let Some(rrset) = self.rr_set_of_type(&wildcard, record_type) {
-                break rrset;
-            }
-
-            let parent = wildcard.base_name();
-            if parent.is_root() {
-                return None;
-            }
-
-            wildcard = parent.into_wildcard();
-        };
+        let wildcard = self.source_of_synthesis(name)?;
+        let rrset = self.rr_set_of_type(&wildcard, record_type)?;
 
         // we need to change the name to the query name in the result set since this was a wildcard
         let mut new_answer =
