@@ -64,7 +64,6 @@ async fn wildcard_synthesis_1() {
 ///         because there is no A RR set at '*.example.'
 /// ```
 #[tokio::test]
-#[ignore = "hickory only checks for one record type during wildcard synthesis (issue #2905)"]
 async fn wildcard_synthesis_2() {
     subscribe();
 
@@ -333,6 +332,35 @@ async fn wildcard_ns_answers_an_ns_query() {
     );
 }
 
+/// [RFC 4592 section 4.9](https://datatracker.ietf.org/doc/html/rfc4592#section-4.9):
+///
+/// ```text
+/// If a source of synthesis is an empty non-terminal, then the response
+/// will be one of no error in the return code and no RRSet in the answer
+/// section.
+/// ```
+#[tokio::test]
+async fn empty_non_terminal_source_of_synthesis() {
+    subscribe();
+
+    let (mut client, _server) = setup_empty_non_terminal_wildcard().await;
+
+    let query_name = Name::parse("host.e.example.", None).unwrap();
+    let response = client
+        .query(query_name, DNSClass::IN, RecordType::A)
+        .await
+        .unwrap();
+    print_response(&response);
+    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
+    assert_eq!(response.answers, []);
+    assert!(
+        response
+            .authorities
+            .iter()
+            .any(|record| record.record_type() == RecordType::SOA)
+    );
+}
+
 /// ```text
 /// $ORIGIN example.
 /// example.                 3600 IN  SOA   <SOA RDATA>
@@ -545,6 +573,85 @@ async fn setup_wildcard_ns() -> (Client<TokioRuntimeProvider>, Server<Catalog>) 
             Name::parse("*", Some(&origin)).unwrap(),
             TTL,
             RData::TXT(TXT::new(vec!["this is a wildcard".to_string()])),
+        ),
+        SERIAL,
+    );
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.into(), vec![Arc::new(handler)]);
+
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let local_addr = udp_socket.local_addr().unwrap();
+    let mut server = Server::new(catalog);
+    server.register_socket(udp_socket);
+
+    let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
+    let (client, bg) = Client::from_sender(stream);
+    tokio::spawn(bg);
+
+    (client, server)
+}
+
+/// A zone where both the closest encloser and the wildcard below it are empty
+/// non-terminals.
+///
+/// ```text
+/// $ORIGIN example.
+/// example.                 3600 IN  SOA   <SOA RDATA>
+/// example.                 3600     NS    ns.example.com.
+/// f.*.e.example.           3600     A     192.0.2.2
+/// t.e.example.             3600     A     192.0.2.1
+/// ```
+async fn setup_empty_non_terminal_wildcard() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
+    let origin = Name::parse("example.", None).unwrap();
+
+    const SERIAL: u32 = 1;
+    const TTL: u32 = 3600;
+
+    let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+        origin.clone(),
+        ZoneType::Primary,
+        AxfrPolicy::Deny,
+        #[cfg(feature = "__dnssec")]
+        None,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            origin.clone(),
+            TTL,
+            RData::SOA(SOA::new(
+                Name::parse("mname", Some(&origin)).unwrap(),
+                Name::parse("rname", Some(&origin)).unwrap(),
+                SERIAL,
+                3600,
+                300,
+                3600000,
+                TTL,
+            )),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            origin.clone(),
+            TTL,
+            RData::NS(NS(Name::parse("ns.example.com.", None).unwrap())),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("f.*.e", Some(&origin)).unwrap(),
+            TTL,
+            RData::A(A::new(192, 0, 2, 2)),
+        ),
+        SERIAL,
+    );
+    handler.upsert_mut(
+        Record::from_rdata(
+            Name::parse("t.e", Some(&origin)).unwrap(),
+            TTL,
+            RData::A(A::new(192, 0, 2, 1)),
         ),
         SERIAL,
     );

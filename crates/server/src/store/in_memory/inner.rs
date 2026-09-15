@@ -265,13 +265,24 @@ impl InnerInMemory {
     ///
     /// A name holding no records of its own exists as an empty non-terminal when a subdomain of it
     /// holds some (RFC 4592 §2.2.2).
-    pub(super) fn node_exists(&self, name: &LowerName) -> bool {
+    fn node_exists(&self, name: &LowerName) -> bool {
         // records are keyed in canonical name order, so a name is followed by its own subtree.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
         self.records
             .range(&start_range_key..)
             .next()
             .is_some_and(|(key, _)| name.zone_of(key.name()))
+    }
+
+    /// Whether `name` has anything to answer for, which decides a NODATA against a name error.
+    ///
+    /// A name that only a wildcard covers holds no records of its own, and a query there for a
+    /// type the wildcard does not hold is a NODATA rather than a name error (RFC 4035 §3.1.3.4).
+    pub(super) fn name_exists(&self, name: &LowerName) -> bool {
+        self.node_exists(name)
+            || self
+                .source_of_synthesis(name)
+                .is_some_and(|source| self.node_exists(&source))
     }
 
     /// The one wildcard that may answer for `name`, whether or not it exists.
