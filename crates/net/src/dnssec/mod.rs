@@ -2122,6 +2122,7 @@ mod test {
             },
         },
     };
+
     use test_support::subscribe;
 
     #[test]
@@ -2586,7 +2587,7 @@ mod test {
             Record::from_rdata(
                 Name::from_ascii("b.poc.")?,
                 3600,
-                RData::TXT(rdata::TXT::new(vec!["forged".to_string()])),
+                RData::TXT(rdata::TXT::try_from("forged".to_string()).unwrap()),
             ),
             rrsig_record,
         ];
