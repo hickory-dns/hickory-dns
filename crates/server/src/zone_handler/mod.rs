@@ -170,11 +170,14 @@ pub trait ZoneHandler: Send + Sync {
     ///
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
+    /// * `has_wildcard_match` - whether the response is a wildcard answer, which needs only the
+    ///                          proof that no closer match exists (RFC 4035 section 3.1.3.3)
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     async fn nsec_records(
         &self,
         name: &LowerName,
+        has_wildcard_match: bool,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
 

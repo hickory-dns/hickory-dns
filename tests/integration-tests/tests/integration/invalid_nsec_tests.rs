@@ -159,7 +159,6 @@ async fn wildcard_expansion() {
 }
 
 /// Based on RFC 4035 section B.7.
-#[ignore = "Authoritative response uses wrong response code"]
 #[tokio::test]
 async fn wildcard_no_data_error() {
     subscribe();
@@ -193,7 +192,7 @@ async fn wildcard_no_data_error() {
         query_type,
         &response,
         &dnskey_response,
-        Name::parse("x.y.w.example.", None).unwrap(),
+        Name::parse("*.w.example.", None).unwrap(),
     )
     .await;
 
@@ -203,7 +202,7 @@ async fn wildcard_no_data_error() {
         query_type,
         &response,
         &dnskey_response,
-        Name::parse("*.w.example.", None).unwrap(),
+        Name::parse("x.y.w.example.", None).unwrap(),
     )
     .await;
 }
