@@ -147,7 +147,7 @@ impl MockRecord {
             query_type: RecordType::TXT,
             ttl: 0,
             record_name: rr_name.clone(),
-            record_data: RData::TXT(TXT::new(txt_data)),
+            record_data: RData::TXT(TXT::try_new(txt_data.iter().map(|s| s.as_bytes())).unwrap()),
             section: MockResponseSection::Answer,
         }
     }

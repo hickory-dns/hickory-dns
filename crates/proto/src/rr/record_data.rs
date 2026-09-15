@@ -1408,12 +1408,18 @@ mod tests {
                 ],
             ),
             (
-                RData::TXT(TXT::new(vec![
-                    "abcdef".to_string(),
-                    "ghi".to_string(),
-                    "".to_string(),
-                    "j".to_string(),
-                ])),
+                RData::TXT(
+                    TXT::try_new(
+                        [
+                            b"abcdef".to_vec(),
+                            b"ghi".to_vec(),
+                            b"".to_vec(),
+                            b"j".to_vec(),
+                        ]
+                        .into_iter(),
+                    )
+                    .unwrap(),
+                ),
                 vec![
                     6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j',
                 ],
@@ -1467,12 +1473,18 @@ mod tests {
                 -1,
                 u32::MAX,
             )),
-            RData::TXT(TXT::new(vec![
-                "abcdef".to_string(),
-                "ghi".to_string(),
-                "".to_string(),
-                "j".to_string(),
-            ])),
+            RData::TXT(
+                TXT::try_new(
+                    [
+                        b"abcdef".to_vec(),
+                        b"ghi".to_vec(),
+                        b"".to_vec(),
+                        b"j".to_vec(),
+                    ]
+                    .into_iter(),
+                )
+                .unwrap(),
+            ),
         ];
         let mut unordered = vec![
             RData::CNAME(CNAME(Name::from_str("www.example.com").unwrap())),
@@ -1488,12 +1500,18 @@ mod tests {
                 -1,
                 u32::MAX,
             )),
-            RData::TXT(TXT::new(vec![
-                "abcdef".to_string(),
-                "ghi".to_string(),
-                "".to_string(),
-                "j".to_string(),
-            ])),
+            RData::TXT(
+                TXT::try_new(
+                    [
+                        b"abcdef".to_vec(),
+                        b"ghi".to_vec(),
+                        b"".to_vec(),
+                        b"j".to_vec(),
+                    ]
+                    .into_iter(),
+                )
+                .unwrap(),
+            ),
             RData::A(A::from(Ipv4Addr::UNSPECIFIED)),
             RData::AAAA(AAAA::from(Ipv6Addr::UNSPECIFIED)),
             RData::SRV(SRV::new(

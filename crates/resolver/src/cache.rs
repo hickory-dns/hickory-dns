@@ -1091,7 +1091,7 @@ mod tests {
         message_a.add_answer(Record::from_rdata(name.clone(), 1, rdata_a.clone()));
 
         let query_txt = Query::query(name.clone(), RecordType::TXT);
-        let rdata_txt = RData::TXT(TXT::new(vec!["data".to_string()]));
+        let rdata_txt = RData::TXT(TXT::try_from("data".to_owned()).unwrap());
         let mut message_txt = Message::response(0, OpCode::Query);
         message_txt.add_answer(Record::from_rdata(name.clone(), 1, rdata_txt.clone()));
 
