@@ -291,7 +291,7 @@ impl InnerInMemory {
 
     /// The one wildcard that may answer for `name`, which is the wildcard immediately below its
     /// closest encloser (RFC 4592 §3.3.1), whether or not that wildcard exists.
-    fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
+    pub(super) fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
         if name.is_root() {
             return None;
         }
