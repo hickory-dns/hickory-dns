@@ -61,7 +61,6 @@ use crate::{
             Header, LowerQuery, MessageRequest, MessageType, Metadata, OpCode, Queries,
             ResponseCode, SerialMessage,
         },
-        rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
     },
     zone_handler::MessageResponseBuilder,
@@ -918,20 +917,17 @@ pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
     metrics: ResponseHandlerMetrics,
 }
 
-#[async_trait::async_trait]
 impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
-    async fn send_response<'a>(
+    fn protocol(&self) -> Protocol {
+        self.handler.protocol()
+    }
+
+    async fn send_encoded(
         &mut self,
-        response: crate::zone_handler::MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
+        info: ResponseInfo,
+        bytes: Vec<u8>,
     ) -> Result<ResponseInfo, NetError> {
-        let response_info = self.handler.send_response(response).await?;
+        let response_info = self.handler.send_encoded(info, bytes).await?;
 
         let id = self.request_meta.id;
         let rid = response_info.id;
