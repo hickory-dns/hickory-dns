@@ -21,10 +21,11 @@ use hickory_proto::{
 fuzz_target!(|data: &[u8]| run(data));
 
 fn run(data: &[u8]) {
-    if let Ok(message) = Message::from_bytes(data) {
-        let reencoded = message.to_bytes().unwrap();
-        compare(data, &message, &reencoded);
-    }
+    let Ok(message) = Message::from_bytes(data) else {
+        return;
+    };
+    let reencoded = message.to_bytes().unwrap();
+    compare(data, &message, &reencoded);
 }
 
 fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
