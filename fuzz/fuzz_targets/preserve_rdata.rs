@@ -14,6 +14,7 @@ use std::fmt::Debug;
 use libfuzzer_sys::fuzz_target;
 
 use hickory_proto::{
+    ProtoError,
     op::Message,
     serialize::binary::{BinDecodable, BinEncodable},
 };
@@ -24,7 +25,11 @@ fn run(data: &[u8]) {
     let Ok(message) = Message::from_bytes(data) else {
         return;
     };
-    let reencoded = message.to_bytes().unwrap();
+    let reencoded = match message.to_bytes() {
+        Ok(reencoded) => reencoded,
+        Err(ProtoError::NotAllRecordsWritten { .. }) => return,
+        Err(error) => panic!("failed to re-encode message: {error}"),
+    };
     compare(data, &message, &reencoded);
 }
 
