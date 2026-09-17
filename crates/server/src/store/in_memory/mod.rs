@@ -662,7 +662,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 }
 
 #[cfg(feature = "__dnssec")]
-#[async_trait::async_trait]
 impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for InMemoryZoneHandler<P> {
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
