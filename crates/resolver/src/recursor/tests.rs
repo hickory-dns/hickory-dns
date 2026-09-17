@@ -869,7 +869,7 @@ async fn self_referential_cname_returns_servfail() -> Result<(), NetError> {
         // recursor must not report success.
         let result = recursor
             .resolve(
-                Query::new(name.clone(), RecordType::A),
+                Query::query(name.clone(), RecordType::A),
                 Instant::now(),
                 false,
             )
@@ -954,7 +954,11 @@ async fn cross_zone_cname_loop_returns_servfail() -> Result<(), NetError> {
     )?;
 
     let result = recursor
-        .resolve(Query::new(a.clone(), RecordType::A), Instant::now(), false)
+        .resolve(
+            Query::query(a.clone(), RecordType::A),
+            Instant::now(),
+            false,
+        )
         .await;
 
     let error = match result {
