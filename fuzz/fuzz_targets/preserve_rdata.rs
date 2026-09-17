@@ -18,12 +18,14 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinEncodable},
 };
 
-fuzz_target!(|data: &[u8]| {
+fuzz_target!(|data: &[u8]| run(data));
+
+fn run(data: &[u8]) {
     if let Ok(message) = Message::from_bytes(data) {
         let reencoded = message.to_bytes().unwrap();
         compare(data, &message, &reencoded);
     }
-});
+}
 
 fn compare(original: &[u8], message: &Message, reencoded: &[u8]) {
     let query_count = u16::from_be_bytes(reencoded[4..6].try_into().unwrap());
