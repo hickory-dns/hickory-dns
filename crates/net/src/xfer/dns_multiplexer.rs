@@ -233,7 +233,7 @@ impl<S: DnsClientStream> DnsRequestSender for DnsMultiplexer<S> {
         }
 
         // store a Timeout for this message before sending
-        let timeout = S::Time::delay_for(self.timeout_duration);
+        let timeout = Box::pin(S::Time::delay_for(self.timeout_duration));
 
         let (complete, receiver) = mpsc::channel(QUERY_RESPONSE_BUFFER_SIZE);
 
