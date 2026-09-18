@@ -865,6 +865,11 @@ fn parse_nsid_payload(raw_payload: &str) -> Result<NSIDPayload, ProtoError> {
     } else {
         raw_payload.as_bytes().to_vec()
     };
+    if bytes.len() > usize::from(u16::MAX / 2) {
+        // Don't allow extremely large NSID options that would keep us from fitting the OPT record
+        // in a response.
+        return Err(ProtoError::from("NSID payload is too long"));
+    }
     NSIDPayload::new(bytes)
 }
 
@@ -896,8 +901,12 @@ mod tests {
 
     #[test]
     fn test_nsid_payload_too_long() {
-        let too_large = "x".repeat(u16::MAX as usize + 1);
+        let too_large = "x".repeat(65536);
         let err = parse_nsid_payload(&too_large).unwrap_err();
-        assert_eq!(err.to_string(), "NSID EDNS payload too large");
+        assert_eq!(err.to_string(), "NSID payload is too long");
+
+        let too_large = "x".repeat(32768);
+        let err = parse_nsid_payload(&too_large).unwrap_err();
+        assert_eq!(err.to_string(), "NSID payload is too long");
     }
 }
