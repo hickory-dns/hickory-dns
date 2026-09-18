@@ -160,7 +160,9 @@ impl MockRecord {
             query_type: RecordType::TXT,
             ttl: 0,
             record_name: rr_name.clone(),
-            record_data: RData::TXT(TXT::new(txt_data)),
+            record_data: RData::TXT(
+                TXT::new(txt_data.into_iter().map(|s| s.into_boxed_str())).unwrap(),
+            ),
             section: MockResponseSection::Answer,
         }
     }

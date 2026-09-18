@@ -116,7 +116,12 @@ pub(crate) fn truncated_response_handler(
     msg.add_answer(Record::from_rdata(
         name,
         86400,
-        RData::TXT(rdata::TXT::new(vec![protocol_str, counter_str])),
+        RData::TXT(
+            rdata::TXT::new(
+                [protocol_str.into_boxed_str(), counter_str.into_boxed_str()].into_iter(),
+            )
+            .unwrap(),
+        ),
     ));
     Ok(msg)
 }
