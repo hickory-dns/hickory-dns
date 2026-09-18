@@ -160,7 +160,7 @@ impl Queries {
     /// Read queries from a decoder
     pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> Result<Self, DecodeError> {
         let queries_start = decoder.index();
-        let mut queries = Vec::with_capacity(num_queries);
+        let mut queries = Vec::with_capacity(Ord::min(num_queries, 8));
         for _ in 0..num_queries {
             queries.push(LowerQuery::read(decoder)?);
         }
