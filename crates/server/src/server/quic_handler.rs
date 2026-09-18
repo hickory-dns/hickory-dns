@@ -10,7 +10,7 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 use bytes::Bytes;
 use futures_util::lock::Mutex;
 use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet, time::timeout};
+use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
 
 use super::{
@@ -24,6 +24,7 @@ use crate::{
         xfer::Protocol,
     },
     proto::rr::Record,
+    server::optional_timeout,
     zone_handler::MessageResponse,
 };
 
@@ -104,7 +105,7 @@ pub(crate) async fn quic_handler(
     loop {
         let future = cx
             .shutdown
-            .run_until_cancelled(timeout(quic_timeout, quic_streams.next()));
+            .run_until_cancelled(optional_timeout(quic_timeout, quic_streams.next()));
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
         };
@@ -122,7 +123,8 @@ pub(crate) async fn quic_handler(
             }
         };
 
-        let Ok(request_res) = timeout(quic_timeout, request_stream.receive_bytes()).await else {
+        let Ok(request_res) = optional_timeout(quic_timeout, request_stream.receive_bytes()).await
+        else {
             break; // Timeout while reading body.
         };
         let request = request_res?;

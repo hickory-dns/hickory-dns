@@ -12,7 +12,7 @@ use futures_util::lock::Mutex;
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet, time::timeout};
+use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
 
 use super::{
@@ -30,6 +30,7 @@ use crate::{
         xfer::Protocol,
     },
     proto::rr::Record,
+    server::optional_timeout,
     zone_handler::MessageResponse,
 };
 
@@ -117,7 +118,7 @@ pub(crate) async fn h3_handler(
     loop {
         let future = cx
             .shutdown
-            .run_until_cancelled(timeout(h3_timeout, connection.accept()));
+            .run_until_cancelled(optional_timeout(h3_timeout, connection.accept()));
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
         };
@@ -139,7 +140,7 @@ pub(crate) async fn h3_handler(
             BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
             None,
         );
-        let Ok(request_res) = timeout(h3_timeout, fetch_future).await else {
+        let Ok(request_res) = optional_timeout(h3_timeout, fetch_future).await else {
             break; //Timeout while reading request.
         };
         let request = request_res?;

@@ -118,6 +118,8 @@ pub(crate) struct Config {
     #[serde(default)]
     pub(crate) disable_prometheus: bool,
     /// Timeout associated to a request before it is closed.
+    ///
+    /// Specifying a timeout of zero will disable the timeout.
     #[serde(
         deserialize_with = "parse_request_timeout",
         default = "default_request_timeout"
