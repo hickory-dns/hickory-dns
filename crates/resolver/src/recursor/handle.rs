@@ -367,15 +367,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // Try following the last CNAME record by restarting resolution.
             let cname_query = Query::new(effective_qname.clone(), query_type);
 
-            let count = limits.cname_limit.fetch_add(1, Ordering::Relaxed) + 1;
-            if count > MAX_CNAME_LOOKUPS {
-                warn!("cname limit exceeded for query {query}");
-                return Err(RecursorError::MaxRecordLimitExceeded {
-                    count: count as usize,
-                    record_type: RecordType::CNAME,
-                });
-            }
-
             // Refuse to follow a chain that re-enters a cname already being followed higher up
             // the stack: the chain has looped back on itself across responses.
             let _in_flight = limits
@@ -947,7 +938,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
 pub(crate) struct RequestLimits {
     req_query_count: AtomicU8,
-    cname_limit: AtomicU8,
     in_flight_zones: Mutex<HashSet<Name>>,
     in_flight_cnames: Mutex<HashSet<Name>>,
 }
@@ -956,7 +946,6 @@ impl RequestLimits {
     pub(crate) fn new() -> Self {
         Self {
             req_query_count: AtomicU8::new(0),
-            cname_limit: AtomicU8::new(0),
             in_flight_zones: Mutex::new(HashSet::new()),
             in_flight_cnames: Mutex::new(HashSet::new()),
         }
@@ -1138,10 +1127,6 @@ fn name_server_config(
         _ => NameServerConfig::udp_and_tcp(ip),
     }
 }
-
-/// Maximum number of cname records to look up in a CNAME chain, regardless of the recursion
-/// depth limit
-const MAX_CNAME_LOOKUPS: u8 = 64;
 
 /// Maximum number of glueless NS targets to chase per delegation point.
 const MAX_GLUELESS_FOLLOW: usize = 5;
