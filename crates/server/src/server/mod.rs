@@ -7,6 +7,13 @@
 
 //! `Server` component for hosting a domain name servers operations.
 
+#[cfg(any(
+    feature = "__tls",
+    feature = "__quic",
+    feature = "__https",
+    feature = "__h3"
+))]
+use std::future::Future;
 use std::{
     fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -19,8 +26,13 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(feature = "__tls")]
-use tokio::time::timeout;
+#[cfg(any(
+    feature = "__tls",
+    feature = "__quic",
+    feature = "__https",
+    feature = "__h3"
+))]
+use tokio::time::{error::Elapsed, timeout};
 use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
@@ -615,7 +627,8 @@ async fn handle_tls(
             debug!(%src_addr, "starting TLS request");
 
             // perform the TLS
-            let Ok(tls_stream) = timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) =
+                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
             else {
                 warn!("tls timeout expired during handshake");
                 return;
@@ -983,6 +996,23 @@ fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
         err.kind(),
         io::ErrorKind::NotConnected | io::ErrorKind::ConnectionAborted
     )
+}
+
+/// Apply a timeout to a future, unless the duration is zero.
+#[cfg(any(
+    feature = "__tls",
+    feature = "__quic",
+    feature = "__https",
+    feature = "__h3"
+))]
+async fn optional_timeout<T>(
+    duration: Duration,
+    future: impl Future<Output = T>,
+) -> Result<T, Elapsed> {
+    match duration.is_zero() {
+        true => Ok(future.await),
+        false => timeout(duration, future).await,
+    }
 }
 
 #[cfg(test)]
