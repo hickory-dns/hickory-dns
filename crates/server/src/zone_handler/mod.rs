@@ -7,6 +7,8 @@
 
 //! Module for `Catalog` of `ZoneHandler` zones which are responsible for storing `RRSet` records.
 
+#[cfg(feature = "__dnssec")]
+use std::future::Future;
 use std::{fmt, io, sync::Arc};
 
 use cfg_if::cfg_if;
@@ -211,13 +213,15 @@ pub trait ZoneHandler: Send + Sync {
 
 /// Extension to ZoneHandler to allow for DNSSEC features
 #[cfg(feature = "__dnssec")]
-#[async_trait::async_trait]
 pub trait DnssecZoneHandler: ZoneHandler {
     /// Add Signer
-    async fn add_zone_signing_key(&self, signer: DnssecSigner) -> DnsSecResult<()>;
+    fn add_zone_signing_key(
+        &self,
+        signer: DnssecSigner,
+    ) -> impl Future<Output = DnsSecResult<()>> + Send;
 
     /// Sign the zone for DNSSEC
-    async fn secure_zone(&self) -> DnsSecResult<()>;
+    fn secure_zone(&self) -> impl Future<Output = DnsSecResult<()>> + Send;
 }
 
 /// Result of a Lookup in the Catalog and ZoneHandler

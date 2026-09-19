@@ -22,9 +22,7 @@ use crate::{
         quic::{QuicServer, QuicStream, QuicStreams},
         xfer::Protocol,
     },
-    proto::rr::Record,
     server::optional_timeout,
-    zone_handler::MessageResponse,
 };
 
 pub(super) async fn handle_quic(
@@ -189,23 +187,17 @@ pub(crate) async fn quic_handler(
 
 struct QuicResponseHandle(QuicStream);
 
-#[async_trait::async_trait]
 impl ResponseHandler for QuicResponseHandle {
     // TODO: rethink this entire interface
-    async fn send_response<'a>(
+    fn protocol(&self) -> Protocol {
+        Protocol::Quic
+    }
+
+    async fn send_encoded(
         &mut self,
-        mut response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
+        info: ResponseInfo,
+        bytes: Vec<u8>,
     ) -> Result<ResponseInfo, NetError> {
-        // The id should always be 0 in DoQ
-        response.metadata_mut().id = 0;
-        let (info, bytes) = response.encode(Protocol::Quic)?;
         let bytes = Bytes::from(bytes);
 
         debug!("sending quic response: {}", bytes.len());

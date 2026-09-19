@@ -28,9 +28,7 @@ use crate::{
         http::{self, Version, fetch_body},
         xfer::Protocol,
     },
-    proto::rr::Record,
     server::optional_timeout,
-    zone_handler::MessageResponse,
 };
 
 pub(super) async fn handle_h3(
@@ -211,20 +209,16 @@ pub(crate) async fn h3_handler(
 
 struct H3ResponseHandle(RequestStream<BidiStream<Bytes>, Bytes>);
 
-#[async_trait::async_trait]
 impl ResponseHandler for H3ResponseHandle {
-    async fn send_response<'a>(
+    fn protocol(&self) -> Protocol {
+        Protocol::H3
+    }
+
+    async fn send_encoded(
         &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
+        info: ResponseInfo,
+        bytes: Vec<u8>,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode(Protocol::H3)?;
         let bytes = Bytes::from(bytes);
         let response = http::response(Version::Http3, bytes.len())?;
 

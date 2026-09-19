@@ -29,9 +29,7 @@ use crate::{
         http::{self, Version},
         xfer::Protocol,
     },
-    proto::rr::Record,
     server::optional_timeout,
-    zone_handler::MessageResponse,
 };
 
 /// handle h2 using the default TLS server config.
@@ -215,20 +213,16 @@ pub(crate) async fn h2_handler(
 
 struct HttpsResponseHandle(server::SendResponse<Bytes>);
 
-#[async_trait::async_trait]
 impl ResponseHandler for HttpsResponseHandle {
-    async fn send_response<'a>(
+    fn protocol(&self) -> Protocol {
+        Protocol::Https
+    }
+
+    async fn send_encoded(
         &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
+        info: ResponseInfo,
+        bytes: Vec<u8>,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode(Protocol::Https)?;
         let bytes = Bytes::from(bytes);
         let response = http::response(Version::Http2, bytes.len())?;
 

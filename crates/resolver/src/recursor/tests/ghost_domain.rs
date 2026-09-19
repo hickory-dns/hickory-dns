@@ -288,14 +288,16 @@ impl RuntimeProvider for TestRuntimeProvider {
 
 struct TestTimer;
 
-#[async_trait::async_trait]
 impl Time for TestTimer {
     async fn delay_for(_duration: Duration) {}
 
     async fn timeout<F: 'static + Future + Send>(
         _duration: Duration,
         future: F,
-    ) -> Result<F::Output, io::Error> {
+    ) -> Result<F::Output, io::Error>
+    where
+        F::Output: Send,
+    {
         Ok(future.await)
     }
 
