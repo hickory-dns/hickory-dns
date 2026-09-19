@@ -9,6 +9,7 @@
 use std::time::{Duration, Instant};
 use std::{
     cmp,
+    collections::HashMap,
     fmt::Debug,
     marker::PhantomData,
     net::IpAddr,
@@ -18,6 +19,8 @@ use std::{
     },
 };
 
+use futures_util::FutureExt;
+use futures_util::future::{BoxFuture, WeakShared};
 use futures_util::lock::Mutex as AsyncMutex;
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
@@ -46,6 +49,9 @@ use crate::{
     },
 };
 
+type WeakEstablishment =
+    WeakShared<BoxFuture<'static, Result<Arc<ConnectionMeta>, (NetError, Option<Protocol>)>>>;
+
 /// A remote DNS server, identified by its IP address.
 ///
 /// This potentially holds multiple open connections to the server, according to the
@@ -53,6 +59,7 @@ use crate::{
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
+    connecting: AsyncMutex<HashMap<usize, WeakEstablishment>>,
     /// Metrics related to opportunistic encryption probes.
     #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     opportunistic_probe_metrics: ProbeMetrics,
@@ -93,6 +100,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         Self {
             config,
             connections: AsyncMutex::new(connections),
+            connecting: AsyncMutex::new(HashMap::new()),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
             #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             opportunistic_probe_metrics: ProbeMetrics::default(),
@@ -120,7 +128,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     async fn send_inner(
-        &self,
+        self: &Arc<Self>,
         request: DnsRequest,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
@@ -134,7 +142,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 meta,
                 protocol,
                 reuse,
-            } = match self.connected_mut_client(policy, cx).await {
+            } = match self.acquire_connection(policy, cx).await {
                 Ok(v) => v,
                 Err((err, protocol)) => {
                     debug!(config = ?self.config, ?protocol, %err, "failed to establish connection to name server");
@@ -253,45 +261,122 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
     }
 
-    /// This will return a mutable client to allows for sending messages.
-    ///
-    /// If the connection is in a failed state, then this will establish a new connection.
-    ///
-    async fn connected_mut_client(
-        &self,
+    /// Returns a compatible pooled connection, establishing one if necessary.
+    async fn acquire_connection(
+        self: &Arc<Self>,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<ConnectedClient<P>, (NetError, Option<Protocol>)> {
-        // Check for an existing usable connection (short lock)
-        {
-            let mut connections = self.connections.lock().await;
-            connections
-                .retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
-            if let Some(conn) = policy.select_connection(
-                self.config.ip,
-                &*cx.transport_state().await,
-                &cx.opportunistic_encryption,
-                &connections,
-            ) {
-                return Ok(ConnectedClient {
-                    handle: conn.handle.clone(),
-                    meta: conn.meta.clone(),
-                    protocol: conn.protocol,
-                    reuse: ConnectionReuse::Reused,
-                });
+        loop {
+            if let Some(client) = self.select_pooled_connection(policy, cx).await {
+                return Ok(client);
             }
-        }
 
-        // Select connection config and update transport state (no lock)
-        debug!(config = ?self.config, "connecting");
-        let config = policy
-            .select_connection_config(
+            let establishment = {
+                let mut connecting = self.connecting.lock().await;
+                if let Some(client) = self.select_pooled_connection(policy, cx).await {
+                    return Ok(client);
+                }
+
+                let (config_index, config) = policy
+                    .select_connection_config_indexed(
+                        self.config.ip,
+                        &*cx.transport_state().await,
+                        &cx.opportunistic_encryption,
+                        &self.config.connections,
+                    )
+                    .ok_or((NetError::NoConnections, None))?;
+                let config = config.clone();
+                let in_flight = connecting
+                    .get(&config_index)
+                    .and_then(WeakShared::upgrade)
+                    .filter(|establishment| establishment.peek().is_none());
+
+                if let Some(in_flight) = in_flight {
+                    in_flight
+                } else {
+                    if let Some(client) = self.select_pooled_connection(policy, cx).await {
+                        return Ok(client);
+                    }
+
+                    let server = Arc::clone(self);
+                    let cx = Arc::clone(cx);
+                    let started = async move { server.establish(config, policy, &cx).await }
+                        .boxed()
+                        .shared();
+                    if let Some(weak) = started.downgrade() {
+                        connecting.insert(config_index, weak);
+                    }
+                    started
+                }
+            };
+
+            let result = establishment.await;
+            if let Ok(meta) = &result {
+                if let Some(client) = self.established_connection(meta).await {
+                    return Ok(client);
+                }
+            }
+            if let Some(client) = self.select_pooled_connection(policy, cx).await {
+                return Ok(client);
+            }
+            result?;
+        }
+    }
+
+    async fn select_pooled_connection(
+        &self,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> Option<ConnectedClient<P>> {
+        loop {
+            let mut connections = self.connections.lock().await;
+            connections.retain(|conn| !conn.meta.status().is_failed());
+            let conn = policy.select_connection(
                 self.config.ip,
                 &*cx.transport_state().await,
                 &cx.opportunistic_encryption,
                 &self.config.connections,
-            )
-            .ok_or((NetError::NoConnections, None))?;
+                &connections,
+            )?;
+            if conn.meta.status().is_failed() {
+                continue;
+            }
+            return Some(ConnectedClient {
+                handle: conn.handle.clone(),
+                meta: conn.meta.clone(),
+                protocol: conn.protocol,
+                reuse: ConnectionReuse::Reused,
+            });
+        }
+    }
+
+    async fn established_connection(
+        &self,
+        established: &Arc<ConnectionMeta>,
+    ) -> Option<ConnectedClient<P>> {
+        let mut connections = self.connections.lock().await;
+        connections.retain(|conn| !conn.meta.status().is_failed());
+        let connection = connections
+            .iter()
+            .find(|conn| Arc::ptr_eq(&conn.meta, established))
+            .cloned()?;
+        (!connection.meta.status().is_failed()).then(|| ConnectedClient {
+            handle: connection.handle,
+            meta: connection.meta,
+            protocol: connection.protocol,
+            reuse: ConnectionReuse::Fresh,
+        })
+    }
+
+    /// Open a new connection to this server and add it to the pool.
+    async fn establish(
+        &self,
+        config: ConnectionConfig,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> Result<Arc<ConnectionMeta>, (NetError, Option<Protocol>)> {
+        debug!(config = ?self.config, "connecting");
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
@@ -302,10 +387,9 @@ impl<P: ConnectionProvider> NameServer<P> {
             self.consider_probe_encrypted_transport(&policy, cx).await;
         }
 
-        // Establish connection
         let handle_fut = self
             .connection_provider
-            .new_connection(self.config.ip, config, cx)
+            .new_connection(self.config.ip, &config, cx)
             .map_err(|e| (e, Some(protocol)))?;
 
         let handle = Box::pin(handle_fut)
@@ -318,16 +402,10 @@ impl<P: ConnectionProvider> NameServer<P> {
                 .complete_connection(self.config.ip, protocol);
         }
 
-        // Store the new connection (with lock)
-        let state = ConnectionState::new(handle.clone(), protocol);
-        let meta = state.meta.clone();
-        self.connections.lock().await.push(state);
-        Ok(ConnectedClient {
-            handle,
-            meta,
-            protocol,
-            reuse: ConnectionReuse::Fresh,
-        })
+        let connection = ConnectionState::new(handle, protocol);
+        let established = Arc::clone(&connection.meta);
+        self.connections.lock().await.push(connection);
+        Ok(established)
     }
 
     pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
@@ -572,14 +650,14 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
     }
 }
 
-/// Whether `connected_mut_client` returned an existing pooled connection or established a new one.
+/// Whether `acquire_connection` returned an existing pooled connection or established a new one.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ConnectionReuse {
     Reused,
     Fresh,
 }
 
-/// A connection selected by [`NameServer::connected_mut_client`] for sending a request.
+/// A connection selected by [`NameServer::acquire_connection`] for sending a request.
 struct ConnectedClient<P: ConnectionProvider> {
     handle: P::Conn,
     meta: Arc<ConnectionMeta>,
@@ -587,6 +665,7 @@ struct ConnectedClient<P: ConnectionProvider> {
     reuse: ConnectionReuse,
 }
 
+#[derive(Clone)]
 struct ConnectionState<P: ConnectionProvider> {
     protocol: Protocol,
     handle: P::Conn,
@@ -790,6 +869,12 @@ enum Status {
     Established = 2,
 }
 
+impl Status {
+    fn is_failed(self) -> bool {
+        self == Self::Failed
+    }
+}
+
 impl From<Status> for u8 {
     /// used for ordering purposes. The highest priority is placed on open connections
     fn from(val: Status) -> Self {
@@ -827,6 +912,7 @@ impl ConnectionPolicy {
         ip: IpAddr,
         encrypted_transport_state: &NameServerTransportState,
         opportunistic_encryption: &OpportunisticEncryption,
+        connection_configs: &[ConnectionConfig],
         connections: &'a [ConnectionState<P>],
     ) -> Option<&'a ConnectionState<P>> {
         let selected = connections
@@ -837,14 +923,18 @@ impl ConnectionPolicy {
         let selected = selected?;
 
         // If we're using opportunistic encryption and selected a pre-existing unencrypted connection,
-        // and have successfully probed on any supported encrypted protocol, we should _not_ reuse the
+        // and have successfully probed a configured encrypted protocol, we should _not_ reuse the
         // existing connection and instead return `None`. This will result in a new encrypted connection
         // being made to the successfully probed protocol and added to the connection list for future
         // re-use.
         match opportunistic_encryption.is_enabled()
             && !selected.protocol.is_encrypted()
-            && encrypted_transport_state.any_recent_success(ip, opportunistic_encryption)
-        {
+            && self.has_configured_recent_encrypted_success(
+                ip,
+                encrypted_transport_state,
+                opportunistic_encryption,
+                connection_configs,
+            ) {
             true => None,
             false => Some(selected),
         }
@@ -854,6 +944,7 @@ impl ConnectionPolicy {
     ///
     /// This choice is made based on opportunistic encryption policy & probe history,
     /// and protocol policy.
+    #[cfg(all(test, feature = "__tls"))]
     fn select_connection_config<'a>(
         &self,
         ip: IpAddr,
@@ -861,10 +952,27 @@ impl ConnectionPolicy {
         opportunistic_encryption: &OpportunisticEncryption,
         connection_configs: &'a [ConnectionConfig],
     ) -> Option<&'a ConnectionConfig> {
+        self.select_connection_config_indexed(
+            ip,
+            encrypted_transport_state,
+            opportunistic_encryption,
+            connection_configs,
+        )
+        .map(|(_, config)| config)
+    }
+
+    fn select_connection_config_indexed<'a>(
+        &self,
+        ip: IpAddr,
+        encrypted_transport_state: &NameServerTransportState,
+        opportunistic_encryption: &OpportunisticEncryption,
+        connection_configs: &'a [ConnectionConfig],
+    ) -> Option<(usize, &'a ConnectionConfig)> {
         connection_configs
             .iter()
-            .filter(|c| self.allows_protocol(c.protocol.to_protocol()))
-            .min_by(|a, b| {
+            .enumerate()
+            .filter(|(_, config)| self.allows_protocol(config.protocol.to_protocol()))
+            .min_by(|(_, a), (_, b)| {
                 self.compare_connection_configs(
                     ip,
                     encrypted_transport_state,
@@ -884,6 +992,44 @@ impl ConnectionPolicy {
             .iter()
             .filter(|c| self.allows_protocol(c.protocol.to_protocol()))
             .find(|c| c.protocol.to_protocol().is_encrypted())
+    }
+
+    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    fn has_configured_recent_encrypted_success(
+        &self,
+        ip: IpAddr,
+        encrypted_transport_state: &NameServerTransportState,
+        opportunistic_encryption: &OpportunisticEncryption,
+        connection_configs: &[ConnectionConfig],
+    ) -> bool {
+        connection_configs.iter().any(|config| {
+            let protocol = config.protocol.to_protocol();
+            if !self.allows_protocol(protocol) {
+                return false;
+            }
+            match protocol {
+                #[cfg(feature = "__tls")]
+                Protocol::Tls => {
+                    encrypted_transport_state.recent_success(ip, protocol, opportunistic_encryption)
+                }
+                #[cfg(feature = "__quic")]
+                Protocol::Quic => {
+                    encrypted_transport_state.recent_success(ip, protocol, opportunistic_encryption)
+                }
+                _ => false,
+            }
+        })
+    }
+
+    #[cfg(not(any(feature = "__tls", feature = "__quic")))]
+    fn has_configured_recent_encrypted_success(
+        &self,
+        _ip: IpAddr,
+        _encrypted_transport_state: &NameServerTransportState,
+        _opportunistic_encryption: &OpportunisticEncryption,
+        _connection_configs: &[ConnectionConfig],
+    ) -> bool {
+        false
     }
 
     /// Checks if the given protocol is allowed by current policy.
@@ -1289,19 +1435,20 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let state = NameServerTransportState::default();
         let opp_enc = OpportunisticEncryption::Disabled;
 
         // When opportunistic encryption is disabled, and disable_udp isn't active,
         // we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
 
         // When opportunistic encryption is disabled, and disable_udp is active,
         // we should select the TCP conn.
         policy.disable_udp = true;
-        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, &opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Tcp);
     }
@@ -1317,6 +1464,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1324,7 +1472,7 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, and there is an encrypted connection available,
         // we should always choose it as the most preferred.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Tls);
     }
@@ -1339,6 +1487,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1346,14 +1495,14 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and we have no probe state, we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and we have no probe state, we should select the TCP conn.
         policy.disable_udp = true;
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Tcp);
     }
@@ -1368,6 +1517,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1385,7 +1535,7 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates a failure, we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
@@ -1400,6 +1550,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1410,7 +1561,7 @@ mod opportunistic_enc_tests {
 
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates an in-flight probe, we should select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
 
@@ -1419,7 +1570,7 @@ mod opportunistic_enc_tests {
         state.complete_connection(ns_ip, Protocol::Tls);
 
         // In this case we should still select the UDP conn.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
@@ -1434,6 +1585,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc_config = OpportunisticEncryptionConfig {
             persistence_period: Duration::from_secs(10),
@@ -1454,7 +1606,7 @@ mod opportunistic_enc_tests {
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates success that is too stale, we should select an unencrypted
         // connection since the probe is no longer considered recent.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_some());
         assert_eq!(selected.unwrap().protocol, Protocol::Udp);
     }
@@ -1469,6 +1621,7 @@ mod opportunistic_enc_tests {
         ];
 
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::opportunistic_encryption(ns_ip).connections;
         let mut state = NameServerTransportState::default();
         let opp_enc = &OpportunisticEncryption::Enabled {
             config: OpportunisticEncryptionConfig::default(),
@@ -1482,8 +1635,28 @@ mod opportunistic_enc_tests {
         // When opportunistic encryption is enabled, but there are no encrypted connections available,
         // and our probe state indicates a recent enough success, we should return `None` so that
         // we make a new encrypted connection.
-        let selected = policy.select_connection(ns_ip, &state, opp_enc, &connections);
+        let selected = policy.select_connection(ns_ip, &state, opp_enc, &configs, &connections);
         assert!(selected.is_none());
+    }
+
+    #[test]
+    fn test_select_connection_udp_only_after_recent_tls_success() {
+        let policy = ConnectionPolicy::default();
+        let connections = [mock_connection(Protocol::Udp)];
+        let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
+        let configs = NameServerConfig::udp(ns_ip).connections;
+        let mut state = NameServerTransportState::default();
+        let opp_enc = OpportunisticEncryption::Enabled {
+            config: OpportunisticEncryptionConfig::default(),
+        };
+        state.complete_connection(ns_ip, Protocol::Tls);
+        state.response_received(ns_ip, Protocol::Tls);
+
+        let selected = policy
+            .select_connection(ns_ip, &state, &opp_enc, &configs, &connections)
+            .expect("the existing UDP connection should remain selectable");
+
+        assert_eq!(selected.protocol, Protocol::Udp);
     }
 
     #[tokio::test]
@@ -1631,7 +1804,7 @@ mod opportunistic_enc_tests {
         let ns_ip = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
+            test_acquire_connection(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1668,7 +1841,7 @@ mod opportunistic_enc_tests {
 
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
+            test_acquire_connection(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1702,7 +1875,7 @@ mod opportunistic_enc_tests {
 
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
+            test_acquire_connection(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1740,7 +1913,7 @@ mod opportunistic_enc_tests {
 
         let mock_provider = MockProvider::default();
         assert!(
-            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
+            test_acquire_connection(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1766,7 +1939,7 @@ mod opportunistic_enc_tests {
         let mock_provider = MockProvider::default();
         // Set budget to 0 to simulate exhausted probe budget
         assert!(
-            test_connected_mut_client(ns_ip, Arc::new(cx), &mock_provider)
+            test_acquire_connection(ns_ip, Arc::new(cx), &mock_provider)
                 .await
                 .is_ok()
         );
@@ -1799,7 +1972,7 @@ mod opportunistic_enc_tests {
 
             runtime.block_on(async {
                 assert!(
-                    test_connected_mut_client(
+                    test_acquire_connection(
                         IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
                         Arc::new(
                             PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1854,7 +2027,7 @@ mod opportunistic_enc_tests {
 
             runtime.block_on(async {
                 assert!(
-                    test_connected_mut_client(
+                    test_acquire_connection(
                         IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
                         Arc::new(
                             PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1896,7 +2069,7 @@ mod opportunistic_enc_tests {
                 .unwrap();
 
             runtime.block_on(async {
-                let _ = test_connected_mut_client(
+                let _ = test_acquire_connection(
                     IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
                     Arc::new(
                         PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -1957,7 +2130,7 @@ mod opportunistic_enc_tests {
                 .unwrap();
 
             runtime.block_on(async {
-                let _ = test_connected_mut_client(
+                let _ = test_acquire_connection(
                     IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
                     Arc::new(
                         PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
@@ -2003,25 +2176,21 @@ mod opportunistic_enc_tests {
         assert_gauge_eq(&map, PROBE_BUDGET_TOTAL, vec![], initial_budget);
     }
 
-    /// Construct a nameserver appropriate for opportunistic encryption and assert connected_mut_client
-    /// returns Ok.
-    ///
-    /// Behind the scenes this may provoke probing behaviour that the calling test can observe via
-    /// the `MockProvider`'s recorded calls.
-    async fn test_connected_mut_client(
+    /// Acquires a connection and exposes opportunistic probe calls through `provider`.
+    async fn test_acquire_connection(
         ns_ip: IpAddr,
         cx: Arc<PoolContext>,
         provider: &MockProvider,
     ) -> Result<(), NetError> {
-        let name_server = NameServer::new(
+        let name_server = Arc::new(NameServer::new(
             [],
             NameServerConfig::opportunistic_encryption(ns_ip),
             &ResolverOpts::default(),
             provider.clone(),
-        );
+        ));
 
         match name_server
-            .connected_mut_client(ConnectionPolicy::default(), &cx)
+            .acquire_connection(ConnectionPolicy::default(), &cx)
             .await
         {
             Ok(_) => Ok(()),
@@ -2538,7 +2707,135 @@ mod reconnect_tests {
     }
 }
 
-#[cfg(all(test, any(feature = "metrics", feature = "__tls")))]
+#[cfg(test)]
+mod single_flight_tests {
+    use std::future::{Future, poll_fn};
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::task::Poll;
+
+    use futures_util::future::join_all;
+    use test_support::subscribe;
+
+    use super::mock_provider::MockProvider;
+    use super::{ConnectionPolicy, NameServer};
+    use crate::config::{NameServerConfig, ResolverOpts};
+    use crate::connection_provider::TlsConfig;
+    use crate::name_server_pool::PoolContext;
+    use crate::net::NetError;
+    use crate::net::xfer::Protocol;
+    use crate::proto::op::{DnsRequest, DnsRequestOptions, Query};
+    use crate::proto::rr::{Name, RecordType};
+
+    async fn poll_once<F: Future>(mut future: Pin<&mut F>) -> Poll<F::Output> {
+        poll_fn(|cx| Poll::Ready(future.as_mut().poll(cx))).await
+    }
+
+    fn query() -> DnsRequest {
+        DnsRequest::from_query(
+            Query::new(
+                Name::parse("www.example.com.", None).expect("query name should be valid"),
+                RecordType::A,
+            ),
+            DnsRequestOptions::default(),
+        )
+    }
+
+    fn udp_name_server(
+        provider: MockProvider,
+    ) -> (Arc<NameServer<MockProvider>>, Arc<PoolContext>) {
+        let options = ResolverOpts::default();
+        let config = NameServerConfig::udp(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)));
+        let name_server = Arc::new(NameServer::new([], config, &options, provider));
+        let cx = Arc::new(PoolContext::new(
+            options,
+            TlsConfig::new().expect("TLS configuration should be valid"),
+        ));
+        (name_server, cx)
+    }
+
+    #[tokio::test]
+    async fn concurrent_queries_share_one_establishment() {
+        subscribe();
+
+        let provider = MockProvider {
+            defer_connection: true,
+            ..MockProvider::default()
+        };
+        let (ns, cx) = udp_name_server(provider.clone());
+
+        let responses =
+            join_all((0..8).map(|_| ns.clone().send(query(), ConnectionPolicy::default(), &cx)))
+                .await;
+        for response in responses {
+            response.expect("every query resolves from the shared establishment");
+        }
+
+        assert_eq!(provider.new_connection_calls().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn different_effective_configs_do_not_share_establishment() {
+        subscribe();
+
+        let provider = MockProvider {
+            defer_connection: true,
+            ..MockProvider::default()
+        };
+        let ip = IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1));
+        let options = ResolverOpts::default();
+        let config = NameServerConfig::udp_and_tcp(ip);
+        let ns = Arc::new(NameServer::new([], config, &options, provider.clone()));
+        let cx = Arc::new(PoolContext::new(
+            options,
+            TlsConfig::new().expect("TLS configuration should be valid"),
+        ));
+
+        let mut waiter_a = Box::pin(ns.acquire_connection(ConnectionPolicy::default(), &cx));
+        let waiter_a_state = poll_once(waiter_a.as_mut()).await;
+
+        let mut waiter_b =
+            Box::pin(ns.acquire_connection(ConnectionPolicy { disable_udp: true }, &cx));
+        let waiter_b_state = poll_once(waiter_b.as_mut()).await;
+
+        let protocols = provider
+            .new_connection_calls()
+            .into_iter()
+            .map(|(_, config)| config.to_protocol())
+            .collect::<Vec<_>>();
+        assert_eq!(protocols.as_slice(), &[Protocol::Udp, Protocol::Tcp]);
+        assert!(waiter_a_state.is_pending());
+        assert!(waiter_b_state.is_pending());
+    }
+
+    #[tokio::test]
+    async fn completed_failure_is_not_shared_with_new_waiter() {
+        subscribe();
+
+        let provider = MockProvider {
+            new_connection_error: Some(NetError::Timeout),
+            defer_connection: true,
+            ..MockProvider::default()
+        };
+        let (ns, cx) = udp_name_server(provider.clone());
+
+        let mut waiter_a = Box::pin(ns.acquire_connection(ConnectionPolicy::default(), &cx));
+        assert!(poll_once(waiter_a.as_mut()).await.is_pending());
+
+        let mut waiter_b = Box::pin(ns.acquire_connection(ConnectionPolicy::default(), &cx));
+        assert!(matches!(
+            poll_once(waiter_b.as_mut()).await,
+            Poll::Ready(Err(_))
+        ));
+
+        let mut waiter_c = Box::pin(ns.acquire_connection(ConnectionPolicy::default(), &cx));
+        assert!(poll_once(waiter_c.as_mut()).await.is_pending());
+        assert_eq!(provider.new_connection_calls().len(), 2);
+    }
+}
+
+#[cfg(test)]
 mod mock_provider {
     use std::collections::VecDeque;
     use std::future::Future;
@@ -2573,6 +2870,8 @@ mod mock_provider {
         /// provider hands out: `Some(err)` fails that send, `None` (or an empty
         /// queue) succeeds.
         pub(super) send_outcomes: Arc<SyncMutex<VecDeque<Option<NetError>>>>,
+        /// Defers a new connection until its future's second poll.
+        pub(super) defer_connection: bool,
     }
 
     impl MockProvider {
@@ -2596,12 +2895,20 @@ mod mock_provider {
                 .lock()
                 .push((ip, config.protocol.clone()));
 
-            Ok(Box::pin(future::ready(match &self.new_connection_error {
+            let defer = self.defer_connection;
+            let connected = match &self.new_connection_error {
                 Some(err) => Err(err.clone()),
                 None => Ok(MockClientHandle {
                     send_outcomes: self.send_outcomes.clone(),
                 }),
-            })))
+            };
+
+            Ok(Box::pin(async move {
+                if defer {
+                    yield_once().await;
+                }
+                connected
+            }))
         }
 
         fn runtime_provider(&self) -> &Self::RuntimeProvider {
@@ -2616,8 +2923,23 @@ mod mock_provider {
                 new_connection_calls: Arc::new(SyncMutex::new(Vec::new())),
                 new_connection_error: None,
                 send_outcomes: Arc::new(SyncMutex::new(VecDeque::new())),
+                defer_connection: false,
             }
         }
+    }
+
+    async fn yield_once() {
+        let mut polled = false;
+        future::poll_fn(|cx| {
+            if polled {
+                return Poll::Ready(());
+            }
+
+            polled = true;
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        })
+        .await
     }
 
     /// `MockClientHandle` is a `DnsHandle` that uses a synchronous runtime provider.
