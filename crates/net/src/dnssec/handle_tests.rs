@@ -264,10 +264,7 @@ impl MockHandleBuilder {
         };
 
         let mut anchors = TrustAnchors::empty();
-        anchors.insert(
-            &root.key().to_public_key().unwrap(),
-            LowerName::from(root.signer_name()),
-        );
+        anchors.insert(&root.key().to_public_key().unwrap());
 
         (
             DnssecDnsHandle::with_trust_anchor(handle, Arc::new(anchors)),
