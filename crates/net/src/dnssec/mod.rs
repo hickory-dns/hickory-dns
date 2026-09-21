@@ -55,6 +55,9 @@ pub use error::{ProofError, ProofErrorKind};
 mod nsec3;
 use nsec3::{verify_nsec3, verify_nsec3_insecure_delegation};
 
+#[cfg(all(test, feature = "tokio"))]
+mod handle_tests;
+
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
@@ -936,6 +939,19 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     // No need to look for a zone cut at an NSEC3 owner name. Look at its parent
                     // instead, which ought to be a zone apex.
                     search_name = search_name.base_name();
+                }
+
+                // If this is the response to a DS query and the unsigned record is at or below
+                // the queried name, searching for DS records from `search_name` would find the
+                // same zone cut and issue the same DS query again, recursing until the maximum
+                // request depth is exceeded. This happens with servers that answer DS queries
+                // from the child zone, returning the child zone's SOA record instead of the
+                // parent's. The only thing such a record can tell us is whether the parent zone
+                // is insecure, so start the search at the parent of the queried name instead.
+                if original_query.query_type == RecordType::DS
+                    && original_query.name.zone_of(&search_name)
+                {
+                    search_name = original_query.name.base_name();
                 }
 
                 self.find_ds_records(search_name, options).await?; // insecure will return early here
