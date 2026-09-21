@@ -124,7 +124,7 @@ async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsRespo
     let name = Name::from_ascii("www.child.example.com.").unwrap();
     handle
         .lookup(
-            Query::new(name, RecordType::A),
+            Query::query(name, RecordType::A),
             DnsRequestOptions::default(),
         )
         .first_answer()
