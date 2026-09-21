@@ -835,12 +835,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
 
                 if all_unknown.unwrap_or(false) {
-                    return Err(ProofError::new(
+                    Err(ProofError::new(
                         Proof::Insecure,
                         ProofErrorKind::UnknownKeyAlgorithm,
-                    ));
+                    ))
                 } else if !supported_records.is_empty() {
-                    return Ok(supported_records);
+                    Ok(supported_records)
+                } else {
+                    Err(ProofError::ds_should_exist(zone))
                 }
             }
             Ok(response)
@@ -953,24 +955,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     %zone,
                     "could not prove insecure delegation",
                 );
-                return Err(ProofError::new(
+                Err(ProofError::new(
                     Proof::Bogus,
                     ProofErrorKind::DsRecordShouldExist { name: zone },
-                ));
+                ))
             }
-            Ok(_) => {}
-            Err(net) => {
-                return Err(ProofError::new(
-                    Proof::Bogus,
-                    ProofErrorKind::Net {
-                        query: Query::query(zone.clone(), RecordType::DS),
-                        net,
-                    },
-                ));
-            }
+            Ok(_) => Err(ProofError::ds_should_exist(zone)),
+            Err(net) => Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::Net {
+                    query: Query::query(zone.clone(), RecordType::DS),
+                    net,
+                },
+            )),
         }
-
-        Err(ProofError::ds_should_exist(zone))
     }
 
     /// Verifies that the key is a trust anchor.
