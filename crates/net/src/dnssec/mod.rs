@@ -850,6 +850,24 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         ));
                     }
 
+                    // Case 5: The response does not contain any records that could carry an
+                    // insecure proof (some servers return an empty authority section for DS
+                    // queries in insecure zones). Check whether the parent zone is insecure
+                    // directly instead.
+                    match Box::pin(self.find_ds_records(zone.base_name(), options)).await {
+                        Err(err) if err.proof == Proof::Insecure => {
+                            debug!(
+                                %zone,
+                                "marking zone as insecure based on insecure parent zone lookup",
+                            );
+                            return Err(ProofError::new(
+                                Proof::Insecure,
+                                ProofErrorKind::DsResponseInsecure { name: zone },
+                            ));
+                        }
+                        Ok(()) | Err(_) => {}
+                    }
+
                     debug!(
                         %zone,
                         "could not prove insecure delegation",
