@@ -58,6 +58,24 @@ async fn insecure_delegation_with_child_soa_in_ds_response() {
     );
 }
 
+/// A server answering a DS query for an insecure zone with an empty authority section must
+/// still allow the zone to be recognized as insecure if its parent zone is insecure.
+///
+/// Regression test for <https://github.com/hickory-dns/hickory-dns/issues/3974>.
+#[tokio::test]
+async fn insecure_delegation_with_empty_ds_response() {
+    subscribe();
+
+    let fixture = Fixture::new(Parent::Insecure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let mut upstream = fixture.upstream();
+    upstream.respond(&child, RecordType::DS, [], []);
+    let (handle, _) = upstream.build(&fixture);
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Insecure);
+}
+
 /// The expected case: a DS query for an insecure zone is answered with the parent zone's SOA
 /// record.
 #[tokio::test]
@@ -85,6 +103,22 @@ async fn bogus_delegation_with_child_soa_in_ds_response() {
     let child = Name::from_ascii("child.example.com.").unwrap();
     let mut upstream = fixture.upstream();
     upstream.respond(&child, RecordType::DS, [], [unsigned_soa(&child)]);
+    let (handle, _) = upstream.build(&fixture);
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Bogus);
+}
+
+/// If the parent zone is secure, an empty DS response for the child zone must not be accepted
+/// as proof of an insecure delegation.
+#[tokio::test]
+async fn bogus_delegation_with_empty_ds_response() {
+    subscribe();
+
+    let fixture = Fixture::new(Parent::Secure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let mut upstream = fixture.upstream();
+    upstream.respond(&child, RecordType::DS, [], []);
     let (handle, _) = upstream.build(&fixture);
 
     let response = lookup_child_a(&handle).await.unwrap();
