@@ -427,11 +427,10 @@ impl<P: ConnectionProvider> PoolState<P> {
                     _ => return Err(e),
                 }
 
-                err = match err {
+                err = Some(match err {
                     Some(previous) => most_specific(previous, e),
                     None => e,
-                }
-                .into();
+                })
             }
         }
     }
