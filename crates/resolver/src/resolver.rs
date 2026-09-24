@@ -1209,10 +1209,7 @@ pub(crate) mod testing {
 #[allow(clippy::extra_unused_type_parameters)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr};
-    use std::sync::Mutex;
 
-    use futures_util::stream::once;
-    use futures_util::{Stream, future};
     use test_support::subscribe;
     #[cfg(feature = "__dnssec")]
     use test_support::{MockNetworkHandler, MockProvider, MockRecord};
@@ -1233,12 +1230,11 @@ mod tests {
     #[cfg(feature = "__dnssec")]
     use crate::config::ServerGroup;
     use crate::config::{CLOUDFLARE, GOOGLE, ResolverConfig, ResolverOpts};
+    use crate::lookup_ip::tests::{empty, error, mock, v4_message};
     use crate::net::DnsError;
     use crate::net::xfer::DnsExchange;
     #[cfg(feature = "__dnssec")]
     use crate::proto::dnssec::{SigningKey, crypto::Ed25519SigningKey};
-    use crate::proto::op::{DnsRequest, DnsResponse, Message};
-    use crate::proto::rr::rdata::A;
 
     fn is_send_t<T: Send>() -> bool {
         true
@@ -1547,52 +1543,6 @@ mod tests {
 
         assert_eq!(*no_records.query, Query::new(Name::root(), RecordType::A));
         assert_eq!(no_records.negative_ttl, None);
-    }
-
-    #[derive(Clone)]
-    struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<Result<DnsResponse, NetError>>>>,
-    }
-
-    impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
-        type Runtime = TokioRuntimeProvider;
-
-        fn send(&self, _: DnsRequest) -> Self::Response {
-            Box::pin(once(future::ready(
-                self.messages.lock().unwrap().pop().unwrap_or_else(empty),
-            )))
-        }
-    }
-
-    fn v4_message() -> Result<DnsResponse, NetError> {
-        let mut message = Message::query();
-        message.add_query(Query::new(Name::root(), RecordType::A));
-        message.insert_answers(vec![Record::from_rdata(
-            Name::root(),
-            86400,
-            RData::A(A::new(127, 0, 0, 1)),
-        )]);
-
-        let resp = DnsResponse::from_message(message.into_response()).unwrap();
-        assert!(resp.contains_answer());
-        Ok(resp)
-    }
-
-    fn empty() -> Result<DnsResponse, NetError> {
-        Ok(DnsResponse::from_message(Message::query().into_response()).unwrap())
-    }
-
-    fn error() -> Result<DnsResponse, NetError> {
-        Err(NetError::from(std::io::Error::from(
-            std::io::ErrorKind::Other,
-        )))
-    }
-
-    fn mock(messages: Vec<Result<DnsResponse, NetError>>) -> MockDnsHandle {
-        MockDnsHandle {
-            messages: Arc::new(Mutex::new(messages)),
-        }
     }
 
     #[cfg(feature = "__dnssec")]
