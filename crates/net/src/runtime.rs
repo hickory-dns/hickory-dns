@@ -91,7 +91,7 @@ pub mod iocompat {
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
             Pin::new(&mut self.get_mut().0)
-                .poll_read(cx, buf.initialized_mut())
+                .poll_read(cx, buf.initialize_unfilled())
                 .map_ok(|len| buf.advance(len))
         }
     }
@@ -323,6 +323,10 @@ where
 #[cfg(not(feature = "__quic"))]
 pub trait QuicSocketBinder {}
 
+/// Noop trait for when the `quinn` dependency is not available.
+#[cfg(not(feature = "__quic"))]
+pub trait IntoQuicSocket {}
+
 /// Create a UDP socket for QUIC usage.
 /// This trait is designed for customization.
 #[cfg(feature = "__quic")]
@@ -333,6 +337,36 @@ pub trait QuicSocketBinder {
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
     ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
+}
+
+/// Trait for types that can be converted into a QUIC UDP socket.
+#[cfg(feature = "__quic")]
+pub trait IntoQuicSocket: Send + Sync + 'static {
+    /// Convert or wrap this socket into an `Arc<dyn quinn::AsyncUdpSocket>`.
+    fn into_quic_socket(self) -> io::Result<Arc<dyn quinn::AsyncUdpSocket>>;
+}
+
+#[cfg(all(feature = "__quic", feature = "tokio"))]
+impl IntoQuicSocket for tokio::net::UdpSocket {
+    fn into_quic_socket(self) -> io::Result<Arc<dyn quinn::AsyncUdpSocket>> {
+        use quinn::Runtime;
+        quinn::TokioRuntime.wrap_udp_socket(self.into_std()?)
+    }
+}
+
+#[cfg(all(feature = "__quic", feature = "tokio"))]
+impl IntoQuicSocket for std::net::UdpSocket {
+    fn into_quic_socket(self) -> io::Result<Arc<dyn quinn::AsyncUdpSocket>> {
+        use quinn::Runtime;
+        quinn::TokioRuntime.wrap_udp_socket(self)
+    }
+}
+
+#[cfg(feature = "__quic")]
+impl IntoQuicSocket for Arc<dyn quinn::AsyncUdpSocket> {
+    fn into_quic_socket(self) -> io::Result<Arc<dyn quinn::AsyncUdpSocket>> {
+        Ok(self)
+    }
 }
 
 /// Trait for TCP connection
@@ -347,10 +381,8 @@ pub trait DnsTcpListener: Send + Unpin + 'static {
     type Stream: DnsTcpStream;
 
     /// Polls to accept a new incoming TCP connection.
-    fn poll_accept(
-        &mut self,
-        cx: &mut Context<'_>,
-    ) -> Poll<io::Result<(Self::Stream, SocketAddr)>>;
+    fn poll_accept(&mut self, cx: &mut Context<'_>)
+    -> Poll<io::Result<(Self::Stream, SocketAddr)>>;
 }
 
 #[cfg(feature = "tokio")]
@@ -361,11 +393,8 @@ impl DnsTcpListener for tokio::net::TcpListener {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<io::Result<(Self::Stream, SocketAddr)>> {
-        Self::poll_accept(self, cx).map(|result| {
-            result.map(|(stream, addr)| {
-                (iocompat::AsyncIoTokioAsStd(stream), addr)
-            })
-        })
+        Self::poll_accept(self, cx)
+            .map(|result| result.map(|(stream, addr)| (iocompat::AsyncIoTokioAsStd(stream), addr)))
     }
 }
 
