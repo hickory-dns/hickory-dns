@@ -41,12 +41,12 @@ pub trait UdpSocket: DnsUdpSocket {
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpStream<P: RuntimeProvider> {
-    socket: P::Udp,
+pub struct UdpStream<S: DnsUdpSocket> {
+    socket: S,
     outbound_messages: StreamReceiver,
 }
 
-impl<P: RuntimeProvider> UdpStream<P> {
+impl<S: DnsUdpSocket> UdpStream<S> {
     /// This method is intended for client connections, see [`Self::with_bound`] for a method better
     ///  for straight listening. It is expected that the resolver wrapper will be responsible for
     ///  creating and managing new UdpStreams such that each new client would have a random port
@@ -74,7 +74,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ///
     /// A tuple of a Future of a Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new(
+    pub fn new<P>(
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
         avoid_local_ports: Option<Arc<HashSet<u16>>>,
@@ -83,7 +83,10 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ) -> (
         BoxFuture<'static, Result<Self, NetError>>,
         BufDnsStreamHandle,
-    ) {
+    )
+    where
+        P: RuntimeProvider<Udp = S>,
+    {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
 
         // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -106,9 +109,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
 
         (stream, message_sender)
     }
-}
 
-impl<P: RuntimeProvider> UdpStream<P> {
     /// Initialize the Stream with an already bound socket. Generally this should be only used for
     ///  server listening sockets. See [`Self::new`] for a client oriented socket. Specifically,
     ///  this requires there is already a bound socket, whereas `new` makes sure to randomize ports
@@ -123,7 +124,7 @@ impl<P: RuntimeProvider> UdpStream<P> {
     ///
     /// A tuple of a Stream which will handle sending and receiving messages, and a handle which can
     ///  be used to send messages into the stream.
-    pub fn with_bound(socket: P::Udp, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
+    pub fn with_bound(socket: S, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
         let stream = Self {
             socket,
@@ -134,21 +135,19 @@ impl<P: RuntimeProvider> UdpStream<P> {
     }
 
     #[cfg(all(feature = "tokio", feature = "mdns"))]
-    pub(crate) fn from_parts(socket: P::Udp, outbound_messages: StreamReceiver) -> Self {
+    pub(crate) fn from_parts(socket: S, outbound_messages: StreamReceiver) -> Self {
         Self {
             socket,
             outbound_messages,
         }
     }
-}
 
-impl<P: RuntimeProvider> UdpStream<P> {
-    fn pollable_split(&mut self) -> (&mut P::Udp, &mut StreamReceiver) {
+    fn pollable_split(&mut self) -> (&mut S, &mut StreamReceiver) {
         (&mut self.socket, &mut self.outbound_messages)
     }
 }
 
-impl<P: RuntimeProvider> Stream for UdpStream<P> {
+impl<S: DnsUdpSocket> Stream for UdpStream<S> {
     type Item = Result<SerialMessage, io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

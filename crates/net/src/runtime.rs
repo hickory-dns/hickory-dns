@@ -341,6 +341,34 @@ pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + '
     type Time: Time;
 }
 
+/// Trait for listening to incoming TCP connections.
+pub trait DnsTcpListener: Send + Unpin + 'static {
+    /// The stream type produced by this listener.
+    type Stream: DnsTcpStream;
+
+    /// Polls to accept a new incoming TCP connection.
+    fn poll_accept(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<(Self::Stream, SocketAddr)>>;
+}
+
+#[cfg(feature = "tokio")]
+impl DnsTcpListener for tokio::net::TcpListener {
+    type Stream = iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>;
+
+    fn poll_accept(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<io::Result<(Self::Stream, SocketAddr)>> {
+        Self::poll_accept(self, cx).map(|result| {
+            result.map(|(stream, addr)| {
+                (iocompat::AsyncIoTokioAsStd(stream), addr)
+            })
+        })
+    }
+}
+
 /// A type defines the Handle which can spawn future.
 pub trait Spawn {
     /// Spawn a future in the background
