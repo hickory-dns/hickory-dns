@@ -358,7 +358,8 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         // the full chain into the ANSWER section (RFC 1034 §3.6.2).
         let (answer, cname_chain) = match answer {
             Some(a) if a.record_type() == RecordType::CNAME && query_type != RecordType::CNAME => {
-                let chain = inner.chase_cnames(name, a, query_type, lookup_options);
+                let (chain, unresolved_target) =
+                    inner.chase_cnames(name, a, query_type, lookup_options);
                 // The terminal record drives additional section processing.
                 // If the chain ends in a non-CNAME record, use it; otherwise
                 // there is no terminal record to process.
@@ -366,7 +367,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
                     .last()
                     .filter(|rr| rr.record_type() != RecordType::CNAME)
                     .cloned();
-                (terminal, Some(chain))
+                (terminal, Some((chain, unresolved_target)))
             }
             _ => (answer, None),
         };
@@ -456,8 +457,24 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         // TODO: can we get rid of this?
         use LookupControlFlow::*;
         let answers = match (cname_chain, answer) {
+            // The CNAME chain was followed to a name with no data of any
+            // kind anywhere in this zone: per RFC 6604 §3 the response
+            // code must be NXDOMAIN, even though the CNAME records that
+            // were followed still belong in the answer section.
+            (Some((chain, Some(unresolved))), None)
+                if self.origin().zone_of(&unresolved)
+                    && !inner
+                        .records
+                        .keys()
+                        .any(|key| key.name() == &unresolved || unresolved.zone_of(key.name())) =>
+            {
+                return Continue(Err(LookupError::NxDomainWithAnswers(LookupRecords::many(
+                    lookup_options,
+                    chain,
+                ))));
+            }
             // CNAME chase produced a chain — use it as the answer.
-            (Some(chain), _) => LookupRecords::many(lookup_options, chain),
+            (Some((chain, _)), _) => LookupRecords::many(lookup_options, chain),
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
             (None, None) => {
                 return Continue(Err(
