@@ -32,8 +32,6 @@ use crate::{
 };
 
 /// A zone handler that performs recursive resolutions.
-///
-/// This uses the hickory-recursor crate for resolving requests.
 pub struct RecursiveZoneHandler<P: RuntimeProvider> {
     origin: LowerName,
     recursor: Recursor<P>,
