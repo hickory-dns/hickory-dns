@@ -98,7 +98,10 @@ async fn test_prometheus_endpoint_startup() {
     // check config metrics
     let info = [("version", hickory_server::version())];
     let config_info = [
+        #[cfg(not(windows))]
         ("directory", "/var/named"),
+        #[cfg(windows)]
+        ("directory", "C:\\Windows\\System32\\Dns"),
         ("disable_https", "false"),
         ("disable_quic", "false"),
         ("disable_tcp", "false"),
