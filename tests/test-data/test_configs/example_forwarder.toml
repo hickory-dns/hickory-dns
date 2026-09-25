@@ -1,3 +1,5 @@
+directory = "/var/named"
+
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
 [[zones]]

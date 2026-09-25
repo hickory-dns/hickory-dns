@@ -7,6 +7,8 @@
 
 //! Configuration module for the server binary, `hickory-dns`.
 
+#[cfg(windows)]
+use std::env;
 #[cfg(feature = "__tls")]
 use std::ffi::OsStr;
 #[cfg(feature = "prometheus-metrics")]
@@ -800,8 +802,18 @@ fn default_http_endpoint() -> String {
     DEFAULT_DNS_QUERY_PATH.to_string()
 }
 
+#[cfg(not(windows))]
 fn default_directory() -> PathBuf {
-    PathBuf::from("/var/named") // TODO what about windows (do I care? ;)
+    PathBuf::from("/var/named")
+}
+
+#[cfg(windows)]
+fn default_directory() -> PathBuf {
+    let mut path = env::var_os("SYSTEMROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("C:\\Windows"));
+    path.push("System32\\Dns");
+    path
 }
 
 fn default_port() -> u16 {
