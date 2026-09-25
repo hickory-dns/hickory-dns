@@ -6,12 +6,11 @@ DNS server, forwarding resolver, stub resolver, or a recursive resolver (experim
 Zone data can be managed in-memory, with flat files, or with an SQLite database.
 
 If you are writing your own Rust application, refer to the [`hickory-server`], [`hickory-net`],
-[`hickory-resolver`] and [`hickory-recursor`] library crates instead.
+and [`hickory-resolver`] library crates instead.
 
 [`hickory-server`]: ../crates/server
 [`hickory-net`]: ../crates/net
 [`hickory-resolver`]: ../crates/resolver
-[`hickory-recursor`]: ../crates/recursor
 
 ## Features
 
