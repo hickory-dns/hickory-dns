@@ -43,7 +43,7 @@
 # ssl_keylog_enabled = false
 
 ## directory: path on the host filesystem to where zone files are stored.
-# directory = "/var/named"
+directory = "/var/named"
 
 ## Denied networks, a list of CIDRs in IPv4 or IPv6 formats,
 ##  any request that does not originate from the specified networks will be allowed
