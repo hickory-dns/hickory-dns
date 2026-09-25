@@ -9,7 +9,6 @@ Most of the project is in the form of crates. The crates are all individually pu
 The project has these high-level crates (to be used as dependencies in other projects):
 
 - **[hickory-resolver](crates/resolver)** - implements a stub-resolver with support for CNAME chasing and other things, abstract over runtimes (Tokio supported by default)
-- **[hickory-client](crates/client)** - a bare-bones client crate, most useful for dynamic DNS updates
 - **[hickory-server](crates/server)** - implements support for various types of hosted zones
 - **tokio-resolver** - (under consideration, currently Tokio support is directly in hickory-resolver)
 
