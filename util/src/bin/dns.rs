@@ -48,9 +48,9 @@ use hickory_proto::{
     rr::{DNSClass, Name, RData, RecordSet, RecordType},
 };
 
-/// A CLI interface for the hickory-client.
+/// A CLI interface for the DNS client.
 ///
-/// This utility directly uses the hickory-client to perform actions with a single
+/// This utility directly uses the DNS client to perform actions with a single
 /// DNS server
 #[derive(Debug, Parser)]
 #[clap(name = "hickory dns client", version)]

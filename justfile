@@ -41,7 +41,7 @@ https-aws-lc-rs: (default "--features=https-aws-lc-rs" "--ignore=\\{hickory-prot
 quic-aws-lc-rs: (default "--features=quic-aws-lc-rs" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with h3-aws-lc-rs enabled
-h3-aws-lc-rs: (default "--features=h3-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support,test-server\\}")
+h3-aws-lc-rs: (default "--features=h3-aws-lc-rs" "--ignore=\\{hickory-proto,hickory-dns,test-support,test-server\\}")
 
 # Check, build, and test all crates with tls-ring enabled
 tls-ring: (default "--features=tls-ring" "--ignore=\\{hickory-proto,test-support,test-server\\}")
@@ -53,7 +53,7 @@ https-ring: (default "--features=https-ring" "--ignore=\\{hickory-proto,test-sup
 quic-ring: (default "--features=quic-ring" "--ignore=\\{hickory-proto,test-support,test-server\\}")
 
 # Check, build, and test all crates with h3-ring enabled
-h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-proto,hickory-dns,hickory-client,test-support,test-server\\}")
+h3-ring: (default "--features=h3-ring" "--ignore=\\{hickory-proto,hickory-dns,test-support,test-server\\}")
 
 # Check, build, and test all crates with dnssec-aws-lc-rs enabled
 dnssec-aws-lc-rs: (default "--features=dnssec-aws-lc-rs" "--ignore=\\{test-support,test-server\\}")
