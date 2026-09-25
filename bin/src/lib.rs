@@ -282,7 +282,13 @@ impl DnsServer {
                 disable_quic: _,
             #[cfg(feature = "prometheus-metrics")]
                 disable_prometheus: _,
-            tcp_request_timeout,
+            #[cfg_attr(
+                not(any(feature = "__tls", feature = "__https", feature = "__quic")),
+                allow(unused)
+            )]
+            handshake_timeout,
+            request_timeout,
+            idle_timeout,
             #[cfg(feature = "__tls")]
             ssl_keylog_enabled,
             directory,
@@ -351,12 +357,13 @@ impl DnsServer {
             listen_addrs.push(IpAddr::V6(Ipv6Addr::UNSPECIFIED));
         }
 
-        let tcp_request_timeout = (!tcp_request_timeout.is_zero()).then_some(tcp_request_timeout);
-
         let mut setup = ServerSetup {
             listen_addrs,
             server: &mut server,
-            tcp_request_timeout,
+            #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+            handshake_timeout,
+            request_timeout,
+            idle_timeout,
             #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
             cert_resolver: tls_cert
                 .as_ref()
@@ -503,10 +510,13 @@ impl DnsServer {
 struct ServerSetup<'a> {
     listen_addrs: Vec<IpAddr>,
     server: &'a mut Server<Catalog>,
-    /// Optional timeout for all servers.
-    ///
-    /// This affects connection setup, handshakes, idle connections, and receiving requests.
-    tcp_request_timeout: Option<Duration>,
+    /// Timeout for performing TLS or QUIC handshakes.
+    #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
+    handshake_timeout: Option<Duration>,
+    /// Timeout for receiving a complete request over a connection.
+    request_timeout: Option<Duration>,
+    /// Timeout before closing an idle connection.
+    idle_timeout: Option<Duration>,
     #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
     cert_resolver: Option<Arc<dyn ResolvesServerCert>>,
     #[cfg(any(feature = "__tls", feature = "__https", feature = "__quic"))]
@@ -564,12 +574,26 @@ impl ServerSetup<'_> {
 
             self.server.register_listener(
                 tcp_listener,
-                self.tcp_request_timeout,
+                self.stream_timeout(),
                 self.tcp_socket_config.response_buffer_size,
             );
         }
 
         Ok(())
+    }
+
+    /// Computes the timeout to be passed to `TimeoutStream`.
+    ///
+    /// This adds the request timeout and idle timeout together, or returns None if either timeout
+    /// has been disabled. Since `TimeoutStream` applies a timeout to the combination of waiting
+    /// for the next request to begin and waiting for the request to be read to the end, we need
+    /// to combine these two timeout configuration parameters. If either timeout has been disabled,
+    /// then `TimeoutStream`'s timeout should be disabled entirely.
+    fn stream_timeout(&self) -> Option<Duration> {
+        match (self.request_timeout, self.idle_timeout) {
+            (Some(request_timeout), Some(idle_timeout)) => Some(request_timeout + idle_timeout),
+            _ => None,
+        }
     }
 
     #[cfg(feature = "__tls")]
@@ -601,7 +625,8 @@ impl ServerSetup<'_> {
             self.server
                 .register_tls_listener_with_tls_config(
                     tls_listener,
-                    self.tcp_request_timeout,
+                    self.handshake_timeout,
+                    self.stream_timeout(),
                     Arc::new(tls_config),
                 )
                 .map_err(|err| format!("failed to register TLS listener: {err}"))?;
@@ -643,7 +668,9 @@ impl ServerSetup<'_> {
             self.server
                 .register_https_listener_with_tls_config(
                     https_listener,
-                    self.tcp_request_timeout,
+                    self.handshake_timeout,
+                    self.idle_timeout,
+                    self.request_timeout,
                     Arc::new(tls_config),
                     dns_hostname.map(|s| s.to_owned()),
                     http_endpoint.to_owned(),
@@ -683,7 +710,9 @@ impl ServerSetup<'_> {
             self.server
                 .register_quic_listener_and_tls_config(
                     quic_listener,
-                    self.tcp_request_timeout,
+                    self.handshake_timeout,
+                    self.idle_timeout,
+                    self.request_timeout,
                     Arc::new(tls_config),
                 )
                 .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
