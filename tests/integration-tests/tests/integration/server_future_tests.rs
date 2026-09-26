@@ -1,7 +1,5 @@
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
-#[cfg(feature = "__tls")]
-use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,13 +10,12 @@ use futures::TryStreamExt;
 #[cfg(feature = "__tls")]
 use rustls::{
     ClientConfig, RootCertStore,
-    pki_types::{
-        CertificateDer, PrivateKeyDer, ServerName,
-        pem::{self, PemObject},
-    },
+    pki_types::{CertificateDer, ServerName},
     server::ResolvesServerCert,
-    sign::{CertifiedKey, SingleCertAndKey},
+    sign::SingleCertAndKey,
 };
+#[cfg(feature = "__tls")]
+use test_support::TestCertificates;
 use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
@@ -236,25 +233,13 @@ async fn test_server_no_response_on_response() {
     server.await.unwrap();
 }
 
-// TODO: move all this to future based clients
 #[cfg(feature = "__tls")]
 #[tokio::test]
 async fn test_server_www_tls() {
-    use std::env;
-
     subscribe();
 
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    println!("using server src path: {server_path}");
-
-    let ca = read_certs(format!("{server_path}/tests/test-data/ca.pem")).unwrap();
-    let cert_chain = read_certs(format!("{server_path}/tests/test-data/cert.pem")).unwrap();
-
-    let key =
-        PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
-
-    let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider()).unwrap();
-    let server_cert_resolver = SingleCertAndKey::from(certified_key);
+    let certificates = TestCertificates::generate();
+    let server_cert_resolver = SingleCertAndKey::from(certificates.certified_key());
 
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
@@ -274,7 +259,7 @@ async fn test_server_www_tls() {
     let client = tokio::spawn(client_thread_www(lazy_tls_client(
         ipaddr,
         "ns.example.com",
-        ca,
+        Vec::from([certificates.ca.der().clone()]),
     )));
 
     let client_result = client.await;
@@ -298,11 +283,6 @@ async fn lazy_tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let (client, driver) = Client::from_sender(multiplexer);
     tokio::spawn(driver);
     client
-}
-
-#[cfg(feature = "__tls")]
-fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
-    CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }
 
 #[cfg(feature = "__tls")]
