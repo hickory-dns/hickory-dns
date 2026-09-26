@@ -194,6 +194,34 @@ fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<(), Error> {
     Ok(())
 }
 
+/// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3985: the opt-out NSEC3
+/// record covers the empty non-terminal `ent.testing.`, not `no-ds.ent.testing.`.
+#[test]
+fn no_ds_record_nsec3_opt_out_below_empty_non_terminal() -> Result<(), Error> {
+    // NSD omits the opt-out NSEC3 record from the `ent.testing. DS` response (RFC 5155 § 7.2.4)
+    if dns_test::SUBJECT.is_bind() && dns_test::PEER.is_unbound() {
+        return Ok(());
+    }
+
+    let (output, logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("ent").push_label("no-ds"),
+        SignSettings::rsasha256_nsec3_optout(),
+        false,
+        true,
+    )?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    if dns_test::SUBJECT.is_hickory() {
+        assert!(logs.contains("DS query next closer name covered by opt-out proof"));
+    }
+
+    Ok(())
+}
+
 // the `no_ds_zone` zone is signed but no DS record exists in the parent `testing.` zone.
 // importantly, the `testing.` zone must contain NSEC/NSEC3 records to deny the existence of
 // `no_ds_zone/DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce this
