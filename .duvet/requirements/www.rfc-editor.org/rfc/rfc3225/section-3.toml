@@ -1,0 +1,95 @@
+target = "https://www.rfc-editor.org/rfc/rfc3225#section-3"
+
+# Protocol Changes
+#
+#    The mechanism chosen for the explicit notification of the ability of
+#    the client to accept (if not understand) DNSSEC security RRs is using
+#    the most significant bit of the Z field on the EDNS0 OPT header in
+#    the query.  This bit is referred to as the "DNSSEC OK" (DO) bit.  In
+#    the context of the EDNS0 OPT meta-RR, the DO bit is the first bit of
+#    the third and fourth bytes of the "extended RCODE and flags" portion
+#    of the EDNS0 OPT meta-RR, structured as follows:
+# 
+#                 +0 (MSB)                +1 (LSB)
+#          +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#       0: |   EXTENDED-RCODE      |       VERSION         |
+#          +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#       2: |DO|                    Z                       |
+#          +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+# 
+#    Setting the DO bit to one in a query indicates to the server that the
+#    resolver is able to accept DNSSEC security RRs.  The DO bit cleared
+#    (set to zero) indicates the resolver is unprepared to handle DNSSEC
+#    security RRs and those RRs MUST NOT be returned in the response
+#    (unless DNSSEC security RRs are explicitly queried for).  The DO bit
+#    of the query MUST be copied in the response.
+# 
+#    More explicitly, DNSSEC-aware nameservers MUST NOT insert SIG, KEY,
+#    or NXT RRs to authenticate a response as specified in [RFC2535]
+#    unless the DO bit was set on the request.  Security records that
+#    match an explicit SIG, KEY, NXT, or ANY query, or are part of the
+#    zone data for an AXFR or IXFR query, are included whether or not the
+#    DO bit was set.
+# 
+#    A recursive DNSSEC-aware server MUST set the DO bit on recursive
+#    requests, regardless of the status of the DO bit on the initiating
+#    resolver request.  If the initiating resolver request does not have
+#    the DO bit set, the recursive DNSSEC-aware server MUST remove DNSSEC
+#    security RRs before returning the data to the client, however cached
+#    data MUST NOT be modified.
+# 
+#    In the event a server returns a NOTIMP, FORMERR or SERVFAIL response
+#    to a query that has the DO bit set, the resolver SHOULD NOT expect
+#    DNSSEC security RRs and SHOULD retry the query without EDNS0 in
+#    accordance with section 5.3 of [RFC2671].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DO bit cleared
+(set to zero) indicates the resolver is unprepared to handle DNSSEC
+security RRs and those RRs MUST NOT be returned in the response
+(unless DNSSEC security RRs are explicitly queried for).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DO bit
+of the query MUST be copied in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+More explicitly, DNSSEC-aware nameservers MUST NOT insert SIG, KEY,
+or NXT RRs to authenticate a response as specified in [RFC2535]
+unless the DO bit was set on the request.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A recursive DNSSEC-aware server MUST set the DO bit on recursive
+requests, regardless of the status of the DO bit on the initiating
+resolver request.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the initiating resolver request does not have
+the DO bit set, the recursive DNSSEC-aware server MUST remove DNSSEC
+security RRs before returning the data to the client, however cached
+data MUST NOT be modified.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the event a server returns a NOTIMP, FORMERR or SERVFAIL response
+to a query that has the DO bit set, the resolver SHOULD NOT expect
+DNSSEC security RRs and SHOULD retry the query without EDNS0 in
+accordance with section 5.3 of [RFC2671].
+'''
+

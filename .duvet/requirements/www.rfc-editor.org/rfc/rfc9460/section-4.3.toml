@@ -1,0 +1,83 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-4.3"
+
+# General Requirements
+#
+#    Recursive resolvers MUST be able to convey SVCB records with
+#    unrecognized SvcParamKeys.  Resolvers MAY accomplish this by treating
+#    the entire SvcParams portion of the record as opaque, even if the
+#    contents are invalid.  If a recognized SvcParamKey is followed by a
+#    value that is invalid according to the SvcParam's specification, a
+#    recursive resolver MAY report an error such as SERVFAIL instead of
+#    returning the record.  For complex value types whose interpretation
+#    might differ between implementations or have additional future
+#    allowed values added (e.g., URIs or "alpn"), resolvers SHOULD limit
+#    validation to specified constraints.
+# 
+#    When responding to a query that includes the DNSSEC OK bit [RFC3225],
+#    DNSSEC-capable recursive and authoritative DNS servers MUST accompany
+#    each RRset in the Additional section with the same DNSSEC-related
+#    records that they would send when providing that RRset as an Answer
+#    (e.g., RRSIG, NSEC, NSEC3).
+# 
+#    According to Section 5.4.1 of [RFC2181], "Unauthenticated RRs
+#    received and cached from ... the additional data section ... should
+#    not be cached in such a way that they would ever be returned as
+#    answers to a received query.  They may be returned as additional
+#    information where appropriate."  Recursive resolvers therefore MAY
+#    cache records from the Additional section for use in populating
+#    Additional section responses and MAY cache them for general use if
+#    they are authenticated by DNSSEC.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Recursive resolvers MUST be able to convey SVCB records with
+unrecognized SvcParamKeys.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Resolvers MAY accomplish this by treating
+the entire SvcParams portion of the record as opaque, even if the
+contents are invalid.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If a recognized SvcParamKey is followed by a
+value that is invalid according to the SvcParam's specification, a
+recursive resolver MAY report an error such as SERVFAIL instead of
+returning the record.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For complex value types whose interpretation
+might differ between implementations or have additional future
+allowed values added (e.g., URIs or "alpn"), resolvers SHOULD limit
+validation to specified constraints.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When responding to a query that includes the DNSSEC OK bit [RFC3225],
+DNSSEC-capable recursive and authoritative DNS servers MUST accompany
+each RRset in the Additional section with the same DNSSEC-related
+records that they would send when providing that RRset as an Answer
+(e.g., RRSIG, NSEC, NSEC3).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+They may be returned as additional
+information where appropriate."  Recursive resolvers therefore MAY
+cache records from the Additional section for use in populating
+Additional section responses and MAY cache them for general use if
+they are authenticated by DNSSEC.
+'''
+

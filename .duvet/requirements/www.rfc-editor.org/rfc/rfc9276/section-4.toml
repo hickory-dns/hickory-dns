@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc9276#section-4"
+
+# Security Considerations
+#
+#    This entire document discusses security considerations with various
+#    parameter selections of NSEC3 and NSEC3PARAM fields.
+# 
+#    The point where a validating resolver returns insecure versus the
+#    point where it returns SERVFAIL must be considered carefully.
+#    Specifically, when a validating resolver treats a zone as insecure
+#    above a particular value (say 100) and returns SERVFAIL above a
+#    higher point (say 500), it leaves the zone subject to attacker-in-
+#    the-middle attacks as if it were unsigned between these values.
+#    Thus, validating resolver operators and software implementers SHOULD
+#    set the point above which a zone is treated as insecure for certain
+#    values of NSEC3 iterations to the same as the point where a
+#    validating resolver begins returning SERVFAIL.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Thus, validating resolver operators and software implementers SHOULD
+set the point above which a zone is treated as insecure for certain
+values of NSEC3 iterations to the same as the point where a
+validating resolver begins returning SERVFAIL.
+'''
+

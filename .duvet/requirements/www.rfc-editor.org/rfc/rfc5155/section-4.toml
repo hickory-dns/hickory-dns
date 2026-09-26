@@ -1,0 +1,51 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-4"
+
+# The NSEC3PARAM Resource Record
+#
+#    The NSEC3PARAM RR contains the NSEC3 parameters (hash algorithm,
+#    flags, iterations, and salt) needed by authoritative servers to
+#    calculate hashed owner names.  The presence of an NSEC3PARAM RR at a
+#    zone apex indicates that the specified parameters may be used by
+#    authoritative servers to choose an appropriate set of NSEC3 RRs for
+#    negative responses.  The NSEC3PARAM RR is not used by validators or
+#    resolvers.
+# 
+#    If an NSEC3PARAM RR is present at the apex of a zone with a Flags
+#    field value of zero, then there MUST be an NSEC3 RR using the same
+#    hash algorithm, iterations, and salt parameters present at every
+#    hashed owner name in the zone.  That is, the zone MUST contain a
+#    complete set of NSEC3 RRs with the same hash algorithm, iterations,
+#    and salt parameters.
+# 
+#    The owner name for the NSEC3PARAM RR is the name of the zone apex.
+# 
+#    The type value for the NSEC3PARAM RR is 51.
+# 
+#    The NSEC3PARAM RR RDATA format is class independent and is described
+#    below.
+# 
+#    The class MUST be the same as the NSEC3 RRs to which this RR refers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an NSEC3PARAM RR is present at the apex of a zone with a Flags
+field value of zero, then there MUST be an NSEC3 RR using the same
+hash algorithm, iterations, and salt parameters present at every
+hashed owner name in the zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+That is, the zone MUST contain a
+complete set of NSEC3 RRs with the same hash algorithm, iterations,
+and salt parameters.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The class MUST be the same as the NSEC3 RRs to which this RR refers.
+'''
+

@@ -1,0 +1,48 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-3.4"
+
+# Name Compression
+#
+#    Compression of names in DNS messages is described in RFC 1035,
+#    Section 4.1.4, "Message compression".  The issue highlighted here
+#    relates to a comment made in RFC 1034, Section 3.1, "Name space
+#    specifications and terminology", which says:
+# 
+#       When you receive a domain name or label, you should preserve its
+#       case.
+# 
+#    ("Should" in the quote predates [BCP14].)
+# 
+#    Since the primary objective of AXFR is to enable the client to serve
+#    the same zone content as the server, unlike such normal DNS responses
+#    that are expected to preserve the case in the query, the actual zone
+#    transfer needs to retain the case of the labels in the zone content.
+#    Hence, name compression in an AXFR message SHOULD be performed in a
+#    case-preserving manner, unlike how it is done for "normal" DNS
+#    responses.  That is, although when comparing a domain name for
+#    matching, "a" equals "A", when comparing for the purposes of message
+#    compression for AXFR, "a" is not equal to "A".  Note that this is not
+#    the usual definition of name comparison in the DNS protocol and
+#    represents a new understanding of the requirement on AXFR servers.
+# 
+#    Rules governing name compression of RDATA in an AXFR message MUST
+#    abide by the specification in "Handling of Unknown DNS Resource
+#    Record (RR) Types" [RFC3597], specifically, Section 4 on "Domain Name
+#    Compression".
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Hence, name compression in an AXFR message SHOULD be performed in a
+case-preserving manner, unlike how it is done for "normal" DNS
+responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Rules governing name compression of RDATA in an AXFR message MUST
+abide by the specification in "Handling of Unknown DNS Resource
+Record (RR) Types" [RFC3597], specifically, Section 4 on "Domain Name
+Compression".
+'''
+

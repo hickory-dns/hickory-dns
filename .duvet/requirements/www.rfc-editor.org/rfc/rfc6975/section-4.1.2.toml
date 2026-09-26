@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-4.1.2"
+
+# Non-validating Stub Resolvers
+#
+#    The DAU, DHU, and N3U EDNS0 options MUST NOT be included by
+#    non-validating stub resolvers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DAU, DHU, and N3U EDNS0 options MUST NOT be included by
+non-validating stub resolvers.
+'''
+

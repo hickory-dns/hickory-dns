@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.5.2"
+
+# ServiceMode
+#
+#    For ServiceMode SVCB RRs, if TargetName has the value ".", then the
+#    owner name of this record MUST be used as the effective TargetName.
+#    If the record has a wildcard owner name in the zone file, the
+#    recipient SHALL use the response's synthesized owner name as the
+#    effective TargetName.
+# 
+#    Here, for example, "svc2.example.net" is the effective TargetName:
+# 
+#    example.com.      7200  IN HTTPS 0 svc.example.net.
+#    svc.example.net.  7200  IN CNAME svc2.example.net.
+#    svc2.example.net. 7200  IN HTTPS 1 . port=8002
+#    svc2.example.net. 300   IN A     192.0.2.2
+#    svc2.example.net. 300   IN AAAA  2001:db8::2
+
+[[spec]]
+level = "MUST"
+quote = '''
+For ServiceMode SVCB RRs, if TargetName has the value ".", then the
+owner name of this record MUST be used as the effective TargetName.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the record has a wildcard owner name in the zone file, the
+recipient SHALL use the response's synthesized owner name as the
+effective TargetName.
+'''
+

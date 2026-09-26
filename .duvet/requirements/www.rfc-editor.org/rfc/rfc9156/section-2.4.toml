@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc9156#section-2.4"
+
+# Implementation by Stub and Forwarding Resolvers
+#
+#    Stub and forwarding resolvers MAY implement QNAME minimisation.
+#    Minimising queries that will be sent to an upstream resolver does not
+#    help in hiding data from the upstream resolver because all
+#    information will end up there anyway.  It might however limit the
+#    data exposure between the upstream resolver and the authoritative
+#    name server in the situation where the upstream resolver does not
+#    support QNAME minimisation.  Using QNAME minimisation in a stub or
+#    forwarding resolver that does not have a mechanism to find and cache
+#    zone cuts will drastically increase the number of outgoing queries.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Stub and forwarding resolvers MAY implement QNAME minimisation.
+'''
+

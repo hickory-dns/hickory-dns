@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-4.2"
+
+# Validating Responses to an ANY Query
+#
+#    [RFC4035] does not address how to validate responses when QTYPE=*.
+#    As described in Section 6.2.2 of [RFC1034], a proper response to
+#    QTYPE=* may include a subset of the RRsets at a given name.  That is,
+#    it is not necessary to include all RRsets at the QNAME in the
+#    response.
+# 
+#    When validating a response to QTYPE=*, all received RRsets that match
+#    QNAME and QCLASS MUST be validated.  If any of those RRsets fail
+#    validation, the answer is considered Bogus.  If there are no RRsets
+#    matching QNAME and QCLASS, that fact MUST be validated according to
+#    the rules in Section 5.4 of [RFC4035] (as clarified in this
+#    document).  To be clear, a validator must not expect to receive all
+#    records at the QNAME in response to QTYPE=*.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When validating a response to QTYPE=*, all received RRsets that match
+QNAME and QCLASS MUST be validated.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there are no RRsets
+matching QNAME and QCLASS, that fact MUST be validated according to
+the rules in Section 5.4 of [RFC4035] (as clarified in this
+document).
+'''
+

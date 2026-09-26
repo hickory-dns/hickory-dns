@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.8"
+
+# Responding to Queries for NSEC3 Owner Names
+#
+#    The owner names of NSEC3 RRs are not represented in the NSEC3 RR
+#    chain like other owner names.  As a result, each NSEC3 owner name is
+#    covered by another NSEC3 RR, effectively negating the existence of
+#    the NSEC3 RR.  This is a paradox, since the existence of an NSEC3 RR
+#    can be proven by its RRSIG RRSet.
+# 
+#    If the following conditions are all true:
+# 
+#    o  the QNAME equals the owner name of an existing NSEC3 RR, and
+# 
+#    o  no RR types exist at the QNAME, nor at any descendant of QNAME,
+# 
+#    then the response MUST be constructed as a Name Error response
+#    (Section 7.2.2).  Or, in other words, the authoritative name server
+#    will act as if the owner name of the NSEC3 RR did not exist.
+# 
+#    Note that NSEC3 RRs are returned as a result of an AXFR or IXFR
+#    query.
+
+[[spec]]
+level = "MUST"
+quote = '''
+then the response MUST be constructed as a Name Error response
+(Section 7.2.2).
+'''
+

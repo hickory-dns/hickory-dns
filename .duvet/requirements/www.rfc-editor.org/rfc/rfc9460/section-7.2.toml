@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-7.2"
+
+# "port"
+#
+#    The "port" SvcParamKey defines the TCP or UDP port that should be
+#    used to reach this alternative endpoint.  If this key is not present,
+#    clients SHALL use the authority endpoint's port number.
+# 
+#    The presentation value of the SvcParamValue is a single decimal
+#    integer between 0 and 65535 in ASCII.  Any other value (e.g., an
+#    empty value) is a syntax error.  To enable simpler parsing, this
+#    SvcParamValue MUST NOT contain escape sequences.
+# 
+#    The wire format of the SvcParamValue is the corresponding 2-octet
+#    numeric value in network byte order.
+# 
+#    If a port-restricting firewall is in place between some client and
+#    the service endpoint, changing the port number might cause that
+#    client to lose access to the service, so operators should exercise
+#    caution when using this SvcParamKey to specify a non-default port.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this key is not present,
+clients SHALL use the authority endpoint's port number.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To enable simpler parsing, this
+SvcParamValue MUST NOT contain escape sequences.
+'''
+

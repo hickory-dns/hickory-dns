@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.2"
+
+# Verifying NSEC3 RRs
+#
+#    A validator MUST ignore NSEC3 RRs with a Flag fields value other than
+#    zero or one.
+# 
+#    A validator MAY treat a response as bogus if the response contains
+#    NSEC3 RRs that contain different values for hash algorithm,
+#    iterations, or salt from each other for that zone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A validator MUST ignore NSEC3 RRs with a Flag fields value other than
+zero or one.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A validator MAY treat a response as bogus if the response contains
+NSEC3 RRs that contain different values for hash algorithm,
+iterations, or salt from each other for that zone.
+'''
+

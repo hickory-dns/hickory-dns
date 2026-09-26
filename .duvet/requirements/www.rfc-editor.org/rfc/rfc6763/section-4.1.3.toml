@@ -1,0 +1,42 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-4.1.3"
+
+# Domain Names
+#
+#    The <Domain> portion of the Service Instance Name specifies the DNS
+#    subdomain within which those names are registered.  It may be
+#    "local.", meaning "link-local Multicast DNS" [RFC6762], or it may be
+#    a conventional Unicast DNS domain name, such as "ietf.org.",
+#    "cs.stanford.edu.", or "eng.us.ibm.com."  Because Service Instance
+#    Names are not host names, they are not constrained by the usual rules
+#    for host names [RFC1033] [RFC1034] [RFC1035], and rich-text service
+#    subdomains are allowed and encouraged, for example:
+# 
+#      Building 2, 1st Floor  .  example  .  com  .
+#      Building 2, 2nd Floor  .  example  .  com  .
+#      Building 2, 3rd Floor  .  example  .  com  .
+#      Building 2, 4th Floor  .  example  .  com  .
+# 
+#    In addition, because Service Instance Names are not constrained by
+#    the limitations of host names, this document recommends that they be
+#    stored in the DNS, and communicated over the wire, encoded as
+#    straightforward canonical precomposed UTF-8 [RFC3629] "Net-Unicode"
+#    (Unicode Normalization Form C) [RFC5198] text.  In cases where the
+#    DNS server returns a negative response for the name in question,
+#    client software MAY choose to retry the query using the "Punycode"
+#    algorithm [RFC3492] to convert the UTF-8 name to an IDNA "A-label"
+#    [RFC5890], beginning with the top-level label, then issuing the query
+# 
+#    repeatedly, with successively more labels translated to IDNA A-labels
+#    each time, and giving up if it has converted all labels to IDNA
+#    A-labels and the query still fails.
+
+[[spec]]
+level = "MAY"
+quote = '''
+In cases where the
+DNS server returns a negative response for the name in question,
+client software MAY choose to retry the query using the "Punycode"
+algorithm [RFC3492] to convert the UTF-8 name to an IDNA "A-label"
+[RFC5890], beginning with the top-level label, then issuing the query
+'''
+

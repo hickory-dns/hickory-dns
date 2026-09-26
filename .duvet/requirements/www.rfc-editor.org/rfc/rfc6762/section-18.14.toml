@@ -1,0 +1,140 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.14"
+
+# Name Compression
+#
+#    When generating Multicast DNS messages, implementations SHOULD use
+#    name compression wherever possible to compress the names of resource
+#    records, by replacing some or all of the resource record name with a
+#    compact two-byte reference to an appearance of that data somewhere
+#    earlier in the message [RFC1035].
+# 
+#    This applies not only to Multicast DNS responses, but also to
+#    queries.  When a query contains more than one question, successive
+#    questions in the same message often contain similar names, and
+#    consequently name compression SHOULD be used, to save bytes.  In
+#    addition, queries may also contain Known Answers in the Answer
+#    Section, or probe tiebreaking data in the Authority Section, and
+#    these names SHOULD similarly be compressed for network efficiency.
+# 
+#    In addition to compressing the *names* of resource records, names
+#    that appear within the *rdata* of the following rrtypes SHOULD also
+#    be compressed in all Multicast DNS messages:
+# 
+#      NS, CNAME, PTR, DNAME, SOA, MX, AFSDB, RT, KX, RP, PX, SRV, NSEC
+# 
+#    Until future IETF Standards Action [RFC5226] specifying that names in
+#    the rdata of other types should be compressed, names that appear
+#    within the rdata of any type not listed above MUST NOT be compressed.
+# 
+#    Implementations receiving Multicast DNS messages MUST correctly
+#    decode compressed names appearing in the Question Section, and
+#    compressed names of resource records appearing in other sections.
+# 
+#    In addition, implementations MUST correctly decode compressed names
+#    appearing within the *rdata* of the rrtypes listed above.  Where
+#    possible, implementations SHOULD also correctly decode compressed
+#    names appearing within the *rdata* of other rrtypes known to the
+#    implementers at the time of implementation, because such forward-
+#    thinking planning helps facilitate the deployment of future
+#    implementations that may have reason to compress those rrtypes.  It
+#    is possible that no future IETF Standards Action [RFC5226] will be
+#    created that mandates or permits the compression of rdata in new
+#    types, but having implementations designed such that they are capable
+#    of decompressing all known types helps keep future options open.
+# 
+#    One specific difference between Unicast DNS and Multicast DNS is that
+#    Unicast DNS does not allow name compression for the target host in an
+#    SRV record, because Unicast DNS implementations before the first SRV
+#    specification in 1996 [RFC2052] may not decode these compressed
+# 
+#    records properly.  Since all Multicast DNS implementations were
+#    created after 1996, all Multicast DNS implementations are REQUIRED to
+#    decode compressed SRV records correctly.
+# 
+#    In legacy unicast responses generated to answer legacy queries, name
+#    compression MUST NOT be performed on SRV records.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When generating Multicast DNS messages, implementations SHOULD use
+name compression wherever possible to compress the names of resource
+records, by replacing some or all of the resource record name with a
+compact two-byte reference to an appearance of that data somewhere
+earlier in the message [RFC1035].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a query contains more than one question, successive
+questions in the same message often contain similar names, and
+consequently name compression SHOULD be used, to save bytes.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In
+addition, queries may also contain Known Answers in the Answer
+Section, or probe tiebreaking data in the Authority Section, and
+these names SHOULD similarly be compressed for network efficiency.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In addition to compressing the *names* of resource records, names
+that appear within the *rdata* of the following rrtypes SHOULD also
+be compressed in all Multicast DNS messages:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Until future IETF Standards Action [RFC5226] specifying that names in
+the rdata of other types should be compressed, names that appear
+within the rdata of any type not listed above MUST NOT be compressed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations receiving Multicast DNS messages MUST correctly
+decode compressed names appearing in the Question Section, and
+compressed names of resource records appearing in other sections.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In addition, implementations MUST correctly decode compressed names
+appearing within the *rdata* of the rrtypes listed above.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Where
+possible, implementations SHOULD also correctly decode compressed
+names appearing within the *rdata* of other rrtypes known to the
+implementers at the time of implementation, because such forward-
+thinking planning helps facilitate the deployment of future
+implementations that may have reason to compress those rrtypes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since all Multicast DNS implementations were
+created after 1996, all Multicast DNS implementations are REQUIRED to
+decode compressed SRV records correctly.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In legacy unicast responses generated to answer legacy queries, name
+compression MUST NOT be performed on SRV records.
+'''
+

@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-5.3.1"
+
+# Interaction with Aggressive Negative Caching
+#
+#    Aggressive NSEC/NSEC3 negative caching [NSEC-NSEC3-Usage] may also
+#    affect the quality of Key Tag signaling.  When the response code for
+#    a Key Tag query is NXDOMAIN, DNS resolvers that implement aggressive
+#    negative caching will send fewer Key Tag queries than resolvers that
+#    do not implement it.
+# 
+#    For this reason, zone operators might choose to create records
+#    corresponding to expected Key Tag queries.  During a rollover from
+#    Key Tag 1111 (hex) to Key Tag 2222 (hex), the zone could include the
+#    following records:
+# 
+#    _ta-1111        IN   NULL   \# 0
+#    _ta-2222        IN   NULL   \# 0
+#    _ta-1111-2222   IN   NULL   \# 0
+# 
+#    Recall that when multiple Key Tags are present, the originating
+#    client MUST sort them from smallest to largest in the query name.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Recall that when multiple Key Tags are present, the originating
+client MUST sort them from smallest to largest in the query name.
+'''
+

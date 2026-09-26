@@ -1,0 +1,74 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-5"
+
+# Security Considerations
+#
+#    This specification requires the use of DNSSEC in order to determine
+#    that the data being updated was unmodified by third parties.
+#    Parental agents implementing CSYNC processing MUST ensure all DNS
+#    transactions are validated by DNSSEC as "secure".  Clients deploying
+#    CSYNC MUST ensure their zones are signed, current and properly linked
+#    to the parent zone with a DS record that points to an appropriate
+#    DNSKEY of the child's zone.
+# 
+#    This specification does not address how to perform bootstrapping
+#    operations to get the required initial DNSSEC-secured operating
+#    environment in place.  Additionally, this specification was not
+#    designed to synchronize DNSSEC security records, such as DS pointers,
+#    or the CSYNC record itself.  Thus, implementations of this protocol
+#    MUST NOT use it to synchronize DS records, DNSKEY materials, CDS
+#    records, CDNSKEY records, or CSYNC records.  Similarly, future
+#    documents extending this protocol MUST NOT offer the ability to
+#    synchronize DS, DNSKEY materials, CDS records, CDNSKEY records, or
+#    CSYNC records.  For such a solution, please see the complimentary
+#    solution [RFC7344] for maintaining security delegation information.
+# 
+#    To ensure that an older CSYNC record making use of the soaminimum
+#    flag cannot be replayed to revert values, the SOA serial number MUST
+#    NOT be incremented by more than 2^16 during the lifetime of the
+#    signature window of the associated RRSIGs signing the SOA and CSYNC
+#    records.  Note that this is independent of whether or not the
+#    increment causes the 2^32 bit serial number field to wrap.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Parental agents implementing CSYNC processing MUST ensure all DNS
+transactions are validated by DNSSEC as "secure".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients deploying
+CSYNC MUST ensure their zones are signed, current and properly linked
+to the parent zone with a DS record that points to an appropriate
+DNSKEY of the child's zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Thus, implementations of this protocol
+MUST NOT use it to synchronize DS records, DNSKEY materials, CDS
+records, CDNSKEY records, or CSYNC records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Similarly, future
+documents extending this protocol MUST NOT offer the ability to
+synchronize DS, DNSKEY materials, CDS records, CDNSKEY records, or
+CSYNC records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To ensure that an older CSYNC record making use of the soaminimum
+flag cannot be replayed to revert values, the SOA serial number MUST
+NOT be incremented by more than 2^16 during the lifetime of the
+signature window of the associated RRSIGs signing the SOA and CSYNC
+records.
+'''
+

@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc3007#section-3"
+
+# - Policy
+#
+#    All policy is configured by the zone administrator and enforced by
+#    the zone's primary name server.  Policy dictates the authorized
+#    actions that an authenticated principal can take.  Policy checks are
+#    based on the principal and the desired action, where the principal is
+#    derived from the message signing key and applied to dynamic update
+#    messages signed with that key.
+# 
+#    The server's policy defines criteria which determine if the key used
+#    to sign the update is permitted to perform the requested updates.  By
+#    default, a principal MUST NOT be permitted to make any changes to
+#    zone data; any permissions MUST be enabled though configuration.
+# 
+#    The policy is fully implemented in the primary zone server's
+#    configuration for several reasons.  This removes limitations imposed
+#    by encoding policy into a fixed number of bits (such as the KEY RR's
+#    signatory field).  Policy is only relevant in the server applying it,
+#    so there is no reason to expose it.  Finally, a change in policy or a
+#    new type of policy should not affect the DNS protocol or data format,
+#    and should not cause interoperability failures.
+
+[[spec]]
+level = "MUST"
+quote = '''
+By
+default, a principal MUST NOT be permitted to make any changes to
+zone data; any permissions MUST be enabled though configuration.
+'''
+

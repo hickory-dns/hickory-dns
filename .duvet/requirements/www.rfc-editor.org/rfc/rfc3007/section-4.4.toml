@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc3007#section-4.4"
+
+# - Effects on the zone
+#
+#    If any changes are made, the server MUST, if necessary, generate a
+#    new SOA record and new NXT records, and sign these with the
+#    appropriate zone keys.  Changes to NXT records by secure dynamic
+#    update are explicitly forbidden.  SOA updates are allowed, since the
+#    maintenance of SOA parameters is outside of the scope of the DNS
+#    protocol.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If any changes are made, the server MUST, if necessary, generate a
+new SOA record and new NXT records, and sign these with the
+appropriate zone keys.
+'''
+

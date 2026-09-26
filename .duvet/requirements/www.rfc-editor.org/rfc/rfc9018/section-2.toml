@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-2"
+
+# Changes to RFC 7873
+#
+#    Appendices A.1 and B.1 of [RFC7873] provide example "simple"
+#    algorithms for computing Client and Server Cookies, respectively.
+#    These algorithms MUST NOT be used as the resulting cookies are too
+#    weak when evaluated against modern security standards.
+# 
+#    Appendix B.2 of [RFC7873] provides an example "more complex" server
+#    algorithm.  This algorithm is replaced by the interoperable
+#    specification in Section 4 of this document, which MUST be used by
+#    Server Cookie implementations.
+# 
+#    This document has suggestions on Client Cookie construction in
+#    Section 3.  The previous example in Appendix A.2 of [RFC7873] is NOT
+#    RECOMMENDED.
+
+[[spec]]
+level = "MUST"
+quote = '''
+These algorithms MUST NOT be used as the resulting cookies are too
+weak when evaluated against modern security standards.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This algorithm is replaced by the interoperable
+specification in Section 4 of this document, which MUST be used by
+Server Cookie implementations.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The previous example in Appendix A.2 of [RFC7873] is NOT
+RECOMMENDED.
+'''
+

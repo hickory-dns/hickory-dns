@@ -1,0 +1,82 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-10"
+
+# Security Considerations
+#
+#    The approach specified here is computationally much less expensive
+#    than the signatures specified in DNSSEC.  As long as the shared
+#    secret key is not compromised, strong authentication is provided
+#    between two DNS systems, e.g., for the last hop from a local name
+#    server to the user resolver or between primary and secondary name
+#    servers.
+# 
+#    Recommendations for choosing and maintaining secret keys can be found
+#    in [RFC2104].  If the client host has been compromised, the server
+#    should suspend the use of all secrets known to that client.  If
+#    possible, secrets should be stored in an encrypted form.  Secrets
+#    should never be transmitted in the clear over any network.  This
+#    document does not address the issue on how to distribute secrets
+#    except that it mentions the possibilities of manual configuration and
+#    the use of TKEY [RFC2930].  Secrets SHOULD NOT be shared by more than
+#    two entities; any such additional sharing would allow any party
+#    knowing the key to impersonate any other such party to members of the
+#    group.
+# 
+#    This mechanism does not authenticate source data, only its
+#    transmission between two parties who share some secret.  The original
+#    source data can come from a compromised zone master or can be
+#    corrupted during transit from an authentic zone master to some
+#    "caching forwarder".  However, if the server is faithfully performing
+#    the full DNSSEC security checks, then only security-checked data will
+#    be available to the client.
+# 
+#    A Fudge value that is too large may leave the server open to replay
+#    attacks.  A Fudge value that is too small may cause failures if
+#    machines are not time synchronized or there are unexpected network
+#    delays.  The RECOMMENDED value in most situations is 300 seconds.
+# 
+#    To prevent cross-algorithm attacks, there SHOULD only be one
+#    algorithm associated with any given key name.
+# 
+#    In several cases where errors are detected, an unsigned error message
+#    must be returned.  This can allow for an attacker to spoof or
+#    manipulate these responses.  Section 5.4 recommends logging these as
+#    errors and continuing to wait for a signed response until the request
+#    times out.
+# 
+#    Although the strength of an algorithm determines its security, there
+#    have been some arguments that mild truncation can strengthen a MAC by
+#    reducing the information available to an attacker.  However,
+#    excessive truncation clearly weakens authentication by reducing the
+#    number of bits an attacker has to try to break the authentication by
+#    brute force [RFC2104].
+# 
+#    Significant progress has been made recently in cryptanalysis of hash
+#    functions of the types used here.  While the results so far should
+#    not affect HMAC, the stronger SHA-256 algorithm is being made
+#    mandatory as a precaution.
+# 
+#    See also the Security Considerations section of [RFC2104] from which
+#    the limits on truncation in this RFC were taken.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Secrets SHOULD NOT be shared by more than
+two entities; any such additional sharing would allow any party
+knowing the key to impersonate any other such party to members of the
+group.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The RECOMMENDED value in most situations is 300 seconds.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To prevent cross-algorithm attacks, there SHOULD only be one
+algorithm associated with any given key name.
+'''
+

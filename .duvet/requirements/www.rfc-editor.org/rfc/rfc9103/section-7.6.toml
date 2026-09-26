@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.6"
+
+# XoT Connections
+#
+#    The details in Section 6 about, e.g., persistent connections and XFR
+#    message handling, are fully applicable to XoT connections as well.
+#    However, any behavior specified here takes precedence for XoT.
+# 
+#    If no TLS connections are currently open, XoT clients MAY send SOA
+#    queries over UDP, TCP, or TLS.
+
+[[spec]]
+level = "MAY"
+quote = '''
+If no TLS connections are currently open, XoT clients MAY send SOA
+queries over UDP, TCP, or TLS.
+'''
+

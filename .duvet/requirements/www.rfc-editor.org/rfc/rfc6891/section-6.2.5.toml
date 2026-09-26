@@ -1,0 +1,59 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.2.5"
+
+# Payload Size Selection
+#
+#    Due to transaction overhead, it is not recommended to advertise an
+#    architectural limit as a maximum UDP payload size.  Even on system
+#    stacks capable of reassembling 64 KB datagrams, memory usage at low
+#    levels in the system will be a concern.  A good compromise may be the
+#    use of an EDNS maximum payload size of 4096 octets as a starting
+#    point.
+# 
+#    A requestor MAY choose to implement a fallback to smaller advertised
+#    sizes to work around firewall or other network limitations.  A
+#    requestor SHOULD choose to use a fallback mechanism that begins with
+#    a large size, such as 4096.  If that fails, a fallback around the
+#    range of 1280-1410 bytes SHOULD be tried, as it has a reasonable
+#    chance to fit within a single Ethernet frame.  Failing that, a
+#    requestor MAY choose a 512-byte packet, which with large answers may
+#    cause a TCP retry.
+# 
+#    Values of less than 512 bytes MUST be treated as equal to 512 bytes.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A requestor MAY choose to implement a fallback to smaller advertised
+sizes to work around firewall or other network limitations.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A
+requestor SHOULD choose to use a fallback mechanism that begins with
+a large size, such as 4096.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If that fails, a fallback around the
+range of 1280-1410 bytes SHOULD be tried, as it has a reasonable
+chance to fit within a single Ethernet frame.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Failing that, a
+requestor MAY choose a 512-byte packet, which with large answers may
+cause a TCP retry.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Values of less than 512 bytes MUST be treated as equal to 512 bytes.
+'''
+

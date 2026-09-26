@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.9"
+
+# Server Response to a Run-Time Collision
+#
+#    If the hash of a non-existing QNAME collides with the owner name of
+#    an existing NSEC3 RR, then the server will be unable to return a
+#    response that proves that QNAME does not exist.  In this case, the
+#    server MUST return a response with an RCODE of 2 (server failure).
+# 
+#    Note that with the hash algorithm specified in this document, SHA-1,
+#    such collisions are highly unlikely.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this case, the
+server MUST return a response with an RCODE of 2 (server failure).
+'''
+

@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.2.2"
+
+# Question Section
+#
+#    In the first response message, this section MUST be copied from the
+#    query.  In subsequent messages, this section MAY be copied from the
+#    query, or it MAY be empty.  However, in an error response message
+#    (see Section 2.2), this section MUST be copied as well.  The content
+#    of this section MAY be used to determine the context of the message,
+#    that is, the name of the zone being transferred.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the first response message, this section MUST be copied from the
+query.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In subsequent messages, this section MAY be copied from the
+query, or it MAY be empty.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, in an error response message
+(see Section 2.2), this section MUST be copied as well.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The content
+of this section MAY be used to determine the context of the message,
+that is, the name of the zone being transferred.
+'''
+

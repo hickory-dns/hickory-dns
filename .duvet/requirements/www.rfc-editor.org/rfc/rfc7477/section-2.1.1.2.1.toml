@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-2.1.1.2.1"
+
+# The Type Bit Map Field
+#
+#    The Type Bit Map field indicates the record types to be processed by
+#    the parental agent, according to the procedures in Section 3.  The
+#    Type Bit Map field is encoded in the same way as the Type Bit Map
+#    field of the NSEC record, described in [RFC4034], Section 4.1.2.  If
+#    a bit has been set that a parental agent implementation does not
+#    understand, the parental agent MUST NOT act upon the record.
+#    Specifically, a parental agent must not simply copy the data, and it
+#    must understand the semantics associated with a bit in the Type Bit
+#    Map field that has been set to 1.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If
+a bit has been set that a parental agent implementation does not
+understand, the parental agent MUST NOT act upon the record.
+'''
+

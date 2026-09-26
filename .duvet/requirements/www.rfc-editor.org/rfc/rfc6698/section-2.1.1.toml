@@ -1,0 +1,131 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-2.1.1"
+
+# The Certificate Usage Field
+#
+#    A one-octet value, called "certificate usage", specifies the provided
+#    association that will be used to match the certificate presented in
+#    the TLS handshake.  This value is defined in a new IANA registry (see
+#    Section 7.2) in order to make it easier to add additional certificate
+#    usages in the future.  The certificate usages defined in this
+#    document are:
+# 
+#       0 -- Certificate usage 0 is used to specify a CA certificate, or
+#       the public key of such a certificate, that MUST be found in any of
+#       the PKIX certification paths for the end entity certificate given
+#       by the server in TLS.  This certificate usage is sometimes
+#       referred to as "CA constraint" because it limits which CA can be
+#       used to issue certificates for a given service on a host.  The
+#       presented certificate MUST pass PKIX certification path
+#       validation, and a CA certificate that matches the TLSA record MUST
+#       be included as part of a valid certification path.  Because this
+#       certificate usage allows both trust anchors and CA certificates,
+# 
+#       the certificate might or might not have the basicConstraints
+#       extension present.
+# 
+#       1 -- Certificate usage 1 is used to specify an end entity
+#       certificate, or the public key of such a certificate, that MUST be
+#       matched with the end entity certificate given by the server in
+#       TLS.  This certificate usage is sometimes referred to as "service
+#       certificate constraint" because it limits which end entity
+#       certificate can be used by a given service on a host.  The target
+#       certificate MUST pass PKIX certification path validation and MUST
+#       match the TLSA record.
+# 
+#       2 -- Certificate usage 2 is used to specify a certificate, or the
+#       public key of such a certificate, that MUST be used as the trust
+#       anchor when validating the end entity certificate given by the
+#       server in TLS.  This certificate usage is sometimes referred to as
+#       "trust anchor assertion" and allows a domain name administrator to
+#       specify a new trust anchor -- for example, if the domain issues
+#       its own certificates under its own CA that is not expected to be
+#       in the end users' collection of trust anchors.  The target
+#       certificate MUST pass PKIX certification path validation, with any
+#       certificate matching the TLSA record considered to be a trust
+#       anchor for this certification path validation.
+# 
+#       3 -- Certificate usage 3 is used to specify a certificate, or the
+#       public key of such a certificate, that MUST match the end entity
+#       certificate given by the server in TLS.  This certificate usage is
+#       sometimes referred to as "domain-issued certificate" because it
+#       allows for a domain name administrator to issue certificates for a
+#       domain without involving a third-party CA.  The target certificate
+#       MUST match the TLSA record.  The difference between certificate
+#       usage 1 and certificate usage 3 is that certificate usage 1
+#       requires that the certificate pass PKIX validation, but PKIX
+#       validation is not tested for certificate usage 3.
+# 
+#    The certificate usages defined in this document explicitly only apply
+#    to PKIX-formatted certificates in DER encoding [X.690].  If TLS
+#    allows other formats later, or if extensions to this RRtype are made
+#    that accept other formats for certificates, those certificates will
+#    need their own certificate usage values.
+
+[[spec]]
+level = "MUST"
+quote = '''
+0 -- Certificate usage 0 is used to specify a CA certificate, or
+the public key of such a certificate, that MUST be found in any of
+the PKIX certification paths for the end entity certificate given
+by the server in TLS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+presented certificate MUST pass PKIX certification path
+validation, and a CA certificate that matches the TLSA record MUST
+be included as part of a valid certification path.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+1 -- Certificate usage 1 is used to specify an end entity
+certificate, or the public key of such a certificate, that MUST be
+matched with the end entity certificate given by the server in
+TLS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The target
+certificate MUST pass PKIX certification path validation and MUST
+match the TLSA record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+2 -- Certificate usage 2 is used to specify a certificate, or the
+public key of such a certificate, that MUST be used as the trust
+anchor when validating the end entity certificate given by the
+server in TLS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The target
+certificate MUST pass PKIX certification path validation, with any
+certificate matching the TLSA record considered to be a trust
+anchor for this certification path validation.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+3 -- Certificate usage 3 is used to specify a certificate, or the
+public key of such a certificate, that MUST match the end entity
+certificate given by the server in TLS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The target certificate
+MUST match the TLSA record.
+'''
+

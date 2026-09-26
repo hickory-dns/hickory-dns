@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2.1.1"
+
+# Special processing for DS queries
+#
+#    When a nameserver is authoritative for the parent zone at a
+#    delegation point and receives a query for the DS record at that name,
+#    it MUST answer based on data in the parent zone, return DS or
+#    negative answer.  This is true whether or not it is also
+#    authoritative for the child zone.
+# 
+#    When the nameserver is authoritative for the child zone at a
+#    delegation point but not the parent zone, there is no natural
+#    response, since the child zone is not authoritative for the DS record
+#    at the zone's apex.  As these queries are only expected to originate
+#    from recursive nameservers which are not DS-aware, the authoritative
+#    nameserver MUST answer with:
+# 
+#       RCODE:             NOERROR
+#       AA bit:            set
+#       Answer Section:    Empty
+#       Authority Section: SOA [+ SIG(SOA) + NXT + SIG(NXT)]
+# 
+#    That is, it answers as if it is authoritative and the DS record does
+#    not exist.  DS-aware recursive nameservers will query the parent zone
+#    at delegation points, so will not be affected by this.
+# 
+#    A nameserver authoritative for only the child zone, that is also a
+#    caching server MAY (if the RD bit is set in the query) perform
+#    recursion to find the DS record at the delegation point, or MAY
+#    return the DS record from its cache.  In this case, the AA bit MUST
+#    NOT be set in the response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a nameserver is authoritative for the parent zone at a
+delegation point and receives a query for the DS record at that name,
+it MUST answer based on data in the parent zone, return DS or
+negative answer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As these queries are only expected to originate
+from recursive nameservers which are not DS-aware, the authoritative
+nameserver MUST answer with:
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A nameserver authoritative for only the child zone, that is also a
+caching server MAY (if the RD bit is set in the query) perform
+recursion to find the DS record at the delegation point, or MAY
+return the DS record from its cache.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In this case, the AA bit MUST
+NOT be set in the response.
+'''
+

@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-3.3.2"
+
+# Sending Responses
+#
+#    A DNS server that receives a query sent using TCP transport that
+#    includes an OPT RR (with or without the edns-tcp-keepalive option)
+#    MAY include the edns-tcp-keepalive option in the response to signal
+#    the expected idle timeout on a connection.  Servers MUST specify the
+#    TIMEOUT value that is currently associated with the TCP session.  It
+# 
+#    is reasonable for this value to change according to local resource
+#    constraints.  The DNS server SHOULD send an edns-tcp-keepalive option
+#    with a timeout of 0 if it deems its local resources are too low to
+#    service more TCP keepalive sessions or if it wants clients to close
+#    currently open connections.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS server that receives a query sent using TCP transport that
+includes an OPT RR (with or without the edns-tcp-keepalive option)
+MAY include the edns-tcp-keepalive option in the response to signal
+the expected idle timeout on a connection.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Servers MUST specify the
+TIMEOUT value that is currently associated with the TCP session.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The DNS server SHOULD send an edns-tcp-keepalive option
+with a timeout of 0 if it deems its local resources are too low to
+service more TCP keepalive sessions or if it wants clients to close
+currently open connections.
+'''
+

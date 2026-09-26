@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc5452#section-9.3"
+
+# Spoof Detection and Countermeasure
+#
+#    If a resolver detects that an attempt is being made to spoof it,
+#    perhaps by discovering that many packets fail the criteria as
+#    outlined above, it MAY abandon the UDP query and re-issue it over
+#    TCP.  TCP, by the nature of its use of sequence numbers, is far more
+#    resilient against forgery by third parties.
+
+[[spec]]
+level = "MAY"
+quote = '''
+If a resolver detects that an attempt is being made to spoof it,
+perhaps by discovering that many packets fail the criteria as
+outlined above, it MAY abandon the UDP query and re-issue it over
+TCP.
+'''
+

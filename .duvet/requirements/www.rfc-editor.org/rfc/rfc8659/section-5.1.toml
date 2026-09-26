@@ -1,0 +1,37 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-5.1"
+
+# Use of DNS Security
+#
+#    The use of DNSSEC to authenticate CAA RRs is strongly RECOMMENDED but
+#    not required.  An Issuer MUST NOT issue certificates if doing so
+#    would conflict with the Relevant RRset, irrespective of whether the
+#    corresponding DNS records are signed.
+# 
+#    DNSSEC provides a proof of non-existence for both DNS FQDNs and
+#    RRsets within FQDNs.  DNSSEC verification thus enables an Issuer to
+#    determine whether the answer to a CAA record query (1) is empty
+#    because the RRset is empty or (2) is non-empty but the response has
+#    been suppressed.
+# 
+#    The use of DNSSEC allows an Issuer to acquire and archive a proof
+#    that they were authorized to issue certificates for the FQDN.
+#    Verification of such archives may be an audit requirement to verify
+#    CAA record-processing compliance.  Publication of such archives may
+#    be a transparency requirement to verify CAA record-processing
+#    compliance.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The use of DNSSEC to authenticate CAA RRs is strongly RECOMMENDED but
+not required.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An Issuer MUST NOT issue certificates if doing so
+would conflict with the Relevant RRset, irrespective of whether the
+corresponding DNS records are signed.
+'''
+

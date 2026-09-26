@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.9"
+
+# Validating Referrals to Unsigned Subzones
+#
+#    The delegation name in a referral is the owner name of the NS RRSet
+#    present in the authority section of the referral response.
+# 
+#    If there is an NSEC3 RR present in the response that matches the
+#    delegation name, then the validator MUST ensure that the NS bit is
+#    set and that the DS bit is not set in the Type Bit Maps field of the
+#    NSEC3 RR.  The validator MUST also ensure that the NSEC3 RR is from
+#    the correct (i.e., parent) zone.  This is done by ensuring that the
+#    SOA bit is not set in the Type Bit Maps field of this NSEC3 RR.
+# 
+#    Note that the presence of an NS bit implies the absence of a DNAME
+#    bit, so there is no need to check for the DNAME bit in the Type Bit
+#    Maps field of the NSEC3 RR.
+# 
+#    If there is no NSEC3 RR present that matches the delegation name,
+#    then the validator MUST verify a closest provable encloser proof for
+#    the delegation name.  The validator MUST verify that the Opt-Out bit
+#    is set in the NSEC3 RR that covers the "next closer" name to the
+#    delegation name.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is an NSEC3 RR present in the response that matches the
+delegation name, then the validator MUST ensure that the NS bit is
+set and that the DS bit is not set in the Type Bit Maps field of the
+NSEC3 RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The validator MUST also ensure that the NSEC3 RR is from
+the correct (i.e., parent) zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is no NSEC3 RR present that matches the delegation name,
+then the validator MUST verify a closest provable encloser proof for
+the delegation name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The validator MUST verify that the Opt-Out bit
+is set in the NSEC3 RR that covers the "next closer" name to the
+delegation name.
+'''
+

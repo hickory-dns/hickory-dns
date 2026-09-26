@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-12.1.3"
+
+# Transitioning to a New Hash Algorithm
+#
+#    Although the NSEC3 and NSEC3PARAM RR formats include a hash algorithm
+#    parameter, this document does not define a particular mechanism for
+#    safely transitioning from one NSEC3 hash algorithm to another.  When
+#    specifying a new hash algorithm for use with NSEC3, a transition
+#    mechanism MUST also be defined.  It is possible that the only
+#    practical and palatable transition mechanisms may require an
+#    intermediate transition to an insecure state, or to a state that uses
+#    NSEC records instead of NSEC3.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When
+specifying a new hash algorithm for use with NSEC3, a transition
+mechanism MUST also be defined.
+'''
+

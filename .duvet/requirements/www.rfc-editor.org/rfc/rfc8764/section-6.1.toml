@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-6.1"
+
+# Add Events
+#
+#    Add Events occur when a new resource record appears, usually as the
+#    result of a dynamic update [RFC2136], that answers an LLQ.  This
+#    record must be sent in the Answer section of the event to the client.
+#    Records that normally accompany this record in responses MAY be
+#    included in the Additional section as per truncation restrictions
+#    described above.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Records that normally accompany this record in responses MAY be
+included in the Additional section as per truncation restrictions
+described above.
+'''
+

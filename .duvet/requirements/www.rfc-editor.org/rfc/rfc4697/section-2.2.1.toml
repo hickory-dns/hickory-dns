@@ -1,0 +1,68 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.2.1"
+
+# Recommendation
+#
+#    Iterative resolvers SHOULD cache name servers that they discover are
+#    not authoritative for zones delegated to them (i.e., lame servers).
+#    If this caching is performed, lame servers MUST be cached against the
+#    specific query tuple <zone name, class, server IP address>.  Zone
+#    name can be derived from the owner name of the NS record that was
+#    referenced to query the name server that was discovered to be lame.
+# 
+#    Implementations that perform lame server caching MUST refrain from
+#    sending queries to known lame servers for a configurable time
+#    interval after the server is discovered to be lame.  A minimum
+#    interval of thirty minutes is RECOMMENDED.
+# 
+#    An exception to this recommendation occurs if all name servers for a
+#    zone are marked lame.  In that case, the iterative resolver SHOULD
+#    temporarily ignore the servers' lameness status and query one or more
+#    servers.  This behavior is a workaround for the type-specific
+#    lameness issue described in the previous section.
+# 
+#    Implementors should take care not to make lame server avoidance logic
+#    overly broad: note that a name server could be lame for a parent zone
+#    but not a child zone, e.g., lame for "example.com" but properly
+#    authoritative for "sub.example.com".  Therefore, a name server should
+#    not be automatically considered lame for subzones.  In the case
+#    above, even if a name server is known to be lame for "example.com",
+#    it should be queried for QNAMEs at or below "sub.example.com" if an
+#    NS record indicates that it should be authoritative for that zone.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Iterative resolvers SHOULD cache name servers that they discover are
+not authoritative for zones delegated to them (i.e., lame servers).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this caching is performed, lame servers MUST be cached against the
+specific query tuple <zone name, class, server IP address>.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations that perform lame server caching MUST refrain from
+sending queries to known lame servers for a configurable time
+interval after the server is discovered to be lame.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A minimum
+interval of thirty minutes is RECOMMENDED.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In that case, the iterative resolver SHOULD
+temporarily ignore the servers' lameness status and query one or more
+servers.
+'''
+

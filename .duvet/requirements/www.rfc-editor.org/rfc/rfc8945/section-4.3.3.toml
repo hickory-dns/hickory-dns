@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-4.3.3"
+
+# TSIG Variables
+#
+#    Also included in the digest is certain information present in the
+#    TSIG RR.  Adding this data provides further protection against an
+#    attempt to interfere with the message.
+# 
+#    +============+================+====================================+
+#    | Source     | Field Name     | Notes                              |
+#    +============+================+====================================+
+#    | TSIG RR    | NAME           | Key name, in canonical wire format |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RR    | CLASS          | MUST be ANY                        |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RR    | TTL            | MUST be 0                          |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RDATA | Algorithm Name | in canonical wire format           |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RDATA | Time Signed    | in network byte order              |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RDATA | Fudge          | in network byte order              |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RDATA | Error          | in network byte order              |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RDATA | Other Len      | in network byte order              |
+#    +------------+----------------+------------------------------------+
+#    | TSIG RDATA | Other Data     | exactly as transmitted             |
+#    +------------+----------------+------------------------------------+
+# 
+#                          Table 2: TSIG Variables
+# 
+#    The RR RDLENGTH and RDATA MAC Size are not included in the input to
+#    MAC computation, since they are not guaranteed to be knowable before
+#    the MAC is generated.
+# 
+#    The Original ID field is not included in this section, as it has
+#    already been substituted for the message ID in the DNS header and
+#    hashed.
+# 
+#    For each label type, there must be a defined "Canonical wire format"
+#    that specifies how to express a label in an unambiguous way.  For
+#    label type 00, this is defined in Section 6.2 of [RFC4034].  The use
+#    of label types other than 00 is not defined for this specification.
+
+[[spec]]
+level = "MUST"
+quote = '''
++============+================+====================================+
+| Source     | Field Name     | Notes                              |
++============+================+====================================+
+| TSIG RR    | NAME           | Key name, in canonical wire format |
++------------+----------------+------------------------------------+
+| TSIG RR    | CLASS          | MUST be ANY                        |
++------------+----------------+------------------------------------+
+| TSIG RR    | TTL            | MUST be 0                          |
++------------+----------------+------------------------------------+
+| TSIG RDATA | Algorithm Name | in canonical wire format           |
++------------+----------------+------------------------------------+
+| TSIG RDATA | Time Signed    | in network byte order              |
++------------+----------------+------------------------------------+
+| TSIG RDATA | Fudge          | in network byte order              |
++------------+----------------+------------------------------------+
+| TSIG RDATA | Error          | in network byte order              |
++------------+----------------+------------------------------------+
+| TSIG RDATA | Other Len      | in network byte order              |
++------------+----------------+------------------------------------+
+| TSIG RDATA | Other Data     | exactly as transmitted             |
++------------+----------------+------------------------------------+
+'''
+

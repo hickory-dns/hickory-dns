@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc8914#section-4.21"
+
+# Extended DNS Error Code 20 - Not Authoritative
+#
+#    An authoritative server that receives a query with the Recursion
+#    Desired (RD) bit clear, or when it is not configured for recursion
+#    for a domain for which it is not authoritative, SHOULD include this
+#    EDE code in the REFUSED response.  A resolver that receives a query
+#    with the RD bit clear SHOULD include this EDE code in the REFUSED
+#    response.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An authoritative server that receives a query with the Recursion
+Desired (RD) bit clear, or when it is not configured for recursion
+for a domain for which it is not authoritative, SHOULD include this
+EDE code in the REFUSED response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A resolver that receives a query
+with the RD bit clear SHOULD include this EDE code in the REFUSED
+response.
+'''
+

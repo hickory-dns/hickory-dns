@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.6"
+
+# RD (Recursion Desired) Bit
+#
+#    In both multicast query and multicast response messages, the
+#    Recursion Desired bit SHOULD be zero on transmission, and MUST be
+#    ignored on reception.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both multicast query and multicast response messages, the
+Recursion Desired bit SHOULD be zero on transmission, and MUST be
+ignored on reception.
+'''
+

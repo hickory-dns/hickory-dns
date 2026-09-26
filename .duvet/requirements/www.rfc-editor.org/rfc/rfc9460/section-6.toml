@@ -1,0 +1,43 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-6"
+
+# SVCB-Compatible RR Types
+#
+#    An RR type is called "SVCB-compatible" if it permits an
+#    implementation that is identical to SVCB in its:
+# 
+#    *  RDATA presentation format
+# 
+#    *  RDATA wire format
+# 
+#    *  IANA registry used for SvcParamKeys
+# 
+#    *  Authoritative server Additional section processing
+# 
+#    *  Recursive resolution process
+# 
+#    *  Relevant Class (i.e., Internet ("IN") [RFC1035])
+# 
+#    This allows authoritative and recursive DNS servers to apply
+#    identical processing to all SVCB-compatible RR types.
+# 
+#    All other behaviors described as applying to the SVCB RR also apply
+#    to all SVCB-compatible RR types unless explicitly stated otherwise.
+#    When following an AliasMode record (Section 2.4.2) of RR type $T, the
+#    follow-up query to the TargetName MUST also be for type $T.
+# 
+#    This document defines one SVCB-compatible RR type (other than SVCB
+#    itself): the HTTPS RR type (Section 9), which avoids Attrleaf label
+#    prefixes [Attrleaf] in order to improve compatibility with wildcards
+#    and CNAMEs, which are widely used with HTTP.
+# 
+#    Standards authors should consider carefully whether to use SVCB or
+#    define a new SVCB-compatible RR type, as this choice cannot easily be
+#    reversed after deployment.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When following an AliasMode record (Section 2.4.2) of RR type $T, the
+follow-up query to the TargetName MUST also be for type $T.
+'''
+

@@ -1,0 +1,107 @@
+target = "https://www.rfc-editor.org/rfc/rfc6761#section-6.5"
+
+# Domain Name Reservation Considerations for Example Domains
+#
+#    The domains "example.", "example.com.", "example.net.",
+#    "example.org.", and any names falling within those domains, are
+#    special in the following ways:
+# 
+#    1.  Users SHOULD understand that example names are reserved for use
+#        in documentation.
+# 
+#    2.  Application software SHOULD NOT recognize example names as
+#        special and SHOULD use example names as they would other domain
+#        names.
+# 
+#    3.  Name resolution APIs and libraries SHOULD NOT recognize example
+#        names as special and SHOULD NOT treat them differently.  Name
+#        resolution APIs SHOULD send queries for example names to their
+#        configured caching DNS server(s).
+# 
+#    4.  Caching DNS servers SHOULD NOT recognize example names as special
+#        and SHOULD resolve them normally.
+# 
+#    5.  Authoritative DNS servers SHOULD NOT recognize example names as
+#        special.
+# 
+#    6.  DNS server operators SHOULD be aware that example names are
+#        reserved for use in documentation.
+# 
+#    7.  DNS Registries/Registrars MUST NOT grant requests to register
+#        example names in the normal way to any person or entity.  All
+#        example names are registered in perpetuity to IANA:
+# 
+#         Domain Name: EXAMPLE.COM
+#         Registrar: RESERVED-INTERNET ASSIGNED NUMBERS AUTHORITY
+#         Whois Server: whois.iana.org
+#         Referral URL: http://res-dom.iana.org
+#         Name Server: A.IANA-SERVERS.NET
+#         Name Server: B.IANA-SERVERS.NET
+#         Status: clientDeleteProhibited
+#         Status: clientTransferProhibited
+#         Status: clientUpdateProhibited
+#         Updated Date: 26-mar-2004
+#         Creation Date: 14-aug-1995
+#         Expiration Date: 13-aug-2011
+# 
+#    IANA currently maintains a web server providing a web page explaining
+#    the purpose of example domains.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Users SHOULD understand that example names are reserved for use
+in documentation.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Application software SHOULD NOT recognize example names as
+special and SHOULD use example names as they would other domain
+names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs and libraries SHOULD NOT recognize example
+names as special and SHOULD NOT treat them differently.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name
+resolution APIs SHOULD send queries for example names to their
+configured caching DNS server(s).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD NOT recognize example names as special
+and SHOULD resolve them normally.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authoritative DNS servers SHOULD NOT recognize example names as
+special.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS server operators SHOULD be aware that example names are
+reserved for use in documentation.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Registries/Registrars MUST NOT grant requests to register
+example names in the normal way to any person or entity.
+'''
+

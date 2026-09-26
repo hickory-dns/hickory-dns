@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9.4"
+
+# Requiring Server Name Indication
+#
+#    Clients MUST NOT use an HTTPS RR response unless the client supports
+#    the TLS Server Name Indication (SNI) extension and indicates the
+#    origin name in the TLS ClientHello (which might be encrypted via a
+#    future specification such as [ECH]).  This supports the conservation
+#    of IP addresses.
+# 
+#    Note that the TLS SNI (and also the HTTP "Host" or ":authority") will
+#    indicate the origin, not the TargetName.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients MUST NOT use an HTTPS RR response unless the client supports
+the TLS Server Name Indication (SNI) extension and indicates the
+origin name in the TLS ClientHello (which might be encrypted via a
+future specification such as [ECH]).
+'''
+

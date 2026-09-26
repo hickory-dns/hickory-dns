@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc7858#section-3.3"
+
+# Transmitting and Receiving Messages
+#
+#    All messages (requests and responses) in the established TLS session
+#    MUST use the two-octet length field described in Section 4.2.2 of
+#    [RFC1035].  For reasons of efficiency, DNS clients and servers SHOULD
+#    pass the two-octet length field, and the message described by that
+#    length field, to the TCP layer at the same time (e.g., in a single
+#    "write" system call) to make it more likely that all the data will be
+#    transmitted in a single TCP segment ([RFC7766], Section 8).
+# 
+#    In order to minimize latency, clients SHOULD pipeline multiple
+#    queries over a TLS session.  When a DNS client sends multiple queries
+#    to a server, it should not wait for an outstanding reply before
+#    sending the next query ([RFC7766], Section 6.2.1.1).
+# 
+#    Since pipelined responses can arrive out of order, clients MUST match
+#    responses to outstanding queries on the same TLS connection using the
+#    Message ID.  If the response contains a Question Section, the client
+#    MUST match the QNAME, QCLASS, and QTYPE fields.  Failure by clients
+#    to properly match responses to outstanding queries can have serious
+#    consequences for interoperability ([RFC7766], Section 7).
+
+[[spec]]
+level = "MUST"
+quote = '''
+All messages (requests and responses) in the established TLS session
+MUST use the two-octet length field described in Section 4.2.2 of
+[RFC1035].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For reasons of efficiency, DNS clients and servers SHOULD
+pass the two-octet length field, and the message described by that
+length field, to the TCP layer at the same time (e.g., in a single
+"write" system call) to make it more likely that all the data will be
+transmitted in a single TCP segment ([RFC7766], Section 8).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In order to minimize latency, clients SHOULD pipeline multiple
+queries over a TLS session.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since pipelined responses can arrive out of order, clients MUST match
+responses to outstanding queries on the same TLS connection using the
+Message ID.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the response contains a Question Section, the client
+MUST match the QNAME, QCLASS, and QTYPE fields.
+'''
+

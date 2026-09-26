@@ -1,0 +1,110 @@
+target = "https://www.rfc-editor.org/rfc/rfc8914#section-3"
+
+# Extended DNS Error Processing
+#
+#    When the response grows beyond the requestor's UDP payload size
+#    [RFC6891], servers SHOULD truncate messages by dropping EDE options
+#    before dropping other data from packets.  Implementations SHOULD set
+#    the truncation bit when dropping EDE options.  Because long EXTRA-
+#    TEXT fields may trigger truncation (which is undesirable given the
+#    supplemental nature of EDE), implementers and operators creating EDE
+#    options SHOULD avoid lengthy EXTRA-TEXT contents.
+# 
+#    When a resolver or forwarder receives an EDE option, whether or not
+#    (and how) to pass along EDE information on to their original client
+#    is implementation dependent.  Implementations MAY choose to not
+#    forward information, or they MAY choose to create a new EDE option(s)
+#    that conveys the information encoded in the received EDE.  When doing
+#    so, the source of the error SHOULD be attributed in the EXTRA-TEXT
+#    field, since an EDNS0 option received by the original client will
+#    appear to have come from the resolver or forwarder sending it.
+# 
+#    This document does not allow or prohibit any particular extended
+#    error codes and information to be matched with any particular RCODEs.
+#    Some combinations of extended error codes and RCODEs may seem
+#    nonsensical (such as resolver-specific extended error codes received
+#    in responses from authoritative servers), so systems interpreting the
+#    extended error codes MUST NOT assume that a combination will make
+#    sense.  Receivers MUST be able to accept EDE codes and EXTRA-TEXT in
+#    all messages, including those with a NOERROR RCODE but need not act
+#    on them.  Applications MUST continue to follow requirements from
+#    applicable specifications on how to process RCODEs no matter what EDE
+#    values are also received.  Senders MAY include more than one EDE
+#    option and receivers MUST be able to accept (but not necessarily
+#    process or act on) multiple EDE options in a DNS message.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When the response grows beyond the requestor's UDP payload size
+[RFC6891], servers SHOULD truncate messages by dropping EDE options
+before dropping other data from packets.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD set
+the truncation bit when dropping EDE options.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Because long EXTRA-
+TEXT fields may trigger truncation (which is undesirable given the
+supplemental nature of EDE), implementers and operators creating EDE
+options SHOULD avoid lengthy EXTRA-TEXT contents.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementations MAY choose to not
+forward information, or they MAY choose to create a new EDE option(s)
+that conveys the information encoded in the received EDE.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When doing
+so, the source of the error SHOULD be attributed in the EXTRA-TEXT
+field, since an EDNS0 option received by the original client will
+appear to have come from the resolver or forwarder sending it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Some combinations of extended error codes and RCODEs may seem
+nonsensical (such as resolver-specific extended error codes received
+in responses from authoritative servers), so systems interpreting the
+extended error codes MUST NOT assume that a combination will make
+sense.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Receivers MUST be able to accept EDE codes and EXTRA-TEXT in
+all messages, including those with a NOERROR RCODE but need not act
+on them.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Applications MUST continue to follow requirements from
+applicable specifications on how to process RCODEs no matter what EDE
+values are also received.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Senders MAY include more than one EDE
+option and receivers MUST be able to accept (but not necessarily
+process or act on) multiple EDE options in a DNS message.
+'''
+

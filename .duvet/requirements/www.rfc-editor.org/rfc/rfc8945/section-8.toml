@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-8"
+
+# Shared Secrets
+#
+#    Secret keys are very sensitive information and all available steps
+#    should be taken to protect them on every host on which they are
+#    stored.  Generally, such hosts need to be physically protected.  If
+#    they are multi-user machines, great care should be taken so that
+#    unprivileged users have no access to keying material.  Resolvers
+#    often run unprivileged, which means all users of a host would be able
+#    to see whatever configuration data are used by the resolver.
+# 
+#    A name server usually runs privileged, which means its configuration
+#    data need not be visible to all users of the host.  For this reason,
+#    a host that implements transaction-based authentication should
+#    probably be configured with a "stub resolver" and a local caching and
+#    forwarding name server.  This presents a special problem for
+#    [RFC2136], which otherwise depends on clients to communicate only
+#    with a zone's authoritative name servers.
+# 
+#    Use of strong, random shared secrets is essential to the security of
+#    TSIG.  See [RFC4086] for a discussion of this issue.  The secret
+#    SHOULD be at least as long as the keyed hash output [RFC2104].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The secret
+SHOULD be at least as long as the keyed hash output [RFC2104].
+'''
+

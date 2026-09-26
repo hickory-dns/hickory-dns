@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.7"
+
+# RA (Recursion Available) Bit
+#
+#    In both multicast query and multicast response messages, the
+#    Recursion Available bit MUST be zero on transmission, and MUST be
+#    ignored on reception.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both multicast query and multicast response messages, the
+Recursion Available bit MUST be zero on transmission, and MUST be
+ignored on reception.
+'''
+

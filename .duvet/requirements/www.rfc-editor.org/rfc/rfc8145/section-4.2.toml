@@ -1,0 +1,82 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-4.2"
+
+# Use by Queriers
+#
+#    A validating resolver sets the edns-key-tag option in the OPT RR when
+#    sending a DNSKEY query.  The validating resolver SHOULD also set the
+#    DNSSEC OK bit (also known as the DO bit) [RFC4035] to indicate that
+#    it wishes to receive DNSSEC RRs in the response.
+# 
+#    A DNS client MUST NOT include the edns-key-tag option for non-DNSKEY
+#    queries.
+# 
+#    The KEY-TAG value(s) included in the edns-key-tag option represents
+#    the Key Tag of the trust anchor or DNSKEY RR that will be used to
+#    validate the expected response.  When the client sends a DNSKEY
+#    query, the edns-key-tag option represents the Key Tag(s) of the
+#    KSK(s) of the zone for which the server is authoritative.  A
+#    validating resolver learns the Key Tag(s) of the KSK(s) from the
+#    zone's DS record(s) (found in the parent) or from a trust anchor.
+# 
+#    A DNS client SHOULD include the edns-key-tag option when issuing a
+#    DNSKEY query for a zone corresponding to a trust anchor.
+# 
+#    A DNS client MAY include the edns-key-tag option when issuing a
+#    DNSKEY query for a non-trust anchor zone (i.e., Key Tags learned via
+#    DS records).  Since some DNSSEC validators implement bottom-up
+#    validation, a non-trust anchor Key Tags zone might not be known at
+#    the time of the query.  Such a validator can include the edns-key-tag
+#    option based on previously cached data.
+# 
+#    A DNS client MUST NOT include Key Tag(s) for keys that are not
+#    learned via either a trust anchor or DS records.
+# 
+#    Since the edns-key-tag option is only set in the query, if a client
+#    sees these options in the response, no action needs to be taken and
+#    the client MUST ignore the option values.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The validating resolver SHOULD also set the
+DNSSEC OK bit (also known as the DO bit) [RFC4035] to indicate that
+it wishes to receive DNSSEC RRs in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DNS client MUST NOT include the edns-key-tag option for non-DNSKEY
+queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A DNS client SHOULD include the edns-key-tag option when issuing a
+DNSKEY query for a zone corresponding to a trust anchor.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS client MAY include the edns-key-tag option when issuing a
+DNSKEY query for a non-trust anchor zone (i.e., Key Tags learned via
+DS records).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DNS client MUST NOT include Key Tag(s) for keys that are not
+learned via either a trust anchor or DS records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since the edns-key-tag option is only set in the query, if a client
+sees these options in the response, no action needs to be taken and
+the client MUST ignore the option values.
+'''
+

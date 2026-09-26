@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-5.2"
+
+# Parental Agent
+#
+#    In order to ensure timely DNSSEC bootstrapping of insecure domains,
+#    stalemate situations due to mismatch of stale cached records (Step 4
+#    of Section 4.2) need to be avoided.  It is thus RECOMMENDED that
+#    queries into signaling domains be performed with an (initially) empty
+#    resolver cache, or that some other method for retrieving fresh data
+#    from authoritative servers be used.
+# 
+#    It is also RECOMMENDED that QNAME minimization [RFC9156] be used when
+#    resolving queries for signaling records to guard against certain
+#    attacks (see Section 6).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is thus RECOMMENDED that
+queries into signaling domains be performed with an (initially) empty
+resolver cache, or that some other method for retrieving fresh data
+from authoritative servers be used.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is also RECOMMENDED that QNAME minimization [RFC9156] be used when
+resolving queries for signaling records to guard against certain
+attacks (see Section 6).
+'''
+

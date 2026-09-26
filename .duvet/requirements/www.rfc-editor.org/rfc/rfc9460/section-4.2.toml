@@ -1,0 +1,59 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-4.2"
+
+# Recursive Resolvers
+#
+#    Whether the recursive resolver is aware of SVCB or not, the normal
+#    response construction process used for unknown RR types [RFC3597]
+#    generates the Answer section of the response.  Recursive resolvers
+#    that are aware of SVCB SHOULD help the client to execute the
+#    procedure in Section 3 with minimum overall latency by incorporating
+#    additional useful information into the Additional section of the
+#    response as follows:
+# 
+#    1.  Incorporate the results of SVCB resolution.  If the recursive
+#        resolver's local chain length limit (which may be different from
+#        the client's limit) has been reached, terminate.
+# 
+#    2.  If any of the resolved SVCB records are in AliasMode, choose one
+#        of them at random, and resolve SVCB, A, and AAAA records for its
+#        TargetName.
+# 
+#        *  If any SVCB records are resolved, go to Step 1.
+# 
+#        *  Otherwise, incorporate the results of A and AAAA resolution,
+#           and terminate.
+# 
+#    3.  All the resolved SVCB records are in ServiceMode.  Resolve A and
+#        AAAA queries for each TargetName (or for the owner name if
+#        TargetName is "."), incorporate all the results, and terminate.
+# 
+#    In this procedure, "resolve" means the resolver's ordinary recursive
+#    resolution procedure, as if processing a query for that RRset.  This
+#    includes following any aliases that the resolver would ordinarily
+#    follow (e.g., CNAME, DNAME [DNAME]).  Errors or anomalies in
+#    obtaining additional records MAY cause this process to terminate but
+#    MUST NOT themselves cause the resolver to send a failure response.
+# 
+#    See Section 2.4.2 for additional safeguards for recursive resolvers
+#    to implement to mitigate loops.
+# 
+#    See Section 5.2 for possible optimizations of this procedure.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Recursive resolvers
+that are aware of SVCB SHOULD help the client to execute the
+procedure in Section 3 with minimum overall latency by incorporating
+additional useful information into the Additional section of the
+response as follows:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Errors or anomalies in
+obtaining additional records MAY cause this process to terminate but
+MUST NOT themselves cause the resolver to send a failure response.
+'''
+

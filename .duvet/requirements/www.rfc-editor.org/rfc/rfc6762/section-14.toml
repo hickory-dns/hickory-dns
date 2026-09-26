@@ -1,0 +1,87 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-14"
+
+# Considerations for Multiple Interfaces
+#
+#    A host SHOULD defend its dot-local host name on all active interfaces
+#    on which it is answering Multicast DNS queries.
+# 
+#    In the event of a name conflict on *any* interface, a host should
+#    configure a new host name, if it wishes to maintain uniqueness of its
+#    host name.
+# 
+#    A host may choose to use the same name (or set of names) for all of
+#    its address records on all interfaces, or it may choose to manage its
+#    Multicast DNS interfaces independently, potentially answering to a
+#    different name (or set of names) on different interfaces.
+# 
+#    Except in the case of proxying and other similar specialized uses,
+#    addresses in IPv4 or IPv6 address records in Multicast DNS responses
+#    MUST be valid for use on the interface on which the response is being
+#    sent.
+# 
+#    Just as the same link-local IP address may validly be in use
+#    simultaneously on different links by different hosts, the same link-
+#    local host name may validly be in use simultaneously on different
+#    links, and this is not an error.  A multihomed host with connections
+#    to two different links may be able to communicate with two different
+#    hosts that are validly using the same name.  While this kind of name
+#    duplication should be rare, it means that a host that wants to fully
+#    support this case needs network programming APIs that allow
+#    applications to specify on what interface to perform a link-local
+#    Multicast DNS query, and to discover on what interface a Multicast
+#    DNS response was received.
+# 
+#    There is one other special precaution that multihomed hosts need to
+#    take.  It's common with today's laptop computers to have an Ethernet
+#    connection and an 802.11 [IEEE.802.11] wireless connection active at
+#    the same time.  What the software on the laptop computer can't easily
+#    tell is whether the wireless connection is in fact bridged onto the
+#    same network segment as its Ethernet connection.  If the two networks
+#    are bridged together, then packets the host sends on one interface
+#    will arrive on the other interface a few milliseconds later, and care
+#    must be taken to ensure that this bridging does not cause problems:
+# 
+#    When the host announces its host name (i.e., its address records) on
+#    its wireless interface, those announcement records are sent with the
+#    cache-flush bit set, so when they arrive on the Ethernet segment,
+#    they will cause all the peers on the Ethernet to flush the host's
+#    Ethernet address records from their caches.  The Multicast DNS
+#    protocol has a safeguard to protect against this situation: when
+#    records are received with the cache-flush bit set, other records are
+#    not deleted from peer caches immediately, but are marked for deletion
+#    in one second.  When the host sees its own wireless address records
+#    arrive on its Ethernet interface, with the cache-flush bit set, this
+#    one-second grace period gives the host time to respond and re-
+#    announce its Ethernet address records, to reinstate those records in
+#    peer caches before they are deleted.
+# 
+#    As described, this solves one problem, but creates another, because
+#    when those Ethernet announcement records arrive back on the wireless
+#    interface, the host would again respond defensively to reinstate its
+#    wireless records, and this process would continue forever,
+#    continuously flooding the network with traffic.  The Multicast DNS
+#    protocol has a second safeguard, to solve this problem: the cache-
+#    flush bit does not apply to records received very recently, within
+#    the last second.  This means that when the host sees its own Ethernet
+#    address records arrive on its wireless interface, with the cache-
+#    flush bit set, it knows there's no need to re-announce its wireless
+#    address records again because it already sent them less than a second
+#    ago, and this makes them immune from deletion from peer caches.  (See
+#    Section 10.2.)
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A host SHOULD defend its dot-local host name on all active interfaces
+on which it is answering Multicast DNS queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Except in the case of proxying and other similar specialized uses,
+addresses in IPv4 or IPv6 address records in Multicast DNS responses
+MUST be valid for use on the interface on which the response is being
+sent.
+'''
+

@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc3007#section-1.5"
+
+# - Signatory strength
+#
+#    [RFC2535, section 3.1.2] defines the signatory field of a key as the
+#    final 4 bits of the flags field, but does not define its value.  This
+#    proposal leaves this field undefined.  Updating [RFC2535], this field
+#    SHOULD be set to 0 in KEY records, and MUST be ignored.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Updating [RFC2535], this field
+SHOULD be set to 0 in KEY records, and MUST be ignored.
+'''
+

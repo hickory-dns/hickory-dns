@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-4.1.2"
+
+# AXFR Server TCP
+#
+#    An AXFR server MUST be able to handle multiple AXFR sessions on a
+#    single TCP connection, as well as to handle other query/response
+#    transactions over it.
+# 
+#    If a TCP connection is closed remotely, the AXFR server MUST cancel
+#    all AXFR sessions in place.  No retry activity is necessary; that is
+#    initiated by the AXFR client.
+# 
+#    Local policy MAY dictate that a TCP connection is to be closed.  Such
+#    an action SHOULD be in reaction to limits such as those placed on the
+#    number of outstanding open connections.  Closing a connection in
+#    response to a suspected security event SHOULD be done only in extreme
+#    cases, when the server is certain the action is warranted.  An
+#    isolated request for a zone not on the AXFR server SHOULD receive a
+#    response with the appropriate response code and not see the
+#    connection broken.
+
+[[spec]]
+level = "MUST"
+quote = '''
+An AXFR server MUST be able to handle multiple AXFR sessions on a
+single TCP connection, as well as to handle other query/response
+transactions over it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a TCP connection is closed remotely, the AXFR server MUST cancel
+all AXFR sessions in place.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Local policy MAY dictate that a TCP connection is to be closed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Such
+an action SHOULD be in reaction to limits such as those placed on the
+number of outstanding open connections.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Closing a connection in
+response to a suspected security event SHOULD be done only in extreme
+cases, when the server is certain the action is warranted.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An
+isolated request for a zone not on the AXFR server SHOULD receive a
+response with the appropriate response code and not see the
+connection broken.
+'''
+

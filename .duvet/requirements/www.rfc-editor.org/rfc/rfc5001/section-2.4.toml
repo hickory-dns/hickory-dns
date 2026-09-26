@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc5001#section-2.4"
+
+# Presentation Format
+#
+#    User interfaces MUST read and write the contents of the NSID option
+#    as a sequence of hexadecimal digits, two digits per payload octet.
+# 
+#    The NSID payload is binary data.  Any comparison between NSID
+#    payloads MUST be a comparison of the raw binary data.  Copy
+#    operations MUST NOT assume that the raw NSID payload is null-
+#    terminated.  Any resemblance between raw NSID payload data and any
+#    form of text is purely a convenience, and does not change the
+#    underlying nature of the payload data.
+# 
+#    See Section 3.3 for discussion.
+
+[[spec]]
+level = "MUST"
+quote = '''
+User interfaces MUST read and write the contents of the NSID option
+as a sequence of hexadecimal digits, two digits per payload octet.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any comparison between NSID
+payloads MUST be a comparison of the raw binary data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Copy
+operations MUST NOT assume that the raw NSID payload is null-
+terminated.
+'''
+

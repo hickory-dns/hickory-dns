@@ -1,0 +1,116 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-4.2"
+
+# Answer with a Synthesized HINFO RRset
+#
+#    If there is no CNAME present at the owner name matching the QNAME,
+#    the resource record returned in the response MAY instead be
+#    synthesized.  In this case, a single HINFO resource record SHOULD be
+#    returned.  The CPU field of the HINFO RDATA SHOULD be set to
+#    "RFC8482".  The OS field of the HINFO RDATA SHOULD be set to the null
+#    string to minimize the size of the response.
+# 
+#    The TTL encoded for the synthesized HINFO resource record SHOULD be
+#    chosen by the operator of the DNS responder to be large enough to
+#    suppress frequent subsequent ANY queries from the same initiator with
+#    the same QNAME, understanding that a TTL that is too long might make
+#    policy changes relating to ANY queries difficult to change in the
+#    future.  The specific value used SHOULD be configurable by the
+#    operator of the nameserver according to local policy, based on the
+#    familiar considerations involved in choosing a TTL value for any
+#    resource record in any zone.
+# 
+#    If the DNS query includes DO=1 and the QNAME corresponds to a zone
+#    that is known by the responder to be signed, a valid RRSIG for the
+#    RRsets in the answer (or authority if answer is empty) section MUST
+#    be returned.  In the case of DO=0, the RRSIG SHOULD be omitted.
+# 
+#    A system that receives an HINFO response SHOULD NOT infer that the
+#    response was generated according to this specification and apply any
+#    special processing of the response because, in general, it is not
+#    possible to tell with certainty whether the HINFO RRset received was
+#    synthesized.  In particular, systems SHOULD NOT rely upon the HINFO
+#    RDATA described in this section to distinguish between synthesized
+#    and non-synthesized HINFO RRsets.
+
+[[spec]]
+level = "MAY"
+quote = '''
+If there is no CNAME present at the owner name matching the QNAME,
+the resource record returned in the response MAY instead be
+synthesized.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this case, a single HINFO resource record SHOULD be
+returned.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The CPU field of the HINFO RDATA SHOULD be set to
+"RFC8482".
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The OS field of the HINFO RDATA SHOULD be set to the null
+string to minimize the size of the response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The TTL encoded for the synthesized HINFO resource record SHOULD be
+chosen by the operator of the DNS responder to be large enough to
+suppress frequent subsequent ANY queries from the same initiator with
+the same QNAME, understanding that a TTL that is too long might make
+policy changes relating to ANY queries difficult to change in the
+future.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The specific value used SHOULD be configurable by the
+operator of the nameserver according to local policy, based on the
+familiar considerations involved in choosing a TTL value for any
+resource record in any zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the DNS query includes DO=1 and the QNAME corresponds to a zone
+that is known by the responder to be signed, a valid RRSIG for the
+RRsets in the answer (or authority if answer is empty) section MUST
+be returned.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the case of DO=0, the RRSIG SHOULD be omitted.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A system that receives an HINFO response SHOULD NOT infer that the
+response was generated according to this specification and apply any
+special processing of the response because, in general, it is not
+possible to tell with certainty whether the HINFO RRset received was
+synthesized.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In particular, systems SHOULD NOT rely upon the HINFO
+RDATA described in this section to distinguish between synthesized
+and non-synthesized HINFO RRsets.
+'''
+

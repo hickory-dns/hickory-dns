@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc9563#section-4.2"
+
+# RRSIG Resource Records
+#
+#    The SM2 signature is the combination of two non-negative integers,
+#    called "r" and "s".  The two integers, each of which is formatted as
+#    a simple octet string, are combined into a single longer octet string
+#    for DNSSEC as the concatenation "r | s".  (Conversion of the integers
+#    to bit strings is described in Section 4.2.1 of [GMT-0003.1].)  Each
+#    integer MUST be encoded as 32 octets.
+# 
+#    Process details are described in Section 6 of [GMT-0003.2].
+# 
+#    The algorithm number associated with the DNSKEY and RRSIG resource
+#    records is 17, which is described in the IANA Considerations section.
+# 
+#    Conformant implementations that create records to be put into the DNS
+#    MAY implement signing and verification for the SM2 digital signature
+#    algorithm.  Conformant DNSSEC verifiers MAY implement verification
+#    for the above algorithm.
+
+[[spec]]
+level = "MUST"
+quote = '''
+(Conversion of the integers
+to bit strings is described in Section 4.2.1 of [GMT-0003.1].)  Each
+integer MUST be encoded as 32 octets.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Conformant implementations that create records to be put into the DNS
+MAY implement signing and verification for the SM2 digital signature
+algorithm.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Conformant DNSSEC verifiers MAY implement verification
+for the above algorithm.
+'''
+

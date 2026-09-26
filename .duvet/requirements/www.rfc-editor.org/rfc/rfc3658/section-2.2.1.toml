@@ -1,0 +1,100 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2.1"
+
+# RFC 2535 2.3.4 and 3.4: Special Considerations at Delegation
+#
+#         Points
+# 
+#    DNS security views each zone as a unit of data completely under the
+#    control of the zone owner with each entry (RRset) signed by a special
+#    private key held by the zone manager.  But the DNS protocol views the
+#    leaf nodes in a zone that are also the apex nodes of a child zone
+#    (i.e., delegation points) as "really" belonging to the child zone.
+#    The corresponding domain names appear in two master files and might
+#    have RRsets signed by both the parent and child zones' keys.  A
+#    retrieval could get a mixture of these RRsets and SIGs, especially
+#    since one nameserver could be serving both the zone above and below a
+#    delegation point [RFC2181].
+# 
+#    Each DS RRset stored in the parent zone MUST be signed by at least
+#    one of the parent zone's private keys.  The parent zone MUST NOT
+#    contain a KEY RRset at any delegation point.  Delegations in the
+#    parent MAY contain only the following RR types: NS, DS, NXT and SIG.
+#    The NS RRset MUST NOT be signed.  The NXT RRset is the exceptional
+#    case: it will always appear differently and authoritatively in both
+#    the parent and child zones, if both are secure.
+# 
+#    A secure zone MUST contain a self-signed KEY RRset at its apex.  Upon
+#    verifying the DS RRset from the parent, a resolver MAY trust any KEY
+#    identified in the DS RRset as a valid signer of the child's apex KEY
+#    RRset.  Resolvers configured to trust one of the keys signing the KEY
+#    RRset MAY now treat any data signed by the zone keys in the KEY RRset
+#    as secure.  In all other cases, resolvers MUST consider the zone
+#    unsecure.
+# 
+#    An authoritative nameserver queried for type DS MUST return the DS
+#    RRset in the answer section.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each DS RRset stored in the parent zone MUST be signed by at least
+one of the parent zone's private keys.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The parent zone MUST NOT
+contain a KEY RRset at any delegation point.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Delegations in the
+parent MAY contain only the following RR types: NS, DS, NXT and SIG.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The NS RRset MUST NOT be signed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A secure zone MUST contain a self-signed KEY RRset at its apex.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Upon
+verifying the DS RRset from the parent, a resolver MAY trust any KEY
+identified in the DS RRset as a valid signer of the child's apex KEY
+RRset.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Resolvers configured to trust one of the keys signing the KEY
+RRset MAY now treat any data signed by the zone keys in the KEY RRset
+as secure.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In all other cases, resolvers MUST consider the zone
+unsecure.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An authoritative nameserver queried for type DS MUST return the DS
+RRset in the answer section.
+'''
+

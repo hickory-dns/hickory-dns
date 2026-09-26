@@ -1,0 +1,86 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-1.1"
+
+# Transition to DNS Push Notifications
+#
+#    The LLQ protocol enjoyed over a decade of useful operation, enabling
+#    timely live updates for the service discovery user interface in
+#    Apple's Back to My Mac [RFC6281] service.
+# 
+#    However, some problems were discovered, as described in Appendix A.
+#    This operational experience with LLQ informed the design of its IETF
+#    Standards Track successor, DNS Push Notifications [RFC8765].  Since
+#    no further work is being done on the LLQ protocol, this LLQ
+#    specification will not be updated to remedy these problems.
+# 
+#    All existing LLQ implementations are RECOMMENDED to migrate to using
+#    DNS Push Notifications instead.
+# 
+#    Existing LLQ servers are RECOMMENDED to implement and support DNS
+#    Push Notifications so that clients can begin migrating to the newer
+#    protocol.
+# 
+#    Existing LLQ clients are RECOMMENDED to query for the
+#    "_dns-push-tls._tcp.<zone>" SRV record first, and then only if DNS
+#    Push Notifications fail, fall back to query for
+#    "_dns-llq._udp.<zone>" instead.  Use of the "_dns-llq._udp.<zone>"
+#    SRV record is described in Section 4.
+# 
+#    This will cause clients to prefer the newer protocol when possible.
+#    It is RECOMMENDED that clients always attempt DNS Push Notifications
+#    first for every new request, and only if that fails, then fall back
+#    to using LLQ.  Clients SHOULD NOT record that a given server only
+#    speaks LLQ and subsequently default to LLQ for that server, since
+#    server software gets updated and even a server that speaks only LLQ
+#    today may be updated to support DNS Push Notifications tomorrow.
+# 
+#    New client and server implementations are RECOMMENDED to support only
+#    DNS Push Notifications.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+All existing LLQ implementations are RECOMMENDED to migrate to using
+DNS Push Notifications instead.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Existing LLQ servers are RECOMMENDED to implement and support DNS
+Push Notifications so that clients can begin migrating to the newer
+protocol.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Existing LLQ clients are RECOMMENDED to query for the
+"_dns-push-tls._tcp.<zone>" SRV record first, and then only if DNS
+Push Notifications fail, fall back to query for
+"_dns-llq._udp.<zone>" instead.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that clients always attempt DNS Push Notifications
+first for every new request, and only if that fails, then fall back
+to using LLQ.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD NOT record that a given server only
+speaks LLQ and subsequently default to LLQ for that server, since
+server software gets updated and even a server that speaks only LLQ
+today may be updated to support DNS Push Notifications tomorrow.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+New client and server implementations are RECOMMENDED to support only
+DNS Push Notifications.
+'''
+

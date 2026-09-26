@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc3757#section-2"
+
+# The Secure Entry Point (SEP) Flag
+#
+#                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+#     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |              flags          |S|   protocol    |   algorithm   |
+#    |                             |E|               |               |
+#    |                             |P|               |               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                                                               /
+#    /                        public key                             /
+#    /                                                               /
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# 
+#                           DNSKEY RR Format
+#    This document assigns the 15th bit in the flags field as the secure
+#    entry point (SEP) bit.  If the bit is set to 1 the key is intended to
+#    be used as secure entry point key.  One SHOULD NOT assign special
+#    meaning to the key if the bit is set to 0.  Operators can recognize
+#    the secure entry point key by the even or odd-ness of the decimal
+#    representation of the flag field.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+One SHOULD NOT assign special
+meaning to the key if the bit is set to 0.
+'''
+

@@ -1,0 +1,203 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.2.1"
+
+# Authoritative Nameserver
+#
+#    When a query containing an ECS option is received, an Authoritative
+#    Nameserver supporting ECS MAY use the address information specified
+#    in the option to generate a tailored response.
+# 
+#    Authoritative Nameservers that have not implemented or enabled
+#    support for the ECS option ought to safely ignore it within incoming
+#    queries, per [RFC6891], Section 6.1.2.  Such a server MUST NOT
+#    include an ECS option within replies to indicate lack of support for
+#    it.  Implementers of Intermediate Nameservers should be aware,
+#    however, that some nameservers incorrectly echo back unknown EDNS0
+#    options.  In this protocol, that should be mostly harmless, as the
+#    SCOPE PREFIX-LENGTH should come back as 0, thus marking the response
+#    as covering all networks.
+# 
+#    A query with a wrongly formatted option (e.g., an unknown FAMILY)
+#    MUST be rejected and a FORMERR response MUST be returned to the
+#    sender, as described in [RFC6891], "Transport Considerations".
+# 
+#    An Authoritative Nameserver that implements this protocol and
+#    receives an ECS option MUST include an ECS option in its response to
+#    indicate that it SHOULD be cached accordingly, regardless of whether
+#    the client information was needed to formulate an answer.  (Note that
+# 
+#    the requirement in [RFC6891] to reserve space for the OPT record
+#    could mean that the Answer section of the response will be truncated
+#    and fall back to TCP indicated accordingly.)  If an ECS option was
+#    not included in a query, one MUST NOT be included in the response
+#    even if the server is providing a Tailored Response -- presumably
+#    based on the address from which it received the query.
+# 
+#    FAMILY, SOURCE PREFIX-LENGTH, and ADDRESS in the response MUST match
+#    those in the query.  Echoing back these values helps to mitigate
+#    certain attack vectors, as described in Section 11.
+# 
+#    SCOPE PREFIX-LENGTH in the response indicates the network for which
+#    the answer is intended.
+# 
+#    A SCOPE PREFIX-LENGTH value longer than SOURCE PREFIX-LENGTH
+#    indicates that the provided prefix length was not specific enough to
+#    select the most appropriate Tailored Response.  Future queries for
+#    the name within the specified network SHOULD use the longer SCOPE
+#    PREFIX-LENGTH.  Factors affecting whether the Recursive Resolver
+#    would use the longer length include the amount of privacy masking the
+#    operator wants to provide their users, and the additional resource
+#    implications for the cache.
+# 
+#    Conversely, a shorter SCOPE PREFIX-LENGTH indicates that more bits
+#    than necessary were provided, and the answer is suitable for a
+#    broader range of addresses.  This could be as short as 0, to indicate
+#    that the answer is suitable for all addresses in FAMILY.
+# 
+#    As the logical topology of any part of the network with regard to the
+#    tailored response can vary, an Authoritative Nameserver may return
+#    different values of SCOPE PREFIX-LENGTH for different networks.
+# 
+#    Since some queries can result in multiple RRsets being added to the
+#    response, there is an unfortunate ambiguity from the original
+#    specification as to how SCOPE PREFIX-LENGTH would apply to each
+#    individual RRset.  For example, multiple types in response to an ANY
+#    metaquery could all have different applicable SCOPE PREFIX-LENGTH
+#    values, but this protocol only has the ability to signal one.  The
+#    response SHOULD therefore, include the longest relevant PREFIX-LENGTH
+#    of any RRset in the answer, which could have the unfortunate side
+#    effect of redundantly caching some data that could be cached more
+#    broadly.  For the specific case of a Canonical Name (CNAME) chain,
+#    the Authoritative Nameserver SHOULD only place the initial CNAME
+#    record in the Answer section, to have it cached unambiguously and
+#    appropriately.  Most modern Recursive Resolvers restart the query
+#    with the CNAME, so the remainder of the chain is typically ignored
+# 
+#    anyway.  For message-focused resolvers, rather than RRset-focused
+#    ones, this will mean caching the entire CNAME chain at the longest
+#    PREFIX-LENGTH of any RRset in the chain.
+# 
+#    The specific logic that an Authoritative Nameserver uses to choose a
+#    tailored response is not in the scope of this document.  Implementers
+#    are encouraged, however, to carefully consider their selection of
+#    SCOPE PREFIX-LENGTH for the response in the event that the best
+#    tailored response cannot be determined, and what the implications
+#    would be over the life of the TTL.
+# 
+#    Authoritative Nameservers might have situations where one Tailored
+#    Response is appropriate for a relatively broad address range, such as
+#    an IPv4 /20, except for some exceptions, such as a few /24 ranges
+#    within that /20.  Because it can't be guaranteed that queries for all
+#    longer prefix lengths would arrive before one that would be answered
+#    by the shorter prefix length, an Authoritative Nameserver MUST NOT
+#    overlap prefixes.
+# 
+#    When the Authoritative Nameserver has a longer prefix length Tailored
+#    Response within a shorter prefix length Tailored Response, then
+#    implementations can either:
+# 
+#    1.  Deaggregate the shorter prefix response into multiple longer
+#        prefix responses, or
+# 
+#    2.  Alert the operator that the order of queries will determine which
+#        answers get cached, and either warn and continue or treat this as
+#        an error and refuse to load the configuration.
+# 
+#    This choice should be documented for the operator, for example, in
+#    the user manual.
+# 
+#    When deaggregating to correct the overlap, prefix lengths should be
+#    optimized to use the minimum necessary to cover the address space, in
+#    order to reduce the overhead that results from having multiple copies
+#    of the same answer.  As a trivial example, if the Tailored Response
+#    for 1.2.0/20 is A but there is one exception of 1.2.3/24 for B, then
+#    the Authoritative Nameserver would need to provide Tailored Responses
+#    for 1.2.0/23, 1.2.2/24, 1.2.4/22, and 1.2.8/21 all pointing to A, and
+#    1.2.3/24 to B.
+
+[[spec]]
+level = "MAY"
+quote = '''
+When a query containing an ECS option is received, an Authoritative
+Nameserver supporting ECS MAY use the address information specified
+in the option to generate a tailored response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Such a server MUST NOT
+include an ECS option within replies to indicate lack of support for
+it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A query with a wrongly formatted option (e.g., an unknown FAMILY)
+MUST be rejected and a FORMERR response MUST be returned to the
+sender, as described in [RFC6891], "Transport Considerations".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An Authoritative Nameserver that implements this protocol and
+receives an ECS option MUST include an ECS option in its response to
+indicate that it SHOULD be cached accordingly, regardless of whether
+the client information was needed to formulate an answer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+the requirement in [RFC6891] to reserve space for the OPT record
+could mean that the Answer section of the response will be truncated
+and fall back to TCP indicated accordingly.)  If an ECS option was
+not included in a query, one MUST NOT be included in the response
+even if the server is providing a Tailored Response -- presumably
+based on the address from which it received the query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+FAMILY, SOURCE PREFIX-LENGTH, and ADDRESS in the response MUST match
+those in the query.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Future queries for
+the name within the specified network SHOULD use the longer SCOPE
+PREFIX-LENGTH.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The
+response SHOULD therefore, include the longest relevant PREFIX-LENGTH
+of any RRset in the answer, which could have the unfortunate side
+effect of redundantly caching some data that could be cached more
+broadly.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For the specific case of a Canonical Name (CNAME) chain,
+the Authoritative Nameserver SHOULD only place the initial CNAME
+record in the Answer section, to have it cached unambiguously and
+appropriately.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Because it can't be guaranteed that queries for all
+longer prefix lengths would arrive before one that would be answered
+by the shorter prefix length, an Authoritative Nameserver MUST NOT
+overlap prefixes.
+'''
+

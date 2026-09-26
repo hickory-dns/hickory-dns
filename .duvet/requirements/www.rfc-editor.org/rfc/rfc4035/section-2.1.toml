@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-2.1"
+
+# Including DNSKEY RRs in a Zone
+#
+#    To sign a zone, the zone's administrator generates one or more
+#    public/private key pairs and uses the private key(s) to sign
+#    authoritative RRsets in the zone.  For each private key used to
+#    create RRSIG RRs in a zone, the zone SHOULD include a zone DNSKEY RR
+#    containing the corresponding public key.  A zone key DNSKEY RR MUST
+#    have the Zone Key bit of the flags RDATA field set (see Section 2.1.1
+#    of [RFC4034]).  Public keys associated with other DNS operations MAY
+#    be stored in DNSKEY RRs that are not marked as zone keys but MUST NOT
+#    be used to verify RRSIGs.
+# 
+#    If the zone administrator intends a signed zone to be usable other
+#    than as an island of security, the zone apex MUST contain at least
+#    one DNSKEY RR to act as a secure entry point into the zone.  This
+#    secure entry point could then be used as the target of a secure
+#    delegation via a corresponding DS RR in the parent zone (see
+#    [RFC4034]).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For each private key used to
+create RRSIG RRs in a zone, the zone SHOULD include a zone DNSKEY RR
+containing the corresponding public key.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A zone key DNSKEY RR MUST
+have the Zone Key bit of the flags RDATA field set (see Section 2.1.1
+of [RFC4034]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Public keys associated with other DNS operations MAY
+be stored in DNSKEY RRs that are not marked as zone keys but MUST NOT
+be used to verify RRSIGs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the zone administrator intends a signed zone to be usable other
+than as an island of security, the zone apex MUST contain at least
+one DNSKEY RR to act as a secure entry point into the zone.
+'''
+

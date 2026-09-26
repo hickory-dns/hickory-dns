@@ -1,0 +1,150 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-4"
+
+# LLQ Address and Port Identification
+#
+#    The client requires a mechanism to determine to which server it
+#    should send LLQ operations.
+# 
+#    Additionally, some firewalls block direct communication with a name
+#    server on port 53 to avoid spoof responses.  However, this direct
+#    communication is necessary for LLQs.  Thus, servers MAY listen for
+#    LLQs on a different port (typically 5352).  Clients, therefore, also
+#    need a mechanism to determine to which port to send LLQ operations.
+# 
+#    The client determines the server responsible for a given LLQ much as
+#    a client determines to which server to send a DNS dynamic update.
+#    The client begins by sending a standard DNS query for the name of the
+#    LLQ, with type SOA.  If the record exists, then the server MUST
+#    answer with that SOA record in the Answer section.  If a record of
+#    type SOA with the LLQ name does not exist, then the server SHOULD
+#    include an SOA record for that name's zone in the Authority section.
+#    For example, a query for "_ftp._tcp.example.com" with type SOA, when
+#    there is no SOA record with that name, might return an SOA record
+#    named "example.com" in the Authority section.  If the named SOA
+#    record does not exist and the server fails to include the enclosing
+#    SOA record in the Authority section, the client strips the leading
+#    label from the name and tries again, repeating until an answer is
+#    received.
+# 
+#    This iterative zone apex discovery algorithm is described in more
+#    detail in the DNS Push Notifications specification [RFC8765].
+# 
+#    Upon learning the zone apex (SOA), the client then constructs and
+#    sends an SRV query for the name, "_dns-llq._udp.<zone>",
+#    e.g., "_dns-llq._udp.example.com".
+# 
+#    An authoritative server for a zone implementing LLQ MUST answer with
+#    an SRV record [RFC2782] for this name.  The SRV RDATA is as follows:
+# 
+#     +----------+------------------------------------------------------+
+#     | PRIORITY | typically 0                                          |
+#     +----------+------------------------------------------------------+
+#     | WEIGHT   | typically 0                                          |
+#     +----------+------------------------------------------------------+
+#     | PORT     | typically 53 or 5352                                 |
+#     +----------+------------------------------------------------------+
+#     | TARGET   | name of server providing LLQs for the requested zone |
+#     +----------+------------------------------------------------------+
+# 
+#                              Table 3: SRV RDATA
+# 
+#    The server SHOULD include the address record(s) for the target host
+#    in the Additional section of the response.
+# 
+#    If the server does not include the target host's address record(s) in
+#    the Additional section, the client SHOULD query explicitly for the
+#    address record(s) with the name of the SRV target.
+# 
+#    The client MUST send all LLQ requests, refreshes, and acknowledgments
+#    to the name server specified in the SRV target, at the address
+#    contained in the address record for that target.  Note that the
+#    queries described in this section (including those for SOA and SRV
+#    records) MAY be sent to an intermediate DNS recursive resolver --
+#    they need not be sent directly to the name server.
+# 
+#    If, on issuing the SRV query, the client receives a negative response
+#    indicating that the SRV record does not exist, the client SHOULD
+#    conclude that the zone does not support LLQ.  The client then SHOULD
+#    NOT send an LLQ request for the desired name, instead utilizing the
+#    behavior for LLQ-unaware servers described in Section 5, "LLQ Setup".
+# 
+#    Servers should send all messages to the source address and port of
+#    the LLQ setup message received from the client.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Thus, servers MAY listen for
+LLQs on a different port (typically 5352).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the record exists, then the server MUST
+answer with that SOA record in the Answer section.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a record of
+type SOA with the LLQ name does not exist, then the server SHOULD
+include an SOA record for that name's zone in the Authority section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An authoritative server for a zone implementing LLQ MUST answer with
+an SRV record [RFC2782] for this name.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The server SHOULD include the address record(s) for the target host
+in the Additional section of the response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the server does not include the target host's address record(s) in
+the Additional section, the client SHOULD query explicitly for the
+address record(s) with the name of the SRV target.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST send all LLQ requests, refreshes, and acknowledgments
+to the name server specified in the SRV target, at the address
+contained in the address record for that target.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Note that the
+queries described in this section (including those for SOA and SRV
+records) MAY be sent to an intermediate DNS recursive resolver --
+they need not be sent directly to the name server.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If, on issuing the SRV query, the client receives a negative response
+indicating that the SRV record does not exist, the client SHOULD
+conclude that the zone does not support LLQ.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client then SHOULD
+NOT send an LLQ request for the desired name, instead utilizing the
+behavior for LLQ-unaware servers described in Section 5, "LLQ Setup".
+'''
+

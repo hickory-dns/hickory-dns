@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc8078#section-3.1"
+
+# Accept Policy via Authenticated Channel
+#
+#    In this case, the parent is notified via authenticated channel UI/API
+#    that a CDS/CDNSKEY RRset exists.  In the case of a CDS RRset, the
+#    parent retrieves the CDS RRset and inserts the corresponding DS RRset
+#    as requested.  In the case of CDNSKEY, the parent retrieves the
+#    CDNSKEY RRset and calculates the DS record(s).  Parents may limit the
+#    DS record type based on local policy.  Parents SHOULD NOT refuse CDS/
+#    CDNSKEY updates that do not (yet) have a matching DNSKEY in the child
+#    zone.  This will allow the child to pre-publish a spare (and
+#    potentially offline) DNSKEY.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Parents SHOULD NOT refuse CDS/
+CDNSKEY updates that do not (yet) have a matching DNSKEY in the child
+zone.
+'''
+

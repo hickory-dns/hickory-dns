@@ -1,0 +1,299 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.2.1"
+
+# Header Values
+#
+#    These are the DNS message header values for AXFR responses.
+# 
+#       ID          MUST be copied from request -- see Note a)
+# 
+#       QR          MUST be 1 (Response)
+# 
+#       OPCODE      MUST be 0 (Standard Query)
+# 
+#       Flags:
+#          AA       normally 1 -- see Note b)
+#          TC       MUST be 0 (Not truncated)
+#          RD       RECOMMENDED: copy request's value; MAY be set to 0
+#          RA       SHOULD be 0 -- see Note c)
+#          Z        "mbz" -- see Note d)
+#          AD       "mbz" -- see Note d)
+#          CD       "mbz" -- see Note d)
+# 
+#       RCODE       See Note e)
+# 
+#       QDCOUNT     MUST be 1 in the first message;
+#                   MUST be 0 or 1 in all following messages;
+#                   MUST be 1 if RCODE indicates an error
+# 
+#       ANCOUNT     See Note f)
+# 
+#       NSCOUNT     MUST be 0
+# 
+#       ARCOUNT     See Note g)
+# 
+#    Notes:
+# 
+#    a) Because some old implementations behave differently than is now
+#       desired, the requirement on this field is stated in detail.  New
+#       DNS servers MUST set this field to the value of the AXFR query ID
+#       in each AXFR response message for the session.  AXFR clients MUST
+#       be able to manage sessions resulting from the issuance of multiple
+#       outstanding queries, whether AXFR queries or other DNS queries.  A
+#       client SHOULD discard responses that do not correspond (via the
+#       message ID) to any outstanding queries.
+# 
+#       Unless the client is sure that the server will consistently set
+#       the ID field to the query's ID, the client is NOT RECOMMENDED to
+#       issue any other queries until the end of the zone transfer.  A
+#       client MAY become aware of a server's abilities via a
+#       configuration setting.
+# 
+#    b) If the RCODE is 0 (no error), then the AA bit MUST be 1.  For any
+#       other value of RCODE, the AA bit MUST be set according to the
+#       rules for that error code.  If in doubt, it is RECOMMENDED that it
+#       be set to 1.  It is RECOMMENDED that the value be ignored by the
+#       AXFR client.
+# 
+#    c) It is RECOMMENDED that the server set the value to 0; the client
+#       MUST ignore this value.
+# 
+#       The server MAY set this value according to the local policy
+#       regarding recursive service, but doing so might confuse the
+#       interpretation of the response, as AXFR cannot be retrieved
+#       recursively.  A client MAY note the server's policy regarding
+#       recursive service from this value, but SHOULD NOT conclude that
+#       the AXFR response was obtained recursively, even if the RD bit was
+#       1 in the query.
+# 
+#    d) "mbz" -- The server MUST set this bit to 0; the client MUST ignore
+#       it.
+# 
+#    e) In the absence of an error, the server MUST set the value of this
+#       field to NoError(0).  If a server is not authoritative for the
+#       queried zone, the server SHOULD set the value to NotAuth(9).
+#       (Reminder: Consult the appropriate IANA registry [DNSVALS].)  If a
+#       client receives any other value in response, it MUST act according
+#       to the error.  For example, a malformed AXFR query or the presence
+#       of an OPT resource record sent to an old server will result in a
+#       FormErr(1) value.  This value is not set as part of the AXFR-
+#       specific response processing.  The same is true for other values
+#       indicating an error.
+# 
+#    f) The count of answer records MUST equal the number of resource
+#       records in the AXFR Answer section.  When a server is aware that a
+#       client will only accept response messages with a single resource
+#       record, then the value MUST be 1.  A server MAY be made aware of a
+#       client's limitations via configuration data.
+# 
+#    g) The server MUST set this field to the number of resource records
+#       it places into the Additional section.  In the absence of explicit
+#       specification of new RRs to be carried in the Additional section
+#       of AXFR response messages, the value MAY be 0, 1, or 2.  See
+#       Section 2.1.5 above for details on the currently applicable RRs
+#       and Section 2.2.5 for additional considerations specific to AXFR
+#       servers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+ID          MUST be copied from request -- see Note a)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+QR          MUST be 1 (Response)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+OPCODE      MUST be 0 (Standard Query)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Flags:
+AA       normally 1 -- see Note b)
+TC       MUST be 0 (Not truncated)
+RD       RECOMMENDED: copy request's value; MAY be set to 0
+RA       SHOULD be 0 -- see Note c)
+Z        "mbz" -- see Note d)
+AD       "mbz" -- see Note d)
+CD       "mbz" -- see Note d)
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+QDCOUNT     MUST be 1 in the first message;
+MUST be 0 or 1 in all following messages;
+MUST be 1 if RCODE indicates an error
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+NSCOUNT     MUST be 0
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+New
+DNS servers MUST set this field to the value of the AXFR query ID
+in each AXFR response message for the session.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+AXFR clients MUST
+be able to manage sessions resulting from the issuance of multiple
+outstanding queries, whether AXFR queries or other DNS queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A
+client SHOULD discard responses that do not correspond (via the
+message ID) to any outstanding queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Unless the client is sure that the server will consistently set
+the ID field to the query's ID, the client is NOT RECOMMENDED to
+issue any other queries until the end of the zone transfer.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A
+client MAY become aware of a server's abilities via a
+configuration setting.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+b) If the RCODE is 0 (no error), then the AA bit MUST be 1.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For any
+other value of RCODE, the AA bit MUST be set according to the
+rules for that error code.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If in doubt, it is RECOMMENDED that it
+be set to 1.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that the value be ignored by the
+AXFR client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+c) It is RECOMMENDED that the server set the value to 0; the client
+MUST ignore this value.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The server MAY set this value according to the local policy
+regarding recursive service, but doing so might confuse the
+interpretation of the response, as AXFR cannot be retrieved
+recursively.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A client MAY note the server's policy regarding
+recursive service from this value, but SHOULD NOT conclude that
+the AXFR response was obtained recursively, even if the RD bit was
+1 in the query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+d) "mbz" -- The server MUST set this bit to 0; the client MUST ignore
+it.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+e) In the absence of an error, the server MUST set the value of this
+field to NoError(0).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a server is not authoritative for the
+queried zone, the server SHOULD set the value to NotAuth(9).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+(Reminder: Consult the appropriate IANA registry [DNSVALS].)  If a
+client receives any other value in response, it MUST act according
+to the error.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+f) The count of answer records MUST equal the number of resource
+records in the AXFR Answer section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a server is aware that a
+client will only accept response messages with a single resource
+record, then the value MUST be 1.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A server MAY be made aware of a
+client's limitations via configuration data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+g) The server MUST set this field to the number of resource records
+it places into the Additional section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In the absence of explicit
+specification of new RRs to be carried in the Additional section
+of AXFR response messages, the value MAY be 0, 1, or 2.
+'''
+

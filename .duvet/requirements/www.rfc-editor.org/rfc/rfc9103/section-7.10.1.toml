@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.10.1"
+
+# Condensation of Responses
+#
+#    [RFC1995] says that condensation of responses is optional and MAY be
+#    done.  Whilst it does add complexity to generating responses, it can
+#    significantly reduce the size of responses.  However, any such
+#    reduction might be offset by increased message size due to padding.
+#    This specification does not update the optionality of condensation
+#    for XoT responses.
+
+[[spec]]
+level = "MAY"
+quote = '''
+[RFC1995] says that condensation of responses is optional and MAY be
+done.
+'''
+

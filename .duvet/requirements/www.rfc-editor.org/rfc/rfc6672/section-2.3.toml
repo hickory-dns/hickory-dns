@@ -1,0 +1,37 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-2.3"
+
+# DNAME Owner Name Matching the QNAME
+#
+#    Unlike a CNAME RR, a DNAME RR redirects DNS names subordinate to its
+#    owner name; the owner name of a DNAME is not redirected itself.  The
+#    domain name that owns a DNAME record is allowed to have other
+#    resource record types at that domain name, except DNAMEs, CNAMEs, or
+#    other types that have restrictions on what they can coexist with.
+# 
+#    When there is a match of the QTYPE to a type (or types) also owned by
+#    the owner name, the response is sourced from the owner name.  For
+#    example, a QTYPE of ANY would return the (available) types at the
+#    owner name, not the target name.
+# 
+#    DNAME RRs MUST NOT appear at the same owner name as an NS RR unless
+#    the owner name is the zone apex; if it is not the zone apex, then the
+#    NS RR signifies a delegation point, and the DNAME RR must in that
+#    case appear below the zone cut at the zone apex of the child zone.
+# 
+#    If a DNAME record is present at the zone apex, there is still a need
+#    to have the customary SOA and NS resource records there as well.
+#    Such a DNAME cannot be used to mirror a zone completely, as it does
+#    not mirror the zone apex.
+# 
+#    These rules also allow DNAME records to be queried through caches
+#    that are RFC 1034 [RFC1034] compliant and are DNAME unaware.
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNAME RRs MUST NOT appear at the same owner name as an NS RR unless
+the owner name is the zone apex; if it is not the zone apex, then the
+NS RR signifies a delegation point, and the DNAME RR must in that
+case appear below the zone cut at the zone apex of the child zone.
+'''
+

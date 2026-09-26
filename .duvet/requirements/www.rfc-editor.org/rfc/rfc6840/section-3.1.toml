@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-3.1"
+
+# Implement a BAD Cache
+#
+#    Section 4.7 of [RFC4035] permits security-aware resolvers to
+#    implement a BAD cache.  That guidance has changed: security-aware
+#    resolvers SHOULD implement a BAD cache as described in [RFC4035].
+# 
+#    This change in guidance is based on operational experience with
+#    DNSSEC administrative errors leading to significant increases in DNS
+#    traffic, with an accompanying realization that such events are more
+#    likely and more damaging than originally supposed.  An example of one
+#    such event is documented in "Rolling Over DNSSEC Keys" [Huston].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+That guidance has changed: security-aware
+resolvers SHOULD implement a BAD cache as described in [RFC4035].
+'''
+

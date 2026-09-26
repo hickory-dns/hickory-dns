@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-5.1"
+
+# Optimistic Pre-connection and Connection Reuse
+#
+#    If an address response arrives before the corresponding SVCB
+#    response, the client MAY initiate a connection as if the SVCB query
+#    returned NODATA but MUST NOT transmit any information that could be
+#    altered by the SVCB response until it arrives.  For example, future
+#    SvcParamKeys could be defined that alter the TLS ClientHello.
+# 
+#    Clients implementing this optimization SHOULD wait for 50
+#    milliseconds before starting optimistic pre-connection, as per the
+#    guidance in [HappyEyeballsV2].
+# 
+#    A SVCB record is consistent with a connection if the client would
+#    attempt an equivalent connection when making use of that record.  If
+#    a SVCB record is consistent with an active or in-progress connection
+#    C, the client MAY prefer that record and use C as its connection.
+#    For example, suppose the client receives this SVCB RRset for a
+#    protocol that uses TLS over TCP:
+# 
+#    _1234._bar.example.com. 300 IN SVCB 1 svc1.example.net. (
+#        ipv6hint=2001:db8::1 port=1234 )
+#                                   SVCB 2 svc2.example.net. (
+#        ipv6hint=2001:db8::2 port=1234 )
+# 
+#    If the client has an in-progress TCP connection to
+#    [2001:db8::2]:1234, it MAY proceed with TLS on that connection, even
+#    though the other record in the RRset has higher priority.
+# 
+#    If none of the SVCB records are consistent with any active or in-
+#    progress connection, clients proceed with connection establishment as
+#    described in Section 3.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an address response arrives before the corresponding SVCB
+response, the client MAY initiate a connection as if the SVCB query
+returned NODATA but MUST NOT transmit any information that could be
+altered by the SVCB response until it arrives.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients implementing this optimization SHOULD wait for 50
+milliseconds before starting optimistic pre-connection, as per the
+guidance in [HappyEyeballsV2].
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If
+a SVCB record is consistent with an active or in-progress connection
+C, the client MAY prefer that record and use C as its connection.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the client has an in-progress TCP connection to
+[2001:db8::2]:1234, it MAY proceed with TLS on that connection, even
+though the other record in the RRset has higher priority.
+'''
+

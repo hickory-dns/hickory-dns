@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc7314#section-3.3"
+
+# Non-authoritative Server
+#
+#    If an EDNS EXPIRE option is sent to a server that is not
+#    authoritative for the zone, it MUST NOT add an EDNS EXPIRE option to
+#    the response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an EDNS EXPIRE option is sent to a server that is not
+authoritative for the zone, it MUST NOT add an EDNS EXPIRE option to
+the response.
+'''
+

@@ -1,0 +1,76 @@
+target = "https://www.rfc-editor.org/rfc/rfc9276#section-3.1"
+
+# Best Practice for Zone Publishers
+#
+#    First, if the operational or security features of NSEC3 are not
+#    needed, then NSEC SHOULD be used in preference to NSEC3.  NSEC3
+#    requires greater computational power (see Appendix B) for both
+#    authoritative servers and validating clients.  Specifically, there is
+#    a nontrivial complexity in finding matching NSEC3 records to randomly
+#    generated prefixes within a DNS zone.  NSEC mitigates this concern.
+#    If NSEC3 must be used, then an iterations count of 0 MUST be used to
+#    alleviate computational burdens.  Note that extra iteration counts
+#    other than 0 increase the impact of CPU-exhausting DoS attacks, and
+#    also increase the risk of interoperability problems.
+# 
+#    Note that deploying NSEC with minimally covering NSEC records
+#    [RFC4470] also incurs a cost, and zone owners should measure the
+#    computational difference in deploying either [RFC4470] or NSEC3.
+# 
+#    In short, for all zones, the recommended NSEC3 parameters are as
+#    shown below:
+# 
+#    ; SHA-1, no extra iterations, empty salt:
+#    ;
+#    bcp.example. IN NSEC3PARAM 1 0 0 -
+# 
+#    For small zones, the use of opt-out-based NSEC3 records is NOT
+#    RECOMMENDED.
+# 
+#    For very large and sparsely signed zones, where the majority of the
+#    records are insecure delegations, opt-out MAY be used.
+# 
+#    Operators SHOULD NOT use a salt by indicating a zero-length salt
+#    value instead (represented as a "-" in the presentation format).
+# 
+#    If salts are used, note that since the NSEC3PARAM RR is not used by
+#    validating resolvers (see Section 4 of [RFC5155]), the iterations and
+#    salt parameters can be changed without the need to wait for RRsets to
+#    expire from caches.  A complete new NSEC3 chain needs to be
+#    constructed and the full zone needs to be re-signed.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+First, if the operational or security features of NSEC3 are not
+needed, then NSEC SHOULD be used in preference to NSEC3.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If NSEC3 must be used, then an iterations count of 0 MUST be used to
+alleviate computational burdens.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For small zones, the use of opt-out-based NSEC3 records is NOT
+RECOMMENDED.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+For very large and sparsely signed zones, where the majority of the
+records are insecure delegations, opt-out MAY be used.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Operators SHOULD NOT use a salt by indicating a zero-length salt
+value instead (represented as a "-" in the presentation format).
+'''
+

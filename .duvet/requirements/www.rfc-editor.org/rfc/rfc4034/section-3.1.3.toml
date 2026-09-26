@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-3.1.3"
+
+# The Labels Field
+#
+#    The Labels field specifies the number of labels in the original RRSIG
+#    RR owner name.  The significance of this field is that a validator
+#    uses it to determine whether the answer was synthesized from a
+#    wildcard.  If so, it can be used to determine what owner name was
+#    used in generating the signature.
+# 
+#    To validate a signature, the validator needs the original owner name
+#    that was used to create the signature.  If the original owner name
+#    contains a wildcard label ("*"), the owner name may have been
+#    expanded by the server during the response process, in which case the
+#    validator will have to reconstruct the original owner name in order
+#    to validate the signature.  [RFC4035] describes how to use the Labels
+#    field to reconstruct the original owner name.
+# 
+#    The value of the Labels field MUST NOT count either the null (root)
+#    label that terminates the owner name or the wildcard label (if
+#    present).  The value of the Labels field MUST be less than or equal
+#    to the number of labels in the RRSIG owner name.  For example,
+#    "www.example.com." has a Labels field value of 3, and
+#    "*.example.com." has a Labels field value of 2.  Root (".") has a
+#    Labels field value of 0.
+# 
+#    Although the wildcard label is not included in the count stored in
+#    the Labels field of the RRSIG RR, the wildcard label is part of the
+#    RRset's owner name when the signature is generated or verified.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The value of the Labels field MUST NOT count either the null (root)
+label that terminates the owner name or the wildcard label (if
+present).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The value of the Labels field MUST be less than or equal
+to the number of labels in the RRSIG owner name.
+'''
+

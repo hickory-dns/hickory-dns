@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.1"
+
+# EDNS Support
+#
+#    A security-aware resolver MUST include an EDNS ([RFC2671]) OPT
+#    pseudo-RR with the DO ([RFC3225]) bit set when sending queries.
+# 
+#    A security-aware resolver MUST support a message size of at least
+#    1220 octets, SHOULD support a message size of 4000 octets, and MUST
+#    use the "sender's UDP payload size" field in the EDNS OPT pseudo-RR
+#    to advertise the message size that it is willing to accept.  A
+#    security-aware resolver's IP layer MUST handle fragmented UDP packets
+#    correctly regardless of whether any such fragmented packets were
+#    received via IPv4 or IPv6.  Please see [RFC1122], [RFC2460], and
+#    [RFC3226] for discussion of these requirements.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver MUST include an EDNS ([RFC2671]) OPT
+pseudo-RR with the DO ([RFC3225]) bit set when sending queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A security-aware resolver MUST support a message size of at least
+1220 octets, SHOULD support a message size of 4000 octets, and MUST
+use the "sender's UDP payload size" field in the EDNS OPT pseudo-RR
+to advertise the message size that it is willing to accept.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A
+security-aware resolver's IP layer MUST handle fragmented UDP packets
+correctly regardless of whether any such fragmented packets were
+received via IPv4 or IPv6.
+'''
+

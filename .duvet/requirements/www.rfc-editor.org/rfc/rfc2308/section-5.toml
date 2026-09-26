@@ -1,0 +1,85 @@
+target = "https://www.rfc-editor.org/rfc/rfc2308#section-5"
+
+# - Caching Negative Answers
+#
+#    Like normal answers negative answers have a time to live (TTL).  As
+#    there is no record in the answer section to which this TTL can be
+#    applied, the TTL must be carried by another method.  This is done by
+#    including the SOA record from the zone in the authority section of
+#    the reply.  When the authoritative server creates this record its TTL
+#    is taken from the minimum of the SOA.MINIMUM field and SOA's TTL.
+#    This TTL decrements in a similar manner to a normal cached answer and
+#    upon reaching zero (0) indicates the cached negative answer MUST NOT
+#    be used again.
+# 
+#    A negative answer that resulted from a name error (NXDOMAIN) should
+#    be cached such that it can be retrieved and returned in response to
+#    another query for the same <QNAME, QCLASS> that resulted in the
+#    cached negative response.
+# 
+#    A negative answer that resulted from a no data error (NODATA) should
+#    be cached such that it can be retrieved and returned in response to
+#    another query for the same <QNAME, QTYPE, QCLASS> that resulted in
+#    the cached negative response.
+# 
+#    The NXT record, if it exists in the authority section of a negative
+#    answer received, MUST be stored such that it can be be located and
+#    returned with SOA record in the authority section, as should any SIG
+#    records in the authority section.  For NXDOMAIN answers there is no
+#    "necessary" obvious relationship between the NXT records and the
+#    QNAME.  The NXT record MUST have the same owner name as the query
+#    name for NODATA responses.
+# 
+#    Negative responses without SOA records SHOULD NOT be cached as there
+#    is no way to prevent the negative responses looping forever between a
+#    pair of servers even with a short TTL.
+# 
+#    Despite the DNS forming a tree of servers, with various mis-
+#    configurations it is possible to form a loop in the query graph, e.g.
+#    two servers listing each other as forwarders, various lame server
+#    configurations.  Without a TTL count down a cache negative response
+# 
+#    when received by the next server would have its TTL reset.  This
+#    negative indication could then live forever circulating between the
+#    servers involved.
+# 
+#    As with caching positive responses it is sensible for a resolver to
+#    limit for how long it will cache a negative response as the protocol
+#    supports caching for up to 68 years.  Such a limit should not be
+#    greater than that applied to positive answers and preferably be
+#    tunable.  Values of one to three hours have been found to work well
+#    and would make sensible a default.  Values exceeding one day have
+#    been found to be problematic.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This TTL decrements in a similar manner to a normal cached answer and
+upon reaching zero (0) indicates the cached negative answer MUST NOT
+be used again.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The NXT record, if it exists in the authority section of a negative
+answer received, MUST be stored such that it can be be located and
+returned with SOA record in the authority section, as should any SIG
+records in the authority section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The NXT record MUST have the same owner name as the query
+name for NODATA responses.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Negative responses without SOA records SHOULD NOT be cached as there
+is no way to prevent the negative responses looping forever between a
+pair of servers even with a short TTL.
+'''
+

@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-3.2"
+
+# Optionally, Sign the Zone
+#
+#    Following the addition of placeholder records, the zone may be signed
+#    with DNSSEC.  When the digest calculation is complete, and the ZONEMD
+#    record is updated, the signature(s) for the ZONEMD RRset MUST be
+#    recalculated and updated as well.  Therefore, the signer is not
+#    required to calculate a signature over the placeholder record at this
+#    step in the process, but it is harmless to do so.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When the digest calculation is complete, and the ZONEMD
+record is updated, the signature(s) for the ZONEMD RRset MUST be
+recalculated and updated as well.
+'''
+

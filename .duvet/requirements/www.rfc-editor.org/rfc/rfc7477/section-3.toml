@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-3"
+
+# CSYNC Data Processing
+#
+#    The CSYNC record and associated data must be processed as an "all or
+#    nothing" operation set.  If a parental agent fails to successfully
+#    query for any of the required records, the whole operation MUST be
+#    aborted.  (Note that a query resulting in "no records exist" as
+#    proven by NSEC or NSEC3 is to be considered successful).
+# 
+#    Parental agents MAY:
+# 
+#       Process the CSYNC record immediately if the "immediate" flag is
+#       set.  If the "immediate" flag is not set, the parental agent MUST
+#       NOT act until the zone administrator approves the operation
+#       through an out-of-band mechanism (such as through pushing a button
+#       via a web interface).
+# 
+#       Choose not to process the CSYNC record immediately, even if the
+#       "immediate" flag is set.  That is, a parental agent might require
+#       the child zone administrator approve the operation through an out-
+#       of-band mechanism (such as through pushing a button via a web
+#       interface).
+# 
+#    Note: how the approval is done out of band is outside the scope of
+#    this document and is implementation specific to parental agents.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a parental agent fails to successfully
+query for any of the required records, the whole operation MUST be
+aborted.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Parental agents MAY:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the "immediate" flag is not set, the parental agent MUST
+NOT act until the zone administrator approves the operation
+through an out-of-band mechanism (such as through pushing a button
+via a web interface).
+'''
+

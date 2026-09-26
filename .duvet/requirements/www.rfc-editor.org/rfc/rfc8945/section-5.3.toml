@@ -1,0 +1,77 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.3"
+
+# Generation of TSIG on Answers
+#
+#    When a server has generated a response to a signed request, it signs
+#    the response using the same algorithm and key.  The server MUST NOT
+#    generate a signed response to a request if either the key is invalid
+#    (e.g., key name or algorithm name are unknown) or the MAC fails
+#    validation; see Section 5.3.2 for details of responding in these
+#    cases.
+# 
+#    It also MUST NOT generate a signed response to an unsigned request,
+#    except in the case of a response to a client's unsigned TKEY request
+#    if the secret key is established on the server side after the server
+#    processed the client's request.  Signing responses to unsigned TKEY
+#    requests MUST be explicitly specified in the description of an
+#    individual secret key establishment algorithm [RFC3645].
+# 
+#    The digest components used to generate a TSIG on a response are:
+# 
+#       Request MAC
+#       DNS Message (response)
+#       TSIG Variables (response)
+# 
+#    (This calculation is different for the second and subsequent message
+#    in a multi-message answer; see below.)
+# 
+#    If addition of the TSIG record will cause the message to be
+#    truncated, the server MUST alter the response so that a TSIG can be
+#    included.  This response contains only the question and a TSIG
+#    record, has the TC bit set, and has an RCODE of 0 (NOERROR).  At this
+#    point, the client SHOULD retry the request using TCP (as per
+#    Section 4.2.2 of [RFC1035]).
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST NOT
+generate a signed response to a request if either the key is invalid
+(e.g., key name or algorithm name are unknown) or the MAC fails
+validation; see Section 5.3.2 for details of responding in these
+cases.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It also MUST NOT generate a signed response to an unsigned request,
+except in the case of a response to a client's unsigned TKEY request
+if the secret key is established on the server side after the server
+processed the client's request.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Signing responses to unsigned TKEY
+requests MUST be explicitly specified in the description of an
+individual secret key establishment algorithm [RFC3645].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If addition of the TSIG record will cause the message to be
+truncated, the server MUST alter the response so that a TSIG can be
+included.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+At this
+point, the client SHOULD retry the request using TCP (as per
+Section 4.2.2 of [RFC1035]).
+'''
+

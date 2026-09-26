@@ -1,0 +1,51 @@
+target = "https://www.rfc-editor.org/rfc/rfc2308#section-6"
+
+# - Negative answers from the cache
+#
+#    When a server, in answering a query, encounters a cached negative
+#    response it MUST add the cached SOA record to the authority section
+#    of the response with the TTL decremented by the amount of time it was
+#    stored in the cache.  This allows the NXDOMAIN / NODATA response to
+#    time out correctly.
+# 
+#    If a NXT record was cached along with SOA record it MUST be added to
+#    the authority section.  If a SIG record was cached along with a NXT
+#    record it SHOULD be added to the authority section.
+# 
+#    As with all answers coming from the cache, negative answers SHOULD
+#    have an implicit referral built into the answer.  This enables the
+#    resolver to locate an authoritative source.  An implicit referral is
+#    characterised by NS records in the authority section referring the
+#    resolver towards a authoritative source.  NXDOMAIN types 1 and 4
+#    responses contain implicit referrals as does NODATA type 1 response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a server, in answering a query, encounters a cached negative
+response it MUST add the cached SOA record to the authority section
+of the response with the TTL decremented by the amount of time it was
+stored in the cache.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a NXT record was cached along with SOA record it MUST be added to
+the authority section.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a SIG record was cached along with a NXT
+record it SHOULD be added to the authority section.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As with all answers coming from the cache, negative answers SHOULD
+have an implicit referral built into the answer.
+'''
+

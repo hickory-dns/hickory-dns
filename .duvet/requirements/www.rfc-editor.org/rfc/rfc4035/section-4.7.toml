@@ -1,0 +1,91 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.7"
+
+# Caching BAD Data
+#
+#    While many validation errors will be transient, some are likely to be
+#    more persistent, such as those caused by administrative error
+#    (failure to re-sign a zone, clock skew, and so forth).  Since
+#    requerying will not help in these cases, validating resolvers might
+#    generate a significant amount of unnecessary DNS traffic as a result
+#    of repeated queries for RRsets with persistent validation failures.
+# 
+#    To prevent such unnecessary DNS traffic, security-aware resolvers MAY
+#    cache data with invalid signatures, with some restrictions.
+# 
+#    Conceptually, caching such data is similar to negative caching
+#    ([RFC2308]), except that instead of caching a valid negative
+#    response, the resolver is caching the fact that a particular answer
+#    failed to validate.  This document refers to a cache of data with
+#    invalid signatures as a "BAD cache".
+# 
+#    Resolvers that implement a BAD cache MUST take steps to prevent the
+#    cache from being useful as a denial-of-service attack amplifier,
+#    particularly the following:
+# 
+#    o  Since RRsets that fail to validate do not have trustworthy TTLs,
+#       the implementation MUST assign a TTL.  This TTL SHOULD be small,
+#       in order to mitigate the effect of caching the results of an
+#       attack.
+# 
+#    o  In order to prevent caching of a transient validation failure
+#       (which might be the result of an attack), resolvers SHOULD track
+#       queries that result in validation failures and SHOULD only answer
+#       from the BAD cache after the number of times that responses to
+#       queries for that particular <QNAME, QTYPE, QCLASS> have failed to
+#       validate exceeds a threshold value.
+# 
+#    Resolvers MUST NOT return RRsets from the BAD cache unless the
+#    resolver is not required to validate the signatures of the RRsets in
+#    question under the rules given in Section 4.2 of this document.  See
+#    Section 3.2.2 for discussion of how the responses returned by a
+#    security-aware recursive name server interact with a BAD cache.
+
+[[spec]]
+level = "MAY"
+quote = '''
+To prevent such unnecessary DNS traffic, security-aware resolvers MAY
+cache data with invalid signatures, with some restrictions.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolvers that implement a BAD cache MUST take steps to prevent the
+cache from being useful as a denial-of-service attack amplifier,
+particularly the following:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Since RRsets that fail to validate do not have trustworthy TTLs,
+the implementation MUST assign a TTL.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+This TTL SHOULD be small,
+in order to mitigate the effect of caching the results of an
+attack.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  In order to prevent caching of a transient validation failure
+(which might be the result of an attack), resolvers SHOULD track
+queries that result in validation failures and SHOULD only answer
+from the BAD cache after the number of times that responses to
+queries for that particular <QNAME, QTYPE, QCLASS> have failed to
+validate exceeds a threshold value.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolvers MUST NOT return RRsets from the BAD cache unless the
+resolver is not required to validate the signatures of the RRsets in
+question under the rules given in Section 4.2 of this document.
+'''
+
