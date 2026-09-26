@@ -891,7 +891,7 @@ async fn build_authoritative_response(
                         .await
                         .map_result(),
                     Some(NxProofKind::Nsec) if has_wildcard_match => handler
-                        .nsec_records(query.name(), lookup_options)
+                        .nsec_records(query.name(), has_wildcard_match, lookup_options)
                         .await
                         .map_result(),
                     _ => None,
@@ -926,7 +926,9 @@ async fn build_authoritative_response(
                     Some(nx_proof_kind) => {
                         // run the nsec lookup future, and then transition to get soa
                         let future = match nx_proof_kind {
-                            NxProofKind::Nsec => handler.nsec_records(query.name(), lookup_options),
+                            NxProofKind::Nsec => {
+                                handler.nsec_records(query.name(), false, lookup_options)
+                            }
                             NxProofKind::Nsec3 {
                                 algorithm,
                                 salt,
