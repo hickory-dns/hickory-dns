@@ -12,7 +12,6 @@ use std::collections::HashSet;
 use std::io;
 use std::sync::Arc;
 
-use async_trait::async_trait;
 use futures_util::{
     future::{BoxFuture, Future},
     ready,
@@ -27,16 +26,18 @@ use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// Trait for UdpSocket
-#[async_trait]
 pub trait UdpSocket: DnsUdpSocket {
     /// setups up a "client" udp connection that will only receive packets from the associated address
-    async fn connect(addr: SocketAddr) -> io::Result<Self>;
+    fn connect(addr: SocketAddr) -> impl Future<Output = io::Result<Self>> + Send;
 
     /// same as connect, but binds to the specified local address for sending address
-    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self>;
+    fn connect_with_bind(
+        addr: SocketAddr,
+        bind_addr: SocketAddr,
+    ) -> impl Future<Output = io::Result<Self>> + Send;
 
     /// a "server" UDP socket, that bind to the local listening address, and unbound remote address (can receive from anything)
-    async fn bind(addr: SocketAddr) -> io::Result<Self>;
+    fn bind(addr: SocketAddr) -> impl Future<Output = io::Result<Self>> + Send;
 }
 
 /// A UDP stream of DNS binary packets
@@ -307,7 +308,6 @@ impl<P: RuntimeProvider> Future for NextRandomUdpSocket<P> {
 const ATTEMPT_RANDOM: usize = 10;
 
 #[cfg(feature = "tokio")]
-#[async_trait]
 impl UdpSocket for tokio::net::UdpSocket {
     /// sets up up a "client" udp connection that will only receive packets from the associated address
     ///
@@ -337,7 +337,6 @@ impl UdpSocket for tokio::net::UdpSocket {
 }
 
 #[cfg(feature = "tokio")]
-#[async_trait]
 impl DnsUdpSocket for tokio::net::UdpSocket {
     type Time = crate::runtime::TokioTime;
 

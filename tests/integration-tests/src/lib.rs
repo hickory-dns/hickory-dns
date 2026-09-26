@@ -41,14 +41,13 @@ use hickory_proto::{
 };
 use hickory_proto::{
     op::{DnsResponse, Message, SerialMessage},
-    rr::Record,
-    serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder},
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::Server;
 use hickory_server::{
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
-    zone_handler::{Catalog, MessageResponse},
+    zone_handler::Catalog,
 };
 
 pub mod example_zone;
@@ -113,23 +112,17 @@ impl TestResponseHandler {
     }
 }
 
-#[async_trait::async_trait]
 impl ResponseHandler for TestResponseHandler {
-    async fn send_response<'a>(
+    fn protocol(&self) -> Protocol {
+        Protocol::Tcp
+    }
+
+    async fn send_encoded(
         &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
+        info: ResponseInfo,
+        bytes: Vec<u8>,
     ) -> Result<ResponseInfo, NetError> {
-        let buf = &mut self.buf.lock().unwrap();
-        buf.clear();
-        let mut encoder = BinEncoder::new(buf);
-        let info = response.destructive_emit(&mut encoder)?;
+        *self.buf.lock().unwrap() = bytes;
         self.message_ready.store(true, Ordering::Release);
         Ok(info)
     }

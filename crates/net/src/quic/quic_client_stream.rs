@@ -284,12 +284,12 @@ impl QuicClientStreamBuilder {
         server_name: Arc<str>,
     ) -> Result<QuicClientStream, NetError> {
         let connect = if let Some(bind_addr) = self.bind_addr {
-            <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
+            <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr).await
         } else {
-            <tokio::net::UdpSocket as UdpSocket>::connect(name_server)
+            <tokio::net::UdpSocket as UdpSocket>::connect(name_server).await
         };
 
-        let socket = connect.await?;
+        let socket = connect?;
         let socket = socket.into_std()?;
         let endpoint_config = quic_config::endpoint();
         let endpoint = Endpoint::new(endpoint_config, None, socket, Arc::new(quinn::TokioRuntime))?;

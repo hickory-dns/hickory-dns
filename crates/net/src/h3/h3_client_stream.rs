@@ -352,12 +352,12 @@ impl H3ClientStreamBuilder {
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
         let connect = if let Some(bind_addr) = self.bind_addr {
-            <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
+            <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr).await
         } else {
-            <tokio::net::UdpSocket as UdpSocket>::connect(name_server)
+            <tokio::net::UdpSocket as UdpSocket>::connect(name_server).await
         };
 
-        let socket = connect.await?;
+        let socket = connect?;
         let socket = socket.into_std()?;
         let endpoint = Endpoint::new(
             EndpointConfig::default(),
