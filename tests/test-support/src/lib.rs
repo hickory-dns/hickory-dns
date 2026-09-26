@@ -15,6 +15,7 @@ use bytes::Buf;
 use futures_util::{AsyncRead, AsyncWrite};
 use hickory_net::{
     runtime::{DnsTcpStream, DnsUdpSocket, RuntimeProvider, TokioHandle, TokioTime},
+    tls::default_provider,
     xfer::Protocol,
 };
 use hickory_proto::{
@@ -27,6 +28,11 @@ use hickory_proto::{
 };
 use metrics::{IntoLabels, Key, KeyName, SharedString, Unit};
 use metrics_util::{CompositeKey, MetricKind, debugging::DebugValue};
+use rcgen::{
+    BasicConstraints, Certificate, CertificateParams, CertifiedIssuer, DnType,
+    ExtendedKeyUsagePurpose, IsCa, KeyPair, KeyUsagePurpose,
+};
+use rustls::{pki_types::PrivatePkcs8KeyDer, sign::CertifiedKey};
 use tracing::{error, info};
 
 /// Registers a global default tracing subscriber when called for the first time. This is intended
@@ -653,5 +659,46 @@ pub fn assert_gauge_eq(
         assert_eq!(gauge_val.into_inner(), expected as f64);
     } else {
         panic!("expected gauge value {expected}, got {value:?}")
+    }
+}
+
+/// A root certificate and a server certificate, for use in tests.
+pub struct TestCertificates {
+    /// Root certificate authority.
+    pub ca: CertifiedIssuer<'static, KeyPair>,
+    /// The server's leaf certificate.
+    pub leaf: Certificate,
+    /// The server's private key.
+    pub key: KeyPair,
+}
+
+impl TestCertificates {
+    /// Generate a root certificate and a server certificate, along with keys.
+    pub fn generate() -> Self {
+        let mut ca_params = CertificateParams::new(Vec::new()).unwrap();
+        ca_params
+            .distinguished_name
+            .push(DnType::CommonName, "root.example.com");
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        ca_params.key_usages = Vec::from([
+            KeyUsagePurpose::KeyCertSign,
+            KeyUsagePurpose::DigitalSignature,
+        ]);
+        let ca = CertifiedIssuer::self_signed(ca_params, KeyPair::generate().unwrap()).unwrap();
+
+        let mut leaf_params = CertificateParams::new(["ns.example.com".to_string()]).unwrap();
+        leaf_params.is_ca = IsCa::NoCa;
+        leaf_params.extended_key_usages = Vec::from([ExtendedKeyUsagePurpose::ServerAuth]);
+        let key = KeyPair::generate().unwrap();
+        let leaf = leaf_params.signed_by(&key, &ca).unwrap();
+
+        Self { ca, leaf, key }
+    }
+
+    /// Returns the certificate chain and the server's private key.
+    pub fn certified_key(&self) -> CertifiedKey {
+        let cert_chain = Vec::from([self.leaf.der().to_owned(), self.ca.der().to_owned()]);
+        let private_key_der = PrivatePkcs8KeyDer::from(self.key.serialize_der());
+        CertifiedKey::from_der(cert_chain, private_key_der.into(), &default_provider()).unwrap()
     }
 }
