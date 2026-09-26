@@ -1047,11 +1047,10 @@ mod tests {
     use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
-    use rustls::{
-        pki_types::{CertificateDer, PrivateKeyDer},
-        sign::{CertifiedKey, SingleCertAndKey},
-    };
+    use rustls::sign::SingleCertAndKey;
     use std::net::SocketAddr;
+    #[cfg(feature = "__tls")]
+    use test_support::TestCertificates;
     use test_support::subscribe;
     use tokio::net::{TcpListener, UdpSocket};
     use tokio::time::timeout;
@@ -1231,21 +1230,9 @@ mod tests {
 
     #[cfg(feature = "__tls")]
     fn rustls_cert_key() -> Arc<dyn ResolvesServerCert> {
-        use rustls::pki_types::pem::PemObject;
-        use std::env;
-
-        let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-        let cert_chain =
-            CertificateDer::pem_file_iter(format!("{server_path}/tests/test-data/cert.pem"))
-                .unwrap()
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap();
-
-        let key = PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key"))
-            .unwrap();
-
-        let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider()).unwrap();
-        Arc::new(SingleCertAndKey::from(certified_key))
+        Arc::new(SingleCertAndKey::from(
+            TestCertificates::generate().certified_key(),
+        ))
     }
 
     #[test]

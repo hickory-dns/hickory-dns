@@ -12,15 +12,8 @@ use std::println;
 use std::sync::Arc;
 
 use futures_util::StreamExt;
-use rcgen::{
-    BasicConstraints, CertificateParams, CertifiedIssuer, DnType, ExtendedKeyUsagePurpose, IsCa,
-    KeyPair, KeyUsagePurpose,
-};
-use rustls::{
-    ClientConfig, KeyLogFile,
-    sign::{CertifiedKey, SingleCertAndKey},
-};
-use test_support::subscribe;
+use rustls::{ClientConfig, KeyLogFile, sign::SingleCertAndKey};
+use test_support::{TestCertificates, subscribe};
 
 use crate::{
     proto::{
@@ -63,31 +56,8 @@ async fn server_responder(mut server: QuicServer) {
 async fn test_quic_stream() {
     subscribe();
 
-    let mut ca_params = CertificateParams::new(Vec::new()).unwrap();
-    ca_params
-        .distinguished_name
-        .push(DnType::CommonName, "root.example.com");
-    ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    ca_params.key_usages = Vec::from([
-        KeyUsagePurpose::KeyCertSign,
-        KeyUsagePurpose::DigitalSignature,
-    ]);
-    let root_ca = CertifiedIssuer::self_signed(ca_params, KeyPair::generate().unwrap()).unwrap();
-
-    let mut leaf_params = CertificateParams::new(["ns.example.com".to_string()]).unwrap();
-    leaf_params.is_ca = IsCa::NoCa;
-    leaf_params.extended_key_usages = Vec::from([ExtendedKeyUsagePurpose::ServerAuth]);
-    let key = KeyPair::generate().unwrap();
-    let cert = leaf_params.signed_by(&key, &root_ca).unwrap();
-
-    let certificate_and_key = SingleCertAndKey::from(
-        CertifiedKey::from_der(
-            Vec::from([cert.der().to_owned(), root_ca.der().to_owned()]),
-            key.into(),
-            &default_provider(),
-        )
-        .unwrap(),
-    );
+    let certificates = TestCertificates::generate();
+    let certificate_and_key = SingleCertAndKey::from(certificates.certified_key());
 
     // All testing is only done on local addresses, construct the server
     let quic_ns = QuicServer::new(
@@ -104,7 +74,7 @@ async fn test_quic_stream() {
 
     // now construct the client
     let mut roots = rustls::RootCertStore::empty();
-    let (_, ignored) = roots.add_parsable_certificates([root_ca.der().clone()]);
+    let (_, ignored) = roots.add_parsable_certificates([certificates.ca.der().clone()]);
     assert_eq!(ignored, 0);
 
     let mut client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
