@@ -60,6 +60,12 @@ pub struct NameServer<P: ConnectionProvider> {
     #[cfg(feature = "metrics")]
     resolver_metrics: ResolverMetrics,
     server_srtt: DecayingSrtt,
+    udp: Arc<ConnectionMeta>,
+    tcp: Arc<ConnectionMeta>,
+    tls: Arc<ConnectionMeta>,
+    https: Arc<ConnectionMeta>,
+    quic: Arc<ConnectionMeta>,
+    h3: Arc<ConnectionMeta>,
     connection_provider: P,
 }
 
@@ -73,9 +79,30 @@ impl<P: ConnectionProvider> NameServer<P> {
         options: &ResolverOpts,
         connection_provider: P,
     ) -> Self {
+        let udp = Arc::from(ConnectionMeta::default());
+        let tcp = Arc::from(ConnectionMeta::default());
+        let tls = Arc::from(ConnectionMeta::default());
+        let https = Arc::from(ConnectionMeta::default());
+        let quic = Arc::from(ConnectionMeta::default());
+        let h3 = Arc::from(ConnectionMeta::default());
+
         let mut connections = connections
             .into_iter()
-            .map(|(protocol, handle)| ConnectionState::new(handle, protocol))
+            .map(|(protocol, handle)| {
+                ConnectionState::new(
+                    handle,
+                    match protocol {
+                        Protocol::Udp => udp.clone(),
+                        Protocol::Tcp => tcp.clone(),
+                        Protocol::Tls => tls.clone(),
+                        Protocol::Https => https.clone(),
+                        Protocol::Quic => quic.clone(),
+                        Protocol::H3 => h3.clone(),
+                        _ => udp.clone(),
+                    },
+                    protocol,
+                )
+            })
             .collect::<Vec<_>>();
 
         // Unless the user specified that we should follow the configured order,
@@ -98,6 +125,12 @@ impl<P: ConnectionProvider> NameServer<P> {
             opportunistic_probe_metrics: ProbeMetrics::default(),
             #[cfg(feature = "metrics")]
             resolver_metrics,
+            udp,
+            tcp,
+            tls,
+            https,
+            quic,
+            h3,
             connection_provider,
         }
     }
@@ -141,6 +174,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                     return (protocol, Err(err));
                 }
             };
+
             #[cfg(feature = "metrics")]
             self.resolver_metrics.increment_outgoing_query(&protocol);
             let now = Instant::now();
@@ -265,8 +299,13 @@ impl<P: ConnectionProvider> NameServer<P> {
         // Check for an existing usable connection (short lock)
         {
             let mut connections = self.connections.lock().await;
-            connections
-                .retain(|conn| matches!(conn.meta.status(), Status::Init | Status::Established));
+            connections.retain(|conn| {
+                matches!(
+                    self.meta(conn.protocol).status(),
+                    Status::Init | Status::Established
+                )
+            });
+
             if let Some(conn) = policy.select_connection(
                 self.config.ip,
                 &*cx.transport_state().await,
@@ -275,7 +314,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             ) {
                 return Ok(ConnectedClient {
                     handle: conn.handle.clone(),
-                    meta: conn.meta.clone(),
+                    meta: self.meta(conn.protocol).clone(),
                     protocol: conn.protocol,
                     reuse: ConnectionReuse::Reused,
                 });
@@ -319,12 +358,12 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
 
         // Store the new connection (with lock)
-        let state = ConnectionState::new(handle.clone(), protocol);
-        let meta = state.meta.clone();
+        let meta = self.meta(protocol);
+        let state = ConnectionState::new(handle.clone(), meta.clone(), protocol);
         self.connections.lock().await.push(state);
         Ok(ConnectedClient {
             handle,
-            meta,
+            meta: meta.clone(),
             protocol,
             reuse: ConnectionReuse::Fresh,
         })
@@ -343,6 +382,18 @@ impl<P: ConnectionProvider> NameServer<P> {
 
     pub(crate) fn decayed_srtt(&self) -> f64 {
         self.server_srtt.current()
+    }
+
+    fn meta(&self, protocol: Protocol) -> &Arc<ConnectionMeta> {
+        match protocol {
+            Protocol::Udp => &self.udp,
+            Protocol::Tcp => &self.tcp,
+            Protocol::Tls => &self.tls,
+            Protocol::Https => &self.https,
+            Protocol::Quic => &self.quic,
+            Protocol::H3 => &self.h3,
+            _ => &self.udp, // default to UDP for unknown protocols
+        }
     }
 
     /// Records an SRTT observation for a server whose in-flight request was
@@ -376,10 +427,12 @@ impl<P: ConnectionProvider> NameServer<P> {
             return true;
         };
 
-        connections.iter().any(|conn| match conn.meta.status() {
-            Status::Established | Status::Init => true,
-            Status::Failed => false,
-        })
+        connections
+            .iter()
+            .any(|conn| match self.meta(conn.protocol).status() {
+                Status::Established | Status::Init => true,
+                Status::Failed => false,
+            })
     }
 
     pub(crate) fn trust_negative_responses(&self) -> bool {
@@ -594,11 +647,11 @@ struct ConnectionState<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> ConnectionState<P> {
-    fn new(handle: P::Conn, protocol: Protocol) -> Self {
+    fn new(handle: P::Conn, meta: Arc<ConnectionMeta>, protocol: Protocol) -> Self {
         Self {
             protocol,
             handle,
-            meta: Arc::new(ConnectionMeta::default()),
+            meta,
         }
     }
 }
@@ -1275,7 +1328,9 @@ mod opportunistic_enc_tests {
         PROBE_ATTEMPTS_TOTAL, PROBE_BUDGET_TOTAL, PROBE_DURATION_SECONDS, PROBE_ERRORS_TOTAL,
         PROBE_SUCCESSES_TOTAL, PROBE_TIMEOUTS_TOTAL,
     };
-    use crate::name_server::{ConnectionPolicy, ConnectionState, NameServer, mock_provider};
+    use crate::name_server::{
+        ConnectionMeta, ConnectionPolicy, ConnectionState, NameServer, mock_provider,
+    };
     use crate::name_server_pool::{NameServerTransportState, PoolContext};
     use crate::net::NetError;
     use crate::net::xfer::Protocol;
@@ -1780,7 +1835,11 @@ mod opportunistic_enc_tests {
     }
 
     fn mock_connection(protocol: Protocol) -> ConnectionState<MockProvider> {
-        ConnectionState::new(MockClientHandle::default(), protocol)
+        ConnectionState::new(
+            MockClientHandle::default(),
+            Arc::new(ConnectionMeta::default()),
+            protocol,
+        )
     }
 
     #[cfg(feature = "metrics")]
