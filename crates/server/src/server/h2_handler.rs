@@ -12,7 +12,6 @@ use bytes::Bytes;
 use rustls::server::ResolvesServerCert;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::TcpListener,
     task::JoinSet,
 };
 use tokio_rustls::TlsAcceptor;
@@ -27,6 +26,7 @@ use crate::{
     net::{
         NetError, h2,
         http::{self, Version},
+        runtime::{DnsTcpListener, iocompat::AsyncIoStdAsTokio},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -35,8 +35,8 @@ use crate::{
 };
 
 /// handle h2 using the default TLS server config.
-pub(super) async fn handle_h2(
-    listener: TcpListener,
+pub(super) async fn handle_h2<L: DnsTcpListener>(
+    listener: L,
     handshake_timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
@@ -58,8 +58,8 @@ pub(super) async fn handle_h2(
 }
 
 /// handle h2 using a specific TlsAcceptor.
-pub(super) async fn handle_h2_with_acceptor(
-    listener: TcpListener,
+pub(super) async fn handle_h2_with_acceptor<L: DnsTcpListener>(
+    mut listener: L,
     handshake_timeout: Option<Duration>,
     tls_acceptor: TlsAcceptor,
     dns_hostname: Option<String>,
@@ -68,12 +68,13 @@ pub(super) async fn handle_h2_with_acceptor(
 ) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-    debug!("registered https: {listener:?}");
+    debug!("registered https");
 
     let mut inner_join_set = JoinSet::new();
     loop {
         let shutdown = &cx.shutdown;
-        let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = std::future::poll_fn(|cx| listener.poll_accept(cx));
+        let Some(result) = shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
@@ -103,8 +104,11 @@ pub(super) async fn handle_h2_with_acceptor(
 
             // TODO: need to consider timeout of total connect...
             // take the created stream...
-            let Ok(tls_stream) =
-                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) = optional_timeout(
+                handshake_timeout,
+                tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
+            )
+            .await
             else {
                 warn!("https timeout expired during handshake");
                 return;

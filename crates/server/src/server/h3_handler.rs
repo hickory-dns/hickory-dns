@@ -11,7 +11,7 @@ use bytes::{Buf, Bytes};
 use h3::server::RequestStream;
 use h3_quinn::BidiStream;
 use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
+use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::{
@@ -26,6 +26,7 @@ use crate::{
             h3_server::{H3Connection, H3Server},
         },
         http::{self, Version, fetch_body},
+        runtime::IntoQuicSocket,
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -33,14 +34,14 @@ use crate::{
     zone_handler::MessageResponse,
 };
 
-pub(super) async fn handle_h3(
-    socket: net::UdpSocket,
+pub(super) async fn handle_h3<S: IntoQuicSocket>(
+    socket: S,
     timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    debug!("registered h3: {:?}", socket);
+    debug!("registered h3");
     handle_h3_with_server(
         H3Server::with_socket(socket, server_cert_resolver)?,
         timeout,

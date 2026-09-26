@@ -26,6 +26,7 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
+use tokio::task::JoinSet;
 #[cfg(any(
     feature = "__tls",
     feature = "__quic",
@@ -33,7 +34,6 @@ use rustls::{ServerConfig, server::ResolvesServerCert};
     feature = "__h3"
 ))]
 use tokio::time::{error::Elapsed, timeout};
-use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
@@ -45,13 +45,17 @@ use crate::metrics::ResponseHandlerMetrics;
 use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicServer;
+#[cfg(any(feature = "__quic", feature = "__h3"))]
+use crate::net::runtime::IntoQuicSocket;
+#[cfg(feature = "__tls")]
+use crate::net::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 #[cfg(feature = "__tls")]
 use crate::net::tls::{default_provider, tls_from_stream};
 use crate::{
     access::AccessControl,
     net::{
         BufDnsStreamHandle, NetError,
-        runtime::{TokioRuntimeProvider, TokioTime, iocompat::AsyncIoTokioAsStd},
+        runtime::{DnsTcpListener, DnsUdpSocket, TokioTime},
         tcp::TcpStream,
         udp::UdpStream,
         xfer::Protocol,
@@ -114,7 +118,7 @@ impl<T: RequestHandler> Server<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket) {
+    pub fn register_socket<S: DnsUdpSocket + 'static>(&mut self, socket: S) {
         self.join_set
             .spawn(handle_udp(socket, self.context.clone()));
     }
@@ -132,9 +136,9 @@ impl<T: RequestHandler> Server<T> {
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `response_buffer_size` - size of the buffer for outgoing responses per connection
-    pub fn register_listener(
+    pub fn register_listener<L: DnsTcpListener>(
         &mut self,
-        listener: net::TcpListener,
+        listener: L,
         timeout: Option<Duration>,
         response_buffer_size: usize,
     ) {
@@ -163,9 +167,9 @@ impl<T: RequestHandler> Server<T> {
     ///   only, this would require some type of whitelisting.
     /// * `tls_config` - rustls server config
     #[cfg(feature = "__tls")]
-    pub fn register_tls_listener_with_tls_config(
+    pub fn register_tls_listener_with_tls_config<L: DnsTcpListener>(
         &mut self,
-        listener: net::TcpListener,
+        listener: L,
         handshake_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
@@ -192,9 +196,9 @@ impl<T: RequestHandler> Server<T> {
     ///   only, this would require some type of whitelisting.
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
     #[cfg(feature = "__tls")]
-    pub fn register_tls_listener(
+    pub fn register_tls_listener<L: DnsTcpListener>(
         &mut self,
-        listener: net::TcpListener,
+        listener: L,
         timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
@@ -222,9 +226,9 @@ impl<T: RequestHandler> Server<T> {
     /// * `dns_hostname` - the DNS hostname of the H2 server.
     /// * `http_endpoint` - the HTTP endpoint of the H2 server.
     #[cfg(feature = "__https")]
-    pub fn register_https_listener(
+    pub fn register_https_listener<L: DnsTcpListener>(
         &mut self,
-        listener: net::TcpListener,
+        listener: L,
         handshake_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
@@ -261,9 +265,9 @@ impl<T: RequestHandler> Server<T> {
     /// * `dns_hostname` - the DNS hostname of the H2 server.
     /// * `http_endpoint` - the HTTP endpoint of the H2 server.
     #[cfg(feature = "__https")]
-    pub fn register_https_listener_with_tls_config(
+    pub fn register_https_listener_with_tls_config<L: DnsTcpListener>(
         &mut self,
-        listener: net::TcpListener,
+        listener: L,
         handshake_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
@@ -295,9 +299,9 @@ impl<T: RequestHandler> Server<T> {
     /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     /// * `dns_hostname` - the DNS hostname of the DoQ server.
     #[cfg(feature = "__quic")]
-    pub fn register_quic_listener(
+    pub fn register_quic_listener<S: IntoQuicSocket>(
         &mut self,
-        socket: net::UdpSocket,
+        socket: S,
         timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
@@ -330,9 +334,9 @@ impl<T: RequestHandler> Server<T> {
     /// * `tls_config` - a customized ServerConfig to use for TLS.
     /// * `dns_hostname` - the DNS hostname of the DoQ server.
     #[cfg(feature = "__quic")]
-    pub fn register_quic_listener_and_tls_config(
+    pub fn register_quic_listener_and_tls_config<S: IntoQuicSocket>(
         &mut self,
-        socket: net::UdpSocket,
+        socket: S,
         timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
@@ -360,9 +364,9 @@ impl<T: RequestHandler> Server<T> {
     ///   only, this would require some type of whitelisting.
     /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     #[cfg(feature = "__h3")]
-    pub fn register_h3_listener(
+    pub fn register_h3_listener<S: IntoQuicSocket>(
         &mut self,
-        socket: net::UdpSocket,
+        socket: S,
         timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
@@ -395,9 +399,9 @@ impl<T: RequestHandler> Server<T> {
     ///   only, this would require some type of whitelisting.
     /// * `tls_config` - a customized ServerConfig to use for TLS.
     #[cfg(feature = "__h3")]
-    pub fn register_h3_listener_with_tls_config(
+    pub fn register_h3_listener_with_tls_config<S: IntoQuicSocket>(
         &mut self,
-        socket: net::UdpSocket,
+        socket: S,
         timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
@@ -449,16 +453,16 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
-async fn handle_udp(
-    socket: net::UdpSocket,
+async fn handle_udp<S: DnsUdpSocket + 'static>(
+    socket: S,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    debug!("registering udp: {:?}", socket);
+    debug!("registering udp");
 
     // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
     //   the address used is acquired from the inbound queries
     let (mut stream, stream_handle) =
-        UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
+        UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
 
     let mut inner_join_set = JoinSet::new();
     loop {
@@ -513,16 +517,17 @@ async fn handle_udp(
     }
 }
 
-async fn handle_tcp(
-    listener: net::TcpListener,
+async fn handle_tcp<L: DnsTcpListener>(
+    mut listener: L,
     timeout: Option<Duration>,
     response_buffer_size: usize,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    debug!("register tcp: {listener:?}");
+    debug!("register tcp");
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = std::future::poll_fn(|cx| listener.poll_accept(cx));
+        let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
@@ -551,11 +556,8 @@ async fn handle_tcp(
         inner_join_set.spawn(async move {
             debug!(%src_addr, "accepted TCP request");
             // take the created stream...
-            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                AsyncIoTokioAsStd(tcp_stream),
-                src_addr,
-                response_buffer_size,
-            );
+            let (buf_stream, stream_handle) =
+                TcpStream::from_stream_with_buffer_size(tcp_stream, src_addr, response_buffer_size);
             let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
 
             while let Some(message) = timeout_stream.next().await {
@@ -585,18 +587,19 @@ async fn handle_tcp(
 }
 
 #[cfg(feature = "__tls")]
-async fn handle_tls(
-    listener: net::TcpListener,
+async fn handle_tls<L: DnsTcpListener>(
+    mut listener: L,
     tls_config: Arc<ServerConfig>,
     handshake_timeout: Option<Duration>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    debug!(?listener, "registered tls");
+    debug!("registered tls");
     let tls_acceptor = TlsAcceptor::from(tls_config);
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = std::future::poll_fn(|cx| listener.poll_accept(cx));
+        let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
@@ -627,8 +630,11 @@ async fn handle_tls(
             debug!(%src_addr, "starting TLS request");
 
             // perform the TLS
-            let Ok(tls_stream) =
-                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) = optional_timeout(
+                handshake_timeout,
+                tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
+            )
+            .await
             else {
                 warn!("tls timeout expired during handshake");
                 return;

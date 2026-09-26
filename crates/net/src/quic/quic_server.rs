@@ -15,7 +15,7 @@ use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
 
-use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
+use crate::{error::NetError, runtime::IntoQuicSocket, tls::default_provider, udp::UdpSocket};
 
 use super::{
     quic_config,
@@ -39,8 +39,8 @@ impl QuicServer {
     }
 
     /// Construct the new server with an existing socket and a default TLS configuration
-    pub fn with_socket(
-        socket: tokio::net::UdpSocket,
+    pub fn with_socket<S: IntoQuicSocket>(
+        socket: S,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, NetError> {
         let mut config = TlsServerConfig::builder_with_provider(Arc::new(default_provider()))
@@ -57,18 +57,18 @@ impl QuicServer {
     /// Construct the new server with an existing socket and a custom TLS configuration
     ///
     /// The caller must ensure the `TlsServerConfig` has the appropriate DoQ ALPN protocol enabled.
-    pub fn with_socket_and_tls_config(
-        socket: tokio::net::UdpSocket,
+    pub fn with_socket_and_tls_config<S: IntoQuicSocket>(
+        socket: S,
         tls_config: Arc<TlsServerConfig>,
     ) -> Result<Self, NetError> {
         let mut server_config =
             ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
         server_config.transport = Arc::new(quic_config::transport());
 
-        let socket = socket.into_std()?;
+        let socket = socket.into_quic_socket()?;
 
         let endpoint_config = quic_config::endpoint();
-        let endpoint = Endpoint::new(
+        let endpoint = Endpoint::new_with_abstract_socket(
             endpoint_config,
             Some(server_config),
             socket,
