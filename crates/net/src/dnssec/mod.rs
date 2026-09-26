@@ -55,6 +55,9 @@ pub use error::{ProofError, ProofErrorKind};
 mod nsec3;
 use nsec3::{verify_nsec3, verify_nsec3_insecure_delegation};
 
+#[cfg(all(test, feature = "tokio"))]
+mod handle_tests;
+
 /// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
@@ -711,152 +714,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         zone: Name,
         options: DnsRequestOptions,
     ) -> Result<Vec<Record<DS>>, ProofError> {
-        match self
+        let mut response = match self
             .lookup(Query::new(zone.clone(), RecordType::DS), options)
             .first_answer()
             .await
         {
-            Ok(mut ds_message)
-                if ds_message
-                    .answers
-                    .iter()
-                    .filter(|r| r.record_type() == RecordType::DS)
-                    .any(|r| r.proof.is_secure()) =>
-            {
-                // This is a secure DS RRset.
-                let all_records = mem::take(&mut ds_message.answers)
-                    .into_iter()
-                    .filter_map(|r| {
-                        r.map(|data| match data {
-                            RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
-                            _ => None,
-                        })
-                    });
-
-                let mut supported_records = vec![];
-                let mut all_unknown = None;
-                for record in all_records {
-                    // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other
-                    // records.
-                    if (!record.data.algorithm().is_supported()
-                        || !record.data.digest_type().is_supported())
-                        && (record.proof.is_secure() || record.proof.is_insecure())
-                    {
-                        all_unknown.get_or_insert(true);
-                        continue;
-                    }
-                    all_unknown = Some(false);
-
-                    supported_records.push(record);
-                }
-
-                if all_unknown.unwrap_or(false) {
-                    return Err(ProofError::new(
-                        Proof::Insecure,
-                        ProofErrorKind::UnknownKeyAlgorithm,
-                    ));
-                } else if !supported_records.is_empty() {
-                    return Ok(supported_records);
-                }
-            }
-            Ok(response) => {
-                if !response
-                    .answers
-                    .iter()
-                    .any(|r| r.record_type() == RecordType::DS)
-                {
-                    // Per RFC 6840 section 4.4, beyond checking the proof of nonexistence of a DS
-                    // record at this name, we also need to check for proof that there is an NS
-                    // record, or could be an NS record, at this name.
-
-                    // Case 1: Matching NSEC record exists that proves NS is present and DS is not
-                    // present. This is definitively an insecure delegation.
-                    if response.authorities.iter().any(|record| {
-                        if record.proof != Proof::Secure {
-                            return false;
-                        }
-                        let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
-                            return false;
-                        };
-                        record.name == zone
-                            && nsec.type_set().contains(RecordType::NS)
-                            && !nsec.type_set().contains(RecordType::DS)
-                            && !nsec.type_set().contains(RecordType::SOA)
-                    }) {
-                        debug!(
-                            %zone,
-                            "marking zone as insecure based on secure NSEC proof",
-                        );
-                        return Err(ProofError::new(
-                            Proof::Insecure,
-                            ProofErrorKind::DsResponseInsecure { name: zone },
-                        ));
-                    }
-
-                    // Gather NSEC3 records.
-                    let nsec3s = response
-                        .authorities
-                        .iter()
-                        .filter_map(|record| {
-                            if record.proof != Proof::Secure {
-                                return None;
-                            }
-
-                            let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &record.data else {
-                                return None;
-                            };
-
-                            Some((&record.name, nsec3))
-                        })
-                        .collect::<Vec<_>>();
-
-                    // Case 2: Matching NSEC3 record exists that proves NS is present and DS is not
-                    // present. This is definitively an insecure delegation.
-                    //
-                    // Case 3: There is an NSEC3 record that covers the name and has the opt-out bit
-                    // set. There could be an insecure delegation at this name, but there is no way
-                    // to know for certain due to the use of the opt-out flag.
-                    if !nsec3s.is_empty() && verify_nsec3_insecure_delegation(&zone, &nsec3s) {
-                        debug!(
-                            %zone,
-                            "marking zone as insecure based on secure NSEC3 proof",
-                        );
-                        return Err(ProofError::new(
-                            Proof::Insecure,
-                            ProofErrorKind::DsResponseInsecure { name: zone },
-                        ));
-                    }
-
-                    // Case 4: There is an insecure delegation further up the tree.
-                    //
-                    // We check that parent zone is insecure by looking for at least one `Proof::Insecure`
-                    // attached to a record with name that is at or above the child zone. Most servers
-                    // will include an SOA record in NODATA responses, so we should see an insecure
-                    // proof on at least that record.
-                    if response
-                        .all_sections()
-                        .any(|r| r.name.zone_of(&zone) && r.proof == Proof::Insecure)
-                    {
-                        debug!(
-                            %zone,
-                            "marking zone as insecure based on insecure parent zone",
-                        );
-                        return Err(ProofError::new(
-                            Proof::Insecure,
-                            ProofErrorKind::DsResponseInsecure { name: zone },
-                        ));
-                    }
-
-                    debug!(
-                        %zone,
-                        "could not prove insecure delegation",
-                    );
-                    return Err(ProofError::new(
-                        Proof::Bogus,
-                        ProofErrorKind::DsRecordShouldExist { name: zone },
-                    ));
-                }
-            }
+            Ok(response) => response,
             Err(net) => {
                 return Err(ProofError::new(
                     Proof::Bogus,
@@ -866,9 +729,169 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     },
                 ));
             }
+        };
+
+        if response
+            .answers
+            .iter()
+            .filter(|r| r.record_type() == RecordType::DS)
+            .any(|r| r.proof.is_secure())
+        {
+            // This is a secure DS RRset.
+            let all_records = mem::take(&mut response.answers)
+                .into_iter()
+                .filter_map(|r| {
+                    r.map(|data| match data {
+                        RData::DNSSEC(DNSSECRData::DS(ds)) => Some(ds),
+                        _ => None,
+                    })
+                });
+
+            let mut supported_records = vec![];
+            let mut all_unknown = None;
+            for record in all_records {
+                // A chain can be either SECURE or INSECURE, but we should not trust BOGUS or other
+                // records.
+                if (!record.data.algorithm().is_supported()
+                    || !record.data.digest_type().is_supported())
+                    && (record.proof.is_secure() || record.proof.is_insecure())
+                {
+                    all_unknown.get_or_insert(true);
+                    continue;
+                }
+                all_unknown = Some(false);
+
+                supported_records.push(record);
+            }
+
+            return if all_unknown.unwrap_or(false) {
+                Err(ProofError::new(
+                    Proof::Insecure,
+                    ProofErrorKind::UnknownKeyAlgorithm,
+                ))
+            } else if !supported_records.is_empty() {
+                Ok(supported_records)
+            } else {
+                Err(ProofError::ds_should_exist(zone))
+            };
         }
 
-        Err(ProofError::ds_should_exist(zone))
+        if response
+            .answers
+            .iter()
+            .any(|r| r.record_type() == RecordType::DS)
+        {
+            return Err(ProofError::ds_should_exist(zone));
+        }
+
+        // Per RFC 6840 section 4.4, beyond checking the proof of nonexistence of a DS
+        // record at this name, we also need to check for proof that there is an NS
+        // record, or could be an NS record, at this name.
+
+        // Case 1: Matching NSEC record exists that proves NS is present and DS is not
+        // present. This is definitively an insecure delegation.
+        if response.authorities.iter().any(|record| {
+            if record.proof != Proof::Secure {
+                return false;
+            }
+            let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
+                return false;
+            };
+            record.name == zone
+                && nsec.type_set().contains(RecordType::NS)
+                && !nsec.type_set().contains(RecordType::DS)
+                && !nsec.type_set().contains(RecordType::SOA)
+        }) {
+            debug!(
+                %zone,
+                "marking zone as insecure based on secure NSEC proof",
+            );
+            return Err(ProofError::new(
+                Proof::Insecure,
+                ProofErrorKind::DsResponseInsecure { name: zone },
+            ));
+        }
+
+        // Gather NSEC3 records.
+        let nsec3s = response
+            .authorities
+            .iter()
+            .filter_map(|record| {
+                if record.proof != Proof::Secure {
+                    return None;
+                }
+
+                let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &record.data else {
+                    return None;
+                };
+
+                Some((&record.name, nsec3))
+            })
+            .collect::<Vec<_>>();
+
+        // Case 2: Matching NSEC3 record exists that proves NS is present and DS is not
+        // present. This is definitively an insecure delegation.
+        //
+        // Case 3: There is an NSEC3 record that covers the name and has the opt-out bit
+        // set. There could be an insecure delegation at this name, but there is no way
+        // to know for certain due to the use of the opt-out flag.
+        if !nsec3s.is_empty() && verify_nsec3_insecure_delegation(&zone, &nsec3s) {
+            debug!(
+                %zone,
+                "marking zone as insecure based on secure NSEC3 proof",
+            );
+            return Err(ProofError::new(
+                Proof::Insecure,
+                ProofErrorKind::DsResponseInsecure { name: zone },
+            ));
+        }
+
+        // Case 4: There is an insecure delegation further up the tree.
+        //
+        // We check that parent zone is insecure by looking for at least one `Proof::Insecure`
+        // attached to a record with name that is at or above the child zone. Most servers
+        // will include an SOA record in NODATA responses, so we should see an insecure
+        // proof on at least that record.
+        if response
+            .all_sections()
+            .any(|r| r.name.zone_of(&zone) && r.proof == Proof::Insecure)
+        {
+            debug!(
+                %zone,
+                "marking zone as insecure based on insecure parent zone",
+            );
+            return Err(ProofError::new(
+                Proof::Insecure,
+                ProofErrorKind::DsResponseInsecure { name: zone },
+            ));
+        }
+
+        // Case 5: The response does not contain any records that could carry an
+        // insecure proof (some servers return an empty authority section for DS
+        // queries in insecure zones). Check whether the parent zone is insecure
+        // directly instead.
+        match Box::pin(self.find_ds_records(zone.base_name(), options)).await {
+            Err(err) if err.proof == Proof::Insecure => {
+                debug!(
+                    %zone,
+                    "marking zone as insecure based on insecure parent zone lookup",
+                );
+                return Err(ProofError::new(
+                    Proof::Insecure,
+                    ProofErrorKind::DsResponseInsecure { name: zone },
+                ));
+            }
+            Ok(()) | Err(_) => {}
+        }
+
+        debug!(
+            %zone,
+            "could not prove insecure delegation",
+        );
+        Err(ProofError::new(
+            Proof::Bogus,
+            ProofErrorKind::DsRecordShouldExist { name: zone },
+        ))
     }
 
     /// Verifies that the key is a trust anchor.
@@ -936,6 +959,19 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     // No need to look for a zone cut at an NSEC3 owner name. Look at its parent
                     // instead, which ought to be a zone apex.
                     search_name = search_name.base_name();
+                }
+
+                // If this is the response to a DS query and the unsigned record is at or below
+                // the queried name, searching for DS records from `search_name` would find the
+                // same zone cut and issue the same DS query again, recursing until the maximum
+                // request depth is exceeded. This happens with servers that answer DS queries
+                // from the child zone, returning the child zone's SOA record instead of the
+                // parent's. The only thing such a record can tell us is whether the parent zone
+                // is insecure, so start the search at the parent of the queried name instead.
+                if original_query.query_type == RecordType::DS
+                    && original_query.name.zone_of(&search_name)
+                {
+                    search_name = original_query.name.base_name();
                 }
 
                 self.find_ds_records(search_name, options).await?; // insecure will return early here
