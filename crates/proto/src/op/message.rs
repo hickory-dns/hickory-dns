@@ -622,9 +622,8 @@ where
         let max_size = encoder.max_size();
         encoder.set_max_size(max_size.saturating_sub(opt_len));
 
-        answer_count = count_was_truncated(answers.emit(encoder))?;
-        authority_count = count_was_truncated(authorities.emit(encoder))?;
-        additional_count = count_was_truncated(additionals.emit(encoder))?;
+        [answer_count, authority_count, additional_count] =
+            emit_sections([answers, authorities, additionals], encoder)?;
 
         encoder.set_max_size(max_size);
 
@@ -632,9 +631,8 @@ where
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
     } else {
-        answer_count = count_was_truncated(answers.emit(encoder))?;
-        authority_count = count_was_truncated(authorities.emit(encoder))?;
-        additional_count = count_was_truncated(additionals.emit(encoder))?;
+        [answer_count, authority_count, additional_count] =
+            emit_sections([answers, authorities, additionals], encoder)?;
 
         if metadata.response_code.high() > 0 {
             warn!(
@@ -677,6 +675,28 @@ where
 
     place.replace(encoder, header)?;
     Ok(header)
+}
+
+/// Emits the record sections, stopping at the first one that does not fit.
+///
+/// RFC 1035 section 6.2: "When a response is so long that truncation is required, the truncation
+/// should start at the end of the response and work forwards in the datagram. Thus if there is any
+/// data for the authority section, the answer section is guaranteed to be unique." Emitting a later
+/// section after an earlier one has run out of room breaks that, because a short record can still
+/// fit where a longer one did not.
+fn emit_sections(
+    sections: [&mut dyn EmitAndCount; 3],
+    encoder: &mut BinEncoder<'_>,
+) -> ProtoResult<[(u16, bool); 3]> {
+    let mut counts = [(0, false); 3];
+    for (count, section) in counts.iter_mut().zip(sections) {
+        *count = count_was_truncated(section.emit(encoder))?;
+        if count.1 {
+            break;
+        }
+    }
+
+    Ok(counts)
 }
 
 impl BinEncodable for Message {
@@ -788,11 +808,11 @@ impl fmt::Display for Message {
 mod tests {
     use super::*;
 
-    use crate::rr::rdata::A;
     #[cfg(feature = "std")]
     use crate::rr::rdata::OPT;
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
+    use crate::rr::rdata::{A, NS, TXT};
     #[cfg(feature = "__dnssec")]
     use crate::rr::rdata::{TSIG, tsig::TsigAlgorithm};
     use crate::rr::{Name, RData};
@@ -856,6 +876,42 @@ mod tests {
         let got = Message::read(&mut decoder).unwrap();
 
         assert_eq!(got, message);
+    }
+
+    /// RFC 1035 section 6.2 requires truncation to work forwards from the end of the message, so
+    /// a section that did not fit must not be followed by one that did. The authority record here
+    /// is short enough to fit in the room left over by the answer that was dropped.
+    #[test]
+    fn test_truncation_drops_later_sections() {
+        let name = Name::from_ascii("www.example.com.").unwrap();
+
+        let mut message = Message::response(10, OpCode::Query);
+        message.add_query(Query::new(name.clone(), RecordType::TXT));
+        for _ in 0..8 {
+            message.add_answer(Record::from_rdata(
+                name.clone(),
+                3600,
+                RData::TXT(TXT::from_bytes(alloc::vec![&[b'x'; 50][..]])),
+            ));
+        }
+        message.add_authority(Record::from_rdata(
+            Name::from_ascii("example.com.").unwrap(),
+            3600,
+            RData::NS(NS(name)),
+        ));
+
+        let mut buf = Vec::with_capacity(512);
+        let mut encoder = BinEncoder::new(&mut buf);
+        encoder.set_max_size(512);
+        message.emit(&mut encoder).unwrap();
+
+        let got = Message::from_vec(&buf).unwrap();
+        assert!(got.metadata.truncation);
+        assert!(
+            got.answers.len() < 8,
+            "the answer section was not truncated"
+        );
+        assert!(got.authorities.is_empty());
     }
 
     #[test]
