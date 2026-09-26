@@ -358,10 +358,14 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
 
         // Establish connection
+        let meta = self.meta(protocol);
         let handle_fut = self
             .connection_provider
             .new_connection(self.config.ip, config, cx)
-            .map_err(|e| (e, Some(protocol)))?;
+            .map_err(|e| {
+                meta.srtt.record_failure();
+                (e, Some(protocol))
+            })?;
 
         let handle = Box::pin(handle_fut)
             .await
@@ -374,7 +378,6 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
 
         // Store the new connection (with lock)
-        let meta = self.meta(protocol);
         let state = ConnectionState::new(handle.clone(), meta.clone(), protocol);
         self.connections.lock().await.push(state);
         Ok(ConnectedClient {
