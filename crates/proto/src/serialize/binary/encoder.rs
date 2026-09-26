@@ -716,7 +716,7 @@ mod tests {
             msg.add_answer(Record::from_rdata(
                 name.clone(),
                 0,
-                RData::TXT(TXT::new(vec!["a".repeat(255)])),
+                RData::TXT(TXT::try_from("a".repeat(255)).unwrap()),
             ));
         }
 
