@@ -8,16 +8,16 @@
 #![allow(clippy::print_stdout)] // this is a test module
 
 use core::{net::SocketAddr, str::FromStr};
+use std::println;
 use std::sync::Arc;
-use std::{env, path::Path, println};
 
 use futures_util::StreamExt;
+use rcgen::{
+    BasicConstraints, CertificateParams, CertifiedIssuer, DnType, ExtendedKeyUsagePurpose, IsCa,
+    KeyPair, KeyUsagePurpose,
+};
 use rustls::{
     ClientConfig, KeyLogFile,
-    pki_types::{
-        CertificateDer, PrivateKeyDer,
-        pem::{self, PemObject},
-    },
     sign::{CertifiedKey, SingleCertAndKey},
 };
 use test_support::subscribe;
@@ -63,17 +63,30 @@ async fn server_responder(mut server: QuicServer) {
 async fn test_quic_stream() {
     subscribe();
 
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-    println!("using server src path: {server_path}");
+    let mut ca_params = CertificateParams::new(Vec::new()).unwrap();
+    ca_params
+        .distinguished_name
+        .push(DnType::CommonName, "root.example.com");
+    ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+    ca_params.key_usages = Vec::from([
+        KeyUsagePurpose::KeyCertSign,
+        KeyUsagePurpose::DigitalSignature,
+    ]);
+    let root_ca = CertifiedIssuer::self_signed(ca_params, KeyPair::generate().unwrap()).unwrap();
 
-    let ca = read_certs(format!("{server_path}/tests/test-data/ca.pem")).unwrap();
-    let cert_chain = read_certs(format!("{server_path}/tests/test-data/cert.pem")).unwrap();
-
-    let key =
-        PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key")).unwrap();
+    let mut leaf_params = CertificateParams::new(["ns.example.com".to_string()]).unwrap();
+    leaf_params.is_ca = IsCa::NoCa;
+    leaf_params.extended_key_usages = Vec::from([ExtendedKeyUsagePurpose::ServerAuth]);
+    let key = KeyPair::generate().unwrap();
+    let cert = leaf_params.signed_by(&key, &root_ca).unwrap();
 
     let certificate_and_key = SingleCertAndKey::from(
-        CertifiedKey::from_der(cert_chain, key, &default_provider()).unwrap(),
+        CertifiedKey::from_der(
+            Vec::from([cert.der().to_owned(), root_ca.der().to_owned()]),
+            key.into(),
+            &default_provider(),
+        )
+        .unwrap(),
     );
 
     // All testing is only done on local addresses, construct the server
@@ -91,7 +104,7 @@ async fn test_quic_stream() {
 
     // now construct the client
     let mut roots = rustls::RootCertStore::empty();
-    let (_, ignored) = roots.add_parsable_certificates(ca.into_iter());
+    let (_, ignored) = roots.add_parsable_certificates([root_ca.der().clone()]);
     assert_eq!(ignored, 0);
 
     let mut client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
@@ -134,8 +147,4 @@ async fn test_quic_stream() {
 
     // and finally kill the server
     server_join.abort();
-}
-
-fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
-    CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }

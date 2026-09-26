@@ -92,6 +92,7 @@ webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
 futures-executor = { workspace = true, default-features = false, features = ["std"] }
+rcgen.workspace = true
 test-support.workspace = true
 tokio = { workspace = true, features = ["rt", "time", "macros", "test-util"] }
 
