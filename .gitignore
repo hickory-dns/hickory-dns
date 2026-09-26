@@ -28,3 +28,9 @@ fuzz/corpus/**
 
 # Code coverage output
 /coverage
+
+# Test keys and certificates
+/tests/test-data/ca.*
+/tests/test-data/cert.*
+/tests/test-data/cert-key.pk8
+/tests/test-data/test_configs/sec/example.*

@@ -9,8 +9,7 @@
 #![cfg(feature = "__https")]
 
 use std::env;
-use std::fs::File;
-use std::io::*;
+use std::fs;
 use std::net::*;
 use std::sync::Arc;
 
@@ -31,18 +30,16 @@ async fn test_example_https_toml_startup() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    let server = TestServer::start("dns_over_https.toml");
-    let mut cert_der = vec![];
-    let https_port = server.ports.get_v4(Protocol::Https);
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {server_path}");
 
-    File::open(format!(
-        "{server_path}/tests/test-data/test_configs/sec/example.cert"
-    ))
-    .expect("failed to open cert")
-    .read_to_end(&mut cert_der)
-    .expect("failed to read cert");
+    let cert_path = format!("{server_path}/tests/test-data/test_configs/sec/example.cert");
+    let cert_der = fs::read(cert_path).expect(
+        "failed to read certificate file, run `just generate-test-certs` to prepare test fixtures",
+    );
+
+    let server = TestServer::start("dns_over_https.toml");
+    let https_port = server.ports.get_v4(Protocol::Https);
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, https_port.expect("no https_port")));
     std::thread::sleep(std::time::Duration::from_secs(1));

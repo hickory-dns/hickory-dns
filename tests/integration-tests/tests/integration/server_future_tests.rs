@@ -1,3 +1,5 @@
+#[cfg(feature = "__tls")]
+use std::fs;
 use std::future::Future;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 #[cfg(feature = "__tls")]
@@ -302,6 +304,9 @@ async fn lazy_tcp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
 
 #[cfg(feature = "__tls")]
 fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
+    if !fs::exists(&cert_path).unwrap() {
+        panic!("Run `just generate-test-certs` to prepare test fixtures");
+    }
     CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }
 

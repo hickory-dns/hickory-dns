@@ -1,7 +1,7 @@
 ## Script for executing commands for the project.
-export TARGET_DIR := join(justfile_directory(), "target")
-export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
-export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
+export TARGET_DIR := justfile_directory() / "target"
+export TDNS_BIND_PATH := TARGET_DIR / "bind"
+export TEST_DATA := justfile_directory() / "tests" / "test-data"
 
 NIGHTLY_DATE := "2026-02-05"
 
@@ -12,9 +12,9 @@ MSRV := env_var_or_default('MSRV', "")
 COV_RUSTFLAGS := "-C instrument-coverage -C llvm-args=--instrprof-atomic-counter-update-all --cfg=coverage --cfg=trybuild_no_target"
 COV_CARGO_INCREMENTAL := "0"
 COV_CARGO_LLVM_COV := "1"
-COV_CARGO_LLVM_COV_TARGET_DIR := join(TARGET_DIR, "llvm-cov-target")
-COV_LLVM_PROFILE_FILE := join(COV_CARGO_LLVM_COV_TARGET_DIR, "hickory-dns-%p-%m_%c.profraw")
-COV_OUTPUT_DIR := join(justfile_directory(), "coverage")
+COV_CARGO_LLVM_COV_TARGET_DIR := TARGET_DIR / "llvm-cov-target"
+COV_LLVM_PROFILE_FILE := COV_CARGO_LLVM_COV_TARGET_DIR / "hickory-dns-%p-%m_%c.profraw"
+COV_OUTPUT_DIR := justfile_directory() / "coverage"
 
 BIND_VER := "9.16.41"
 
@@ -71,7 +71,7 @@ build feature='' ignore='':
     cargo ws exec {{ignore}} cargo {{MSRV}} build --locked --all-targets {{feature}}
 
 # Run tests on all projects in the workspace
-test feature='' ignore='':
+test feature='' ignore='': init-test-certs
     cargo ws exec {{ignore}} cargo {{MSRV}} test --locked --all-targets {{feature}}
 
 doc feature='':
@@ -113,7 +113,7 @@ audit: init-audit (check '--all-features')
 cleanliness: clippy fmt audit
 
 # Generate coverage report
-coverage: init-llvm-cov
+coverage: init-llvm-cov init-test-certs
     #!/usr/bin/env bash
     set -euxo pipefail
 
@@ -131,7 +131,7 @@ coverage: init-llvm-cov
     # See: https://github.com/rust-lang/rust/issues/84605
     cargo +nightly llvm-cov test --workspace --no-report --all-targets --all-features --no-cfg-coverage-nightly
     cargo +nightly llvm-cov test --workspace --no-report --doc --doctests --all-features --no-cfg-coverage-nightly
-    cargo +nightly llvm-cov report --doctests --codecov --output-path {{join(COV_OUTPUT_DIR, "hickory-dns-coverage.json")}}
+    cargo +nightly llvm-cov report --doctests --codecov --output-path {{COV_OUTPUT_DIR / "hickory-dns-coverage.json"}}
 
 # Open the html view of the coverage report
 coverage-html: coverage
@@ -155,15 +155,24 @@ coverage-lcov: coverage
     export CARGO_LLVM_COV_TARGET_DIR={{COV_CARGO_LLVM_COV_TARGET_DIR}}
     export LLVM_PROFILE_FILE={{COV_LLVM_PROFILE_FILE}}
 
-    cargo +nightly llvm-cov report --doctests --lcov --output-path {{join(COV_OUTPUT_DIR, "lcov.info")}}
+    cargo +nightly llvm-cov report --doctests --lcov --output-path {{COV_OUTPUT_DIR / "lcov.info"}}
 
-# (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
-[unix]
+# Generates test certificates
 generate-test-certs: init-openssl
     cd {{TEST_DATA}} && rm -f ca.key ca.pem cert.key cert-key.pkcs8 cert.csr cert.pem cert.p12
     scripts/gen_certs.sh
     cd {{TEST_DATA}}/test_configs/sec && rm -f example.key example.key.pem example.cert example.cert.pem example.p12
     cd {{TEST_DATA}}/test_configs/sec && ./gen-keys.sh
+
+# Conditionally generates test certificates if they don't exist or if they have expired.
+init-test-certs: init-openssl
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    if [ ! -f {{TEST_DATA}}/test_configs/sec/example.cert.pem ]; then
+        just generate-test-certs
+    elif ! openssl x509 -in {{TEST_DATA}}/test_configs/sec/example.cert.pem -noout -checkend 86400; then
+        just generate-test-certs
+    fi
 
 # Publish all crates
 publish:
@@ -172,8 +181,8 @@ publish:
 # Removes the target directories cleaning all built artifacts
 clean:
     rm -rf {{TARGET_DIR}}
-    rm -rf {{join(justfile_directory(), "conformance/target")}}
-    rm -rf {{join(justfile_directory(), "fuzz/target")}}
+    rm -rf {{justfile_directory() / "conformance/target"}}
+    rm -rf {{justfile_directory() / "fuzz/target"}}
 
 # runs all other conformance-* tasks
 conformance: (conformance-framework) (conformance-unbound) (conformance-bind) (conformance-hickory) (conformance-ignored) (conformance-clippy) (conformance-fmt)
@@ -285,7 +294,7 @@ cross-build target:
     cross build --target {{target}}
 
 # tests the resolver for android
-cross-test target package:
+cross-test target package: init-test-certs
     cross test --target {{target}} --package {{package}}
 
 [private]
@@ -295,6 +304,11 @@ init-openssl:
 
 [private]
 [linux]
+init-openssl:
+    openssl version
+
+[private]
+[windows]
 init-openssl:
     openssl version
 

@@ -1051,6 +1051,8 @@ mod tests {
         pki_types::{CertificateDer, PrivateKeyDer},
         sign::{CertifiedKey, SingleCertAndKey},
     };
+    #[cfg(feature = "__tls")]
+    use std::fs;
     use std::net::SocketAddr;
     use test_support::subscribe;
     use tokio::net::{TcpListener, UdpSocket};
@@ -1235,11 +1237,14 @@ mod tests {
         use std::env;
 
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
-        let cert_chain =
-            CertificateDer::pem_file_iter(format!("{server_path}/tests/test-data/cert.pem"))
-                .unwrap()
-                .collect::<Result<Vec<_>, _>>()
-                .unwrap();
+        let cert_filename = format!("{server_path}/tests/test-data/cert.pem");
+        if !fs::exists(&cert_filename).unwrap() {
+            panic!("Run `just generate-test-certs` to prepare test fixtures");
+        }
+        let cert_chain = CertificateDer::pem_file_iter(cert_filename)
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
 
         let key = PrivateKeyDer::from_pem_file(format!("{server_path}/tests/test-data/cert.key"))
             .unwrap();

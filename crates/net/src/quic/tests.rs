@@ -8,6 +8,7 @@
 #![allow(clippy::print_stdout)] // this is a test module
 
 use core::{net::SocketAddr, str::FromStr};
+use std::fs;
 use std::sync::Arc;
 use std::{env, path::Path, println};
 
@@ -137,5 +138,8 @@ async fn test_quic_stream() {
 }
 
 fn read_certs(cert_path: impl AsRef<Path>) -> Result<Vec<CertificateDer<'static>>, pem::Error> {
+    if !fs::exists(&cert_path).unwrap() {
+        panic!("Run `just generate-test-certs` to prepare test fixtures");
+    }
     CertificateDer::pem_file_iter(cert_path)?.collect::<Result<Vec<_>, _>>()
 }

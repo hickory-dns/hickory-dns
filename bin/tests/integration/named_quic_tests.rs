@@ -8,7 +8,7 @@
 #![cfg(not(windows))]
 #![cfg(feature = "__quic")]
 
-use std::{env, fs::File, io::*, net::*, sync::Arc};
+use std::{env, fs, net::*, sync::Arc};
 
 use rustls::{ClientConfig, RootCertStore, pki_types::CertificateDer};
 
@@ -24,18 +24,16 @@ use test_support::subscribe;
 async fn test_example_quic_toml_startup() {
     subscribe();
 
-    let server = TestServer::start("dns_over_quic.toml");
-    let mut cert_der = vec![];
-    let quic_port = server.ports.get_v4(Protocol::Quic);
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    println!("using server src path: {server_path} and quic_port: {quic_port:?}");
 
-    File::open(format!(
-        "{server_path}/tests/test-data/test_configs/sec/example.cert"
-    ))
-    .expect("failed to open cert")
-    .read_to_end(&mut cert_der)
-    .expect("failed to read cert");
+    let cert_path = format!("{server_path}/tests/test-data/test_configs/sec/example.cert");
+    let cert_der = fs::read(cert_path).expect(
+        "failed to read certificate file, run `just generate-test-certs` to prepare test fixtures",
+    );
+
+    let server = TestServer::start("dns_over_quic.toml");
+    let quic_port = server.ports.get_v4(Protocol::Quic);
+    println!("using server src path: {server_path} and quic_port: {quic_port:?}");
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, quic_port.expect("no quic_port")));
     std::thread::sleep(std::time::Duration::from_secs(1));
