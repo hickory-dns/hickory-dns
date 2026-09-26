@@ -31,7 +31,10 @@ fn test_read_config() {
     assert_eq!(config.listen_addrs_ipv4, Vec::<Ipv4Addr>::new());
     assert_eq!(config.listen_addrs_ipv6, Vec::<Ipv6Addr>::new());
     assert_eq!(config.tcp_request_timeout, Duration::from_secs(5));
+    #[cfg(not(windows))]
     assert_eq!(config.directory, Path::new("/var/named"));
+    #[cfg(windows)]
+    assert_eq!(config.directory, Path::new("C:\\Windows\\System32\\Dns"));
 
     assert_eq!(config.zones[0].zone, "localhost");
     assert_eq!(config.zones[0].zone_type(), ZoneType::Primary);
