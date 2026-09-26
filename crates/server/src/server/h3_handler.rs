@@ -35,7 +35,9 @@ use crate::{
 
 pub(super) async fn handle_h3(
     socket: net::UdpSocket,
-    timeout: Option<Duration>,
+    handshake_timeout: Option<Duration>,
+    idle_timeout: Option<Duration>,
+    request_timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -43,7 +45,9 @@ pub(super) async fn handle_h3(
     debug!("registered h3: {:?}", socket);
     handle_h3_with_server(
         H3Server::with_socket(socket, server_cert_resolver)?,
-        timeout,
+        handshake_timeout,
+        idle_timeout,
+        request_timeout,
         dns_hostname,
         cx,
     )
@@ -53,6 +57,8 @@ pub(super) async fn handle_h3(
 pub(super) async fn handle_h3_with_server(
     mut server: H3Server,
     handshake_timeout: Option<Duration>,
+    idle_timeout: Option<Duration>,
+    request_timeout: Option<Duration>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -114,9 +120,15 @@ pub(super) async fn handle_h3_with_server(
 
             debug!("starting h3 stream request from: {src_addr}");
 
-            // TODO: need to consider timeout of total connect...
-            let result =
-                h3_handler(connection, src_addr, handshake_timeout, dns_hostname, cx).await;
+            let result = h3_handler(
+                connection,
+                src_addr,
+                idle_timeout,
+                request_timeout,
+                dns_hostname,
+                cx,
+            )
+            .await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "h3 stream processing failed")
@@ -132,7 +144,8 @@ pub(super) async fn handle_h3_with_server(
 pub(crate) async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
-    h3_timeout: Option<Duration>,
+    idle_timeout: Option<Duration>,
+    request_timeout: Option<Duration>,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -143,7 +156,7 @@ pub(crate) async fn h3_handler(
     loop {
         let future = cx
             .shutdown
-            .run_until_cancelled(optional_timeout(h3_timeout, connection.accept()));
+            .run_until_cancelled(optional_timeout(idle_timeout, connection.accept()));
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
         };
@@ -175,7 +188,7 @@ pub(crate) async fn h3_handler(
                 BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
                 None,
             );
-            let Ok(request_res) = optional_timeout(h3_timeout, fetch_future).await else {
+            let Ok(request_res) = optional_timeout(request_timeout, fetch_future).await else {
                 return; //Timeout while reading request.
             };
             let request = match request_res {

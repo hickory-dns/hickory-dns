@@ -19,12 +19,17 @@
 ## listen_port: port on which to list, default 53
 # listen_port = 53
 
-## tcp_request_timeout: TCP request timeout in seconds. Allows TCP connections
-##  to timeout if there are no requests from a client in the specified amount of
-##  time. This is not a socket level timeout, so trickles of data will not count,
-##  a full request must be received for it to not count against the timeout.
-##  Specifying a timeout of 0 will disable it.
-# tcp_request_timeout = 5
+## handshake_timeout: Timeout for performing TLS or QUIC handshakes, in seconds.
+## Specifying a value of 0 will disable the timeout.
+# handshake_timeout = 5
+
+## request_timeout: Timeout for receiving a complete request over a connection,
+## in seconds. Specifying a value of 0 will disable the timeout.
+# request_timeout = 5
+
+## idle_timeout: Timeout before closing an idle connection, in seconds.
+## Specifying a value of 0 will disable the timeout.
+# idle_timeout = 5
 
 ## DNS over TLS certificate information.
 # tls_cert = { path = "path/to/some.pkcs12", password = "if_encrypted" }

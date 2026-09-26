@@ -33,7 +33,7 @@ use rustls::{
 // unused when every store feature is enabled.
 #[allow(unused_imports)]
 use serde::de::IgnoredAny;
-use serde::de::{self, MapAccess, SeqAccess, Visitor};
+use serde::de::{self, Error as _, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use thiserror::Error;
 use tracing::{debug, info};
@@ -117,14 +117,21 @@ pub(crate) struct Config {
     #[cfg(feature = "prometheus-metrics")]
     #[serde(default)]
     pub(crate) disable_prometheus: bool,
-    /// Timeout associated to a request before it is closed.
-    ///
-    /// Specifying a timeout of zero will disable the timeout.
+    /// Timeout for performing TLS or QUIC handshakes.
     #[serde(
-        deserialize_with = "parse_request_timeout",
+        deserialize_with = "parse_timeout",
+        default = "default_handshake_timeout"
+    )]
+    pub(crate) handshake_timeout: Option<Duration>,
+    /// Timeout for receiving a complete request over a connection.
+    #[serde(
+        deserialize_with = "parse_timeout",
         default = "default_request_timeout"
     )]
-    pub(crate) tcp_request_timeout: Duration,
+    pub(crate) request_timeout: Option<Duration>,
+    /// Timeout before closing an idle connection.
+    #[serde(deserialize_with = "parse_timeout", default = "default_idle_timeout")]
+    pub(crate) idle_timeout: Option<Duration>,
     /// Whether to respect the SSLKEYLOGFILE environment variable.
     ///
     /// This should only be enabled WITH CARE! When enabled, and the SSLKEYLOGFILE environment
@@ -787,12 +794,30 @@ pub(crate) enum ConfigError {
     ZoneParse(#[from] ParseError),
 }
 
-fn parse_request_timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
-    Ok(Duration::from_secs(u64::deserialize(deserializer)?))
+/// Parse a timeout configuration value, in seconds.
+///
+/// If the value is null or zero, the timeout is disabled.
+fn parse_timeout<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Duration>, D::Error> {
+    let seconds = f64::deserialize(deserializer)?;
+    if seconds == 0.0 {
+        return Ok(None);
+    }
+    if seconds.is_sign_negative() {
+        return Err(D::Error::custom("timeout duration was negative"));
+    }
+    Ok(Some(Duration::from_secs_f64(seconds)))
 }
 
-fn default_request_timeout() -> Duration {
-    Duration::from_secs(5)
+fn default_handshake_timeout() -> Option<Duration> {
+    Some(Duration::from_secs(5))
+}
+
+fn default_request_timeout() -> Option<Duration> {
+    Some(Duration::from_secs(5))
+}
+
+fn default_idle_timeout() -> Option<Duration> {
+    Some(Duration::from_secs(5))
 }
 
 #[cfg(feature = "__https")]

@@ -30,7 +30,9 @@ fn test_read_config() {
     assert_eq!(config.listen_port, 53);
     assert_eq!(config.listen_addrs_ipv4, Vec::<Ipv4Addr>::new());
     assert_eq!(config.listen_addrs_ipv6, Vec::<Ipv6Addr>::new());
-    assert_eq!(config.tcp_request_timeout, Duration::from_secs(5));
+    assert_eq!(config.handshake_timeout, Some(Duration::from_secs(5)));
+    assert_eq!(config.request_timeout, Some(Duration::from_secs(5)));
+    assert_eq!(config.idle_timeout, Some(Duration::from_secs(5)));
     assert_eq!(config.directory, Path::new("/var/named"));
 
     assert_eq!(config.zones[0].zone, "localhost");
@@ -102,8 +104,21 @@ fn test_parse_toml() {
         vec![Ipv6Addr::UNSPECIFIED, Ipv6Addr::LOCALHOST]
     );
 
-    let config = Config::from_toml("tcp_request_timeout = 25").unwrap();
-    assert_eq!(config.tcp_request_timeout, Duration::from_secs(25));
+    let config = Config::from_toml("request_timeout = 25").unwrap();
+    assert_eq!(config.request_timeout, Some(Duration::from_secs(25)));
+
+    let config = Config::from_toml("request_timeout = 0.1").unwrap();
+    assert_eq!(config.request_timeout, Some(Duration::from_millis(100)));
+
+    let config = Config::from_toml("request_timeout = 0").unwrap();
+    assert_eq!(config.request_timeout, None);
+
+    let config = Config::from_toml("request_timeout = 0.0").unwrap();
+    assert_eq!(config.request_timeout, None);
+
+    Config::from_toml("request_timeout = -1").unwrap_err();
+
+    Config::from_toml("request_timeout = -1.0").unwrap_err();
 
     let config = Config::from_toml("directory = \"/dev/null\"").unwrap();
     assert_eq!(config.directory, Path::new("/dev/null"));

@@ -127,20 +127,20 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
+    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
+    ///   send requests within this time period will be closed. In the future it should be
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `response_buffer_size` - size of the buffer for outgoing responses per connection
     pub fn register_listener(
         &mut self,
         listener: net::TcpListener,
-        timeout: Option<Duration>,
+        stream_timeout: Option<Duration>,
         response_buffer_size: usize,
     ) {
         self.join_set.spawn(handle_tcp(
             listener,
-            timeout,
+            stream_timeout,
             response_buffer_size,
             self.context.clone(),
         ));
@@ -157,8 +157,9 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
+    /// * `handshake_timeout` - timeout for performing TLS handshakes
+    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
+    ///   send requests within this time period will be closed. In the future it should be
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `tls_config` - rustls server config
@@ -167,12 +168,14 @@ impl<T: RequestHandler> Server<T> {
         &mut self,
         listener: net::TcpListener,
         handshake_timeout: Option<Duration>,
+        stream_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
         self.join_set.spawn(handle_tls(
             listener,
             tls_config,
             handshake_timeout,
+            stream_timeout,
             self.context.clone(),
         ));
         Ok(())
@@ -186,8 +189,9 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
+    /// * `handshake_timeout` - timeout for performing TLS handshakes
+    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
+    ///   send requests within this time period will be closed. In the future it should be
     ///   possible to create long-lived queries, but these should be from trusted sources
     ///   only, this would require some type of whitelisting.
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
@@ -195,13 +199,15 @@ impl<T: RequestHandler> Server<T> {
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
-        timeout: Option<Duration>,
+        handshake_timeout: Option<Duration>,
+        stream_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
         Self::register_tls_listener_with_tls_config(
             self,
             listener,
-            timeout,
+            handshake_timeout,
+            stream_timeout,
             Arc::new(default_tls_server_config(b"dot", server_cert_resolver)?),
         )
     }
@@ -214,18 +220,20 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
+    /// * `handshake_timeout` - timeout for performing TLS handshakes
+    /// * `idle_timeout` - timeout before closing an idle connection
+    /// * `request_timeout` - timeout for receiving a complete request over a request stream
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
     /// * `dns_hostname` - the DNS hostname of the H2 server.
     /// * `http_endpoint` - the HTTP endpoint of the H2 server.
     #[cfg(feature = "__https")]
+    #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener(
         &mut self,
         listener: net::TcpListener,
         handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
         http_endpoint: String,
@@ -233,6 +241,8 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(h2_handler::handle_h2(
             listener,
             handshake_timeout,
+            idle_timeout,
+            request_timeout,
             server_cert_resolver,
             dns_hostname,
             http_endpoint,
@@ -253,18 +263,20 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
+    /// * `handshake_timeout` - timeout for performing TLS handshakes
+    /// * `idle_timeout` - timeout before closing an idle connection
+    /// * `request_timeout` - timeout for receiving a complete request over a request stream
     /// * `tls_config` - a customized `ServerConfig` to use for TLS.
     /// * `dns_hostname` - the DNS hostname of the H2 server.
     /// * `http_endpoint` - the HTTP endpoint of the H2 server.
     #[cfg(feature = "__https")]
+    #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener_with_tls_config(
         &mut self,
         listener: net::TcpListener,
         handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
         http_endpoint: String,
@@ -272,6 +284,8 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
             listener,
             handshake_timeout,
+            idle_timeout,
+            request_timeout,
             TlsAcceptor::from(tls_config),
             dns_hostname,
             http_endpoint,
@@ -288,23 +302,26 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `socket` - a bound UDP socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
+    /// * `handshake_timeout` - timeout for performing QUIC handshakes
+    /// * `idle_timeout` - timeout before closing an idle connection
+    /// * `request_timeout` - timeout for receiving a complete request over a stream
     /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     /// * `dns_hostname` - the DNS hostname of the DoQ server.
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Option<Duration>,
+        handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
         let cx = self.context.clone();
         self.join_set.spawn(quic_handler::handle_quic(
             socket,
-            timeout,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
             server_cert_resolver,
             cx,
         ));
@@ -323,24 +340,27 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `socket` - a bound UDP socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
+    /// * `handshake_timeout` - timeout for performing QUIC handshakes
+    /// * `idle_timeout` - timeout before closing an idle connection
+    /// * `request_timeout` - timeout for receiving a complete request over a stream
     /// * `tls_config` - a customized ServerConfig to use for TLS.
     /// * `dns_hostname` - the DNS hostname of the DoQ server.
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener_and_tls_config(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Option<Duration>,
+        handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
         let cx = self.context.clone();
 
         self.join_set.spawn(quic_handler::handle_quic_with_server(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
-            timeout,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
             cx,
         ));
         Ok(())
@@ -354,22 +374,25 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
+    /// * `handshake_timeout` - timeout for performing QUIC handshakes
+    /// * `idle_timeout` - timeout before closing an idle connection
+    /// * `request_timeout` - timeout for receiving a complete request over a stream
     /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     #[cfg(feature = "__h3")]
     pub fn register_h3_listener(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Option<Duration>,
+        handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
         self.join_set.spawn(h3_handler::handle_h3(
             socket,
-            timeout,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
             server_cert_resolver,
             dns_hostname,
             self.context.clone(),
@@ -389,22 +412,25 @@ impl<T: RequestHandler> Server<T> {
     ///
     /// # Arguments
     /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
-    ///   requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
+    /// * `handshake_timeout` - timeout for performing QUIC handshakes
+    /// * `idle_timeout` - timeout before closing an idle connection
+    /// * `request_timeout` - timeout for receiving a complete request over a stream
     /// * `tls_config` - a customized ServerConfig to use for TLS.
     #[cfg(feature = "__h3")]
     pub fn register_h3_listener_with_tls_config(
         &mut self,
         socket: net::UdpSocket,
-        timeout: Option<Duration>,
+        handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
         self.join_set.spawn(h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
-            timeout,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
             dns_hostname,
             self.context.clone(),
         ));
@@ -515,7 +541,7 @@ async fn handle_udp(
 
 async fn handle_tcp(
     listener: net::TcpListener,
-    timeout: Option<Duration>,
+    stream_timeout: Option<Duration>,
     response_buffer_size: usize,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -556,7 +582,7 @@ async fn handle_tcp(
                 src_addr,
                 response_buffer_size,
             );
-            let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+            let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
 
             while let Some(message) = timeout_stream.next().await {
                 let message = match message {
@@ -589,6 +615,7 @@ async fn handle_tls(
     listener: net::TcpListener,
     tls_config: Arc<ServerConfig>,
     handshake_timeout: Option<Duration>,
+    stream_timeout: Option<Duration>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?listener, "registered tls");
@@ -643,7 +670,7 @@ async fn handle_tls(
             };
             debug!(%src_addr, "accepted TLS request");
             let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
-            let mut timeout_stream = TimeoutStream::new(buf_stream, handshake_timeout);
+            let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
             while let Some(message) = timeout_stream.next().await {
                 let message = match message {
                     Ok(message) => message,
@@ -1170,6 +1197,7 @@ mod tests {
                     .register_tls_listener(
                         TcpListener::bind(self.rustls_addr).await.unwrap(),
                         Some(Duration::from_secs(30)),
+                        Some(Duration::from_secs(30)),
                         cert_key,
                     )
                     .unwrap();
@@ -1181,6 +1209,8 @@ mod tests {
                 server
                     .register_https_listener(
                         TcpListener::bind(self.https_rustls_addr).await.unwrap(),
+                        Some(Duration::from_secs(1)),
+                        Some(Duration::from_secs(1)),
                         Some(Duration::from_secs(1)),
                         cert_key,
                         None,
@@ -1196,6 +1226,8 @@ mod tests {
                     .register_quic_listener(
                         UdpSocket::bind(self.quic_addr).await.unwrap(),
                         Some(Duration::from_secs(1)),
+                        Some(Duration::from_secs(1)),
+                        Some(Duration::from_secs(1)),
                         cert_key,
                     )
                     .unwrap();
@@ -1207,6 +1239,8 @@ mod tests {
                 server
                     .register_h3_listener(
                         UdpSocket::bind(self.h3_addr).await.unwrap(),
+                        Some(Duration::from_secs(1)),
+                        Some(Duration::from_secs(1)),
                         Some(Duration::from_secs(1)),
                         cert_key,
                         None,
