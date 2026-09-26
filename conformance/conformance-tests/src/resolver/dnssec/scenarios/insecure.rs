@@ -95,8 +95,12 @@ fn unsigned_zone_fixture(nsec: Nsec) -> Result<(), Error> {
 
 #[test]
 fn no_ds_record_nsec1() -> Result<(), Error> {
-    let (output, _logs) =
-        no_ds_record_fixture(SignSettings::default().nsec(Nsec::_1), false, false)?;
+    let (output, _logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("no-ds"),
+        SignSettings::default().nsec(Nsec::_1),
+        false,
+        false,
+    )?;
 
     dbg!(&output);
 
@@ -109,6 +113,7 @@ fn no_ds_record_nsec1() -> Result<(), Error> {
 #[test]
 fn no_ds_record_nsec3() -> Result<(), Error> {
     let (output, _logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("no-ds"),
         SignSettings::default().nsec(Nsec::_3 {
             iterations: 0,
             salt: None,
@@ -129,6 +134,7 @@ fn no_ds_record_nsec3() -> Result<(), Error> {
 #[test]
 fn no_ds_record_nsec3_case_randomization() -> Result<(), Error> {
     let (output, _logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("no-ds"),
         SignSettings::default().nsec(Nsec::_3 {
             iterations: 0,
             salt: None,
@@ -148,8 +154,12 @@ fn no_ds_record_nsec3_case_randomization() -> Result<(), Error> {
 
 #[test]
 fn no_ds_record_nsec3_opt_out() -> Result<(), Error> {
-    let (output, logs) =
-        no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, false)?;
+    let (output, logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("no-ds"),
+        SignSettings::rsasha256_nsec3_optout(),
+        false,
+        false,
+    )?;
 
     dbg!(&output);
 
@@ -165,7 +175,12 @@ fn no_ds_record_nsec3_opt_out() -> Result<(), Error> {
 
 #[test]
 fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<(), Error> {
-    let (output, logs) = no_ds_record_fixture(SignSettings::rsasha256_nsec3_optout(), false, true)?;
+    let (output, logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("no-ds"),
+        SignSettings::rsasha256_nsec3_optout(),
+        false,
+        true,
+    )?;
 
     dbg!(&output);
 
@@ -179,18 +194,54 @@ fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<(), Error> {
     Ok(())
 }
 
-// the `no-ds.testing.` zone is signed but no DS record exists in the parent `testing.` zone.
+/// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3985
+///
+/// `ent.testing.` is an empty non-terminal that only exists because of the insecure delegation to
+/// `no-ds.ent.testing.`, so the opt-out signer does not give it an NSEC3 record (RFC 5155 section
+/// 7.1). The DS NODATA response is then a closest encloser proof for `testing.` with an opt-out
+/// NSEC3 record covering the next closer name, `ent.testing.`. With these names, the chaff puts
+/// `ent.testing.` and `no-ds.ent.testing.` in different spans of the NSEC3 chain, so no record in
+/// the response matches or covers `no-ds.ent.testing.`.
+#[test]
+fn no_ds_record_nsec3_opt_out_below_empty_non_terminal() -> Result<(), Error> {
+    // BIND's insecurity proof also queries `ent.testing. DS`. NSD answers that with only the apex
+    // NSEC3 record, leaving out the opt-out NSEC3 record covering `ent.testing.` that RFC 5155
+    // section 7.2.4 requires, so BIND fails validation when NSD is the peer.
+    if dns_test::SUBJECT.is_bind() && dns_test::PEER.is_unbound() {
+        return Ok(());
+    }
+
+    let (output, logs) = no_ds_record_fixture(
+        FQDN::TEST_TLD.push_label("ent").push_label("no-ds"),
+        SignSettings::rsasha256_nsec3_optout(),
+        false,
+        true,
+    )?;
+
+    dbg!(&output);
+
+    assert!(output.status.is_noerror());
+    assert!(!output.flags.authenticated_data);
+
+    if dns_test::SUBJECT.is_hickory() {
+        assert!(logs.contains("DS query next closer name covered by opt-out proof"));
+    }
+
+    Ok(())
+}
+
+// the `no_ds_zone` zone is signed but no DS record exists in the parent `testing.` zone.
 // importantly, the `testing.` zone must contain NSEC/NSEC3 records to deny the existence of
-// `no-ds.testing./DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce
-// this network)
+// `no_ds_zone/DS` (which is why we cannot use `Graph::build` + `Sign::AndAmend` to produce this
+// network)
 fn no_ds_record_fixture(
+    no_ds_zone: FQDN,
     sign_settings: SignSettings,
     case_randomization: bool,
     add_chaff_to_tld: bool,
 ) -> Result<(DigOutput, String), Error> {
     let network = Network::new()?;
 
-    let no_ds_zone = FQDN::TEST_TLD.push_label("no-ds");
     let needle_fqdn = no_ds_zone.push_label("example");
     let needle_ipv4_addr = Ipv4Addr::new(1, 2, 3, 4);
 
