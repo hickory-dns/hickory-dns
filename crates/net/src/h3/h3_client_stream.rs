@@ -65,11 +65,13 @@ impl HttpSender for H3ClientStream {
     async fn send_http_request(
         &mut self,
         request: Request<()>,
-        message: Bytes,
+        body: Option<Bytes>,
     ) -> Result<(Parts, BytesMut), NetError> {
         // Send the request
         let mut stream = self.send_request.send_request(request).await?;
-        stream.send_data(message).await?;
+        if let Some(body) = body {
+            stream.send_data(body).await?;
+        }
         stream.finish().await?;
 
         let (parts, ()) = stream.recv_response().await?.into_parts();
