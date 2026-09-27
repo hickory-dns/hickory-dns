@@ -25,7 +25,7 @@ use super::{
 };
 use crate::{
     net::{
-        NetError, h2,
+        NetError,
         http::{self, Version},
         xfer::Protocol,
     },
@@ -196,7 +196,7 @@ pub(crate) async fn h2_handler(
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
-            let message_future = h2::message_from(dns_hostname, http_endpoint, request);
+            let message_future = http::message_from(dns_hostname, http_endpoint, request);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };
