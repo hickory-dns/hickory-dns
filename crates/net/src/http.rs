@@ -58,6 +58,19 @@ const MAX_CLIENT_GET_URI_LEN: usize = 4000;
 const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len()
 
 impl RequestContext {
+    /// Build the request for `method`, along with the body to send with it, if any.
+    pub(crate) fn build(
+        &self,
+        method: &Method,
+        message: &Bytes,
+    ) -> Result<(Request<()>, Option<Bytes>), NetError> {
+        match method {
+            &Method::GET => Ok((self.build_get(message)?, None)),
+            &Method::POST => Ok((self.build_post(message.remaining())?, Some(message.clone()))),
+            other => Err(format!("unsupported method: {other}").into()),
+        }
+    }
+
     /// Create a new Request for an http dns-message request
     ///
     /// ```text
@@ -69,17 +82,8 @@ impl RequestContext {
     /// request (as described in Section 6), encoded with base64url
     /// [RFC4648].
     /// ```
-    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>, NetError> {
-        let mut parts = uri::Parts::default();
-        parts.path_and_query = Some(
-            uri::PathAndQuery::try_from(&*self.query_path)
-                .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
-        );
-        parts.scheme = Some(uri::Scheme::HTTPS);
-        parts.authority = Some(
-            uri::Authority::from_str(&self.server_name)
-                .map_err(|e| NetError::from(format!("invalid authority: {e}")))?,
-        );
+    pub(crate) fn build_post(&self, message_len: usize) -> Result<Request<()>, NetError> {
+        let parts = self.build_parts(None)?;
 
         let url =
             Uri::from_parts(parts).map_err(|e| NetError::from(format!("uri parse error: {e}")))?;
@@ -103,6 +107,59 @@ impl RequestContext {
             .body(())
             .map_err(|e| NetError::from(format!("http stream errored: {e}")))
     }
+
+    pub(crate) fn build_get(&self, message: &Bytes) -> Result<Request<()>, NetError> {
+        let uri_str = self.query_path.to_string()
+            + "?dns="
+            + data_encoding::BASE64URL_NOPAD.encode(&message).as_str();
+        let parts = self.build_parts(Some(
+            uri::PathAndQuery::from_str(&uri_str)
+                .map_err(|e| format!("error building query string {}", e))?,
+        ))?;
+        let url =
+            Uri::from_parts(parts).map_err(|e| NetError::from(format!("uri parse error: {e}")))?;
+
+        // TODO: add user agent to TypedHeaders
+        let mut request = Request::builder()
+            .method("GET")
+            .uri(url)
+            .version(self.version.to_http())
+            .header(ACCEPT, MIME_APPLICATION_DNS);
+
+        if let Some(headers) = &self.set_headers {
+            if let Some(map) = request.headers_mut() {
+                headers.set_headers(map)?;
+            }
+        }
+
+        request
+            .body(())
+            .map_err(|e| NetError::from(format!("http stream errored: {e}")))
+    }
+
+    fn build_parts(
+        &self,
+        path_and_query: Option<uri::PathAndQuery>,
+    ) -> Result<uri::Parts, NetError> {
+        let mut parts = uri::Parts::default();
+        match path_and_query {
+            None => {
+                parts.path_and_query = Some(
+                    uri::PathAndQuery::try_from(&*self.query_path)
+                        .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
+                );
+            }
+            Some(pq) => {
+                parts.path_and_query = Some(pq);
+            }
+        }
+        parts.scheme = Some(uri::Scheme::HTTPS);
+        parts.authority = Some(
+            uri::Authority::from_str(&self.server_name)
+                .map_err(|e| NetError::from(format!("invalid authority: {e}")))?,
+        );
+        Ok(parts)
+    }
 }
 
 /// The HTTP half of a DNS-over-HTTP client
@@ -112,7 +169,10 @@ impl RequestContext {
 /// above that, such as building the request from the `RequestContext`, and validating
 /// and parsing the response will be implemented in the `http` module.
 pub(crate) trait HttpSender: Clone + Send + 'static {
-    /// Send `message`, and return the response head in `Parts` along with the complete response body
+    /// Send `request` with `body`, if any, and return the response head in `Parts` along with
+    /// the complete response body
+    ///
+    /// `body` is `None` for GET requests, which carry the message in the URI instead.
     ///
     /// Collects the body Bytes rather than handing back a stream. An HTTP/3 connection
     /// shares the same stream for send and recv, so this avoids having to split it there
@@ -120,7 +180,7 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
     fn send_http_request(
         &mut self,
         request: Request<()>,
-        message: Bytes,
+        body: Option<Bytes>,
     ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
 
     /// The context describing the DoH server this client is connected to
@@ -201,18 +261,19 @@ pub(crate) fn send_message<T: HttpSender>(
         Err(err) => return NetError::from(err).into(),
     };
 
-    let _method = select_request_method(op_code, bytes.len(), sender.context());
+    let method = select_request_method(op_code, bytes.len(), sender.context());
 
-    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes))).into()
+    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes), method)).into()
 }
 
-/// Send `message` as a DoH request, and validate and parse the response
+/// Send `message` as a DoH request using `method`, and validate and parse the response
 pub(crate) async fn send_and_parse<T: HttpSender>(
     mut sender: T,
     message: Bytes,
+    method: Method,
 ) -> Result<DnsResponse, NetError> {
     // build up the http request
-    let request = sender.context().build(message.remaining())?;
+    let (request, body) = sender.context().build(&method, &message)?;
 
     debug!(
         method = %request.method(),
@@ -221,7 +282,7 @@ pub(crate) async fn send_and_parse<T: HttpSender>(
         "sending request"
     );
 
-    let (parts, response_bytes) = sender.send_http_request(request, message).await?;
+    let (parts, response_bytes) = sender.send_http_request(request, body).await?;
 
     debug!(status = %parts.status, headers = ?parts.headers, "got response");
 
@@ -563,7 +624,7 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let request = cx.build_post(512).expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -588,7 +649,7 @@ mod tests {
             )]) as Arc<dyn SetHeaders>),
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let request = cx.build_post(512).expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -618,7 +679,7 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let request = cx.build_post(512).expect("error converting to http");
         assert!(
             verify(
                 Version::Http3,
@@ -655,7 +716,7 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(len).unwrap();
+        let request = cx.build_post(len).unwrap();
         let request = request.map(|()| stream);
 
         let bytes = message_from(
