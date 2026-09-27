@@ -362,6 +362,10 @@ pub fn verify<T>(
                         found = true;
                         break;
                     }
+                    Some(mime) if mime.trim() == "*/*" => {
+                        found = true;
+                        break;
+                    }
                     _ => continue,
                 }
             }
