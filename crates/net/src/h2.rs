@@ -506,6 +506,7 @@ mod tests {
         let request = request.map(|()| stream);
 
         let bytes = crate::http::message_from(
+            Version::Http2,
             Some(Arc::from("ns.example.com")),
             "/dns-query".into(),
             request,
