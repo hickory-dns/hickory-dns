@@ -196,7 +196,8 @@ pub(crate) async fn h2_handler(
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
-            let message_future = http::message_from(dns_hostname, http_endpoint, request);
+            let message_future =
+                http::message_from(Version::Http2, dns_hostname, http_endpoint, request);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };
