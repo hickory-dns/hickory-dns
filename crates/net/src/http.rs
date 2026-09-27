@@ -21,7 +21,7 @@ use http::{
 use tracing::debug;
 
 use crate::error::NetError;
-use crate::proto::op::{DnsRequest, DnsResponse};
+use crate::proto::op::{DnsRequest, DnsResponse, OpCode};
 use crate::xfer::DnsResponseStream;
 
 pub(crate) struct RequestContext {
@@ -32,7 +32,10 @@ pub(crate) struct RequestContext {
 }
 
 impl RequestContext {
-    /// Create a new Request for an http dns-message request
+    /// Build the request for `method`, along with the body to send with it, if any.
+    ///
+    /// `GET` carries the message in the `dns` query parameter and has no body; `POST` carries
+    /// it as the body, announced by the content headers.
     ///
     /// ```text
     /// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
@@ -43,29 +46,49 @@ impl RequestContext {
     /// request (as described in Section 6), encoded with base64url
     /// [RFC4648].
     /// ```
-    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>, NetError> {
+    pub(crate) fn build(
+        &self,
+        method: &Method,
+        message: &Bytes,
+    ) -> Result<(Request<()>, Option<Bytes>), NetError> {
+        let (path_and_query, body) = match method {
+            &Method::GET => (
+                format!(
+                    "{}?dns={}",
+                    self.query_path,
+                    data_encoding::BASE64URL_NOPAD.encode(message)
+                ),
+                None,
+            ),
+            &Method::POST => (self.query_path.to_string(), Some(message.clone())),
+            other => return Err(format!("unsupported method: {other}").into()),
+        };
+
         let mut parts = uri::Parts::default();
-        parts.path_and_query = Some(
-            uri::PathAndQuery::try_from(&*self.query_path)
-                .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
-        );
         parts.scheme = Some(uri::Scheme::HTTPS);
         parts.authority = Some(
             uri::Authority::from_str(&self.server_name)
                 .map_err(|e| NetError::from(format!("invalid authority: {e}")))?,
         );
-
-        let url =
+        parts.path_and_query = Some(
+            uri::PathAndQuery::from_str(&path_and_query)
+                .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
+        );
+        let uri =
             Uri::from_parts(parts).map_err(|e| NetError::from(format!("uri parse error: {e}")))?;
 
         // TODO: add user agent to TypedHeaders
         let mut request = Request::builder()
-            .method("POST")
-            .uri(url)
+            .method(method)
+            .uri(uri)
             .version(self.version.to_http())
-            .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
-            .header(ACCEPT, MIME_APPLICATION_DNS)
-            .header(CONTENT_LENGTH, message_len);
+            .header(ACCEPT, MIME_APPLICATION_DNS);
+
+        if let Some(body) = &body {
+            request = request
+                .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
+                .header(CONTENT_LENGTH, body.len());
+        }
 
         if let Some(headers) = &self.set_headers {
             if let Some(map) = request.headers_mut() {
@@ -73,9 +96,11 @@ impl RequestContext {
             }
         }
 
-        request
+        let request = request
             .body(())
-            .map_err(|e| NetError::from(format!("http stream errored: {e}")))
+            .map_err(|e| NetError::from(format!("invalid DoH request: {e}")))?;
+
+        Ok((request, body))
     }
 }
 
@@ -88,13 +113,15 @@ impl RequestContext {
 pub(crate) trait HttpSender: Clone + Send + 'static {
     /// Send `message`, and return the response head in `Parts` along with the complete response body
     ///
+    /// `body` is `None` for GET requests, which carry the message in the URI instead.
+    ///
     /// Collects the body Bytes rather than handing back a stream. An HTTP/3 connection
     /// shares the same stream for send and recv, so this avoids having to split it there
     /// and simplifies the type signature of this method.
     fn send_http_request(
         &mut self,
         request: Request<()>,
-        message: Bytes,
+        body: Option<Bytes>,
     ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
 
     /// The context describing the DoH server this client is connected to
@@ -168,38 +195,80 @@ pub(crate) fn send_message<T: HttpSender>(
 
     // per the RFC, a zero id allows for the HTTP packet to be cached better
     request.metadata.id = 0;
+    let op_code = request.op_code;
 
     let bytes = match request.to_vec() {
         Ok(bytes) => bytes,
         Err(err) => return NetError::from(err).into(),
     };
 
-    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes))).into()
+    let mut method = Method::POST;
+    if op_code == OpCode::Query {
+        let total_len = data_encoding::BASE64URL_NOPAD.encode_len(bytes.len())
+            + sender.context().query_path.len()
+            + sender.context().server_name.len()
+            + CLIENT_GET_URI_LEN_PADDING;
+        if total_len <= MAX_CLIENT_GET_URI_LEN {
+            method = Method::GET;
+        }
+    };
+
+    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes), method)).into()
 }
 
-/// Send `message` as a DoH request, and validate and parse the response
+// RFC 7230 section 3.1.1's recommended 8000-octet minimum, halved for headroom
+// against stricter intermediaries (any HTTP proxy or CDN in between client
+// and server)
+const MAX_CLIENT_GET_URI_LEN: usize = 4000;
+const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len()
+
+/// Send `message` as a DoH request using `method`, and validate and parse the response
 pub(crate) async fn send_and_parse<T: HttpSender>(
     mut sender: T,
     message: Bytes,
+    method: Method,
 ) -> Result<DnsResponse, NetError> {
-    // build up the http request
-    let request = sender.context().build(message.remaining())?;
+    let mut try_method = method;
+    let (parts, response_bytes) = loop {
+        // build up the http request
+        let (request, body) = sender.context().build(&try_method, &message)?;
 
-    debug!(
-        method = %request.method(),
-        uri = %request.uri(),
-        headers = ?request.headers(),
-        "sending request"
-    );
+        debug!(
+            method = %request.method(),
+            uri = %request.uri(),
+            headers = ?request.headers(),
+            "sending request"
+        );
 
-    let (parts, response_bytes) = sender.send_http_request(request, message).await?;
+        let (parts, response_bytes) = sender.send_http_request(request, body).await?;
 
-    debug!(status = %parts.status, headers = ?parts.headers, "got response");
+        debug!(status = %parts.status, headers = ?parts.headers, "got response");
+
+        let Some(next_method) = retry_method(&try_method, parts.status) else {
+            break (parts, response_bytes);
+        };
+
+        try_method = next_method;
+    };
 
     verify_response(&parts, response_bytes.as_ref())?;
 
     // and finally convert the bytes into a DNS message
     DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+}
+
+/// Returns the method to retry the request with based on the StatusCode received
+///
+/// Returns `None` if the `StatusCode` is not retryable
+///
+/// Currently only `URI_TOO_LONG` is retried, because it is possible that a server or proxy
+/// enforces a shorter uri length than the one we send. It is retried as POST because
+/// any GET query can fit in a POST message
+pub(crate) fn retry_method(method: &Method, status: StatusCode) -> Option<Method> {
+    match (method, status) {
+        (&Method::GET, StatusCode::URI_TOO_LONG) => Some(Method::POST),
+        _ => None,
+    }
 }
 
 /// Verifies that a DoH response carries a DNS message this client can decode
@@ -536,7 +605,9 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let (request, _) = cx
+            .build(&Method::POST, &query_bytes())
+            .expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -561,7 +632,9 @@ mod tests {
             )]) as Arc<dyn SetHeaders>),
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let (request, _) = cx
+            .build(&Method::POST, &query_bytes())
+            .expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -591,7 +664,9 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let (request, _) = cx
+            .build(&Method::POST, &query_bytes())
+            .expect("error converting to http");
         assert!(
             verify(
                 Version::Http3,
@@ -600,6 +675,21 @@ mod tests {
                 &request
             )
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn retry_method_test() {
+        subscribe();
+        assert_eq!(
+            retry_method(&Method::GET, StatusCode::URI_TOO_LONG),
+            Some(Method::POST)
+        );
+        assert_eq!(retry_method(&Method::POST, StatusCode::URI_TOO_LONG), None);
+        assert_eq!(retry_method(&Method::GET, StatusCode::OK), None);
+        assert_eq!(
+            retry_method(&Method::GET, StatusCode::PAYLOAD_TOO_LARGE),
+            None
         );
     }
 
@@ -619,8 +709,7 @@ mod tests {
         subscribe();
         let message = Message::query();
         let msg_bytes = message.to_vec().unwrap();
-        let len = msg_bytes.len();
-        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
+        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes.clone()))]);
         let cx = RequestContext {
             version,
             server_name: Arc::from("ns.example.com"),
@@ -628,7 +717,8 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(len).unwrap();
+        let (request, body) = cx.build(&Method::POST, &Bytes::from(msg_bytes)).unwrap();
+        assert!(body.is_some());
         let request = request.map(|()| stream);
 
         let bytes = message_from(
@@ -642,6 +732,14 @@ mod tests {
 
         let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
         assert_eq!(message, msg_from_post);
+    }
+
+    /// A serialized DNS query, for tests that only need a well-formed message to build from
+    fn query_bytes() -> Bytes {
+        let message = Message::query()
+            .to_vec()
+            .expect("failed to serialize query");
+        Bytes::from(message)
     }
 
     #[derive(Debug)]

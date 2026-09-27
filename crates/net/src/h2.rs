@@ -229,13 +229,15 @@ impl HttpSender for HttpsClientStream {
     async fn send_http_request(
         &mut self,
         request: Request<()>,
-        message: Bytes,
+        body: Option<Bytes>,
     ) -> Result<(Parts, BytesMut), NetError> {
         poll_fn(|cx| self.h2.poll_ready(cx)).await?;
 
         // Send the request
-        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
-        send_stream.send_data(message, true)?;
+        let (response_future, mut send_stream) = self.h2.send_request(request, body.is_none())?;
+        if let Some(body) = body {
+            send_stream.send_data(body, true)?;
+        }
 
         let (parts, body) = response_future.await?.into_parts();
 
