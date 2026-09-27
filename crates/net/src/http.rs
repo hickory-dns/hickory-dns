@@ -243,6 +243,7 @@ fn verify_response(parts: &Parts, body: &[u8]) -> Result<(), NetError> {
 /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
 ///   perform a conversion to a Message, only collects all the bytes.
 pub async fn message_from<R, E>(
+    http_version: Version,
     this_server_name: Option<Arc<str>>,
     this_server_endpoint: Arc<str>,
     request: Request<R>,
@@ -255,7 +256,7 @@ where
 
     let this_server_name = this_server_name.as_deref();
     match verify(
-        Version::Http2,
+        http_version,
         this_server_name,
         &this_server_endpoint,
         &request,
