@@ -32,6 +32,31 @@ pub(crate) struct RequestContext {
     pub(crate) set_headers: Option<Arc<dyn SetHeaders>>,
 }
 
+/// Returns the selected method for the operation
+pub(crate) fn select_request_method(
+    op_code: crate::proto::op::OpCode,
+    request_len: usize,
+    cx: &RequestContext,
+) -> Method {
+    if op_code == crate::proto::op::OpCode::Query {
+        let total_len = data_encoding::BASE64URL_NOPAD.encode_len(request_len)
+            + cx.query_path.len()
+            + cx.server_name.len()
+            + CLIENT_GET_URI_LEN_PADDING;
+        if total_len > MAX_CLIENT_GET_URI_LEN {
+            return Method::POST;
+        }
+        return Method::GET;
+    }
+    Method::POST
+}
+
+// RFC 7230 section 3.1.1's recommended 8000-octet minimum, halved for headroom
+// against stricter intermediaries (any HTTP proxy or CDN in between client
+// and server)
+const MAX_CLIENT_GET_URI_LEN: usize = 4000;
+const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len()
+
 impl RequestContext {
     /// Create a new Request for an http dns-message request
     ///
@@ -169,11 +194,14 @@ pub(crate) fn send_message<T: HttpSender>(
 
     // per the RFC, a zero id allows for the HTTP packet to be cached better
     request.metadata.id = 0;
+    let op_code = request.op_code;
 
     let bytes = match request.to_vec() {
         Ok(bytes) => bytes,
         Err(err) => return NetError::from(err).into(),
     };
+
+    let _method = select_request_method(op_code, bytes.len(), sender.context());
 
     Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes))).into()
 }
