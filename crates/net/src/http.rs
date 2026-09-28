@@ -320,12 +320,6 @@ pub fn verify<T>(
     }
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => {}
-        _ => return Err("unsupported content type".into()),
-    };
-
-    // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(ACCEPT).map(|v| v.to_str()) {
         Some(Ok(ctype)) => {
             let mut found = false;
@@ -362,7 +356,17 @@ pub fn verify<T>(
         return Err(message.into());
     }
 
-    Ok(())
+    match *request.method() {
+        Method::POST => {
+            // TODO: switch to mime::APPLICATION_DNS when that stabilizes
+            match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
+                Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => Ok(()),
+                _ => Err("unsupported content type".into()),
+            }
+        }
+        Method::GET => Ok(()),
+        _ => Err(format!("unsupported method: {}", request.method()).into()),
+    }
 }
 
 /// Fetch the body of the request from the stream
