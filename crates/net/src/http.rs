@@ -7,7 +7,6 @@
 
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
-use core::fmt::Debug;
 use core::future::Future;
 use core::str::FromStr;
 use std::sync::Arc;
@@ -242,18 +241,17 @@ fn verify_response(parts: &Parts, body: &[u8]) -> Result<(), NetError> {
 ///
 /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
 ///   perform a conversion to a Message, only collects all the bytes.
-pub async fn message_from<R, E>(
+pub async fn message_from<R, E, B>(
     http_version: Version,
     this_server_name: Option<Arc<str>>,
     this_server_endpoint: Arc<str>,
     request: Request<R>,
 ) -> Result<BytesMut, NetError>
 where
-    R: Stream<Item = Result<Bytes, E>> + 'static + Send + Debug + Unpin,
+    R: Stream<Item = Result<B, E>> + 'static + Send + Unpin,
     E: Into<NetError>,
+    B: Buf,
 {
-    debug!("Received request: {:#?}", request);
-
     let this_server_name = this_server_name.as_deref();
     match verify(
         http_version,
