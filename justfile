@@ -157,14 +157,6 @@ coverage-lcov: coverage
 
     cargo +nightly llvm-cov report --doctests --lcov --output-path {{join(COV_OUTPUT_DIR, "lcov.info")}}
 
-# (Re)generates Test Certificates, if tests are failing, this needs to be run yearly
-[unix]
-generate-test-certs: init-openssl
-    cd {{TEST_DATA}} && rm -f ca.key ca.pem cert.key cert-key.pkcs8 cert.csr cert.pem cert.p12
-    scripts/gen_certs.sh
-    cd {{TEST_DATA}}/test_configs/sec && rm -f example.key example.key.pem example.cert example.cert.pem example.p12
-    cd {{TEST_DATA}}/test_configs/sec && ./gen-keys.sh
-
 # Publish all crates
 publish:
     cargo ws publish --publish-as-is --no-remove-dev-deps --token $CRATES_IO_TOKEN
@@ -287,16 +279,6 @@ cross-build target:
 # tests the resolver for android
 cross-test target package:
     cross test --target {{target}} --package {{package}}
-
-[private]
-[macos]
-init-openssl:
-    openssl version || brew install openssl@1.1
-
-[private]
-[linux]
-init-openssl:
-    openssl version
 
 # Check for the cargo-workspaces command, install if it does not exist
 init-cargo-workspaces:
