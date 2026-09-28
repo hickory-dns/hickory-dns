@@ -695,17 +695,29 @@ mod tests {
 
     #[tokio::test]
     #[cfg(feature = "__https")]
+    async fn test_from_get_h2() {
+        test_from_request(Version::Http2, Method::GET).await
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__h3")]
+    async fn test_from_get_h3() {
+        test_from_request(Version::Http3, Method::GET).await
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__https")]
     async fn test_from_post_h2() {
-        test_from_post(Version::Http2).await
+        test_from_request(Version::Http2, Method::POST).await
     }
 
     #[tokio::test]
     #[cfg(feature = "__h3")]
     async fn test_from_post_h3() {
-        test_from_post(Version::Http3).await
+        test_from_request(Version::Http3, Method::POST).await
     }
 
-    async fn test_from_post(version: Version) {
+    async fn test_from_request(version: Version, method: Method) {
         subscribe();
         let message = Message::query();
         let msg_bytes = message.to_vec().unwrap();
@@ -716,10 +728,19 @@ mod tests {
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };
-
-        let (request, body) = cx.build(&Method::POST, &Bytes::from(msg_bytes)).unwrap();
-        assert!(body.is_some());
-        let request = request.map(|()| stream);
+        let (request, body) = cx.build(&method, &Bytes::from(msg_bytes)).unwrap();
+        let request = match method {
+            Method::POST => {
+                assert!(body.is_some());
+                request.map(|()| stream)
+            }
+            // the message body should be ignored with GET
+            Method::GET => {
+                assert!(body.is_none());
+                request.map(|()| TestBytesStream(vec![Ok(Bytes::from("bad message"))]))
+            }
+            _ => panic!("unexpected method"),
+        };
 
         let bytes = message_from(
             version,
