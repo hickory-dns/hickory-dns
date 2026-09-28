@@ -124,7 +124,7 @@ impl RequestContext {
     pub(crate) fn build_get(&self, message: &Bytes) -> Result<Request<()>, NetError> {
         let uri_str = self.query_path.to_string()
             + "?dns="
-            + data_encoding::BASE64URL_NOPAD.encode(&message).as_str();
+            + data_encoding::BASE64URL_NOPAD.encode(message).as_str();
         let parts = self.build_parts(Some(
             uri::PathAndQuery::from_str(&uri_str)
                 .map_err(|e| format!("error building query string {}", e))?,
@@ -729,32 +729,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn select_request_method_test() {
+        #[cfg(feature = "__https")]
+        let _version = Version::Http2;
+        #[cfg(feature = "__h3")]
+        let _version = Version::Http3;
+        subscribe();
+        let cx = RequestContext {
+            version: _version,
+            server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            set_headers: None,
+        };
+        assert_eq!(
+            select_request_method(crate::proto::op::OpCode::Query, 10, &cx),
+            Method::GET
+        );
+        assert_eq!(
+            select_request_method(crate::proto::op::OpCode::Query, MAX_CLIENT_GET_URI_LEN, &cx),
+            Method::POST
+        );
+        assert_eq!(
+            select_request_method(crate::proto::op::OpCode::Update, 10, &cx),
+            Method::POST
+        );
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__https")]
+    async fn test_from_get_h2() {
+        test_from_request(Version::Http2, Method::GET).await
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__h3")]
+    async fn test_from_get_h3() {
+        test_from_request(Version::Http3, Method::GET).await
+    }
+
+    #[tokio::test]
     #[cfg(feature = "__https")]
     async fn test_from_post_h2() {
-        test_from_post(Version::Http2).await
+        test_from_request(Version::Http2, Method::POST).await
     }
 
     #[tokio::test]
     #[cfg(feature = "__h3")]
     async fn test_from_post_h3() {
-        test_from_post(Version::Http3).await
+        test_from_request(Version::Http3, Method::POST).await
     }
 
-    async fn test_from_post(version: Version) {
+    async fn test_from_request(version: Version, method: Method) {
         subscribe();
         let message = Message::query();
         let msg_bytes = message.to_vec().unwrap();
         let len = msg_bytes.len();
-        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
+        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes.clone()))]);
         let cx = RequestContext {
             version,
             server_name: Arc::from("ns.example.com"),
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };
-
-        let request = cx.build_post(len).unwrap();
-        let request = request.map(|()| stream);
+        let request = match method {
+            Method::POST => cx.build_post(len).unwrap().map(|()| stream),
+            Method::GET => cx
+                .build_get(&Bytes::from(msg_bytes))
+                .unwrap()
+                .map(|()| TestBytesStream(vec![Ok(Bytes::from("bad message"))])), // the message body should be ignored with GET
+            _ => panic!("unexpected method"),
+        };
 
         let bytes = message_from(
             version,
