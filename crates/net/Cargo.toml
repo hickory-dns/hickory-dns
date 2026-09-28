@@ -31,9 +31,9 @@ quic-ring = ["quinn/rustls-ring", "tls-ring", "__quic"]
 h3-ring = ["quic-ring", "__h3"]
 
 __tls = ["dep:bytes", "dep:rustls", "dep:tokio-rustls", "tokio"]
-__https = ["dep:bytes", "dep:h2", "dep:http"]
+__https = ["dep:bytes", "dep:form_urlencoded", "dep:h2", "dep:http"]
 __quic = ["dep:bytes", "dep:pin-project-lite", "dep:quinn"]
-__h3 = ["dep:h3", "dep:h3-quinn", "dep:http"]
+__h3 = ["dep:form_urlencoded", "dep:h3", "dep:h3-quinn", "dep:http"]
 
 rustls-platform-verifier = ["dep:rustls-platform-verifier"]
 
@@ -60,6 +60,7 @@ bitflags = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 cfg-if.workspace = true
 data-encoding = { workspace = true, features = ["alloc"] }
+form_urlencoded = { workspace = true, optional = true }
 futures-channel = { workspace = true, default-features = false, features = ["alloc", "std"] }
 futures-io = { workspace = true, default-features = false, features = ["std"] }
 futures-util = { workspace = true, default-features = false, features = ["alloc", "async-await-macro", "std"] }
