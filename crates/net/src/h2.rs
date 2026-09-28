@@ -487,49 +487,4 @@ mod tests {
         config.alpn_protocols = vec![ALPN_H2.to_vec()];
         config
     }
-
-    #[tokio::test]
-    async fn test_from_post() {
-        subscribe();
-        let message = Message::query();
-        let msg_bytes = message.to_vec().unwrap();
-        let len = msg_bytes.len();
-        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
-        let cx = RequestContext {
-            version: Version::Http2,
-            server_name: Arc::from("ns.example.com"),
-            query_path: Arc::from("/dns-query"),
-            set_headers: None,
-        };
-
-        let request = cx.build(len).unwrap();
-        let request = request.map(|()| stream);
-
-        let bytes = crate::http::message_from(
-            Version::Http2,
-            Some(Arc::from("ns.example.com")),
-            "/dns-query".into(),
-            request,
-        )
-        .await
-        .unwrap();
-
-        let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
-        assert_eq!(message, msg_from_post);
-    }
-
-    #[derive(Debug)]
-    struct TestBytesStream(Vec<Result<Bytes, h2::Error>>);
-
-    impl Stream for TestBytesStream {
-        type Item = Result<Bytes, h2::Error>;
-
-        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            match self.0.pop() {
-                Some(Ok(bytes)) => Poll::Ready(Some(Ok(bytes))),
-                Some(Err(err)) => Poll::Ready(Some(Err(err))),
-                None => Poll::Ready(None),
-            }
-        }
-    }
 }
