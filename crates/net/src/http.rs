@@ -18,7 +18,7 @@ use http::{
     HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri, header, response::Parts,
     uri,
 };
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::error::NetError;
 use crate::proto::op::{DnsRequest, DnsResponse, OpCode};
@@ -248,6 +248,12 @@ pub(crate) async fn send_and_parse<T: HttpSender>(
             break (parts, response_bytes);
         };
 
+        warn!(
+            method = %try_method,
+            status = %parts.status,
+            retry_method = %next_method,
+            "rejected"
+        );
         try_method = next_method;
     };
 
