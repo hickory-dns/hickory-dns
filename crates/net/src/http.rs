@@ -259,7 +259,16 @@ where
         &this_server_endpoint,
         &request,
     ) {
-        Ok(_) => (),
+        Ok(_) => {
+            debug!(
+                agent = request
+                    .headers()
+                    .get(header::USER_AGENT)
+                    .map(|h| h.to_str().unwrap_or("bad user agent"))
+                    .unwrap_or("unknown user agent"),
+                "verified request"
+            );
+        }
         Err(err) => return Err(err),
     }
 
@@ -351,15 +360,6 @@ pub fn verify<T>(
         };
         return Err(message.into());
     }
-
-    debug!(
-        "verified request from: {}",
-        request
-            .headers()
-            .get(header::USER_AGENT)
-            .map(|h| h.to_str().unwrap_or("bad user agent"))
-            .unwrap_or("unknown user agent")
-    );
 
     Ok(())
 }
