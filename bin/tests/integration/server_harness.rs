@@ -330,3 +330,86 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
         self.client.send(request)
     }
 }
+
+#[cfg(feature = "__tls")]
+pub(crate) mod tls {
+    use std::{fs, sync::OnceLock};
+
+    use rustls_pki_types::CertificateDer;
+    use test_support::TestCertificates;
+
+    /// Generates and writes certificates needed for DoT/DoQ/DoH configurations.
+    ///
+    /// Returns the root CA certificate.
+    pub(crate) fn prepare_certificates(server_path: &str) -> &'static CertificateDer<'static> {
+        static ONCE: OnceLock<CertificateDer<'static>> = OnceLock::new();
+        ONCE.get_or_init(|| prepare_certificates_inner(server_path))
+    }
+
+    fn prepare_certificates_inner(server_path: &str) -> CertificateDer<'static> {
+        if let Some(ca_cert) = load_certificates(server_path) {
+            return ca_cert;
+        }
+
+        let certificates = TestCertificates::generate();
+        write_certificates(server_path, &certificates);
+        certificates.ca.der().clone()
+    }
+
+    fn load_certificates(server_path: &str) -> Option<CertificateDer<'static>> {
+        let ca_cert = fs::read(tls_file_path(server_path, CA_CERTIFICATE_FILENAME))
+            .ok()?
+            .into();
+        // Check that the rest of the files exist.
+        for filename in [
+            CA_KEY_FILENAME,
+            SERVER_CERTIFICATE_DER_FILENAME,
+            SERVER_CERTIFICATE_PEM_FILENAME,
+            SERVER_KEY_FILENAME,
+        ] {
+            if !fs::exists(tls_file_path(server_path, filename)).unwrap() {
+                return None;
+            }
+        }
+        Some(ca_cert)
+    }
+
+    fn write_certificates(server_path: &str, certificates: &TestCertificates) {
+        fs::create_dir_all(format!("{server_path}/tests/test-data/test_configs/tls")).unwrap();
+        fs::write(
+            tls_file_path(server_path, CA_CERTIFICATE_FILENAME),
+            certificates.ca.der().as_ref(),
+        )
+        .unwrap();
+        fs::write(
+            tls_file_path(server_path, CA_KEY_FILENAME),
+            certificates.ca.key().serialize_der(),
+        )
+        .unwrap();
+        fs::write(
+            tls_file_path(server_path, SERVER_CERTIFICATE_DER_FILENAME),
+            certificates.leaf.der().as_ref(),
+        )
+        .unwrap();
+        fs::write(
+            tls_file_path(server_path, SERVER_CERTIFICATE_PEM_FILENAME),
+            certificates.leaf.pem().as_bytes(),
+        )
+        .unwrap();
+        fs::write(
+            tls_file_path(server_path, SERVER_KEY_FILENAME),
+            certificates.key.serialize_der(),
+        )
+        .unwrap();
+    }
+
+    fn tls_file_path(server_path: &str, filename: &str) -> String {
+        format!("{server_path}/tests/test-data/test_configs/tls/{filename}")
+    }
+
+    const CA_CERTIFICATE_FILENAME: &str = "ca.crt";
+    const CA_KEY_FILENAME: &str = "ca.key";
+    const SERVER_CERTIFICATE_DER_FILENAME: &str = "example.crt";
+    const SERVER_CERTIFICATE_PEM_FILENAME: &str = "example.pem";
+    const SERVER_KEY_FILENAME: &str = "example.key";
+}

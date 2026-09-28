@@ -9,14 +9,12 @@
 #![cfg(feature = "__https")]
 
 use std::env;
-use std::fs::File;
-use std::io::*;
 use std::net::*;
 use std::sync::Arc;
 
-use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
 
+use crate::server_harness::tls::prepare_certificates;
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
 use hickory_net::h2::HttpsClientStream;
@@ -31,18 +29,12 @@ async fn test_example_https_toml_startup() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    let server = TestServer::start("dns_over_https.toml");
-    let mut cert_der = vec![];
-    let https_port = server.ports.get_v4(Protocol::Https);
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {server_path}");
+    let ca_cert = prepare_certificates(&server_path);
 
-    File::open(format!(
-        "{server_path}/tests/test-data/test_configs/sec/example.cert"
-    ))
-    .expect("failed to open cert")
-    .read_to_end(&mut cert_der)
-    .expect("failed to read cert");
+    let server = TestServer::start("dns_over_https.toml");
+    let https_port = server.ports.get_v4(Protocol::Https);
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, https_port.expect("no https_port")));
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -51,7 +43,7 @@ async fn test_example_https_toml_startup() {
     let mut root_store = RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-    root_store.add(CertificateDer::from(cert_der)).unwrap();
+    root_store.add(ca_cert.clone()).unwrap();
 
     let mut client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
         .with_safe_default_protocol_versions()
