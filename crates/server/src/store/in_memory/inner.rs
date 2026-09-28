@@ -232,28 +232,6 @@ impl InnerInMemory {
         }
     }
 
-    /// The RRset stored at `name` that answers a query for `record_type`, if there is one.
-    fn rr_set_of_type(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
-        // this range covers all the records for any of the RecordTypes at a given label.
-        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
-        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
-
-        fn aname_covers_type(key_type: RecordType, query_type: RecordType) -> bool {
-            (query_type == RecordType::A || query_type == RecordType::AAAA)
-                && key_type == RecordType::ANAME
-        }
-
-        self.records
-            .range(&start_range_key..&end_range_key)
-            // remember CNAME can be the only record at a particular label
-            .find(|(key, _)| {
-                key.record_type == record_type
-                    || key.record_type == RecordType::CNAME
-                    || aname_covers_type(key.record_type, record_type)
-            })
-            .map(|(_key, rr_set)| rr_set)
-    }
-
     fn inner_lookup_wildcard(
         &self,
         name: &LowerName,
@@ -315,6 +293,28 @@ impl InnerInMemory {
 
             return Some(Arc::new(new_answer));
         }
+    }
+
+    /// The RRset stored at `name` that answers a query for `record_type`, if there is one.
+    fn rr_set_of_type(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
+        // this range covers all the records for any of the RecordTypes at a given label.
+        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
+        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
+
+        fn aname_covers_type(key_type: RecordType, query_type: RecordType) -> bool {
+            (query_type == RecordType::A || query_type == RecordType::AAAA)
+                && key_type == RecordType::ANAME
+        }
+
+        self.records
+            .range(&start_range_key..&end_range_key)
+            // remember CNAME can be the only record at a particular label
+            .find(|(key, _)| {
+                key.record_type == record_type
+                    || key.record_type == RecordType::CNAME
+                    || aname_covers_type(key.record_type, record_type)
+            })
+            .map(|(_key, rr_set)| rr_set)
     }
 
     /// Chase a CNAME chain to its terminal record (RFC 1034 §3.6.2).
