@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures_util::{Stream, StreamExt};
-use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
+use http::header::{ACCEPT, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{
     HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri, header, response::Parts,
     uri,
@@ -539,12 +539,23 @@ pub(crate) fn content_length(headers: &HeaderMap) -> Result<Option<usize>, NetEr
 /// client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
 /// on.
 /// ```
-pub fn response(version: Version, message_len: usize) -> Result<Response<()>, NetError> {
+pub fn response(
+    version: Version,
+    message_len: usize,
+    cache_max_age: Option<u32>,
+) -> Result<Response<()>, NetError> {
     Response::builder()
         .status(StatusCode::OK)
         .version(version.to_http())
         .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
+        .header(
+            CACHE_CONTROL,
+            match cache_max_age {
+                None => "no-store".into(),
+                Some(n) => format!("max-age={n}"),
+            },
+        )
         .body(())
         .map_err(|e| NetError::from(format!("invalid response: {e}")))
 }

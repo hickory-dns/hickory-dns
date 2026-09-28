@@ -258,7 +258,12 @@ impl ResponseHandler for H3ResponseHandle {
     ) -> Result<ResponseInfo, NetError> {
         let (info, bytes) = response.encode(Protocol::H3)?;
         let bytes = Bytes::from(bytes);
-        let response = http::response(Version::Http3, bytes.len())?;
+
+        let cache_max_age = crate::proto::op::Message::from_vec(&bytes)
+            .ok()
+            .and_then(|m| m.cache_ttl());
+
+        let response = http::response(Version::Http3, bytes.len(), cache_max_age)?;
 
         debug!("sending response: {:#?}", response);
         let stream = &mut self.0;
