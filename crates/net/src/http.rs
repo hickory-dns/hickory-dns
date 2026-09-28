@@ -19,6 +19,7 @@ use http::{
     uri,
 };
 use tracing::debug;
+use url::form_urlencoded;
 
 use crate::error::NetError;
 use crate::proto::op::{DnsRequest, DnsResponse};
@@ -273,7 +274,33 @@ where
     }
 
     match *request.method() {
-        Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),
+        Method::GET => {
+            // Fetch the dns query from the request Uri
+            let query_str = request
+                .uri()
+                .query()
+                .ok_or_else(|| -> NetError { "no query string".into() })?;
+            let mut query = form_urlencoded::parse(query_str.as_bytes());
+            let (_, v) = query
+                .by_ref()
+                .find(|(k, _)| k == "dns")
+                .ok_or_else(|| -> NetError { "missing required dns parameter".into() })?;
+
+            if query.any(|(k, _)| k == "dns") {
+                return Err("only one dns parameter is allowed in the query string".into());
+            }
+
+            match data_encoding::BASE64URL_NOPAD.decode(v.as_bytes()) {
+                Ok(decoded_value) => {
+                    if decoded_value.len() > MAX_REQUEST_SIZE {
+                        return Err(NetError::RequestTooLarge);
+                    }
+                    let bytes = BytesMut::from(decoded_value.as_slice());
+                    Ok(bytes)
+                }
+                Err(e) => Err(format!("Error decoding dns parameter: {}", e).into()),
+            }
+        }
         Method::POST => {
             // attempt to get the content length
             let mut content_length = None;
