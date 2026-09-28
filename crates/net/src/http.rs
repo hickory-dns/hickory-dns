@@ -51,6 +51,19 @@ pub(crate) fn select_request_method(
     Method::POST
 }
 
+/// Returns the method to retry the request with based on the StatusCode received
+/// Returns `None` if the `StatusCode` is not retryable
+///
+/// Currently only `URI_TOO_LONG` is retried, because it is possible that a server or proxy
+/// enforces a shorter uri length than the one we send. It is retried as POST because
+/// any GET query can fit in a POST message
+pub(crate) fn retry_method(method: &Method, status: StatusCode) -> Option<Method> {
+    match (method, status) {
+        (&Method::GET, StatusCode::URI_TOO_LONG) => Some(Method::POST),
+        _ => None,
+    }
+}
+
 // RFC 7230 section 3.1.1's recommended 8000-octet minimum, halved for headroom
 // against stricter intermediaries (any HTTP proxy or CDN in between client
 // and server)
@@ -272,19 +285,28 @@ pub(crate) async fn send_and_parse<T: HttpSender>(
     message: Bytes,
     method: Method,
 ) -> Result<DnsResponse, NetError> {
-    // build up the http request
-    let (request, body) = sender.context().build(&method, &message)?;
+    let mut try_method = method;
+    let (parts, response_bytes) = loop {
+        // build up the http request
+        let (request, body) = sender.context().build(&try_method, &message)?;
 
-    debug!(
-        method = %request.method(),
-        uri = %request.uri(),
-        headers = ?request.headers(),
-        "sending request"
-    );
+        debug!(
+            method = %request.method(),
+            uri = %request.uri(),
+            headers = ?request.headers(),
+            "sending request"
+        );
 
-    let (parts, response_bytes) = sender.send_http_request(request, body).await?;
+        let (parts, response_bytes) = sender.send_http_request(request, body).await?;
 
-    debug!(status = %parts.status, headers = ?parts.headers, "got response");
+        debug!(status = %parts.status, headers = ?parts.headers, "got response");
+
+        let Some(next_method) = retry_method(&try_method, parts.status) else {
+            break (parts, response_bytes);
+        };
+
+        try_method = next_method;
+    };
 
     verify_response(&parts, response_bytes.as_ref())?;
 
@@ -688,6 +710,21 @@ mod tests {
                 &request
             )
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn retry_method_test() {
+        subscribe();
+        assert_eq!(
+            retry_method(&Method::GET, StatusCode::URI_TOO_LONG),
+            Some(Method::POST)
+        );
+        assert_eq!(retry_method(&Method::POST, StatusCode::URI_TOO_LONG), None);
+        assert_eq!(retry_method(&Method::GET, StatusCode::OK), None);
+        assert_eq!(
+            retry_method(&Method::GET, StatusCode::PAYLOAD_TOO_LARGE),
+            None
         );
     }
 
