@@ -287,6 +287,15 @@ impl InnerInMemory {
         Some(Arc::new(new_answer))
     }
 
+    /// Whether `name` or its source of synthesis exists, which decides whether a miss at `name` is
+    /// a NODATA or a name error.
+    pub(super) fn name_or_wildcard_exists(&self, name: &LowerName) -> bool {
+        self.name_exists(name)
+            || self
+                .source_of_synthesis(name)
+                .is_some_and(|source| self.name_exists(&source))
+    }
+
     /// The one wildcard that may answer for `name`, which is the wildcard immediately below its
     /// closest encloser (RFC 4592 §3.3.1), whether or not that wildcard exists.
     fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
@@ -327,7 +336,7 @@ impl InnerInMemory {
 
     /// Whether `name` exists, which it does when it or a name below it owns records (RFC 4592
     /// §2.2.2).
-    pub(super) fn name_exists(&self, name: &LowerName) -> bool {
+    fn name_exists(&self, name: &LowerName) -> bool {
         // canonical order puts the names below `name` right after it
         self.records_from(name)
             .next()
