@@ -5,8 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(feature = "__dnssec")]
+use std::iter;
+
 use tracing::{debug, error};
 
+#[cfg(feature = "__dnssec")]
+use crate::proto::rr::TSigResponseContext;
 use crate::{
     net::xfer::Protocol,
     proto::{
@@ -15,7 +20,7 @@ use crate::{
             Edns, Header, HeaderCounts, MessageRequest, MessageType, Metadata, OpCode, Queries,
             QueriesEmitAndCount, ResponseCode, emit_message_parts,
         },
-        rr::{Record, rdata::TSIG},
+        rr::Record,
         serialize::binary::{BinEncodable, BinEncoder},
     },
     server::ResponseInfo,
@@ -39,7 +44,8 @@ where
     authorities: Authorities,
     soa: Soa,
     additionals: Additionals,
-    signature: Option<Box<Record<TSIG>>>,
+    #[cfg(feature = "__dnssec")]
+    signer: Option<TSigResponseContext>,
     edns: Option<&'q Edns>,
 }
 
@@ -71,12 +77,21 @@ where
         self.edns
     }
 
-    /// Set the message signature
-    pub fn set_signature(&mut self, signature: Box<Record<TSIG>>) {
-        self.signature = Some(signature);
+    /// Set the TSIG signer for the response
+    ///
+    /// The MAC covers the encoded message, and which records survive the transport's size limit
+    /// is not known until the message has been encoded, so the signing happens during
+    /// [`Self::encode`] rather than ahead of it.
+    #[cfg(feature = "__dnssec")]
+    pub fn set_signer(&mut self, signer: TSigResponseContext) {
+        self.signer = Some(signer);
     }
 
-    pub(crate) fn encode(self, protocol: Protocol) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
+    /// Encodes the response for `protocol`.
+    ///
+    /// Applies the message size limit for `protocol`, and signs the result if a signer was set
+    /// with [`Self::set_signer`].
+    pub fn encode(self, protocol: Protocol) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
         let id = self.metadata.id;
         debug!(
             id,
@@ -84,9 +99,7 @@ where
             "encoding response"
         );
 
-        let mut bytes = Vec::with_capacity(512);
-        let mut encoder = BinEncoder::new(&mut bytes);
-        encoder.set_max_size(match protocol {
+        let max_size = match protocol {
             Protocol::Udp => match &self.edns {
                 Some(edns) => edns.max_payload(),
                 // No EDNS, so the requestor advertised no buffer and RFC 1035 section 4.2.1
@@ -94,9 +107,10 @@ where
                 None => 512,
             },
             _ => u16::MAX,
-        });
+        };
 
-        let error = match self.destructive_emit(&mut encoder) {
+        let mut bytes = Vec::with_capacity(512);
+        let error = match self.emit_and_sign(&mut bytes, max_size) {
             Ok(info) => return Ok((info, bytes)),
             Err(error) => error,
         };
@@ -117,15 +131,100 @@ where
         Ok((ResponseInfo::from(header), bytes))
     }
 
+    /// Emits the response into `bytes`, followed by the TSIG record signing it if a signer is set.
+    fn emit_and_sign(
+        #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))] mut self,
+        bytes: &mut Vec<u8>,
+        max_size: u16,
+    ) -> Result<ResponseInfo, ProtoError> {
+        #[cfg(feature = "__dnssec")]
+        if let Some(signer) = self.signer.take() {
+            return self.emit_signed(bytes, max_size, signer);
+        }
+
+        let mut encoder = BinEncoder::new(bytes);
+        encoder.set_max_size(max_size);
+        self.destructive_emit(&mut encoder)
+    }
+
+    /// Emits the response and the TSIG record signing it.
+    ///
+    /// RFC 8945 section 5.3: "If addition of the TSIG record will cause the message to be
+    /// truncated, the server MUST alter the response so that a TSIG can be included. This response
+    /// contains only the question and a TSIG record, has the TC bit set, and has an RCODE of 0
+    /// (NOERROR)." Shedding records from a response that has already been signed is not an option,
+    /// since the MAC covers the message that was signed and the client checks it against the
+    /// message it received.
+    #[cfg(feature = "__dnssec")]
+    fn emit_signed(
+        self,
+        bytes: &mut Vec<u8>,
+        max_size: u16,
+        signer: TSigResponseContext,
+    ) -> Result<ResponseInfo, ProtoError> {
+        let metadata = self.metadata;
+        let queries = self.queries;
+        let edns = self.edns;
+
+        let header = {
+            let mut encoder = BinEncoder::new(bytes);
+            encoder.set_max_size(max_size);
+            self.emit_parts(&mut encoder)?
+        };
+
+        // The records fit. They still have to leave room for the TSIG record after them, and how
+        // much that needs is only known once the record has been built.
+        if !header.truncation {
+            if let Some(header) = signer.clone().sign_and_append(bytes, max_size, header)? {
+                return Ok(ResponseInfo::from(header));
+            }
+        }
+
+        let mut metadata = metadata;
+        metadata.truncation = true;
+        metadata.response_code = ResponseCode::NoError;
+
+        bytes.clear();
+        let header = {
+            let mut encoder = BinEncoder::new(bytes);
+            encoder.set_max_size(max_size);
+            emit_message_parts(
+                &metadata,
+                &mut match queries {
+                    Some(queries) => queries.as_emit_and_count(),
+                    None => QueriesEmitAndCount::None,
+                },
+                &mut iter::empty::<&Record>(),
+                &mut iter::empty::<&Record>(),
+                &mut iter::empty::<&Record>(),
+                edns,
+                None,
+                &mut encoder,
+            )?
+        };
+
+        match signer.sign_and_append(bytes, max_size, header)? {
+            Some(header) => Ok(ResponseInfo::from(header)),
+            None => Err(ProtoError::from(
+                "no room for a TSIG record in a response holding only the question",
+            )),
+        }
+    }
+
     /// Consumes self, and emits to the encoder.
     pub fn destructive_emit(
-        mut self,
+        self,
         encoder: &mut BinEncoder<'_>,
     ) -> Result<ResponseInfo, ProtoError> {
+        Ok(ResponseInfo::from(self.emit_parts(encoder)?))
+    }
+
+    /// Emits the header, question and record sections, without any TSIG record.
+    fn emit_parts(mut self, encoder: &mut BinEncoder<'_>) -> Result<Header, ProtoError> {
         // soa records are part of the authority section
         let mut authorities = self.authorities.chain(self.soa);
 
-        let header = emit_message_parts(
+        emit_message_parts(
             &self.metadata,
             &mut match self.queries {
                 Some(queries) => queries.as_emit_and_count(),
@@ -135,18 +234,15 @@ where
             &mut authorities,
             &mut self.additionals,
             self.edns,
-            self.signature.as_deref(),
+            None,
             encoder,
-        )?;
-
-        Ok(ResponseInfo::from(header))
+        )
     }
 }
 
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q> {
     queries: Option<&'q Queries>,
-    signature: Option<Box<Record<TSIG>>>,
     edns: Option<&'q Edns>,
 }
 
@@ -191,7 +287,6 @@ impl<'q> MessageResponseBuilder<'q> {
     pub fn new(queries: &'q Queries, edns: Option<&'q Edns>) -> Self {
         MessageResponseBuilder {
             queries: Some(queries),
-            signature: None,
             edns,
         }
     }
@@ -204,7 +299,6 @@ impl<'q> MessageResponseBuilder<'q> {
     pub fn no_queries(edns: Option<&'q Edns>) -> Self {
         MessageResponseBuilder {
             queries: None,
-            signature: None,
             edns,
         }
     }
@@ -241,7 +335,8 @@ impl<'q> MessageResponseBuilder<'q> {
             authorities: authorities.into_iter(),
             soa: soa.into_iter(),
             additionals: additionals.into_iter(),
-            signature: self.signature,
+            #[cfg(feature = "__dnssec")]
+            signer: None,
             edns: self.edns,
         }
     }
@@ -265,7 +360,8 @@ impl<'q> MessageResponseBuilder<'q> {
             authorities: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
-            signature: self.signature,
+            #[cfg(feature = "__dnssec")]
+            signer: None,
             edns: self.edns,
         }
     }
@@ -293,7 +389,8 @@ impl<'q> MessageResponseBuilder<'q> {
             authorities: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
             additionals: Box::new(None.into_iter()),
-            signature: self.signature,
+            #[cfg(feature = "__dnssec")]
+            signer: None,
             edns: self.edns,
         }
     }
@@ -307,6 +404,8 @@ mod tests {
 
     use crate::proto::op::{Header, Message, MessageType, Metadata, OpCode, Query};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
+    #[cfg(feature = "__dnssec")]
+    use crate::proto::rr::{TSigner, rdata::tsig::TsigAlgorithm};
     use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 
     use super::*;
@@ -453,6 +552,114 @@ mod tests {
         assert!(response.metadata.truncation);
         assert!(response.answers.len() > 1);
         assert!(response.edns.is_some(), "OPT record was dropped");
+    }
+
+    /// A signed response that fits keeps its records and carries a verifiable TSIG record.
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn test_signed_response_that_fits() {
+        let answer = Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            0,
+            RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+        );
+
+        let request = MessageRequest::mock(
+            Metadata::new(10, MessageType::Query, OpCode::Query),
+            Query::root(),
+        );
+        let mut response = MessageResponseBuilder::from_message_request(&request).build(
+            Metadata::new(10, MessageType::Response, OpCode::Query),
+            iter::once(&answer),
+            [],
+            [],
+            [],
+        );
+
+        let (signer, request_mac) = test_signer();
+        response.set_signer(TSigResponseContext::new(
+            10,
+            TEST_TIME,
+            signer.clone(),
+            request_mac.clone(),
+            None,
+        ));
+
+        let (_info, buf) = response.encode(Protocol::Udp).expect("failed to encode");
+
+        let decoded = Message::from_vec(&buf).expect("failed to decode");
+        assert!(!decoded.metadata.truncation);
+        assert_eq!(decoded.answers.len(), 1);
+        signer
+            .verify_message_byte(&buf, Some(&request_mac), true)
+            .expect("signature did not verify");
+    }
+
+    /// RFC 8945 section 5.3: a signed response that cannot hold its records alongside the TSIG
+    /// record is replaced by one holding only the question, with TC set and RCODE NOERROR. The
+    /// MAC has to cover what is actually sent, so records cannot be shed after signing.
+    #[cfg(feature = "__dnssec")]
+    #[test]
+    fn test_signed_response_that_does_not_fit() {
+        let answer = Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            0,
+            RData::A(Ipv4Addr::new(93, 184, 215, 14).into()),
+        );
+
+        let mut edns = Edns::new();
+        edns.set_max_payload(512);
+
+        let request = MessageRequest::mock(
+            Metadata::new(10, MessageType::Query, OpCode::Query),
+            Query::root(),
+        );
+        let mut response = MessageResponseBuilder::from_message_request(&request).build(
+            Metadata::new(10, MessageType::Response, OpCode::Query),
+            iter::repeat(&answer),
+            [],
+            [],
+            [],
+        );
+        response.set_edns(&edns);
+
+        let (signer, request_mac) = test_signer();
+        response.set_signer(TSigResponseContext::new(
+            10,
+            TEST_TIME,
+            signer.clone(),
+            request_mac.clone(),
+            None,
+        ));
+
+        let (_info, buf) = response.encode(Protocol::Udp).expect("failed to encode");
+        assert!(buf.len() <= 512, "response was {} bytes", buf.len());
+
+        let decoded = Message::from_vec(&buf).expect("failed to decode");
+        assert!(decoded.metadata.truncation);
+        assert_eq!(decoded.metadata.response_code, ResponseCode::NoError);
+        assert_eq!(decoded.queries.len(), 1);
+        assert!(decoded.answers.is_empty());
+        assert!(decoded.signature.is_some(), "TSIG record was dropped");
+        signer
+            .verify_message_byte(&buf, Some(&request_mac), true)
+            .expect("signature did not verify");
+    }
+
+    #[cfg(feature = "__dnssec")]
+    const TEST_TIME: u64 = 1_755_000_000;
+
+    #[cfg(feature = "__dnssec")]
+    fn test_signer() -> (TSigner, Vec<u8>) {
+        let signer = TSigner::new(
+            vec![0; 32],
+            TsigAlgorithm::HmacSha256,
+            Name::from_str("key.example.com.").unwrap(),
+            300,
+        )
+        .unwrap();
+        let request_mac = signer.sign(b"request").unwrap();
+        (signer, request_mac)
     }
 
     // https://github.com/hickory-dns/hickory-dns/issues/2210
