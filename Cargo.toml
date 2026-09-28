@@ -100,6 +100,7 @@ clap = { version = "4.0", default-features = false }
 console = "0.16"
 data-encoding = { version = "2.2.0", default-features = false }
 data-encoding-macro = "0.1.21"
+form_urlencoded = { version = "1.2.2", default-features = false, features = ["alloc"] }
 hex = "0.4"
 hostname = "0.4"
 idna = { version = "1.0.3", default-features = false, features = ["alloc", "compiled_data"] }
