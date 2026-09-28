@@ -272,17 +272,18 @@ where
         Err(err) => return Err(err),
     }
 
-    // attempt to get the content length
-    let mut content_length = None;
-    if let Some(length) = request.headers().get(CONTENT_LENGTH) {
-        let length = usize::from_str(length.to_str()?)?;
-        debug!("got message length: {}", length);
-        content_length = Some(length);
-    }
-
     match *request.method() {
         Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),
-        Method::POST => fetch_body(request.into_body(), content_length).await,
+        Method::POST => {
+            // attempt to get the content length
+            let mut content_length = None;
+            if let Some(length) = request.headers().get(CONTENT_LENGTH) {
+                let length = usize::from_str(length.to_str()?)?;
+                debug!(length, "got message length");
+                content_length = Some(length);
+            }
+            fetch_body(request.into_body(), content_length).await
+        }
         _ => Err(format!("bad method: {}", request.method()).into()),
     }
 }
