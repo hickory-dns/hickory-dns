@@ -240,8 +240,6 @@ define_test_config!(consulting_blocklist);
 define_test_config!(dns_over_https);
 #[cfg(feature = "__tls")]
 define_test_config!(dns_over_tls_rustls_and_openssl);
-#[cfg(feature = "__tls")]
-define_test_config!(dns_over_tls);
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 define_test_config!(dnssec_with_update);
 define_test_config!(example);
