@@ -28,3 +28,6 @@ fuzz/corpus/**
 
 # Code coverage output
 /coverage
+
+# Certificates and keys for test server configurations
+/tests/test-data/test_configs/tls/

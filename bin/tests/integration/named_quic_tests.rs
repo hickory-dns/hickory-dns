@@ -8,10 +8,11 @@
 #![cfg(not(windows))]
 #![cfg(feature = "__quic")]
 
-use std::{env, fs::File, io::*, net::*, sync::Arc};
+use std::{env, net::*, sync::Arc};
 
-use rustls::{ClientConfig, RootCertStore, pki_types::CertificateDer};
+use rustls::{ClientConfig, RootCertStore};
 
+use crate::server_harness::tls::prepare_certificates;
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
 use hickory_net::quic::QuicClientStream;
@@ -24,18 +25,12 @@ use test_support::subscribe;
 async fn test_example_quic_toml_startup() {
     subscribe();
 
-    let server = TestServer::start("dns_over_quic.toml");
-    let mut cert_der = vec![];
-    let quic_port = server.ports.get_v4(Protocol::Quic);
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-    println!("using server src path: {server_path} and quic_port: {quic_port:?}");
+    let ca_cert = prepare_certificates(&server_path);
 
-    File::open(format!(
-        "{server_path}/tests/test-data/test_configs/sec/example.cert"
-    ))
-    .expect("failed to open cert")
-    .read_to_end(&mut cert_der)
-    .expect("failed to read cert");
+    let server = TestServer::start("dns_over_quic.toml");
+    let quic_port = server.ports.get_v4(Protocol::Quic);
+    println!("using server src path: {server_path} and quic_port: {quic_port:?}");
 
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, quic_port.expect("no quic_port")));
     std::thread::sleep(std::time::Duration::from_secs(1));
@@ -43,7 +38,7 @@ async fn test_example_quic_toml_startup() {
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    root_store.add(CertificateDer::from(cert_der)).unwrap();
+    root_store.add(ca_cert.clone()).unwrap();
 
     let client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
         .with_safe_default_protocol_versions()

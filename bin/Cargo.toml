@@ -115,6 +115,7 @@ regex.workspace = true
 hickory-proto = { workspace = true, features = ["testing", "std"] }
 hickory-server = { workspace = true, features = ["testing"]}
 hickory-resolver.workspace = true
+rustls-pki-types.workspace = true
 test-support.workspace = true
 toml.workspace = true
 webpki-roots.workspace = true
