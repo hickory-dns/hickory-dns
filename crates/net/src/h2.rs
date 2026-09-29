@@ -21,6 +21,7 @@ use bytes::{Buf, Bytes, BytesMut};
 use futures_util::stream::Stream;
 use h2::client::SendRequest;
 use http::header::{self, CONTENT_LENGTH};
+use http::response::Parts;
 use http::{Method, Request};
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
@@ -29,7 +30,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version, content_length, fetch_body};
+use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -125,12 +126,7 @@ impl DnsRequestSender for HttpsClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(send(
-            self.h2.clone(),
-            Bytes::from(bytes),
-            self.context.clone(),
-        ))
-        .into()
+        Box::pin(send(self.clone(), Bytes::from(bytes))).into()
     }
 
     fn shutdown(&mut self) {
@@ -294,48 +290,59 @@ pub fn connect(
     }
 }
 
-async fn send(
-    h2: SendRequest<Bytes>,
-    message: Bytes,
-    cx: Arc<RequestContext>,
-) -> Result<DnsResponse, NetError> {
-    let mut h2 = h2.ready().await?;
+impl HttpSender for HttpsClientStream {
+    async fn send_http_request(
+        &mut self,
+        request: Request<()>,
+        message: Bytes,
+    ) -> Result<(Parts, BytesMut), NetError> {
+        let mut h2 = self.h2.clone().ready().await?;
 
+        // Send the request
+        let (response_future, mut send_stream) = h2.send_request(request, false)?;
+        send_stream.send_data(message, true)?;
+
+        let response_stream = response_future.await?;
+
+        debug!("got response: {:#?}", response_stream);
+
+        let (parts, body) = response_stream.into_parts();
+
+        // get the length of packet
+        let content_length = content_length(&parts.headers)?;
+
+        // read the response body
+        Ok((parts, fetch_body(body, content_length).await?))
+    }
+
+    fn context(&self) -> &RequestContext {
+        &self.context
+    }
+}
+
+async fn send(mut client: HttpsClientStream, message: Bytes) -> Result<DnsResponse, NetError> {
     // build up the http request
-    let request = cx.build(message.remaining())?;
+    let request = client.context().build(message.remaining())?;
 
     debug!("request: {:#?}", request);
 
-    // Send the request
-    let (response_future, mut send_stream) = h2.send_request(request, false)?;
-    send_stream.send_data(message, true)?;
-
-    let mut response_stream = response_future.await?;
-
-    debug!("got response: {:#?}", response_stream);
-
-    // get the length of packet
-    let content_length = content_length(response_stream.headers())?;
-
-    // read the response body
-    let response_bytes = fetch_body(response_stream.body_mut(), content_length).await?;
+    let (parts, response_bytes) = client.send_http_request(request, message).await?;
 
     // Was it a successful request?
-    if !response_stream.status().is_success() {
+    if !parts.status.is_success() {
         let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
         // TODO: make explicit error type
         return Err(NetError::from(format!(
             "http unsuccessful code: {}, message: {}",
-            response_stream.status(),
-            error_string
+            parts.status, error_string
         )));
     } else {
         // verify content type
         {
             // in the case that the ContentType is not specified, we assume it's the standard DNS format
-            let content_type = response_stream
-                .headers()
+            let content_type = parts
+                .headers
                 .get(header::CONTENT_TYPE)
                 .map(|h| {
                     h.to_str().map_err(|err| {

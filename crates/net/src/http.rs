@@ -7,13 +7,16 @@
 
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
+use core::future::Future;
 use core::str::FromStr;
 use std::sync::Arc;
 
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures_util::{Stream, StreamExt};
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, uri};
+use http::{
+    HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, response::Parts, uri,
+};
 use tracing::debug;
 
 use crate::error::NetError;
@@ -71,6 +74,28 @@ impl RequestContext {
             .body(())
             .map_err(|e| NetError::from(format!("http stream errored: {e}")))
     }
+}
+
+/// The HTTP half of a DNS-over-HTTP client
+///
+/// A type implementing this trait owns the HTTP version-specific connection to a
+/// DoH server and knows how to send a request and receive a response over it. Everything
+/// above that, such as building the request from the `RequestContext`, and validating
+/// and parsing the response will be implemented in the `http` module.
+pub(crate) trait HttpSender: Clone + Send + 'static {
+    /// Send `message`, and return the response head in `Parts` along with the complete response body
+    ///
+    /// Collects the body Bytes rather than handing back a stream. An HTTP/3 connection
+    /// shares the same stream for send and recv, so this avoids having to split it there
+    /// and simplifies the type signature of this method.
+    fn send_http_request(
+        &mut self,
+        request: Request<()>,
+        message: Bytes,
+    ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
+
+    /// The context describing the DoH server this client is connected to
+    fn context(&self) -> &RequestContext;
 }
 
 /// Verifies the request is well-formed for the name-server and supported protocols
