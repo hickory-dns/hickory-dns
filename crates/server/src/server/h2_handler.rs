@@ -5,28 +5,26 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{future::poll_fn, net::SocketAddr, sync::Arc, time::Duration};
 
 use ::h2::server;
 use bytes::Bytes;
-use rustls::server::ResolvesServerCert;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::TcpListener,
     task::JoinSet,
 };
 use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, default_tls_server_config, is_unrecoverable_socket_error,
-    reap_tasks, request_handler::RequestHandler, response_handler::ResponseHandler,
-    sanitize_src_address,
+    ResponseInfo, ServerContext, is_unrecoverable_socket_error, reap_tasks,
+    request_handler::RequestHandler, response_handler::ResponseHandler, sanitize_src_address,
 };
 use crate::{
     net::{
         NetError, h2,
         http::{self, Version},
+        runtime::{DnsTcpListener, ServerRuntimeProvider, iocompat::AsyncIoStdAsTokio},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -34,38 +32,10 @@ use crate::{
     zone_handler::MessageResponse,
 };
 
-/// handle h2 using the default TLS server config.
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h2(
-    listener: TcpListener,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    dns_hostname: Option<String>,
-    http_endpoint: String,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    handle_h2_with_acceptor(
-        listener,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        TlsAcceptor::from(Arc::new(default_tls_server_config(
-            b"h2",
-            server_cert_resolver,
-        )?)),
-        dns_hostname,
-        http_endpoint,
-        cx,
-    )
-    .await
-}
-
 /// handle h2 using a specific TlsAcceptor.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h2_with_acceptor(
-    listener: TcpListener,
+pub(super) async fn handle_h2<P: ServerRuntimeProvider>(
+    mut listener: P::TcpListener,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -80,8 +50,8 @@ pub(super) async fn handle_h2_with_acceptor(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let shutdown = &cx.shutdown;
-        let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = poll_fn(|task_cx| listener.poll_accept(task_cx));
+        let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
@@ -109,8 +79,11 @@ pub(super) async fn handle_h2_with_acceptor(
         inner_join_set.spawn(async move {
             debug!("starting HTTPS request from: {src_addr}");
 
-            let Ok(tls_stream) =
-                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) = optional_timeout(
+                handshake_timeout,
+                tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
+            )
+            .await
             else {
                 warn!("https timeout expired during handshake");
                 return;

@@ -28,11 +28,7 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(any(
-    feature = "__https",
-    feature = "__quic",
-    feature = "__h3"
-))]
+#[cfg(any(feature = "__quic", feature = "__h3"))]
 use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
@@ -268,7 +264,7 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
     #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
@@ -276,12 +272,16 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2(
+        let tls_acceptor = TlsAcceptor::from(Arc::new(default_tls_server_config(
+            b"h2",
+            server_cert_resolver,
+        )?));
+        self.join_set.spawn(h2_handler::handle_h2::<P>(
             listener,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            server_cert_resolver,
+            tls_acceptor,
             dns_hostname,
             http_endpoint,
             self.context.clone(),
@@ -311,7 +311,7 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
     #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener_with_tls_config(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
@@ -319,7 +319,7 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
+        self.join_set.spawn(h2_handler::handle_h2::<P>(
             listener,
             handshake_timeout,
             idle_timeout,
