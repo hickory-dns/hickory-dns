@@ -10,10 +10,9 @@
 use std::{
     borrow::Cow,
     future::Future,
+    sync::LazyLock,
     time::{Duration, Instant},
 };
-
-use once_cell::sync::Lazy;
 
 #[cfg(feature = "__dnssec")]
 use crate::proto::dnssec::DnssecSummary;
@@ -37,10 +36,11 @@ use crate::{
     },
 };
 
-static LOCALHOST: Lazy<RData> =
-    Lazy::new(|| RData::PTR(PTR(Name::from_ascii("localhost.").unwrap())));
-static LOCALHOST_V4: Lazy<RData> = Lazy::new(|| RData::A(A::new(127, 0, 0, 1)));
-static LOCALHOST_V6: Lazy<RData> = Lazy::new(|| RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)));
+static LOCALHOST: LazyLock<RData> =
+    LazyLock::new(|| RData::PTR(PTR(Name::from_ascii("localhost.").unwrap())));
+static LOCALHOST_V4: LazyLock<RData> = LazyLock::new(|| RData::A(A::new(127, 0, 0, 1)));
+static LOCALHOST_V6: LazyLock<RData> =
+    LazyLock::new(|| RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1)));
 
 /// Counts the depth of CNAME query resolutions.
 #[derive(Default, Clone, Copy)]
