@@ -9,9 +9,13 @@ use core::net::SocketAddr;
 use core::pin::Pin;
 use core::task::{Context, Poll, ready};
 use core::time::Duration;
+#[cfg(feature = "tokio")]
+use std::fmt::Debug;
 use std::future::Future;
 
 use futures_util::{StreamExt, stream::Stream};
+#[cfg(feature = "tokio")]
+use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::warn;
 
 use crate::error::NetError;
@@ -132,7 +136,7 @@ impl<S: DnsTcpStream> Stream for TcpClientStream<S> {
 #[cfg(feature = "tokio")]
 impl<T> DnsTcpStream for AsyncIoTokioAsStd<T>
 where
-    T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + Sync + Sized + 'static,
+    T: Debug + AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static,
 {
     type Time = TokioTime;
 }

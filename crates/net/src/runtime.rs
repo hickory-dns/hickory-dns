@@ -44,6 +44,7 @@ pub mod iocompat {
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
+    #[derive(Debug)]
     pub struct AsyncIoTokioAsStd<T: TokioAsyncRead + TokioAsyncWrite>(pub T);
 
     impl<T: TokioAsyncRead + TokioAsyncWrite + Unpin> Unpin for AsyncIoTokioAsStd<T> {}
@@ -84,6 +85,7 @@ pub mod iocompat {
     }
 
     /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
+    #[derive(Debug)]
     pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
     impl<T: AsyncRead + AsyncWrite + Unpin> Unpin for AsyncIoStdAsTokio<T> {}
@@ -401,10 +403,7 @@ pub trait ServerRuntimeProvider: RuntimeProvider {
 
 /// Trait for DnsUdpSocket
 #[async_trait]
-pub trait DnsUdpSocket
-where
-    Self: Send + Sync + Sized + Unpin,
-{
+pub trait DnsUdpSocket: Debug + Send + Sync + Sized + Unpin {
     /// Time implementation used for this type
     type Time: Time;
 
@@ -465,13 +464,15 @@ pub trait QuicSocketWrapper<Udp: DnsUdpSocket> {
 }
 
 /// Trait for TCP connection
-pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
+pub trait DnsTcpStream:
+    Debug + AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static
+{
     /// Timer type to use with this TCP stream type
     type Time: Time;
 }
 
 /// Trait for an incoming TCP connection listener.
-pub trait DnsTcpListener<S: DnsTcpStream>: Send + Unpin + 'static {
+pub trait DnsTcpListener<S: DnsTcpStream>: Debug + Send + Unpin + 'static {
     /// Poll for an incoming connection.
     ///
     /// When `Poll::Pending` is returned, the current task's waker must be registered.
