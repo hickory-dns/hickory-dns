@@ -1,6 +1,7 @@
 use std::{
     cmp,
     collections::{HashMap, VecDeque},
+    fmt::{self, Debug, Formatter},
     future::{Future, ready},
     io,
     io::Write,
@@ -376,6 +377,16 @@ pub struct MockUdpSocket {
     queries: MockQueryCache,
 }
 
+impl Debug for MockUdpSocket {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MockUdpSocket")
+            .field("inner", &self.inner)
+            .field("queries", &self.queries)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
 pub struct MockUdpSocketInner {
     /// Response messages ready to be returned to the client.
     incoming_datagrams: VecDeque<(Message, SocketAddr)>,
@@ -459,6 +470,17 @@ pub struct MockTcpStream {
     queries: MockQueryCache,
 }
 
+impl Debug for MockTcpStream {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MockTcpStream")
+            .field("inner", &self.inner)
+            .field("destination", &self.destination)
+            .field("queries", &self.queries)
+            .finish_non_exhaustive()
+    }
+}
+
+#[derive(Debug)]
 struct MockTcpStreamInner {
     /// Buffered stream data, from the client to the mocked server.
     ///
@@ -585,7 +607,7 @@ impl AsyncWrite for MockTcpStream {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MockQueryCache(Arc<Mutex<HashMap<IpAddr, Vec<Query>>>>);
 
 impl MockQueryCache {

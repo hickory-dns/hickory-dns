@@ -28,6 +28,7 @@ use hickory_proto::rr::{Name, RData, Record};
 use hickory_resolver::config::ConnectionConfig;
 use hickory_resolver::{ConnectionProvider, PoolContext};
 
+#[derive(Debug)]
 pub struct TcpPlaceholder;
 
 impl AsyncRead for TcpPlaceholder {
@@ -62,6 +63,7 @@ impl DnsTcpStream for TcpPlaceholder {
     type Time = TokioTime;
 }
 
+#[derive(Debug)]
 pub struct UdpPlaceholder;
 
 impl DnsUdpSocket for UdpPlaceholder {
