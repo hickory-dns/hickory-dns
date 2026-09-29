@@ -72,11 +72,7 @@ impl HttpSender for H3ClientStream {
         stream.send_data(message).await?;
         stream.finish().await?;
 
-        let response = stream.recv_response().await?;
-
-        debug!("got response: {:#?}", response);
-
-        let (parts, ()) = response.into_parts();
+        let (parts, ()) = stream.recv_response().await?.into_parts();
 
         // get the length of packet
         let content_length = content_length(&parts.headers)?;
