@@ -13,11 +13,13 @@ use core::task::{Context, Poll};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
 use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
+use http::Request;
 use http::header;
+use http::response::Parts;
 use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
@@ -25,7 +27,7 @@ use tracing::{debug, warn};
 
 use super::{ALPN_H3, BodyStream};
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version, content_length, fetch_body};
+use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
@@ -59,47 +61,27 @@ impl H3ClientStream {
         }
     }
 
-    async fn inner_send(
-        mut h3: SendRequest<OpenStreams, Bytes>,
-        message: Bytes,
-        cx: Arc<RequestContext>,
-    ) -> Result<DnsResponse, NetError> {
+    async fn inner_send(mut client: Self, message: Bytes) -> Result<DnsResponse, NetError> {
         // build up the http request
-        let request = cx.build(message.remaining())?;
+        let request = client.context().build(message.remaining())?;
         debug!("request: {:#?}", request);
 
-        // Send the request
-        let mut stream = h3.send_request(request).await?;
-        stream.send_data(message).await?;
-        stream.finish().await?;
-
-        let response = stream.recv_response().await?;
-        debug!("got response: {:#?}", response);
-
-        // get the length of packet
-        let content_length = content_length(response.headers())?;
+        let (parts, response_bytes) = client.send_http_request(request, message).await?;
 
         // Was it a successful request?
-        let response_bytes = fetch_body(
-            BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
-            content_length,
-        )
-        .await?;
-
-        if !response.status().is_success() {
+        if !parts.status.is_success() {
             let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
             // TODO: make explicit error type
             return Err(NetError::from(format!(
                 "http unsuccessful code: {}, message: {}",
-                response.status(),
-                error_string
+                parts.status, error_string
             )));
         }
 
         // in the case that the ContentType is not specified, we assume it's the standard DNS format
-        let content_type = response
-            .headers()
+        let content_type = parts
+            .headers
             .get(header::CONTENT_TYPE)
             .map(|h| {
                 h.to_str().map_err(|err| {
@@ -119,6 +101,41 @@ impl H3ClientStream {
 
         // and finally convert the bytes into a DNS message
         DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+    }
+}
+
+impl HttpSender for H3ClientStream {
+    async fn send_http_request(
+        &mut self,
+        request: Request<()>,
+        message: Bytes,
+    ) -> Result<(Parts, BytesMut), NetError> {
+        // Send the request
+        let mut stream = self.send_request.send_request(request).await?;
+        stream.send_data(message).await?;
+        stream.finish().await?;
+
+        let response = stream.recv_response().await?;
+
+        debug!("got response: {:#?}", response);
+
+        let (parts, ()) = response.into_parts();
+
+        // get the length of packet
+        let content_length = content_length(&parts.headers)?;
+
+        // read the response body
+        let response_bytes = fetch_body(
+            BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
+            content_length,
+        )
+        .await?;
+
+        Ok((parts, response_bytes))
+    }
+
+    fn context(&self) -> &RequestContext {
+        &self.context
     }
 }
 
@@ -187,12 +204,7 @@ impl DnsRequestSender for H3ClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(Self::inner_send(
-            self.send_request.clone(),
-            Bytes::from(bytes),
-            self.context.clone(),
-        ))
-        .into()
+        Box::pin(Self::inner_send(self.clone(), Bytes::from(bytes))).into()
     }
 
     fn shutdown(&mut self) {
