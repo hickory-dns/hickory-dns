@@ -17,7 +17,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures_util::stream::Stream;
 use h2::client::SendRequest;
 use http::header::CONTENT_LENGTH;
@@ -31,9 +31,9 @@ use tracing::{debug, warn};
 
 use crate::error::NetError;
 use crate::http::{
-    HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, verify_response,
+    HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, send_and_parse,
 };
-use crate::proto::op::{DnsRequest, DnsResponse};
+use crate::proto::op::DnsRequest;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
 use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
@@ -128,7 +128,7 @@ impl DnsRequestSender for HttpsClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(send(self.clone(), Bytes::from(bytes))).into()
+        Box::pin(send_and_parse(self.clone(), Bytes::from(bytes))).into()
     }
 
     fn shutdown(&mut self) {
@@ -320,20 +320,6 @@ impl HttpSender for HttpsClientStream {
     fn context(&self) -> &RequestContext {
         &self.context
     }
-}
-
-async fn send(mut client: HttpsClientStream, message: Bytes) -> Result<DnsResponse, NetError> {
-    // build up the http request
-    let request = client.context().build(message.remaining())?;
-
-    debug!("request: {:#?}", request);
-
-    let (parts, response_bytes) = client.send_http_request(request, message).await?;
-
-    verify_response(&parts, response_bytes.as_ref())?;
-
-    // and finally convert the bytes into a DNS message
-    DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
 }
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.

@@ -13,12 +13,11 @@ use core::task::{Context, Poll};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::Request;
-use http::header;
 use http::response::Parts;
 use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
@@ -27,9 +26,11 @@ use tracing::{debug, warn};
 
 use super::{ALPN_H3, BodyStream};
 use crate::error::NetError;
-use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
+use crate::http::{
+    HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, send_and_parse,
+};
 use crate::proto::ProtoError;
-use crate::proto::op::{DnsRequest, DnsResponse};
+use crate::proto::op::DnsRequest;
 use crate::quic::connect_quic;
 use crate::runtime::{RuntimeProvider, Spawn};
 use crate::tls::client_config;
@@ -59,48 +60,6 @@ impl H3ClientStream {
             disable_grease: false,
             connect_timeout: CONNECT_TIMEOUT,
         }
-    }
-
-    async fn inner_send(mut client: Self, message: Bytes) -> Result<DnsResponse, NetError> {
-        // build up the http request
-        let request = client.context().build(message.remaining())?;
-        debug!("request: {:#?}", request);
-
-        let (parts, response_bytes) = client.send_http_request(request, message).await?;
-
-        // Was it a successful request?
-        if !parts.status.is_success() {
-            let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-            // TODO: make explicit error type
-            return Err(NetError::from(format!(
-                "http unsuccessful code: {}, message: {}",
-                parts.status, error_string
-            )));
-        }
-
-        // in the case that the ContentType is not specified, we assume it's the standard DNS format
-        let content_type = parts
-            .headers
-            .get(header::CONTENT_TYPE)
-            .map(|h| {
-                h.to_str().map_err(|err| {
-                    // TODO: make explicit error type
-                    NetError::from(format!("ContentType header not a string: {err}"))
-                })
-            })
-            .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
-
-        if content_type != crate::http::MIME_APPLICATION_DNS {
-            return Err(NetError::from(format!(
-                "ContentType unsupported (must be '{}'): '{}'",
-                crate::http::MIME_APPLICATION_DNS,
-                content_type
-            )));
-        }
-
-        // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
     }
 }
 
@@ -204,7 +163,7 @@ impl DnsRequestSender for H3ClientStream {
             Err(err) => return NetError::from(err).into(),
         };
 
-        Box::pin(Self::inner_send(self.clone(), Bytes::from(bytes))).into()
+        Box::pin(send_and_parse(self.clone(), Bytes::from(bytes))).into()
     }
 
     fn shutdown(&mut self) {

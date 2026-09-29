@@ -20,6 +20,7 @@ use http::{
 use tracing::debug;
 
 use crate::error::NetError;
+use crate::proto::op::DnsResponse;
 
 pub(crate) struct RequestContext {
     pub(crate) version: Version,
@@ -98,8 +99,26 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
     fn context(&self) -> &RequestContext;
 }
 
+/// Send `message` as a DoH request, and validate and parse the response
+pub(crate) async fn send_and_parse<T: HttpSender>(
+    mut sender: T,
+    message: Bytes,
+) -> Result<DnsResponse, NetError> {
+    // build up the http request
+    let request = sender.context().build(message.remaining())?;
+
+    debug!("request: {:#?}", request);
+
+    let (parts, response_bytes) = sender.send_http_request(request, message).await?;
+
+    verify_response(&parts, response_bytes.as_ref())?;
+
+    // and finally convert the bytes into a DNS message
+    DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+}
+
 /// Verifies that a DoH response carries a DNS message this client can decode
-pub(crate) fn verify_response(parts: &Parts, body: &[u8]) -> Result<(), NetError> {
+fn verify_response(parts: &Parts, body: &[u8]) -> Result<(), NetError> {
     // Was it a successful request?
     if !parts.status.is_success() {
         let error_string = String::from_utf8_lossy(body);
