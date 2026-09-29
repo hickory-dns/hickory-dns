@@ -9,18 +9,21 @@
 
 use core::net::SocketAddr;
 use std::io;
+use std::net::UdpSocket;
 use std::sync::Arc;
 
 use bytes::Bytes;
 use h3::server::{Connection, RequestResolver};
 use h3_quinn::Endpoint;
 use quinn::crypto::rustls::QuicServerConfig;
-use quinn::{Connecting, EndpointConfig, Incoming, ServerConfig};
+use quinn::{
+    AsyncUdpSocket, Connecting, EndpointConfig, Incoming, Runtime, ServerConfig, TokioRuntime,
+};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
 
-use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
+use crate::{error::NetError, tls::default_provider};
 
 use super::ALPN_H3;
 
@@ -36,13 +39,13 @@ impl H3Server {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, NetError> {
         // setup a new socket for the server to use
-        let socket = <tokio::net::UdpSocket as UdpSocket>::bind(name_server).await?;
+        let socket = TokioRuntime.wrap_udp_socket(UdpSocket::bind(name_server)?)?;
         Self::with_socket(socket, server_cert_resolver)
     }
 
     /// Construct the new server with an existing socket and default TLS config.
     pub fn with_socket(
-        socket: tokio::net::UdpSocket,
+        socket: Arc<dyn AsyncUdpSocket>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, NetError> {
         let mut config = TlsServerConfig::builder_with_provider(Arc::new(default_provider()))
@@ -60,20 +63,18 @@ impl H3Server {
     ///
     /// The TLS configuration should support TLS 1.3 and have the H3 ALPN protocol enabled.
     pub fn with_socket_and_tls_config(
-        socket: tokio::net::UdpSocket,
+        socket: Arc<dyn AsyncUdpSocket>,
         tls_config: Arc<TlsServerConfig>,
     ) -> Result<Self, NetError> {
         let mut server_config =
-            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config).unwrap()));
+            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
         server_config.transport = Arc::new(super::transport());
 
-        let socket = socket.into_std()?;
-
-        let endpoint = Endpoint::new(
+        let endpoint = Endpoint::new_with_abstract_socket(
             EndpointConfig::default(),
             Some(server_config),
             socket,
-            Arc::new(quinn::TokioRuntime),
+            Arc::new(TokioRuntime),
         )?;
 
         Ok(Self { endpoint })

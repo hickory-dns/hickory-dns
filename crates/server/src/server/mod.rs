@@ -28,8 +28,6 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(feature = "__h3")]
-use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
     feature = "__tls",
@@ -428,19 +426,20 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
     #[cfg(feature = "__h3")]
     pub fn register_h3_listener(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
-    ) -> io::Result<()> {
+    ) -> Result<(), NetError> {
+        debug!(?socket, "registered h3");
+        let socket = self.wrap_quic_socket(socket)?;
         self.join_set.spawn(h3_handler::handle_h3(
-            socket,
+            H3Server::with_socket(socket, server_cert_resolver)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            server_cert_resolver,
             dns_hostname,
             self.context.clone(),
         ));
@@ -466,14 +465,15 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
     #[cfg(feature = "__h3")]
     pub fn register_h3_listener_with_tls_config(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
-        self.join_set.spawn(h3_handler::handle_h3_with_server(
+        let socket = self.wrap_quic_socket(socket)?;
+        self.join_set.spawn(h3_handler::handle_h3(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
