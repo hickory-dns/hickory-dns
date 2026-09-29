@@ -4,7 +4,7 @@ use std::{
     collections::HashMap,
     net::Ipv4Addr,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, PoisonError},
     time::Duration,
 };
 
@@ -118,6 +118,54 @@ async fn bogus_delegation_with_empty_ds_response() {
 
     let response = lookup_child_a(&handle).await.unwrap();
     assert_eq!(response.answers[0].proof, Proof::Bogus);
+}
+
+/// A validating handle sets the CD bit on every query it sends upstream: the query being
+/// validated, the DNSKEY and DS queries it makes through `lookup()`, and the NS queries that
+/// `find_ds_records()` sends to the wrapped handle directly.
+///
+/// RFC 6840 section 5.9: validating resolvers SHOULD set the CD bit on every upstream query.
+/// Regression test for <https://github.com/hickory-dns/hickory-dns/issues/3966>.
+#[tokio::test]
+async fn validating_queries_set_checking_disabled() -> Result<(), NetError> {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let child = Name::from_ascii("child.example.com.")?;
+    let parent = Name::from_ascii("example.com.")?;
+    fixture.respond(&child, RecordType::DS, [], [unsigned_soa(&parent)]);
+    let (handle, queries) = fixture.build();
+
+    let response = lookup_child_a(&handle).await?;
+    assert_eq!(
+        response.answers.first().map(|record| record.proof),
+        Some(Proof::Insecure)
+    );
+
+    let logged = std::mem::take(&mut *queries.0.lock().unwrap_or_else(PoisonError::into_inner));
+    for record_type in [
+        RecordType::A,
+        RecordType::DNSKEY,
+        RecordType::DS,
+        RecordType::NS,
+    ] {
+        assert!(
+            logged
+                .iter()
+                .any(|entry| entry.query.query_type == record_type),
+            "expected at least one {record_type} query upstream"
+        );
+    }
+    let cleared = logged
+        .iter()
+        .filter(|entry| !entry.checking_disabled)
+        .map(|entry| &entry.query)
+        .collect::<Vec<_>>();
+    assert!(
+        cleared.is_empty(),
+        "queries sent upstream with CD=0: {cleared:?}"
+    );
+    Ok(())
 }
 
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
@@ -353,7 +401,13 @@ fn a(name: &Name) -> Record {
 }
 
 #[derive(Clone, Default)]
-struct QueryLog(Arc<Mutex<Vec<Query>>>);
+struct QueryLog(Arc<Mutex<Vec<LoggedQuery>>>);
+
+/// A query the mock upstream received, with the CD bit of the request that carried it.
+struct LoggedQuery {
+    query: Query,
+    checking_disabled: bool,
+}
 
 impl QueryLog {
     fn count(&self, name: &Name, record_type: RecordType) -> usize {
@@ -361,7 +415,7 @@ impl QueryLog {
             .lock()
             .unwrap()
             .iter()
-            .filter(|query| &query.name == name && query.query_type == record_type)
+            .filter(|logged| &logged.query.name == name && logged.query.query_type == record_type)
             .count()
     }
 }
@@ -378,7 +432,14 @@ impl DnsHandle for MockHandle {
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         let query = request.queries[0].clone();
-        self.queries.0.lock().unwrap().push(query.clone());
+        self.queries
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(LoggedQuery {
+                query: query.clone(),
+                checking_disabled: request.metadata.checking_disabled,
+            });
 
         let key = (LowerName::from(&query.name), query.query_type);
         let Some(message) = self.responses.get(&key) else {
