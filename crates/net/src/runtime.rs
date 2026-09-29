@@ -7,15 +7,18 @@ use core::pin::Pin;
 use core::time::Duration;
 #[cfg(feature = "__quic")]
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
+    fmt::Debug,
     future::poll_fn,
     io,
     task::{Context, Poll},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "__quic")]
+use quinn::AsyncUdpSocket;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
@@ -192,12 +195,11 @@ pub mod iocompat {
 
 #[cfg(feature = "tokio")]
 mod tokio_runtime {
-    use std::sync::Arc;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     #[cfg(feature = "__quic")]
-    use quinn::Runtime;
-    use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
+    use quinn::{Runtime, TokioRuntime};
+    use tokio::net::{TcpListener, TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
     use tokio::time::timeout;
     use tracing::debug;
@@ -286,6 +288,15 @@ mod tokio_runtime {
         fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
             Some(&TokioQuicSocketBinder)
         }
+
+        #[cfg(feature = "__quic")]
+        fn quic_wrapper(&self) -> Option<&dyn QuicSocketWrapper<Self::Udp>> {
+            Some(&TokioQuicSocketWrapper)
+        }
+    }
+
+    impl ServerRuntimeProvider for TokioRuntimeProvider {
+        type TcpListener = TcpListener;
     }
 
     /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
@@ -302,9 +313,29 @@ mod tokio_runtime {
             &self,
             local_addr: SocketAddr,
             _server_addr: SocketAddr,
-        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error> {
+        ) -> Result<Arc<dyn AsyncUdpSocket>, io::Error> {
             let socket = std::net::UdpSocket::bind(local_addr)?;
-            quinn::TokioRuntime.wrap_udp_socket(socket)
+            TokioRuntime.wrap_udp_socket(socket)
+        }
+    }
+
+    #[cfg(feature = "__quic")]
+    struct TokioQuicSocketWrapper;
+
+    #[cfg(feature = "__quic")]
+    impl QuicSocketWrapper<TokioUdpSocket> for TokioQuicSocketWrapper {
+        fn wrap_udp(&self, socket: TokioUdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
+            TokioRuntime.wrap_udp_socket(socket.into_std()?)
+        }
+    }
+
+    impl DnsTcpListener<AsyncIoTokioAsStd<TcpStream>> for TcpListener {
+        fn poll_accept(
+            &mut self,
+            cx: &mut Context<'_>,
+        ) -> Poll<io::Result<(AsyncIoTokioAsStd<TcpStream>, SocketAddr)>> {
+            Self::poll_accept(self, cx)
+                .map(|result| result.map(|(stream, addr)| (AsyncIoTokioAsStd(stream), addr)))
         }
     }
 }
@@ -352,6 +383,20 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
         None
     }
+
+    /// Yields an object that knows how to wrap a UDP socket into a QUIC socket.
+    //
+    // Use some indirection here to avoid exposing the `quinn` crate in the public API
+    // even for runtimes that might not (want to) provide QUIC support.
+    fn quic_wrapper(&self) -> Option<&dyn QuicSocketWrapper<Self::Udp>> {
+        None
+    }
+}
+
+/// A [`RuntimeProvider`] that can be used to run a server.
+pub trait ServerRuntimeProvider: RuntimeProvider {
+    /// An already-bound listener for incoming TCP connections.
+    type TcpListener: DnsTcpListener<Self::Tcp>;
 }
 
 /// Trait for DnsUdpSocket
@@ -404,13 +449,40 @@ pub trait QuicSocketBinder {
         &self,
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
-    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
+    ) -> io::Result<Arc<dyn AsyncUdpSocket>>;
+}
+
+/// Noop trait for when the `quinn` dependency is not available.
+#[cfg(not(feature = "__quic"))]
+pub trait QuicSocketWrapper<Udp: DnsUdpSocket> {}
+
+/// Wrap a UDP socket for QUIC usage.
+/// This trait is designed for customization.
+#[cfg(feature = "__quic")]
+pub trait QuicSocketWrapper<Udp: DnsUdpSocket> {
+    /// Adapt an existing UDP socket.
+    fn wrap_udp(&self, _socket: Udp) -> io::Result<Arc<dyn AsyncUdpSocket>>;
 }
 
 /// Trait for TCP connection
 pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
     /// Timer type to use with this TCP stream type
     type Time: Time;
+}
+
+/// Trait for an incoming TCP connection listener.
+pub trait DnsTcpListener<S: DnsTcpStream>: Send + Unpin + 'static {
+    /// Poll for an incoming connection.
+    ///
+    /// When `Poll::Pending` is returned, the current task's waker must be registered.
+    /// When cancelled and retried, unaccepted connections must not be lost.
+    ///
+    /// When the listener is permanently closed or shut down, implementations must return
+    /// an error with kind [`io::ErrorKind::NotConnected`]. Other errors are treated as
+    /// transient and will result in retrying `poll_accept`.
+    ///
+    /// Returns the accepted stream and the peer address.
+    fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<(S, SocketAddr)>>;
 }
 
 /// A type defines the Handle which can spawn future.
