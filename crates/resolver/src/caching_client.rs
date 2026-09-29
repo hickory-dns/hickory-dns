@@ -28,8 +28,8 @@ use crate::{
         rr::{
             DNSClass, Name, RData, Record, RecordRef, RecordType,
             domain::usage::{
-                DEFAULT, IN_ADDR_ARPA_127, INVALID, IP6_ARPA_1, LOCAL,
-                LOCALHOST as LOCALHOST_usage, ONION, ResolverUsage,
+                ResolverUsage, is_in_addr_arpa_127, is_invalid, is_ip6_arpa_loopback, is_local,
+                is_localhost, is_onion,
             },
             rdata::{A, AAAA, CNAME, PTR},
         },
@@ -136,16 +136,15 @@ where
         // special use rules only apply to the IN Class
         if query.query_class == DNSClass::IN {
             let usage = match &query.name {
-                n if LOCALHOST_usage.zone_of(n) => &*LOCALHOST_usage,
-                n if IN_ADDR_ARPA_127.zone_of(n) => &*LOCALHOST_usage,
-                n if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
-                n if INVALID.zone_of(n) => &*INVALID,
-                n if LOCAL.zone_of(n) => &*LOCAL,
-                n if ONION.zone_of(n) => &*ONION,
-                _ => &*DEFAULT,
+                n if is_localhost(n) || is_in_addr_arpa_127(n) || is_ip6_arpa_loopback(n) => {
+                    ResolverUsage::Loopback
+                }
+                n if is_invalid(n) || is_onion(n) => ResolverUsage::NxDomain,
+                n if is_local(n) => ResolverUsage::LinkLocal,
+                _ => ResolverUsage::Normal,
             };
 
-            match usage.resolver() {
+            match usage {
                 ResolverUsage::Loopback => match query.query_type {
                     // TODO: look in hosts for these ips/names first...
                     RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),
