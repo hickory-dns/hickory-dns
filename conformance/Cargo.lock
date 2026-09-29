@@ -564,7 +564,6 @@ dependencies = [
  "data-encoding-macro",
  "idna",
  "ipnet",
- "once_cell",
  "rand 0.10.2",
  "ring",
  "rustls-pki-types",
