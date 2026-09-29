@@ -23,7 +23,6 @@ license.workspace = true
 std = [
     "data-encoding/std",
     "ipnet/std",
-    "once_cell/std",
     "rand/std",
     "rand/thread_rng",
     "ring?/std",
@@ -45,7 +44,7 @@ serde = ["dep:serde", "std", "url/serde"]
 mdns = []
 
 # enables a custom random function backed by a no_std compatible mutex
-no-std-rand = ["once_cell/critical-section", "dep:critical-section"]
+no-std-rand = ["dep:critical-section"]
 
 wasm-bindgen = ["dep:wasm-bindgen-crate", "dep:js-sys"]
 
@@ -60,7 +59,6 @@ data-encoding-macro.workspace = true
 idna.workspace = true
 ipnet.workspace = true
 js-sys = { workspace = true, optional = true }
-once_cell = { workspace = true }
 prefix-trie = {  workspace = true, optional = true }
 rand = { workspace = true, features = ["std_rng"] }
 ring = { workspace = true, optional = true, features = ["std"] }
@@ -68,7 +66,7 @@ rustls-pki-types = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"], optional = true }
 thiserror.workspace = true
 time = { workspace = true, optional = true }
-tinyvec = { workspace = true, features = ["alloc"] }
+tinyvec = { workspace = true, features = ["alloc", "latest_stable_rust"] }
 tracing = { workspace = true, default-features = false }
 url = { workspace = true }
 wasm-bindgen-crate = { workspace = true, optional = true }

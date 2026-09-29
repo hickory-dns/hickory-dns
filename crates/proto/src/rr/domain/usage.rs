@@ -11,28 +11,24 @@
 
 use core::{iter, ops::Deref};
 
-use once_cell::sync::Lazy;
-
 use crate::rr::domain::Name;
 
 /// Default Name usage, everything is normal...
-pub static DEFAULT: Lazy<ZoneUsage> = Lazy::new(ZoneUsage::default);
+pub const DEFAULT: ZoneUsage = ZoneUsage::new(
+    Name::const_new(&[]),
+    UserUsage::Normal,
+    AppUsage::Normal,
+    ResolverUsage::Normal,
+    CacheUsage::Normal,
+    AuthUsage::Normal,
+    OpUsage::Normal,
+    RegistryUsage::Normal,
+);
 
-static ARPA: Lazy<Name> = Lazy::new(|| Name::from_ascii("arpa.").unwrap());
 /// zone for ipv4 reverse addresses
-pub static IN_ADDR_ARPA: Lazy<Name> = Lazy::new(|| {
-    Name::from_ascii("in-addr")
-        .unwrap()
-        .append_domain(&ARPA)
-        .unwrap()
-});
+pub const IN_ADDR_ARPA: Name = Name::const_new(&["in-addr", "arpa"]);
 /// zone for ipv6 reverse addresses
-pub static IP6_ARPA: Lazy<Name> = Lazy::new(|| {
-    Name::from_ascii("ip6")
-        .unwrap()
-        .append_domain(&ARPA)
-        .unwrap()
-});
+pub const IP6_ARPA: Name = Name::const_new(&["ip6", "arpa"]);
 
 /// Returns true if `name` falls within `localhost.`
 ///
@@ -102,42 +98,18 @@ pub fn is_local(name: &Name) -> bool {
 //  the mDNS IPv4 link-local multicast address 224.0.0.251.
 
 /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-pub static IN_ADDR_ARPA_169_254: Lazy<ZoneUsage> = Lazy::new(|| {
-    ZoneUsage::local(
-        Name::from_ascii("254.169")
-            .unwrap()
-            .append_domain(&IN_ADDR_ARPA)
-            .unwrap(),
-    )
-});
+pub const IN_ADDR_ARPA_169_254: ZoneUsage =
+    ZoneUsage::local(Name::const_new(&["254", "169", "in-addr", "arpa"]));
 
-/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-pub static IP6_ARPA_FE_8: Lazy<ZoneUsage> = Lazy::new(|| {
-    ZoneUsage::local(
-        Name::from_ascii("8.e.f")
-            .unwrap()
-            .append_domain(&IP6_ARPA)
-            .unwrap(),
-    )
-});
-/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-pub static IP6_ARPA_FE_9: Lazy<ZoneUsage> = Lazy::new(|| {
-    ZoneUsage::local(
-        Name::from_ascii("9.e.f")
-            .unwrap()
-            .append_domain(&IP6_ARPA)
-            .unwrap(),
-    )
-});
-/// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-pub static IP6_ARPA_FE_B: Lazy<ZoneUsage> = Lazy::new(|| {
-    ZoneUsage::local(
-        Name::from_ascii("b.e.f")
-            .unwrap()
-            .append_domain(&IP6_ARPA)
-            .unwrap(),
-    )
-});
+/// 8.e.f.ip6.arpa. usage link-local, i.e. mDNS
+pub const IP6_ARPA_FE_8: ZoneUsage =
+    ZoneUsage::local(Name::const_new(&["8", "e", "f", "ip6", "arpa"]));
+/// 9.e.f.ip6.arpa. usage link-local, i.e. mDNS
+pub const IP6_ARPA_FE_9: ZoneUsage =
+    ZoneUsage::local(Name::const_new(&["9", "e", "f", "ip6", "arpa"]));
+/// b.e.f.ip6.arpa. usage link-local, i.e. mDNS
+pub const IP6_ARPA_FE_B: ZoneUsage =
+    ZoneUsage::local(Name::const_new(&["b", "e", "f", "ip6", "arpa"]));
 
 /// Returns true if `name` falls within `invalid.`
 ///
@@ -466,7 +438,7 @@ pub struct ZoneUsage {
 impl ZoneUsage {
     /// Constructs a new ZoneUsage with the associated values
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub const fn new(
         name: Name,
         user: UserUsage,
         app: AppUsage,
@@ -489,7 +461,7 @@ impl ZoneUsage {
     }
 
     /// Restrictions for reverse zones
-    pub fn reverse(name: Name) -> Self {
+    pub const fn reverse(name: Name) -> Self {
         Self::new(
             name,
             UserUsage::Normal,
@@ -503,7 +475,7 @@ impl ZoneUsage {
     }
 
     /// Restrictions for the .test. zone
-    pub fn test(name: Name) -> Self {
+    pub const fn test(name: Name) -> Self {
         Self::new(
             name,
             UserUsage::Normal,
@@ -517,7 +489,7 @@ impl ZoneUsage {
     }
 
     /// Restrictions for the .localhost. zone
-    pub fn localhost(name: Name) -> Self {
+    pub const fn localhost(name: Name) -> Self {
         Self::new(
             name,
             UserUsage::Loopback,
@@ -531,7 +503,7 @@ impl ZoneUsage {
     }
 
     /// Restrictions for the .local. zone
-    pub fn local(name: Name) -> Self {
+    pub const fn local(name: Name) -> Self {
         Self::new(
             name,
             UserUsage::LinkLocal,
@@ -545,7 +517,7 @@ impl ZoneUsage {
     }
 
     /// Restrictions for the .invalid. zone
-    pub fn invalid(name: Name) -> Self {
+    pub const fn invalid(name: Name) -> Self {
         Self::new(
             name,
             UserUsage::NxDomain,
@@ -559,7 +531,7 @@ impl ZoneUsage {
     }
 
     /// Restrictions for the .example. zone
-    pub fn example(name: Name) -> Self {
+    pub const fn example(name: Name) -> Self {
         Self::new(
             name,
             UserUsage::Normal,
@@ -616,16 +588,7 @@ impl ZoneUsage {
 /// Constructs a new Default, with all no restrictions
 impl Default for ZoneUsage {
     fn default() -> Self {
-        Self::new(
-            Name::root(),
-            UserUsage::Normal,
-            AppUsage::Normal,
-            ResolverUsage::Normal,
-            CacheUsage::Normal,
-            AuthUsage::Normal,
-            OpUsage::Normal,
-            RegistryUsage::Normal,
-        )
+        DEFAULT
     }
 }
 
@@ -642,6 +605,25 @@ mod tests {
     use alloc::string::ToString;
 
     use super::*;
+
+    #[test]
+    fn const_names() {
+        assert_eq!(DEFAULT.name(), &Name::root());
+        for (name, expected) in [
+            (&IN_ADDR_ARPA, "in-addr.arpa."),
+            (&IP6_ARPA, "ip6.arpa."),
+            (IN_ADDR_ARPA_169_254.name(), "254.169.in-addr.arpa."),
+            (IP6_ARPA_FE_8.name(), "8.e.f.ip6.arpa."),
+            (IP6_ARPA_FE_9.name(), "9.e.f.ip6.arpa."),
+            (IP6_ARPA_FE_B.name(), "b.e.f.ip6.arpa."),
+        ] {
+            let parsed = Name::from_ascii(expected).unwrap();
+            assert_eq!(name, &parsed);
+            assert_eq!(name.to_string(), expected);
+            assert!(name.is_fqdn());
+            assert_eq!(name.num_labels(), parsed.num_labels());
+        }
+    }
 
     #[test]
     fn single_label_zones() {

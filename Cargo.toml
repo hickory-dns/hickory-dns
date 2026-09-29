@@ -124,7 +124,7 @@ socket2 = "0.6"
 system-configuration = "0.8"
 tikv-jemallocator = "0.7.0"
 time = "0.3"
-tinyvec = "1.1.1"
+tinyvec = "1.9"
 toml = "1.0.1"
 tower = { version = "0.5", default-features = false }
 tower-http = { version = "0.7", default-features = false }
