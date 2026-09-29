@@ -9,7 +9,7 @@
 //!
 //! see [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
 
-use core::{iter, ops::Deref};
+use core::iter;
 
 use crate::rr::domain::Name;
 
@@ -589,14 +589,6 @@ impl ZoneUsage {
 impl Default for ZoneUsage {
     fn default() -> Self {
         DEFAULT
-    }
-}
-
-impl Deref for ZoneUsage {
-    type Target = Name;
-
-    fn deref(&self) -> &Self::Target {
-        &self.name
     }
 }
 
