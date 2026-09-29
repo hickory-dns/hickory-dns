@@ -183,6 +183,18 @@ pub async fn fetch_body<E: Into<NetError>>(
 
 const MAX_REQUEST_SIZE: usize = u16::MAX as usize;
 
+/// Get the length of the body announced by the `content-length` header, if any
+pub(crate) fn content_length(headers: &HeaderMap) -> Result<Option<usize>, NetError> {
+    headers
+        .get(CONTENT_LENGTH)
+        .map(|v| v.to_str())
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
+        .map(usize::from_str)
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))
+}
+
 /// Create a new Response for an http dns-message request
 ///
 /// ```text

@@ -29,7 +29,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version, fetch_body};
+use crate::http::{RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -315,15 +315,7 @@ async fn send(
     debug!("got response: {:#?}", response_stream);
 
     // get the length of packet
-    let content_length = response_stream
-        .headers()
-        .get(CONTENT_LENGTH)
-        .map(|v| v.to_str())
-        .transpose()
-        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
-        .map(usize::from_str)
-        .transpose()
-        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
+    let content_length = content_length(response_stream.headers())?;
 
     // read the response body
     let response_bytes = fetch_body(response_stream.body_mut(), content_length).await?;

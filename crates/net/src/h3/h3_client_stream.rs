@@ -9,7 +9,6 @@ use core::fmt::{self, Display};
 use core::future::{Future, poll_fn};
 use core::net::SocketAddr;
 use core::pin::Pin;
-use core::str::FromStr;
 use core::task::{Context, Poll};
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,7 +17,7 @@ use bytes::{Buf, Bytes};
 use futures_util::stream::Stream;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
-use http::header::{self, CONTENT_LENGTH};
+use http::header;
 use quinn::{Endpoint, EndpointConfig, TransportConfig};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
@@ -26,7 +25,7 @@ use tracing::{debug, warn};
 
 use super::{ALPN_H3, BodyStream};
 use crate::error::NetError;
-use crate::http::{RequestContext, SetHeaders, Version, fetch_body};
+use crate::http::{RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::quic::connect_quic;
@@ -78,15 +77,7 @@ impl H3ClientStream {
         debug!("got response: {:#?}", response);
 
         // get the length of packet
-        let content_length = response
-            .headers()
-            .get(CONTENT_LENGTH)
-            .map(|v| v.to_str())
-            .transpose()
-            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
-            .map(usize::from_str)
-            .transpose()
-            .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
+        let content_length = content_length(response.headers())?;
 
         // Was it a successful request?
         let response_bytes = fetch_body(
