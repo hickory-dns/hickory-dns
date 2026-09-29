@@ -184,9 +184,16 @@ pub(crate) async fn send_and_parse<T: HttpSender>(
     // build up the http request
     let request = sender.context().build(message.remaining())?;
 
-    debug!("request: {:#?}", request);
+    debug!(
+        method = %request.method(),
+        uri = %request.uri(),
+        headers = ?request.headers(),
+        "sending request"
+    );
 
     let (parts, response_bytes) = sender.send_http_request(request, message).await?;
+
+    debug!(status = %parts.status, headers = ?parts.headers, "got response");
 
     verify_response(&parts, response_bytes.as_ref())?;
 

@@ -240,11 +240,7 @@ impl HttpSender for HttpsClientStream {
         let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
         send_stream.send_data(message, true)?;
 
-        let response_stream = response_future.await?;
-
-        debug!("got response: {:#?}", response_stream);
-
-        let (parts, body) = response_stream.into_parts();
+        let (parts, body) = response_future.await?.into_parts();
 
         // get the length of packet
         let content_length = content_length(&parts.headers)?;
