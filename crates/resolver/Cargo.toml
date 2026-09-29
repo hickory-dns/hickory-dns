@@ -65,7 +65,6 @@ metrics = { workspace = true, optional = true }
 ipnet = { workspace = true, features = ["serde"] }
 lru-cache = { workspace = true, optional = true }
 moka = { workspace = true, features = ["sync"] }
-once_cell.workspace = true
 parking_lot.workspace = true
 quinn = { workspace = true, optional = true, features = [
     "log",

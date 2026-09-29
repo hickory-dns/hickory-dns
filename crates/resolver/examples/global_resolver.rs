@@ -1,6 +1,4 @@
-use std::{fmt::Display, future::pending, io, net::SocketAddr};
-
-use once_cell::sync::Lazy;
+use std::{fmt::Display, future::pending, io, net::SocketAddr, sync::LazyLock};
 
 use hickory_resolver::{TokioResolver, net::runtime::TokioRuntimeProvider, proto::rr::IntoName};
 
@@ -12,7 +10,7 @@ use hickory_resolver::{TokioResolver, net::runtime::TokioRuntimeProvider, proto:
 // Thank you to @zonyitoo for the original example.
 // TODO: this example can probably be made much simpler with `Resolver`.
 // First we need to setup the global Resolver
-static GLOBAL_DNS_RESOLVER: Lazy<TokioResolver> = Lazy::new(|| {
+static GLOBAL_DNS_RESOLVER: LazyLock<TokioResolver> = LazyLock::new(|| {
     use std::sync::{Arc, Condvar, Mutex};
     use std::thread;
 
