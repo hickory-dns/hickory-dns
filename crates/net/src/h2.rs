@@ -20,7 +20,7 @@ use std::time::Duration;
 use bytes::{Buf, Bytes, BytesMut};
 use futures_util::stream::Stream;
 use h2::client::SendRequest;
-use http::header::{self, CONTENT_LENGTH};
+use http::header::CONTENT_LENGTH;
 use http::response::Parts;
 use http::{Method, Request};
 use rustls::ClientConfig;
@@ -30,7 +30,9 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
+use crate::http::{
+    HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, verify_response,
+};
 use crate::proto::op::{DnsRequest, DnsResponse};
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -328,39 +330,7 @@ async fn send(mut client: HttpsClientStream, message: Bytes) -> Result<DnsRespon
 
     let (parts, response_bytes) = client.send_http_request(request, message).await?;
 
-    // Was it a successful request?
-    if !parts.status.is_success() {
-        let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-        // TODO: make explicit error type
-        return Err(NetError::from(format!(
-            "http unsuccessful code: {}, message: {}",
-            parts.status, error_string
-        )));
-    } else {
-        // verify content type
-        {
-            // in the case that the ContentType is not specified, we assume it's the standard DNS format
-            let content_type = parts
-                .headers
-                .get(header::CONTENT_TYPE)
-                .map(|h| {
-                    h.to_str().map_err(|err| {
-                        // TODO: make explicit error type
-                        NetError::from(format!("ContentType header not a string: {err}"))
-                    })
-                })
-                .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
-
-            if content_type != crate::http::MIME_APPLICATION_DNS {
-                return Err(NetError::from(format!(
-                    "ContentType unsupported (must be '{}'): '{}'",
-                    crate::http::MIME_APPLICATION_DNS,
-                    content_type
-                )));
-            }
-        }
-    };
+    verify_response(&parts, response_bytes.as_ref())?;
 
     // and finally convert the bytes into a DNS message
     DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
