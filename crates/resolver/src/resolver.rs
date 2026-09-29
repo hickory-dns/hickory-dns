@@ -39,7 +39,7 @@ use crate::{
     },
     proto::{
         op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
-        rr::domain::usage::ONION,
+        rr::domain::usage::is_onion,
         rr::{IntoName, Name, RData, Record, RecordType},
     },
 };
@@ -257,7 +257,7 @@ impl<R: ConnectionProvider> Resolver<R> {
     fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
         if name.is_fqdn()
-            || ONION.zone_of(&name)
+            || is_onion(&name)
                 && name
                     .trim_to(2)
                     .iter()

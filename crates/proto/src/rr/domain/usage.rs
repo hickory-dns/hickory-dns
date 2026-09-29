@@ -9,7 +9,7 @@
 //!
 //! see [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
 
-use core::ops::Deref;
+use core::{iter, ops::Deref};
 
 use once_cell::sync::Lazy;
 
@@ -34,7 +34,7 @@ pub static IP6_ARPA: Lazy<Name> = Lazy::new(|| {
         .unwrap()
 });
 
-/// localhost.
+/// Returns true if `name` falls within `localhost.`
 ///
 /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
 ///
@@ -44,32 +44,32 @@ pub static IP6_ARPA: Lazy<Name> = Lazy::new(|| {
 ///    The domain "localhost." and any names falling within ".localhost."
 ///    are special in the following ways:
 /// ```
+pub fn is_localhost(name: &Name) -> bool {
+    in_zone(name, ["localhost"])
+}
+
+/// Returns true if `name` falls within `127.in-addr.arpa.`
 ///
-/// localhost. usage
-pub static LOCALHOST: Lazy<ZoneUsage> =
-    Lazy::new(|| ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap()));
+/// 127/8 is reserved for loopback.
+pub fn is_in_addr_arpa_127(name: &Name) -> bool {
+    in_zone(name, ["arpa", "in-addr", "127"])
+}
 
-/// 127.in-addr.arpa. usage; 127/8 is reserved for loopback
-pub static IN_ADDR_ARPA_127: Lazy<ZoneUsage> = Lazy::new(|| {
-    ZoneUsage::localhost(
-        Name::from_ascii("127")
-            .unwrap()
-            .append_domain(&IN_ADDR_ARPA)
-            .unwrap(),
+/// Returns true if `name` falls within `1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.`
+///
+/// `::1/128` is the only address in ipv6 loopback, so names in this zone should be treated
+/// like [`is_localhost()`] names.
+pub fn is_ip6_arpa_loopback(name: &Name) -> bool {
+    in_zone(
+        name,
+        ["arpa", "ip6"]
+            .into_iter()
+            .chain(iter::repeat_n("0", 31))
+            .chain(["1"]),
     )
-});
+}
 
-/// 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa. usage; 1/128 is the only address in ipv6 loopback
-pub static IP6_ARPA_1: Lazy<ZoneUsage> = Lazy::new(|| {
-    ZoneUsage::localhost(
-        Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0")
-            .unwrap()
-            .append_domain(&IP6_ARPA)
-            .unwrap(),
-    )
-});
-
-/// .local.
+/// Returns true if `name` falls within `local.`
 ///
 /// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
 ///
@@ -82,10 +82,9 @@ pub static IP6_ARPA_1: Lazy<ZoneUsage> = Lazy::new(|| {
 ///   addresses in the FE80::/10 prefix, which are link-local and
 ///   meaningful only on the link where they originate.
 /// ```
-///
-/// localhost. usage
-pub static LOCAL: Lazy<ZoneUsage> =
-    Lazy::new(|| ZoneUsage::local(Name::from_ascii("local.").unwrap()));
+pub fn is_local(name: &Name) -> bool {
+    in_zone(name, ["local"])
+}
 
 // RFC 6762                      Multicast DNS                February 2013
 
@@ -140,7 +139,7 @@ pub static IP6_ARPA_FE_B: Lazy<ZoneUsage> = Lazy::new(|| {
     )
 });
 
-/// invalid.
+/// Returns true if `name` falls within `invalid.`
 ///
 /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
 ///
@@ -152,12 +151,11 @@ pub static IP6_ARPA_FE_B: Lazy<ZoneUsage> = Lazy::new(|| {
 ///    "invalid" is used in quotes to signify such names, as opposed to
 ///    names that may be invalid for other reasons (e.g., being too long).
 /// ```
-///
-/// invalid. name usage
-pub static INVALID: Lazy<ZoneUsage> =
-    Lazy::new(|| ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap()));
+pub fn is_invalid(name: &Name) -> bool {
+    in_zone(name, ["invalid"])
+}
 
-/// onion.
+/// Returns true if `name` falls within `onion.`
 ///
 /// [The ".onion" Special-Use Domain Name](https://tools.ietf.org/html/rfc7686), RFC 7686 October, 2015
 ///
@@ -171,13 +169,19 @@ pub static INVALID: Lazy<ZoneUsage> =
 ///   functionally correspond to the identity of a given service, thereby
 ///   combining location and authentication.
 /// ```
-///
-/// onion. name usage
-pub static ONION: Lazy<ZoneUsage> = Lazy::new(|| ZoneUsage {
-    user: UserUsage::Normal, // the domain is special, but this is what seems to match the most
-    app: AppUsage::Normal,   // the domain is special, but this is what seems to match the most
-    ..ZoneUsage::invalid(Name::from_ascii("onion.").unwrap())
-});
+pub fn is_onion(name: &Name) -> bool {
+    in_zone(name, ["onion"])
+}
+
+/// Returns true if the trailing labels of `name` match `zone` (given from the root down)
+fn in_zone(name: &Name, zone: impl IntoIterator<Item = &'static str>) -> bool {
+    let mut labels = name.iter().rev();
+    zone.into_iter().all(|expected| {
+        labels
+            .next()
+            .is_some_and(|label| label.eq_ignore_ascii_case(expected.as_bytes()))
+    })
+}
 
 /// Users:
 ///
@@ -630,5 +634,92 @@ impl Deref for ZoneUsage {
 
     fn deref(&self) -> &Self::Target {
         &self.name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloc::string::ToString;
+
+    use super::*;
+
+    #[test]
+    fn single_label_zones() {
+        for (predicate, zone) in [
+            (is_localhost as fn(&Name) -> bool, "localhost"),
+            (is_local, "local"),
+            (is_invalid, "invalid"),
+            (is_onion, "onion"),
+        ] {
+            for name in [
+                zone.to_string(),
+                format!("{zone}."),
+                zone.to_ascii_uppercase(),
+                format!("foo.{zone}."),
+            ] {
+                assert!(predicate(&Name::from_ascii(&name).unwrap()), "{name}");
+            }
+
+            for name in [
+                ".".to_string(),
+                "example.".to_string(),
+                format!("{zone}.example."),
+                format!("{zone}x."),
+            ] {
+                assert!(!predicate(&Name::from_ascii(&name).unwrap()), "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn in_addr_arpa_127() {
+        for name in ["127.in-addr.arpa.", "1.0.0.127.IN-ADDR.ARPA."] {
+            assert!(
+                is_in_addr_arpa_127(&Name::from_ascii(name).unwrap()),
+                "{name}"
+            );
+        }
+
+        for name in [
+            "in-addr.arpa.",
+            "128.in-addr.arpa.",
+            "1.0.0.127.in-addr.example.",
+        ] {
+            assert!(
+                !is_in_addr_arpa_127(&Name::from_ascii(name).unwrap()),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn ip6_arpa_loopback() {
+        let loopback = "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa";
+        for name in [
+            loopback.to_string(),
+            format!("{loopback}."),
+            loopback.to_ascii_uppercase(),
+            format!("foo.{loopback}."),
+        ] {
+            assert!(
+                is_ip6_arpa_loopback(&Name::from_ascii(&name).unwrap()),
+                "{name}"
+            );
+        }
+
+        for name in [
+            ".",
+            "arpa.",
+            "ip6.arpa.",
+            "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.",
+            "2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.",
+            "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.example.",
+            "1.127.in-addr.arpa.",
+        ] {
+            assert!(
+                !is_ip6_arpa_loopback(&Name::from_ascii(name).unwrap()),
+                "{name}"
+            );
+        }
     }
 }
