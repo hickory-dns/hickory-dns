@@ -28,7 +28,7 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(any(feature = "__quic", feature = "__h3"))]
+#[cfg(feature = "__h3")]
 use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
@@ -48,7 +48,7 @@ use crate::metrics::ResponseHandlerMetrics;
 #[cfg(feature = "__h3")]
 use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
-use crate::net::quic::QuicServer;
+use crate::net::quic::{AsyncUdpSocket, QuicServer};
 #[cfg(any(test, feature = "__tls"))]
 use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "__tls")]
@@ -332,6 +332,16 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
         Ok(())
     }
 
+    /// Wrap a UDP socket into a Quinn `AsyncUdpSocket` using the runtime provider's QUIC wrapper.
+    #[cfg(feature = "__quic")]
+    fn wrap_quic_socket(&self, socket: P::Udp) -> Result<Arc<dyn AsyncUdpSocket>, NetError> {
+        let wrapper = self
+            .provider
+            .quic_wrapper()
+            .ok_or_else(|| NetError::from("runtime provider does not support QUIC"))?;
+        Ok(wrapper.wrap_udp(socket)?)
+    }
+
     /// Register a UdpSocket to the Server for supporting DoQ (DNS-over-QUIC). The UdpSocket should already be bound to either an
     /// IPv6 or an IPv4 address.
     ///
@@ -348,20 +358,20 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> io::Result<()> {
-        let cx = self.context.clone();
+    ) -> Result<(), NetError> {
+        debug!(?socket, "registered quic");
+        let socket = self.wrap_quic_socket(socket)?;
         self.join_set.spawn(quic_handler::handle_quic(
-            socket,
+            QuicServer::with_socket(socket, server_cert_resolver)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            server_cert_resolver,
-            cx,
+            self.context.clone(),
         ));
         Ok(())
     }
@@ -386,20 +396,19 @@ impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener_and_tls_config(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
-        let cx = self.context.clone();
-
-        self.join_set.spawn(quic_handler::handle_quic_with_server(
+        let socket = self.wrap_quic_socket(socket)?;
+        self.join_set.spawn(quic_handler::handle_quic(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            cx,
+            self.context.clone(),
         ));
         Ok(())
     }
