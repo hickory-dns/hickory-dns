@@ -8,7 +8,7 @@
 //! TLS protocol related components for DNS over HTTPS (DoH)
 
 use core::fmt::Debug;
-use core::future::Future;
+use core::future::{Future, poll_fn};
 use core::net::SocketAddr;
 use core::pin::Pin;
 use core::str::FromStr;
@@ -296,10 +296,10 @@ impl HttpSender for HttpsClientStream {
         request: Request<()>,
         message: Bytes,
     ) -> Result<(Parts, BytesMut), NetError> {
-        let mut h2 = self.h2.clone().ready().await?;
+        poll_fn(|cx| self.h2.poll_ready(cx)).await?;
 
         // Send the request
-        let (response_future, mut send_stream) = h2.send_request(request, false)?;
+        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
         send_stream.send_data(message, true)?;
 
         let response_stream = response_future.await?;
