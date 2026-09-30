@@ -19,13 +19,10 @@ use core::str::FromStr;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-#[cfg(feature = "std")]
-use tinyvec::ArrayVec;
 use tinyvec::TinyVec;
 
 use crate::error::{ProtoError, ProtoResult};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
-#[cfg(feature = "std")]
 use crate::rr::domain::usage::{
     ResolverUsage, is_in_addr_arpa_127, is_invalid, is_ip6_arpa_loopback, is_local, is_localhost,
     is_onion,
@@ -59,53 +56,6 @@ impl Name {
         let mut this = Self::new();
         this.is_fqdn = true;
         this
-    }
-
-    /// Create a fully qualified name from `labels`, ordered from the leftmost label
-    ///
-    /// Labels are not validated beyond their length.
-    ///
-    /// # Panics
-    ///
-    /// Panics if a label is empty or longer than 63 bytes, or if the labels don't fit in the
-    /// inline storage of `label_data` and `label_ends`.
-    #[cfg(feature = "std")]
-    pub(crate) const fn const_new(labels: &[&str]) -> Self {
-        let mut data = [0; 32];
-        let mut ends = [0; 24];
-        let mut len = 0;
-        let mut i = 0;
-        while i < labels.len() {
-            let label = labels[i].as_bytes();
-            assert!(
-                !label.is_empty() && label.len() <= 63,
-                "invalid label length"
-            );
-
-            let mut j = 0;
-            while j < label.len() {
-                data[len] = label[j];
-                len += 1;
-                j += 1;
-            }
-
-            ends[i] = len as u8;
-            i += 1;
-        }
-
-        let Ok(label_data) = ArrayVec::try_from_array_len(data, len) else {
-            panic!("label_data does not fit in inline storage");
-        };
-
-        let Ok(label_ends) = ArrayVec::try_from_array_len(ends, labels.len()) else {
-            panic!("label_ends does not fit in inline storage");
-        };
-
-        Self {
-            is_fqdn: true,
-            label_data: TinyVec::Inline(label_data),
-            label_ends: TinyVec::Inline(label_ends),
-        }
     }
 
     /// Extend the name with the offered label, and ensure maximum name length is not exceeded.
@@ -465,7 +415,6 @@ impl Name {
     }
 
     /// Determines the usage category of the domain name.
-    #[cfg(feature = "std")]
     pub fn usage(&self) -> ResolverUsage {
         match self {
             n if is_localhost(n) || is_in_addr_arpa_127(n) || is_ip6_arpa_loopback(n) => {

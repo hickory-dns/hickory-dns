@@ -39,7 +39,7 @@ use crate::{
     },
     proto::{
         op::{DnsRequest, DnsRequestOptions, DnsResponse, Query},
-        rr::domain::usage::is_onion,
+        rr::domain::is_onion,
         rr::{IntoName, Name, RData, Record, RecordType},
     },
 };
