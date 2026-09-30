@@ -27,10 +27,7 @@ use crate::{
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordRef, RecordType,
-            domain::usage::{
-                ResolverUsage, is_in_addr_arpa_127, is_invalid, is_ip6_arpa_loopback, is_local,
-                is_localhost, is_onion,
-            },
+            domain::usage::ResolverUsage,
             rdata::{A, AAAA, CNAME, PTR},
         },
     },
@@ -135,16 +132,7 @@ where
         // ```
         // special use rules only apply to the IN Class
         if query.query_class == DNSClass::IN {
-            let usage = match &query.name {
-                n if is_localhost(n) || is_in_addr_arpa_127(n) || is_ip6_arpa_loopback(n) => {
-                    ResolverUsage::Loopback
-                }
-                n if is_invalid(n) || is_onion(n) => ResolverUsage::NxDomain,
-                n if is_local(n) => ResolverUsage::LinkLocal,
-                _ => ResolverUsage::Normal,
-            };
-
-            match usage {
+            match query.name.usage() {
                 ResolverUsage::Loopback => match query.query_type {
                     // TODO: look in hosts for these ips/names first...
                     RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),

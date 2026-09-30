@@ -19,10 +19,17 @@ use core::str::FromStr;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-use tinyvec::{ArrayVec, TinyVec};
+#[cfg(feature = "std")]
+use tinyvec::ArrayVec;
+use tinyvec::TinyVec;
 
 use crate::error::{ProtoError, ProtoResult};
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
+#[cfg(feature = "std")]
+use crate::rr::domain::usage::{
+    ResolverUsage, is_in_addr_arpa_127, is_invalid, is_ip6_arpa_loopback, is_local, is_localhost,
+    is_onion,
+};
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
 };
@@ -62,6 +69,7 @@ impl Name {
     ///
     /// Panics if a label is empty or longer than 63 bytes, or if the labels don't fit in the
     /// inline storage of `label_data` and `label_ends`.
+    #[cfg(feature = "std")]
     pub(crate) const fn const_new(labels: &[&str]) -> Self {
         let mut data = [0; 32];
         let mut ends = [0; 24];
@@ -454,6 +462,19 @@ impl Name {
             .rev()
             .zip(name.iter().rev())
             .all(|(a, b)| label_eq(a, b))
+    }
+
+    /// Determines the usage category of the domain name.
+    #[cfg(feature = "std")]
+    pub fn usage(&self) -> ResolverUsage {
+        match self {
+            n if is_localhost(n) || is_in_addr_arpa_127(n) || is_ip6_arpa_loopback(n) => {
+                ResolverUsage::Loopback
+            }
+            n if is_invalid(n) || is_onion(n) => ResolverUsage::NxDomain,
+            n if is_local(n) => ResolverUsage::LinkLocal,
+            _ => ResolverUsage::Normal,
+        }
     }
 
     /// Returns the number of labels in the name, discounting `*`.
