@@ -27,7 +27,7 @@ use crate::{
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
             DNSClass, Name, RData, Record, RecordRef, RecordType,
-            domain::usage::ResolverUsage,
+            domain::ResolverUsage,
             rdata::{A, AAAA, CNAME, PTR},
         },
     },

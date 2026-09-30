@@ -13,5 +13,5 @@ pub use label::{IntoLabel, Label, LabelCmp};
 mod name;
 pub use name::{IntoName, LabelIter, Name};
 
-#[cfg(feature = "std")]
-pub mod usage;
+mod usage;
+pub use usage::{ResolverUsage, is_onion};
