@@ -299,6 +299,15 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
         }
 
+        // Spread the leading servers across distinct providers and address
+        // families so a single provider outage or a broken path for one IP
+        // family doesn't consume the entire parallel batch.
+        if self.cx.options.num_concurrent_reqs > 1
+            && self.cx.options.server_ordering_strategy != ServerOrderingStrategy::UserProvidedOrder
+        {
+            diversify_batch(&mut servers, self.cx.options.num_concurrent_reqs);
+        }
+
         // If the name server we're trying is giving us backpressure by returning NetErrorKind::Busy,
         // we will first try the other name servers (as for other error types). However, if the other
         // servers are also busy, we're going to wait for a little while and then retry each server that
@@ -477,6 +486,63 @@ pub(crate) fn sort_servers_by_query_statistics<P: ConnectionProvider>(
     // Positive f64 bit patterns sort in the same order as their float values,
     // so to_bits() is a valid u64 ordering key for non-negative SRTT values.
     servers.sort_by_cached_key(|s| s.decayed_srtt().to_bits());
+}
+
+/// Reorders the servers so that the first `count` entries span distinct TLS providers and address families.
+///
+/// Candidates that add both rank first; ties keep the earliest.
+fn diversify_batch<P: ConnectionProvider>(servers: &mut [Arc<NameServer<P>>], count: usize) {
+    // The first server keeps its place; the remaining batch slots are
+    // filled one at a time.
+    for slot in 1..Ord::min(count, servers.len()) {
+        let (picked, rest) = servers.split_at(slot);
+
+        // A plain UDP/TCP server has no TLS name and can't conflict on
+        // provider.
+        let new_provider = |server: &Arc<NameServer<P>>| {
+            server.provider().is_none_or(|name| {
+                !picked.iter().any(|seen| {
+                    seen.provider()
+                        .is_some_and(|other| other.eq_ignore_ascii_case(name))
+                })
+            })
+        };
+
+        let new_family = |server: &Arc<NameServer<P>>| {
+            !picked
+                .iter()
+                .any(|seen| seen.ip().is_ipv6() == server.ip().is_ipv6())
+        };
+
+        // One point for a fresh provider, two for a fresh address family.
+        let score = |server: &Arc<NameServer<P>>| {
+            new_provider(server) as usize + (new_family(server) as usize) * 2
+        };
+
+        // Highest score wins, ties go to the earliest candidate, so the
+        // scan can stop at the first 3.
+        let mut top_score = 0;
+        let mut found = None;
+        for (index, server) in rest.iter().enumerate() {
+            let candidate_score = score(server);
+            if candidate_score > top_score {
+                top_score = candidate_score;
+                found = Some(index);
+                if top_score > 2 {
+                    break;
+                }
+            }
+        }
+
+        let Some(found) = found else {
+            // Nothing left brings anything new to the batch.
+            break;
+        };
+
+        // Rotate the winner up to `slot`, keeping the skipped servers in
+        // order.
+        servers[slot..=slot + found].rotate_right(1);
+    }
 }
 
 /// Context for a [`NameServerPool`]
@@ -1023,6 +1089,362 @@ mod tests {
     use crate::net::xfer::{DnsHandle, FirstAnswer, Protocol};
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::{DNSClass, Name, RecordType};
+
+    /// Servers sharing a TLS server name are pushed apart so the parallel
+    /// batch spans distinct providers.
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn diversify_across_providers() {
+        subscribe();
+
+        let a1 = IpAddr::from([10, 0, 0, 1]);
+        let a2 = IpAddr::from([10, 0, 0, 2]);
+        let b1 = IpAddr::from([10, 0, 1, 1]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [(a1, "a.example"), (a2, "a.example"), (b1, "b.example")]
+            .map(|(ip, name)| {
+                Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::tls(ip, Arc::from(name)),
+                    &ResolverOpts::default(),
+                    provider.clone(),
+                ))
+            })
+            .to_vec();
+        diversify_batch(&mut servers, 2);
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [a1, b1, a2]
+        );
+    }
+
+    /// Servers sharing an address family are pushed apart so the parallel batch
+    /// spans both IPv4 and IPv6 when possible.
+    #[test]
+    fn diversify_across_ip_families() {
+        subscribe();
+
+        let v4a = IpAddr::from([10, 0, 0, 1]);
+        let v4b = IpAddr::from([10, 0, 0, 2]);
+        let v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [v4a, v4b, v6]
+            .map(|ip| {
+                Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::udp(ip),
+                    &ResolverOpts::default(),
+                    provider.clone(),
+                ))
+            })
+            .to_vec();
+        diversify_batch(&mut servers, 2);
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [v4a, v6, v4b]
+        );
+    }
+
+    /// A fresh address family outranks a fresh provider when no candidate
+    /// brings both.
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn diversify_prefers_address_family_over_provider() {
+        subscribe();
+
+        let a1 = IpAddr::from([10, 0, 0, 1]);
+        let b1 = IpAddr::from([10, 0, 1, 1]);
+        let a_v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [(a1, "a.example"), (b1, "b.example"), (a_v6, "a.example")]
+            .map(|(ip, name)| {
+                Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::tls(ip, Arc::from(name)),
+                    &ResolverOpts::default(),
+                    provider.clone(),
+                ))
+            })
+            .to_vec();
+
+        diversify_batch(&mut servers, 2);
+
+        // b1 brings a fresh provider (score 1). a_v6 brings a fresh family,
+        // which is weighted double (score 2), so it takes the second slot.
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [a1, a_v6, b1]
+        );
+    }
+
+    /// A candidate adding both a fresh provider and family outranks an
+    /// earlier partial one.
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn diversify_prefers_full_unseen_pair_later_in_list() {
+        subscribe();
+
+        let a1 = IpAddr::from([10, 0, 0, 1]);
+        let a2 = IpAddr::from([10, 0, 0, 2]);
+        let b = IpAddr::from([10, 0, 1, 1]);
+        let b_v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [
+            (a1, "a.example"),
+            (a2, "a.example"),
+            (b, "b.example"),
+            (b_v6, "b.example"),
+        ]
+        .map(|(ip, name)| {
+            Arc::new(NameServer::new(
+                [],
+                NameServerConfig::tls(ip, Arc::from(name)),
+                &ResolverOpts::default(),
+                provider.clone(),
+            ))
+        })
+        .to_vec();
+
+        diversify_batch(&mut servers, 3);
+
+        // a2: score 0. b: new provider, score 1. b_v6: new provider and
+        // family, score 3, wins. Remaining candidates repeat a used
+        // provider, so nothing else moves.
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [a1, b_v6, a2, b]
+        );
+    }
+
+    /// With no candidate adding both, the earliest positive scorer wins.
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn diversify_keeps_earliest_partial_unseen_candidate() {
+        subscribe();
+
+        let a1 = IpAddr::from([10, 0, 0, 1]);
+        let a2 = IpAddr::from([10, 0, 0, 2]);
+        let b = IpAddr::from([10, 0, 1, 1]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [(a1, "a.example"), (a2, "a.example"), (b, "b.example")]
+            .map(|(ip, name)| {
+                Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::tls(ip, Arc::from(name)),
+                    &ResolverOpts::default(),
+                    provider.clone(),
+                ))
+            })
+            .to_vec();
+
+        diversify_batch(&mut servers, 3);
+
+        // a2: score 0 (same provider and family as a1). b: new provider,
+        // score 1, best available. After placement a2 scores 0 again, so
+        // slot 2 is untouched.
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [a1, b, a2]
+        );
+    }
+
+    /// Every candidate repeating the placed provider and family leaves the
+    /// list unchanged.
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn diversify_leaves_exhausted_pool_in_place() {
+        subscribe();
+
+        let a1 = IpAddr::from([10, 0, 0, 1]);
+        let a2 = IpAddr::from([10, 0, 0, 2]);
+        let a3 = IpAddr::from([10, 0, 0, 3]);
+        let provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let mut servers = [(a1, "a.example"), (a2, "a.example"), (a3, "a.example")]
+            .map(|(ip, name)| {
+                Arc::new(NameServer::new(
+                    [],
+                    NameServerConfig::tls(ip, Arc::from(name)),
+                    &ResolverOpts::default(),
+                    provider.clone(),
+                ))
+            })
+            .to_vec();
+
+        diversify_batch(&mut servers, 3);
+
+        assert_eq!(
+            servers.iter().map(|s| s.ip()).collect::<Vec<_>>(),
+            [a1, a2, a3]
+        );
+    }
+
+    /// The pool must leave the configured order alone under `UserProvidedOrder`.
+    #[tokio::test]
+    async fn diversify_skips_user_provided_order() {
+        subscribe();
+
+        let v4a = IpAddr::from([10, 0, 0, 1]);
+        let v4b = IpAddr::from([10, 0, 0, 2]);
+        let v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = [v4a, v4b, v6]
+            .into_iter()
+            .map(|ip| MockRecord::a(ip, &query_name, v4a))
+            .collect();
+        let provider = DelayedBindProvider::new(
+            MockProvider::new(MockNetworkHandler::new(responses)),
+            Duration::from_millis(20),
+        );
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 2,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+        let pool = NameServerPool::from_nameservers(
+            [v4a, v4b, v6]
+                .into_iter()
+                .map(|ip| {
+                    Arc::new(NameServer::new(
+                        [],
+                        NameServerConfig::udp(ip),
+                        &opts,
+                        provider.clone(),
+                    ))
+                })
+                .collect(),
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        pool.lookup(
+            Query::query(query_name, RecordType::A),
+            DnsRequestOptions::default(),
+        )
+        .first_answer()
+        .await
+        .expect("lookup should succeed");
+
+        // Without the delay the first server answers before the rest are polled, so a diversified
+        // order could still pass this check.
+        assert!(
+            provider
+                .new_connection_calls()
+                .iter()
+                .all(|(ip, _)| *ip != v6),
+            "configured order must be preserved, but the v6 server was contacted"
+        );
+    }
+
+    /// Diversification applies through the pool selection path: the first
+    /// parallel batch spans both address families.
+    #[tokio::test]
+    async fn diversify_applies_through_pool_selection() {
+        subscribe();
+
+        let v4a = IpAddr::from([10, 0, 0, 1]);
+        let v4b = IpAddr::from([10, 0, 0, 2]);
+        let v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let responses = [v4a, v4b, v6]
+            .into_iter()
+            .map(|ip| MockRecord::a(ip, &query_name, v4a))
+            .collect();
+        let provider = DelayedBindProvider::new(
+            MockProvider::new(MockNetworkHandler::new(responses)),
+            Duration::from_millis(20),
+        );
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 2,
+            ..ResolverOpts::default()
+        };
+        let pool = NameServerPool::from_nameservers(
+            [v4a, v4b, v6]
+                .into_iter()
+                .map(|ip| {
+                    Arc::new(NameServer::new(
+                        [],
+                        NameServerConfig::udp(ip),
+                        &opts,
+                        provider.clone(),
+                    ))
+                })
+                .collect(),
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        pool.lookup(
+            Query::query(query_name, RecordType::A),
+            DnsRequestOptions::default(),
+        )
+        .first_answer()
+        .await
+        .expect("lookup should succeed");
+
+        let contacted = provider.new_connection_calls();
+        assert!(
+            contacted.iter().any(|(ip, _)| ip.is_ipv6()),
+            "the first batch should span both families, contacted {contacted:?}"
+        );
+    }
+
+    /// Delays every bind so all servers in a parallel batch are polled, and
+    /// therefore recorded by the inner mock, before any one can win the race.
+    #[derive(Clone)]
+    struct DelayedBindProvider {
+        inner: MockProvider,
+        delay: Duration,
+    }
+
+    impl DelayedBindProvider {
+        fn new(inner: MockProvider, delay: Duration) -> Self {
+            Self { inner, delay }
+        }
+
+        fn new_connection_calls(&self) -> Vec<(IpAddr, Protocol)> {
+            self.inner.new_connection_calls()
+        }
+    }
+
+    impl RuntimeProvider for DelayedBindProvider {
+        type Handle = TokioHandle;
+        type Timer = TokioTime;
+        type Udp = MockUdpSocket;
+        type Tcp = MockTcpStream;
+
+        fn create_handle(&self) -> Self::Handle {
+            self.inner.create_handle()
+        }
+
+        fn connect_tcp(
+            &self,
+            server_addr: SocketAddr,
+            bind_addr: Option<SocketAddr>,
+            timeout: Option<Duration>,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, io::Error>> + Send>> {
+            let inner = self.inner.connect_tcp(server_addr, bind_addr, timeout);
+            let delay = self.delay;
+            Box::pin(async move {
+                tokio::time::sleep(delay).await;
+                inner.await
+            })
+        }
+
+        fn bind_udp(
+            &self,
+            local_addr: SocketAddr,
+            server_addr: SocketAddr,
+        ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
+            let inner = self.inner.bind_udp(local_addr, server_addr);
+            let delay = self.delay;
+            Box::pin(async move {
+                tokio::time::sleep(delay).await;
+                inner.await
+            })
+        }
+    }
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
