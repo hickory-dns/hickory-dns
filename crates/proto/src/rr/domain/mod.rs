@@ -8,9 +8,10 @@
 //! Domain name associated types, such as Name and Label.
 
 mod label;
+pub use label::{IntoLabel, Label, LabelCmp};
+
 mod name;
+pub use name::{IntoName, LabelIter, Name};
+
 #[cfg(feature = "std")]
 pub mod usage;
-
-pub use self::label::{IntoLabel, Label, LabelCmp};
-pub use self::name::{IntoName, LabelIter, Name};
