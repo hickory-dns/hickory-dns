@@ -3,7 +3,7 @@ export TARGET_DIR := join(justfile_directory(), "target")
 export TDNS_BIND_PATH := join(TARGET_DIR, "bind")
 export TEST_DATA := join(join(justfile_directory(), "tests"), "test-data")
 
-NIGHTLY_DATE := "2026-02-05"
+NIGHTLY_DATE := "2026-10-01"
 
 ## MSRV
 MSRV := env_var_or_default('MSRV', "")
