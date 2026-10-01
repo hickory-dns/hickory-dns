@@ -305,6 +305,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     /// Handle CNAME expansion for the current query
+    #[expect(clippy::double_must_use)] // https://github.com/dcchut/async-recursion/issues/49
     #[async_recursion]
     async fn resolve_cnames(
         &self,
@@ -567,6 +568,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     /// Identify the correct NameServerPool to use to answer queries for a given name.
+    #[expect(clippy::double_must_use)] // https://github.com/dcchut/async-recursion/issues/49
     #[async_recursion]
     pub(crate) async fn ns_pool_for_name(
         &self,
@@ -956,6 +958,7 @@ impl RequestLimits {
     }
 
     fn try_charge_query(&self, query: &Query) -> Result<(), RecursorError> {
+        #[expect(deprecated)]
         if self
             .req_query_count
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
