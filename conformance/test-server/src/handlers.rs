@@ -924,6 +924,7 @@ impl Handler for ServfailRrsetHandler {
             .iter()
             .any(|q| q.name == self.name && q.query_type == self.record_type);
 
+        #[expect(deprecated)]
         if matches_target
             && self
                 .remaining
