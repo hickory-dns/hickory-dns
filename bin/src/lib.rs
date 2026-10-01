@@ -807,8 +807,9 @@ fn build_udp_socket(
 /// halt the server.  This must be called after binding to low numbered sockets is complete.
 #[cfg(target_family = "unix")]
 fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
-    use libc::{getegid, geteuid, getgid, getgrnam, getpwnam, getuid, setgid, setuid};
+    use libc::{getegid, geteuid, getgid, getgrnam, getpwnam, getuid, setgid, setgroups, setuid};
     use std::ffi::CString;
+    use std::ptr;
 
     // These calls are guaranteed to succeed in a POSIX-conforming environment. In non-conforming
     // environments, implementations may return -1 to indicate a process running without an
@@ -857,6 +858,20 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
 
         if group_info.is_null() {
             return Err(format!("unable to lookup group '{group}'. Exiting."));
+        }
+
+        // Neither setgid nor setuid touches the supplementary group list, so root's
+        // supplementary groups outlive the switch unless they are cleared explicitly.
+        // setgroups is privileged, so it has to run before setuid drops the ability to
+        // call it. A group count of zero means the list pointer is never dereferenced,
+        // so passing a null pointer is sound.
+        //
+        // setgroups is not specified by POSIX, but is available on every Unix-family
+        // platform this binary targets.
+        let setgroups_rc = unsafe { setgroups(0, ptr::null()) };
+
+        if setgroups_rc < 0 {
+            return Err("unable to drop supplementary groups. Exiting.".into());
         }
 
         // These functions must be supplied a gid_t (setgid) and uid_t (setuid), which are
