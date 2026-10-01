@@ -179,3 +179,26 @@ At the RFC module level there's a special module called `scenarios`. This module
 When adding a new test to the test suite, it must pass with the `unbound` implementation, which is treated as the *reference* implementation. The CI workflow will check that *all* tests, including the ones that have the `#[ignore]` attribute, pass with the `unbound` implementation.
 
 New tests that don't pass with the `hickory-dns` implementation must be marked as `#[ignore]`-d. The CI workflow will check that non-`#[ignore]`-d tests pass with the `hickory-dns` implementation. Additionally, the CI workflow will check that all `#[ignore]`-d tests *fail* with the `hickory-dns` implementation; this is to ensure that fixed tests get un-`#[ignore]`-d.
+
+## AppArmor workarounds
+
+On some systems, depending on the OS, Docker installation, and installed
+packages, AppArmor may interfere with running conformance tests. Rules from
+AppArmor profiles defined on the host may be applied to syscalls made by
+processes inside Docker containers, which can interfere with normal execution
+of the tests.
+
+This has been observed when Docker is installed in rootless mode on Ubuntu 24.04
+with the `bind` package installed, and on Ubuntu 26.04 with no additional
+packages.
+
+If this is an issue, check `dmesg` for operations that were denied by AppArmor,
+and update AppArmor profiles as needed to allow them. For example, to get packet
+captures working again with the Ubuntu 26.04 version of AppArmor's default
+profiles installed, create `/etc/apparmor.d/local/tshark` with the following
+contents.
+
+```
+file r /etc/wireshark/*,
+signal receive peer=runc,
+```
