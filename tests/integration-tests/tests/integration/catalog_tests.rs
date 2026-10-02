@@ -465,7 +465,7 @@ async fn test_axfr_allow_all() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req =
-        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
@@ -570,6 +570,44 @@ async fn test_axfr_deny_all() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req =
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(
+            &question_req,
+            None,
+            TokioTime::current_time(),
+            response_handler.clone(),
+        )
+        .await;
+    let result = response_handler.into_message().await;
+
+    assert_eq!(result.metadata.response_code, ResponseCode::Refused);
+    assert!(result.answers.is_empty());
+    assert!(result.authorities.is_empty());
+    assert!(result.additionals.is_empty());
+}
+
+#[tokio::test]
+async fn test_axfr_refused_over_udp() {
+    subscribe();
+
+    let mut test = create_test();
+    test.set_axfr_policy(AxfrPolicy::AllowAll);
+
+    let origin = test.origin().clone();
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(origin.clone(), vec![Arc::new(test)]);
+
+    let query = Query::new(origin.into(), RecordType::AXFR);
+
+    let mut question = Message::query();
+    question.add_query(query);
+
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
     let response_handler = TestResponseHandler::new();
@@ -648,7 +686,7 @@ async fn test_axfr_deny_unsigned() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req =
-        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
+        Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
     let response_handler = TestResponseHandler::new();
     catalog
