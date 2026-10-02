@@ -91,7 +91,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         let https = Arc::from(ConnectionMeta::default());
         #[cfg(feature = "__quic")]
         let quic = Arc::from(ConnectionMeta::default());
-        #[cfg(feature = "__tls")]
+        #[cfg(feature = "__h3")]
         let h3 = Arc::from(ConnectionMeta::default());
 
         let mut connections = connections
