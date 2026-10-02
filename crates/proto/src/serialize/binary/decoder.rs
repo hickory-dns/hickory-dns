@@ -366,6 +366,10 @@ pub enum DecodeError {
     #[error("SvcParam expects at least one value")]
     SvcParamMissingValue,
 
+    /// A SvcParamValue was invalid
+    #[error("SvcParamValue is invalid: {0}")]
+    SvcParamValueInvalid(&'static str),
+
     /// NSEC or NSEC3 bitmap data was out of bounds
     #[error("NSEC bitmap out of bounds")]
     NsecBitmapOutOfBounds,
