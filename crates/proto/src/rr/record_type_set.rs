@@ -223,10 +223,15 @@ impl RecordDataDecodable<'_> for RecordTypeSet {
             };
         }
 
-        Ok(Self {
-            types,
-            original_encoding: Some(bytes),
-        })
+        match state {
+            BitMapReadState::Window => Ok(Self {
+                types,
+                original_encoding: Some(bytes),
+            }),
+            BitMapReadState::Len { .. } | BitMapReadState::RecordType { .. } => {
+                Err(DecodeError::InsufficientBytes)
+            }
+        }
     }
 }
 
@@ -280,9 +285,23 @@ mod tests {
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         types.emit(&mut encoder).expect("Encoding error");
         let bytes = encoder.into_bytes();
+        // [0x00, 0x01, 0x06]
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_bit_map = RecordTypeSet::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(types, read_bit_map);
+    }
+
+    #[test]
+    fn test_decode_truncated() {
+        let samples = [
+            [0x00, 0x01].as_slice(),
+            [0x00].as_slice(),
+            [0x00, 0x02, 0x60].as_slice(),
+        ];
+        for sample in samples {
+            let mut decoder = BinDecoder::new(sample);
+            RecordTypeSet::read_data(&mut decoder).unwrap_err();
+        }
     }
 }
