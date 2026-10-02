@@ -373,6 +373,9 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one ipv4 hint"))?;
 
     let hints = parse_list::<A>(value)?;
+    if hints.is_empty() {
+        return Err(DecodeError::SvcParamMissingValue.into());
+    }
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
@@ -388,6 +391,9 @@ fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one ipv6 hint"))?;
 
     let hints = parse_list::<AAAA>(value)?;
+    if hints.is_empty() {
+        return Err(DecodeError::SvcParamMissingValue.into());
+    }
     Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
 }
 
@@ -1293,6 +1299,10 @@ where
             ips.push(T::read(decoder)?)
         }
 
+        if ips.is_empty() {
+            return Err(DecodeError::SvcParamMissingValue);
+        }
+
         Ok(Self(ips))
     }
 }
@@ -1921,6 +1931,24 @@ mod tests {
         let data = [0x00, 0x50, 0x00];
         let mut decoder = BinDecoder::new(&data);
         SvcParamValue::read(SvcParamKey::Port, &mut decoder).unwrap_err();
+    }
+
+    #[test]
+    fn test_ipv4hint_empty() {
+        let err = SvcParamValue::read(
+            SvcParamKey::Ipv4Hint,
+            &mut BinDecoder::new(&0u16.to_be_bytes()),
+        )
+        .unwrap_err();
+        assert!(matches!(err, DecodeError::SvcParamMissingValue));
+
+        let err = Parser::new(". 86400 IN SVCB 1 . ipv4hint=", None, Some(Name::root()))
+            .parse()
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::Proto(ProtoError::Decode(DecodeError::SvcParamMissingValue))
+        ));
     }
 
     const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
