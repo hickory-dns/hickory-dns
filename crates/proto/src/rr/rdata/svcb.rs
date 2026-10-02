@@ -326,7 +326,9 @@ fn parse_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one ALPN code"))?;
 
     let alpns = parse_list::<String>(value)?;
-    Ok(SvcParamValue::Alpn(Alpn(alpns)))
+    Ok(SvcParamValue::Alpn(Alpn(
+        alpns.into_iter().map(|alpn| alpn.into_bytes()).collect(),
+    )))
 }
 
 /// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.1.1)
@@ -1099,7 +1101,7 @@ impl fmt::Display for Mandatory {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct Alpn(pub Vec<String>);
+pub struct Alpn(pub Vec<Vec<u8>>);
 
 impl<'r> BinDecodable<'r> for Alpn {
     /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
@@ -1116,8 +1118,13 @@ impl<'r> BinDecodable<'r> for Alpn {
         let mut alpns = Vec::with_capacity(1);
 
         while decoder.peek().is_some() {
-            let alpn = decoder.read_character_data()?.unverified(/*will rely on string parser*/);
-            let alpn = String::from_utf8(alpn.to_vec())?;
+            let alpn = decoder
+                .read_character_data()?
+                .verify_unwrap(|id| !id.is_empty() && id.len() <= 255)
+                .map_err(|_| {
+                    DecodeError::SvcParamValueInvalid("length of alpn-id is out of bounds")
+                })?;
+            let alpn = alpn.to_vec();
             alpns.push(alpn);
         }
 
@@ -1152,9 +1159,11 @@ impl fmt::Display for Alpn {
     ///   The presentation value SHALL be a comma-separated list
     ///   (Appendix A.1) of one or more "alpn-id"s.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        for alpn in self.0.iter() {
-            // TODO: confirm in the RFC that trailing commas are ok
-            write!(f, "{alpn},")?;
+        for (i, alpn) in self.0.iter().enumerate() {
+            if i > 0 {
+                write!(f, ",")?;
+            }
+            write!(f, "{}", String::from_utf8_lossy(alpn))?;
         }
 
         Ok(())
@@ -1514,7 +1523,7 @@ impl fmt::Display for SVCB {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{borrow::ToOwned, string::ToString};
+    use alloc::string::ToString;
 
     use crate::{rr::rdata::HTTPS, serialize::txt::Parser};
 
@@ -1574,7 +1583,7 @@ mod tests {
             Name::from_utf8(".").unwrap(),
             vec![(
                 SvcParamKey::Alpn,
-                SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec()])),
             )],
         ));
         test_encode_decode(SVCB::new(
@@ -1587,7 +1596,7 @@ mod tests {
                 ),
                 (
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                    SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec()])),
                 ),
             ],
         ));
@@ -1602,7 +1611,7 @@ mod tests {
             vec![
                 (
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                    SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec()])),
                 ),
                 (
                     SvcParamKey::Mandatory,
@@ -1686,7 +1695,7 @@ mod tests {
         let SvcParamValue::Alpn(value) = &param.1 else {
             panic!("expected alpn");
         };
-        assert_eq!(value.0, &["http/1.1", "h2"]);
+        assert_eq!(value.0, &[b"http/1.1".as_slice(), b"h2".as_slice()]);
 
         // ipv4 hint
         let param = params.next().expect("ipv4hint");
@@ -1869,7 +1878,7 @@ mod tests {
                 params: vec![
                     (
                         SvcParamKey::Alpn,
-                        SvcParamValue::Alpn(Alpn(vec!["h2".to_owned(), "h3-19".to_owned()])),
+                        SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec(), b"h3-19".to_vec()])),
                     ),
                     (
                         SvcParamKey::Mandatory,
@@ -1892,7 +1901,7 @@ mod tests {
                 priority: 16,
                 params: vec![(
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec![r#"f\\oo,bar"#.to_owned(), "h2".to_owned()])),
+                    SvcParamValue::Alpn(Alpn(vec![br#"f\\oo,bar"#.to_vec(), b"h2".to_vec()])),
                 )],
             },
             /*
