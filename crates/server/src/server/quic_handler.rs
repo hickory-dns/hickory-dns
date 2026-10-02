@@ -8,8 +8,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
-use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
+use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::{
@@ -28,25 +27,6 @@ use crate::{
 };
 
 pub(super) async fn handle_quic(
-    socket: net::UdpSocket,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!(?socket, "registered quic");
-    handle_quic_with_server(
-        QuicServer::with_socket(socket, server_cert_resolver)?,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        cx,
-    )
-    .await
-}
-
-pub(super) async fn handle_quic_with_server(
     mut server: QuicServer,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,

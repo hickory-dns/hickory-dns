@@ -17,6 +17,7 @@ pub(crate) use self::quic_client_stream::connect_quic;
 pub use self::quic_client_stream::{QuicClientStream, QuicClientStreamBuilder};
 pub use self::quic_server::{QuicServer, QuicStreams};
 pub use self::quic_stream::{DoqErrorCode, QuicStream};
+pub use quinn::AsyncUdpSocket;
 
 #[cfg(test)]
 mod tests;

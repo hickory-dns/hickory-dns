@@ -15,7 +15,9 @@
 ))]
 use std::future::Future;
 use std::{
-    fmt, io,
+    fmt,
+    future::poll_fn,
+    io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
     time::Duration,
@@ -26,6 +28,7 @@ use futures_util::StreamExt;
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
+use tokio::task::JoinSet;
 #[cfg(any(
     feature = "__tls",
     feature = "__quic",
@@ -33,7 +36,6 @@ use rustls::{ServerConfig, server::ResolvesServerCert};
     feature = "__h3"
 ))]
 use tokio::time::{error::Elapsed, timeout};
-use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
@@ -44,14 +46,19 @@ use crate::metrics::ResponseHandlerMetrics;
 #[cfg(feature = "__h3")]
 use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
-use crate::net::quic::QuicServer;
+use crate::net::quic::{AsyncUdpSocket, QuicServer};
+#[cfg(any(test, feature = "__tls"))]
+use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{default_provider, tls_from_stream};
+use crate::net::{
+    runtime::iocompat::AsyncIoStdAsTokio,
+    tls::{default_provider, tls_from_stream},
+};
 use crate::{
     access::AccessControl,
     net::{
         BufDnsStreamHandle, NetError,
-        runtime::{TokioRuntimeProvider, TokioTime, iocompat::AsyncIoTokioAsStd},
+        runtime::{DnsTcpListener, ServerRuntimeProvider, TokioRuntimeProvider, TokioTime},
         tcp::TcpStream,
         udp::UdpStream,
         xfer::Protocol,
@@ -82,15 +89,17 @@ pub use timeout_stream::TimeoutStream;
 
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
-pub struct Server<T: RequestHandler> {
+pub struct Server<T: RequestHandler, P: ServerRuntimeProvider = TokioRuntimeProvider> {
     context: Arc<ServerContext<T>>,
     join_set: JoinSet<Result<(), NetError>>,
+    #[allow(dead_code)]
+    provider: P,
 }
 
-impl<T: RequestHandler> Server<T> {
+impl<T: RequestHandler> Server<T, TokioRuntimeProvider> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
-        Self::with_access(handler, [], [])
+        Self::with_provider(handler, TokioRuntimeProvider::default())
     }
 
     /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
@@ -98,6 +107,28 @@ impl<T: RequestHandler> Server<T> {
         handler: T,
         denied_networks: impl IntoIterator<Item = IpNet>,
         allowed_networks: impl IntoIterator<Item = IpNet>,
+    ) -> Self {
+        Self::with_access_and_provider(
+            handler,
+            denied_networks,
+            allowed_networks,
+            TokioRuntimeProvider::default(),
+        )
+    }
+}
+
+impl<T: RequestHandler, P: ServerRuntimeProvider> Server<T, P> {
+    /// Creates a new Server with the specified Handler and RuntimeProvider.
+    pub fn with_provider(handler: T, provider: P) -> Self {
+        Self::with_access_and_provider(handler, [], [], provider)
+    }
+
+    /// Creates a new Server with the specified Handler, denied/allowed networks, and RuntimeProvider.
+    pub fn with_access_and_provider(
+        handler: T,
+        denied_networks: impl IntoIterator<Item = IpNet>,
+        allowed_networks: impl IntoIterator<Item = IpNet>,
+        provider: P,
     ) -> Self {
         let mut access = AccessControl::default();
         access.insert_deny(denied_networks);
@@ -110,13 +141,14 @@ impl<T: RequestHandler> Server<T> {
                 shutdown: CancellationToken::new(),
             }),
             join_set: JoinSet::new(),
+            provider,
         }
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket) {
+    pub fn register_socket(&mut self, socket: P::Udp) {
         self.join_set
-            .spawn(handle_udp(socket, self.context.clone()));
+            .spawn(handle_udp::<P>(socket, self.context.clone()));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -134,11 +166,11 @@ impl<T: RequestHandler> Server<T> {
     /// * `response_buffer_size` - size of the buffer for outgoing responses per connection
     pub fn register_listener(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         stream_timeout: Option<Duration>,
         response_buffer_size: usize,
     ) {
-        self.join_set.spawn(handle_tcp(
+        self.join_set.spawn(handle_tcp::<P>(
             listener,
             stream_timeout,
             response_buffer_size,
@@ -166,12 +198,12 @@ impl<T: RequestHandler> Server<T> {
     #[cfg(feature = "__tls")]
     pub fn register_tls_listener_with_tls_config(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         handshake_timeout: Option<Duration>,
         stream_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
-        self.join_set.spawn(handle_tls(
+        self.join_set.spawn(handle_tls::<P>(
             listener,
             tls_config,
             handshake_timeout,
@@ -198,7 +230,7 @@ impl<T: RequestHandler> Server<T> {
     #[cfg(feature = "__tls")]
     pub fn register_tls_listener(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         handshake_timeout: Option<Duration>,
         stream_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
@@ -230,7 +262,7 @@ impl<T: RequestHandler> Server<T> {
     #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
@@ -238,12 +270,16 @@ impl<T: RequestHandler> Server<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2(
+        let tls_acceptor = TlsAcceptor::from(Arc::new(default_tls_server_config(
+            b"h2",
+            server_cert_resolver,
+        )?));
+        self.join_set.spawn(h2_handler::handle_h2::<P>(
             listener,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            server_cert_resolver,
+            tls_acceptor,
             dns_hostname,
             http_endpoint,
             self.context.clone(),
@@ -273,7 +309,7 @@ impl<T: RequestHandler> Server<T> {
     #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener_with_tls_config(
         &mut self,
-        listener: net::TcpListener,
+        listener: P::TcpListener,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
@@ -281,7 +317,7 @@ impl<T: RequestHandler> Server<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
+        self.join_set.spawn(h2_handler::handle_h2::<P>(
             listener,
             handshake_timeout,
             idle_timeout,
@@ -292,6 +328,16 @@ impl<T: RequestHandler> Server<T> {
             self.context.clone(),
         ));
         Ok(())
+    }
+
+    /// Wrap a UDP socket into a Quinn `AsyncUdpSocket` using the runtime provider's QUIC wrapper.
+    #[cfg(feature = "__quic")]
+    fn wrap_quic_socket(&self, socket: P::Udp) -> Result<Arc<dyn AsyncUdpSocket>, NetError> {
+        let wrapper = self
+            .provider
+            .quic_wrapper()
+            .ok_or_else(|| NetError::from("runtime provider does not support QUIC"))?;
+        Ok(wrapper.wrap_udp(socket)?)
     }
 
     /// Register a UdpSocket to the Server for supporting DoQ (DNS-over-QUIC). The UdpSocket should already be bound to either an
@@ -310,20 +356,20 @@ impl<T: RequestHandler> Server<T> {
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> io::Result<()> {
-        let cx = self.context.clone();
+    ) -> Result<(), NetError> {
+        debug!(?socket, "registered quic");
+        let socket = self.wrap_quic_socket(socket)?;
         self.join_set.spawn(quic_handler::handle_quic(
-            socket,
+            QuicServer::with_socket(socket, server_cert_resolver)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            server_cert_resolver,
-            cx,
+            self.context.clone(),
         ));
         Ok(())
     }
@@ -348,20 +394,19 @@ impl<T: RequestHandler> Server<T> {
     #[cfg(feature = "__quic")]
     pub fn register_quic_listener_and_tls_config(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> Result<(), NetError> {
-        let cx = self.context.clone();
-
-        self.join_set.spawn(quic_handler::handle_quic_with_server(
+        let socket = self.wrap_quic_socket(socket)?;
+        self.join_set.spawn(quic_handler::handle_quic(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            cx,
+            self.context.clone(),
         ));
         Ok(())
     }
@@ -381,19 +426,20 @@ impl<T: RequestHandler> Server<T> {
     #[cfg(feature = "__h3")]
     pub fn register_h3_listener(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
-    ) -> io::Result<()> {
+    ) -> Result<(), NetError> {
+        debug!(?socket, "registered h3");
+        let socket = self.wrap_quic_socket(socket)?;
         self.join_set.spawn(h3_handler::handle_h3(
-            socket,
+            H3Server::with_socket(socket, server_cert_resolver)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
-            server_cert_resolver,
             dns_hostname,
             self.context.clone(),
         ));
@@ -419,14 +465,15 @@ impl<T: RequestHandler> Server<T> {
     #[cfg(feature = "__h3")]
     pub fn register_h3_listener_with_tls_config(
         &mut self,
-        socket: net::UdpSocket,
+        socket: P::Udp,
         handshake_timeout: Option<Duration>,
         idle_timeout: Option<Duration>,
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
-        self.join_set.spawn(h3_handler::handle_h3_with_server(
+        let socket = self.wrap_quic_socket(socket)?;
+        self.join_set.spawn(h3_handler::handle_h3(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
@@ -475,16 +522,16 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
-async fn handle_udp(
-    socket: net::UdpSocket,
+async fn handle_udp<P: ServerRuntimeProvider>(
+    socket: P::Udp,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    debug!("registering udp: {:?}", socket);
+    debug!(?socket, "registered udp");
 
     // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
     //   the address used is acquired from the inbound queries
     let (mut stream, stream_handle) =
-        UdpStream::<TokioRuntimeProvider>::with_bound(socket, ([127, 255, 255, 254], 0).into());
+        UdpStream::<P>::with_bound(socket, ([127, 255, 255, 254], 0).into());
 
     let mut inner_join_set = JoinSet::new();
     loop {
@@ -539,16 +586,17 @@ async fn handle_udp(
     }
 }
 
-async fn handle_tcp(
-    listener: net::TcpListener,
+async fn handle_tcp<P: ServerRuntimeProvider>(
+    mut listener: P::TcpListener,
     stream_timeout: Option<Duration>,
     response_buffer_size: usize,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    debug!("register tcp: {listener:?}");
+    debug!(?listener, "registered tcp");
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = poll_fn(|task_cx| listener.poll_accept(task_cx));
+        let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
@@ -577,11 +625,8 @@ async fn handle_tcp(
         inner_join_set.spawn(async move {
             debug!(%src_addr, "accepted TCP request");
             // take the created stream...
-            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                AsyncIoTokioAsStd(tcp_stream),
-                src_addr,
-                response_buffer_size,
-            );
+            let (buf_stream, stream_handle) =
+                TcpStream::from_stream_with_buffer_size(tcp_stream, src_addr, response_buffer_size);
             let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
 
             while let Some(message) = timeout_stream.next().await {
@@ -611,8 +656,8 @@ async fn handle_tcp(
 }
 
 #[cfg(feature = "__tls")]
-async fn handle_tls(
-    listener: net::TcpListener,
+async fn handle_tls<P: ServerRuntimeProvider>(
+    mut listener: P::TcpListener,
     tls_config: Arc<ServerConfig>,
     handshake_timeout: Option<Duration>,
     stream_timeout: Option<Duration>,
@@ -623,7 +668,8 @@ async fn handle_tls(
 
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = poll_fn(|task_cx| listener.poll_accept(task_cx));
+        let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
@@ -654,8 +700,11 @@ async fn handle_tls(
             debug!(%src_addr, "starting TLS request");
 
             // perform the TLS
-            let Ok(tls_stream) =
-                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) = optional_timeout(
+                handshake_timeout,
+                tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
+            )
+            .await
             else {
                 warn!("tls timeout expired during handshake");
                 return;
@@ -1075,11 +1124,14 @@ mod tests {
     use futures_util::future;
     #[cfg(feature = "__tls")]
     use rustls::sign::SingleCertAndKey;
+    use std::future::Future;
     use std::net::SocketAddr;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
     #[cfg(feature = "__tls")]
     use test_support::TestCertificates;
     use test_support::subscribe;
-    use tokio::net::{TcpListener, UdpSocket};
+    use tokio::net::{TcpListener, TcpStream, UdpSocket};
     use tokio::time::timeout;
 
     #[tokio::test]
@@ -1288,5 +1340,67 @@ mod tests {
 
         // this should also return immediately since the task has been aborted
         reap_tasks(&mut joinset);
+    }
+
+    #[tokio::test]
+    async fn test_custom_listener_permanent_close() {
+        let mut server = Server::with_provider(Catalog::new(), ClosedListenerProvider::default());
+        server.register_listener(ClosedListener, None, 512);
+
+        // When the listener returns NotConnected, the accept loop must exit
+        // instead of busy looping.
+        let result = timeout(Duration::from_secs(1), server.block_until_done()).await;
+        assert!(result.is_ok(), "server accept loop timed out or hung");
+        assert!(result.unwrap().is_err());
+    }
+
+    #[derive(Debug)]
+    struct ClosedListener;
+
+    impl DnsTcpListener<AsyncIoTokioAsStd<TcpStream>> for ClosedListener {
+        fn poll_accept(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<(AsyncIoTokioAsStd<TcpStream>, SocketAddr)>> {
+            Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "listener closed permanently",
+            )))
+        }
+    }
+
+    #[derive(Clone, Default)]
+    struct ClosedListenerProvider(TokioRuntimeProvider);
+
+    impl hickory_net::runtime::RuntimeProvider for ClosedListenerProvider {
+        type Handle = <TokioRuntimeProvider as hickory_net::runtime::RuntimeProvider>::Handle;
+        type Timer = <TokioRuntimeProvider as hickory_net::runtime::RuntimeProvider>::Timer;
+        type Udp = <TokioRuntimeProvider as hickory_net::runtime::RuntimeProvider>::Udp;
+        type Tcp = <TokioRuntimeProvider as hickory_net::runtime::RuntimeProvider>::Tcp;
+
+        fn create_handle(&self) -> Self::Handle {
+            self.0.create_handle()
+        }
+
+        fn connect_tcp(
+            &self,
+            server_addr: SocketAddr,
+            bind_addr: Option<SocketAddr>,
+            timeout: Option<Duration>,
+        ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Tcp, io::Error>>>> {
+            self.0.connect_tcp(server_addr, bind_addr, timeout)
+        }
+
+        fn bind_udp(
+            &self,
+            local_addr: SocketAddr,
+            server_addr: SocketAddr,
+        ) -> Pin<Box<dyn Send + Future<Output = Result<Self::Udp, io::Error>>>> {
+            self.0.bind_udp(local_addr, server_addr)
+        }
+    }
+
+    impl ServerRuntimeProvider for ClosedListenerProvider {
+        type TcpListener = ClosedListener;
     }
 }

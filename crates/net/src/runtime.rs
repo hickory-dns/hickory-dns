@@ -7,15 +7,18 @@ use core::pin::Pin;
 use core::time::Duration;
 #[cfg(feature = "__quic")]
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
+    fmt::Debug,
     future::poll_fn,
     io,
     task::{Context, Poll},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "__quic")]
+use quinn::AsyncUdpSocket;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
@@ -41,6 +44,7 @@ pub mod iocompat {
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
+    #[derive(Debug)]
     pub struct AsyncIoTokioAsStd<T: TokioAsyncRead + TokioAsyncWrite>(pub T);
 
     impl<T: TokioAsyncRead + TokioAsyncWrite + Unpin> Unpin for AsyncIoTokioAsStd<T> {}
@@ -81,6 +85,7 @@ pub mod iocompat {
     }
 
     /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
+    #[derive(Debug)]
     pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
     impl<T: AsyncRead + AsyncWrite + Unpin> Unpin for AsyncIoStdAsTokio<T> {}
@@ -91,7 +96,7 @@ pub mod iocompat {
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
             Pin::new(&mut self.get_mut().0)
-                .poll_read(cx, buf.initialized_mut())
+                .poll_read(cx, buf.initialize_unfilled())
                 .map_ok(|len| buf.advance(len))
         }
     }
@@ -116,16 +121,87 @@ pub mod iocompat {
             Pin::new(&mut self.get_mut().0).poll_close(cx)
         }
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use futures_util::task::noop_waker;
+
+        struct MockIo(Vec<u8>);
+
+        impl AsyncRead for MockIo {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+                buf: &mut [u8],
+            ) -> Poll<io::Result<usize>> {
+                let to_copy = self.0.len().min(buf.len());
+                buf[..to_copy].copy_from_slice(&self.0[..to_copy]);
+                self.0.drain(..to_copy);
+                Poll::Ready(Ok(to_copy))
+            }
+        }
+
+        impl AsyncWrite for MockIo {
+            fn poll_write(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+                buf: &[u8],
+            ) -> Poll<Result<usize, io::Error>> {
+                Poll::Ready(Ok(buf.len()))
+            }
+
+            fn poll_flush(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+            ) -> Poll<Result<(), io::Error>> {
+                Poll::Ready(Ok(()))
+            }
+
+            fn poll_close(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+            ) -> Poll<Result<(), io::Error>> {
+                Poll::Ready(Ok(()))
+            }
+        }
+
+        #[test]
+        fn test_async_io_std_as_tokio_poll_read() {
+            let mock = MockIo(b"hello world".to_vec());
+            let mut adapter = AsyncIoStdAsTokio(mock);
+
+            let waker = noop_waker();
+            let mut cx = Context::from_waker(&waker);
+
+            // Test with uninitialized ReadBuf (unfilled buffer has no initialized bytes)
+            let mut buf = [std::mem::MaybeUninit::uninit(); 16];
+            let mut read_buf = ReadBuf::uninit(&mut buf);
+            let poll = Pin::new(&mut adapter).poll_read(&mut cx, &mut read_buf);
+            assert!(matches!(poll, Poll::Ready(Ok(()))));
+            assert_eq!(read_buf.filled(), b"hello world");
+
+            // Test with pre-filled ReadBuf (e.g. 5 bytes already filled)
+            let mock2 = MockIo(b"world".to_vec());
+            let mut adapter2 = AsyncIoStdAsTokio(mock2);
+            let mut buf2 = [0u8; 16];
+            buf2[..5].copy_from_slice(b"hello");
+            let mut read_buf2 = ReadBuf::new(&mut buf2);
+            read_buf2.advance(5);
+            let poll2 = Pin::new(&mut adapter2).poll_read(&mut cx, &mut read_buf2);
+            assert!(matches!(poll2, Poll::Ready(Ok(()))));
+            assert_eq!(read_buf2.filled(), b"helloworld");
+        }
+    }
 }
 
 #[cfg(feature = "tokio")]
 mod tokio_runtime {
-    use std::sync::Arc;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     #[cfg(feature = "__quic")]
-    use quinn::Runtime;
-    use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
+    use quinn::{Runtime, TokioRuntime};
+    use tokio::net::{TcpListener, TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
     use tokio::time::timeout;
     use tracing::debug;
@@ -214,6 +290,15 @@ mod tokio_runtime {
         fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
             Some(&TokioQuicSocketBinder)
         }
+
+        #[cfg(feature = "__quic")]
+        fn quic_wrapper(&self) -> Option<&dyn QuicSocketWrapper<Self::Udp>> {
+            Some(&TokioQuicSocketWrapper)
+        }
+    }
+
+    impl ServerRuntimeProvider for TokioRuntimeProvider {
+        type TcpListener = TcpListener;
     }
 
     /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
@@ -230,9 +315,29 @@ mod tokio_runtime {
             &self,
             local_addr: SocketAddr,
             _server_addr: SocketAddr,
-        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error> {
+        ) -> Result<Arc<dyn AsyncUdpSocket>, io::Error> {
             let socket = std::net::UdpSocket::bind(local_addr)?;
-            quinn::TokioRuntime.wrap_udp_socket(socket)
+            TokioRuntime.wrap_udp_socket(socket)
+        }
+    }
+
+    #[cfg(feature = "__quic")]
+    struct TokioQuicSocketWrapper;
+
+    #[cfg(feature = "__quic")]
+    impl QuicSocketWrapper<TokioUdpSocket> for TokioQuicSocketWrapper {
+        fn wrap_udp(&self, socket: TokioUdpSocket) -> io::Result<Arc<dyn AsyncUdpSocket>> {
+            TokioRuntime.wrap_udp_socket(socket.into_std()?)
+        }
+    }
+
+    impl DnsTcpListener<AsyncIoTokioAsStd<TcpStream>> for TcpListener {
+        fn poll_accept(
+            &mut self,
+            cx: &mut Context<'_>,
+        ) -> Poll<io::Result<(AsyncIoTokioAsStd<TcpStream>, SocketAddr)>> {
+            Self::poll_accept(self, cx)
+                .map(|result| result.map(|(stream, addr)| (AsyncIoTokioAsStd(stream), addr)))
         }
     }
 }
@@ -280,14 +385,25 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
     fn quic_binder(&self) -> Option<&dyn QuicSocketBinder> {
         None
     }
+
+    /// Yields an object that knows how to wrap a UDP socket into a QUIC socket.
+    //
+    // Use some indirection here to avoid exposing the `quinn` crate in the public API
+    // even for runtimes that might not (want to) provide QUIC support.
+    fn quic_wrapper(&self) -> Option<&dyn QuicSocketWrapper<Self::Udp>> {
+        None
+    }
+}
+
+/// A [`RuntimeProvider`] that can be used to run a server.
+pub trait ServerRuntimeProvider: RuntimeProvider {
+    /// An already-bound listener for incoming TCP connections.
+    type TcpListener: DnsTcpListener<Self::Tcp>;
 }
 
 /// Trait for DnsUdpSocket
 #[async_trait]
-pub trait DnsUdpSocket
-where
-    Self: Send + Sync + Sized + Unpin,
-{
+pub trait DnsUdpSocket: Debug + Send + Sync + Sized + Unpin {
     /// Time implementation used for this type
     type Time: Time;
 
@@ -332,13 +448,42 @@ pub trait QuicSocketBinder {
         &self,
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
-    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
+    ) -> io::Result<Arc<dyn AsyncUdpSocket>>;
+}
+
+/// Noop trait for when the `quinn` dependency is not available.
+#[cfg(not(feature = "__quic"))]
+pub trait QuicSocketWrapper<Udp: DnsUdpSocket> {}
+
+/// Wrap a UDP socket for QUIC usage.
+/// This trait is designed for customization.
+#[cfg(feature = "__quic")]
+pub trait QuicSocketWrapper<Udp: DnsUdpSocket> {
+    /// Adapt an existing UDP socket.
+    fn wrap_udp(&self, _socket: Udp) -> io::Result<Arc<dyn AsyncUdpSocket>>;
 }
 
 /// Trait for TCP connection
-pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
+pub trait DnsTcpStream:
+    Debug + AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static
+{
     /// Timer type to use with this TCP stream type
     type Time: Time;
+}
+
+/// Trait for an incoming TCP connection listener.
+pub trait DnsTcpListener<S: DnsTcpStream>: Debug + Send + Unpin + 'static {
+    /// Poll for an incoming connection.
+    ///
+    /// When `Poll::Pending` is returned, the current task's waker must be registered.
+    /// When cancelled and retried, unaccepted connections must not be lost.
+    ///
+    /// When the listener is permanently closed or shut down, implementations must return
+    /// an error with kind [`io::ErrorKind::NotConnected`]. Other errors are treated as
+    /// transient and will result in retrying `poll_accept`.
+    ///
+    /// Returns the accepted stream and the peer address.
+    fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<(S, SocketAddr)>>;
 }
 
 /// A type defines the Handle which can spawn future.
