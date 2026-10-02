@@ -594,7 +594,6 @@ impl MockQueryCache {
     }
 }
 
-#[expect(clippy::mutable_key_type)]
 pub fn assert_histogram_sample_count_eq(
     map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
     name: impl Into<KeyName>,
@@ -617,7 +616,6 @@ pub fn assert_histogram_sample_count_eq(
     }
 }
 
-#[expect(clippy::mutable_key_type)]
 pub fn assert_counter_eq(
     map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
     name: impl Into<KeyName>,
@@ -635,7 +633,6 @@ pub fn assert_counter_eq(
     assert_eq!(value, &DebugValue::Counter(expected));
 }
 
-#[expect(clippy::mutable_key_type)]
 pub fn assert_gauge_eq(
     map: &HashMap<CompositeKey, (Option<Unit>, Option<SharedString>, DebugValue)>,
     name: impl Into<KeyName>,
