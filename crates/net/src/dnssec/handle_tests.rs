@@ -16,7 +16,7 @@ use time::OffsetDateTime;
 
 use super::DnssecDnsHandle;
 use crate::{
-    error::NetError,
+    error::{DnsError, NetError},
     proto::{
         dnssec::{
             DigestType, DnssecSigner, Proof, PublicKeyBuf, SigningKey, TrustAnchors,
@@ -120,6 +120,44 @@ async fn bogus_delegation_with_empty_ds_response() {
     assert_eq!(response.answers[0].proof, Proof::Bogus);
 }
 
+/// A zone without NS records at its apex answers an NS query for its own name with NODATA and
+/// its SOA record. The zone cut must still be found there, and not at the signed parent zone.
+///
+/// Regression test for <https://github.com/hickory-dns/hickory-dns/issues/4027>.
+#[tokio::test]
+async fn insecure_delegation_without_apex_ns() {
+    subscribe();
+    assert_eq!(lookup_without_apex_ns(false).await, Proof::Insecure);
+}
+
+/// Same as above, but NODATA responses come back as `NoRecordsFound` errors, as they do from the
+/// resolver's name server pool.
+#[tokio::test]
+async fn insecure_delegation_without_apex_ns_nodata_error() {
+    subscribe();
+    assert_eq!(lookup_without_apex_ns(true).await, Proof::Insecure);
+}
+
+async fn lookup_without_apex_ns(nodata_as_error: bool) -> Proof {
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    fixture.nodata_as_error = nodata_as_error;
+    let com = Name::from_ascii("com.").unwrap();
+    let example = Name::from_ascii("example.com.").unwrap();
+    let www = Name::from_ascii("www.example.com.").unwrap();
+    fixture.respond(&com, RecordType::NS, [ns(&com)], []);
+    fixture.respond(&example, RecordType::NS, [], [unsigned_soa(&example)]);
+    fixture.respond(&www, RecordType::NS, [], [unsigned_soa(&example)]);
+    fixture.respond(&www, RecordType::A, [a(&www)], []);
+    let (handle, _) = fixture.build();
+
+    let response = handle
+        .lookup(Query::new(www, RecordType::A), DnsRequestOptions::default())
+        .first_answer()
+        .await
+        .unwrap();
+    response.answers[0].proof
+}
+
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
     let name = Name::from_ascii("www.child.example.com.").unwrap();
     handle
@@ -141,6 +179,7 @@ async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsRespo
 struct MockHandleBuilder {
     root: DnssecSigner,
     responses: HashMap<(LowerName, RecordType), Message>,
+    nodata_as_error: bool,
 }
 
 impl MockHandleBuilder {
@@ -158,6 +197,7 @@ impl MockHandleBuilder {
         let mut new = Self {
             root,
             responses: HashMap::default(),
+            nodata_as_error: false,
         };
 
         let key =
@@ -256,11 +296,16 @@ impl MockHandleBuilder {
     }
 
     fn build(self) -> (DnssecDnsHandle<MockHandle>, QueryLog) {
-        let Self { root, responses } = self;
+        let Self {
+            root,
+            responses,
+            nodata_as_error,
+        } = self;
         let queries = QueryLog::default();
         let handle = MockHandle {
             responses: Arc::new(responses),
             queries: queries.clone(),
+            nodata_as_error,
         };
 
         let mut anchors = TrustAnchors::empty();
@@ -373,6 +418,7 @@ impl QueryLog {
 struct MockHandle {
     responses: Arc<HashMap<(LowerName, RecordType), Message>>,
     queries: QueryLog,
+    nodata_as_error: bool,
 }
 
 impl DnsHandle for MockHandle {
@@ -394,6 +440,10 @@ impl DnsHandle for MockHandle {
         message.metadata.id = request.metadata.id;
         message.add_query(query);
         let response = DnsResponse::from_message(message.into_response()).unwrap();
+        if self.nodata_as_error {
+            let result = DnsError::from_response(response).map_err(NetError::from);
+            return Box::pin(stream::once(future::ready(result)));
+        }
         Box::pin(stream::once(future::ok(response)))
     }
 }
