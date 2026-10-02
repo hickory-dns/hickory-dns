@@ -860,16 +860,9 @@ fn check_drop_privs(user: &str, group: &str) -> Result<(), String> {
             return Err(format!("unable to lookup group '{group}'. Exiting."));
         }
 
-        // Neither setgid nor setuid touches the supplementary group list, so root's
-        // supplementary groups outlive the switch unless they are cleared explicitly.
-        // setgroups is privileged, so it has to run before setuid drops the ability to
-        // call it. A group count of zero means the list pointer is never dereferenced,
-        // so passing a null pointer is sound.
-        //
-        // setgroups is not specified by POSIX, but is available on every Unix-family
-        // platform this binary targets.
+        // Also clear the supplementary group list, before running `setuid()`;
+        // the pointer should not be dereferenced when the count is zero.
         let setgroups_rc = unsafe { setgroups(0, ptr::null()) };
-
         if setgroups_rc < 0 {
             return Err("unable to drop supplementary groups. Exiting.".into());
         }
