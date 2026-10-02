@@ -6,6 +6,7 @@ use system_configuration::{
         array::CFArray,
         base::{FromVoid, ItemRef, TCFType},
         dictionary::CFDictionary,
+        number::CFNumber,
         string::CFString,
     },
     dynamic_store::SCDynamicStoreBuilder,
@@ -24,6 +25,18 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
         .ok_or("no DNS information in System Configuration")?
         .downcast_into::<CFDictionary>()
         .ok_or("DNS object in System Configuration is not a CFDictionary")?;
+
+    // A local DNS proxy (as VPN clients install) may listen on a port other than 53.
+    // https://developer.apple.com/documentation/systemconfiguration/kscpropnetdnsserverport
+    let port = dns_cfg
+        .find(CFString::from_static_string("ServerPort").as_CFTypeRef())
+        .and_then(|port_cf| {
+            let port_cf: ItemRef<'_, CFNumber> = unsafe { CFNumber::from_void(*port_cf) };
+            match u16::try_from(port_cf.to_i64()?) {
+                Ok(0) | Err(_) => None,
+                Ok(port) => Some(port),
+            }
+        });
 
     let nameservers_cf = dns_cfg
         .find(CFString::from_static_string("ServerAddresses").as_CFTypeRef())
@@ -54,7 +67,13 @@ pub fn read_system_conf() -> Result<(ResolverConfig, ResolverOpts), ProtoError> 
                 continue;
             }
         };
-        nameservers.push(NameServerConfig::udp_and_tcp(addr));
+        let mut nameserver = NameServerConfig::udp_and_tcp(addr);
+        if let Some(port) = port {
+            for connection in &mut nameserver.connections {
+                connection.port = port;
+            }
+        }
+        nameservers.push(nameserver);
     }
 
     let search_domains_cf =
