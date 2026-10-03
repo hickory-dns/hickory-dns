@@ -15,7 +15,7 @@ dns-test.path = "dns-test"
 anyhow = "1.0"
 async-trait = "0.1"
 aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
-base64 = "0.22.1"
+base64 = "0.23"
 clap = { version = "4.0", features = ["derive", "std"] }
 ctrlc = "3.4.2"
 data-encoding = "2.9"
