@@ -5,9 +5,9 @@ name = "conformance-tests"
 publish = false
 version = "0.1.0"
 
-[dev-dependencies]
-base64 = "0.22"
-dns-test.path = "../dns-test"
+[dependencies]
+base64.workspace = true
+dns-test.workspace = true
 
 [lib]
 doctest = false

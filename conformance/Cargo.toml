@@ -3,6 +3,35 @@ members = ["compatibility-tests", "conformance-tests", "dns-test", "e2e-tests", 
 exclude = ["test-server"]
 resolver = "2"
 
+[workspace.dependencies]
+# hickory
+hickory-net = { version = "0.27.0-alpha.1", path = "../crates/net", default-features = false, features = ["tokio"] }
+hickory-proto = { version = "0.27.0-alpha.1", path = "../crates/proto", default-features = false, features = ["std"] }
+test-support.path = "../tests/test-support"
+
+# local
+dns-test.path = "dns-test"
+
+# others
+anyhow = "1.0"
+async-trait = "0.1"
+aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
+base64 = "0.22.1"
+clap = { version = "4.0", features = ["derive", "std"] }
+ctrlc = "3.4.2"
+data-encoding = "2.9"
+futures = { version = "0.3.5", default-features = false }
+hex = "0.4.3"
+minijinja = "2"
+pretty_assertions = "1.4.0"
+rcgen = "0.14"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
+tempfile = "3.9.0"
+time = "0.3"
+tokio = { version = "1.21", features = ["macros", "net", "io-util", "rt-multi-thread"] }
+url = "2.5.0"
+
 [workspace.lints.rust]
 non_snake_case = "warn"
 non_upper_case_globals = "warn"

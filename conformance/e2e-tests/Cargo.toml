@@ -5,8 +5,8 @@ publish = false
 description = "end-to-end tests at the binary level"
 
 [dev-dependencies]
-dns-test = { path = "../dns-test" }
-minijinja = "2"
+dns-test.workspace = true
+minijinja.workspace = true
 
 [lints]
 workspace = true

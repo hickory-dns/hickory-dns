@@ -5,14 +5,14 @@ name = "compatibility-tests"
 publish = false
 version = "0.1.0"
 
-[dev-dependencies]
-dns-test = { path = "../dns-test" }
-futures = { version = "0.3.5", default-features = false }
-hickory-net = { path = "../../crates/net", features = ["dnssec-ring", "tokio"] }
-hickory-proto = { path = "../../crates/proto", features = ["dnssec-ring"] }
-test-support.path = "../../tests/test-support"
-time = "0.3"
-tokio = "1.21"
+[dependencies]
+dns-test.workspace = true
+futures.workspace = true
+hickory-net = { workspace = true, features = ["dnssec-ring"] }
+hickory-proto = { workspace = true, features = ["dnssec-ring"] }
+test-support.workspace = true
+time.workspace = true
+tokio.workspace = true
 
 [lib]
 doctest = false
