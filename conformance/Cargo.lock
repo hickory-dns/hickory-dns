@@ -155,12 +155,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
-name = "base64"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
@@ -318,7 +312,7 @@ dependencies = [
 name = "conformance-tests"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "dns-test",
 ]
 
@@ -431,7 +425,7 @@ dependencies = [
 name = "dns-test"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "ctrlc",
  "hex",
  "minijinja",
@@ -1212,7 +1206,7 @@ version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d354a98a3d1251555de99e8fdd8afda05573c31b82f59063a7b0a29b5527f120"
 dependencies = [
- "base64 0.23.1",
+ "base64",
  "serde_core",
 ]
 
@@ -1686,7 +1680,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "aws-lc-rs",
- "base64 0.22.1",
+ "base64",
  "clap",
  "data-encoding",
  "futures",
