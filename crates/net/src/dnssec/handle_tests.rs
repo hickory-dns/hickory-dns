@@ -1,5 +1,6 @@
 //! Tests for [`DnssecDnsHandle`] against a mock upstream returning canned responses.
 
+use core::mem;
 use std::{
     collections::HashMap,
     net::Ipv4Addr,
@@ -142,7 +143,7 @@ async fn validating_queries_set_checking_disabled() -> Result<(), NetError> {
         Some(Proof::Insecure)
     );
 
-    let logged = std::mem::take(&mut *queries.0.lock().unwrap_or_else(PoisonError::into_inner));
+    let logged = mem::take(&mut *queries.0.lock().unwrap_or_else(PoisonError::into_inner));
     for record_type in [
         RecordType::A,
         RecordType::DNSKEY,
