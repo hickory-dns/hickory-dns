@@ -6,21 +6,21 @@ publish = false
 version = "0.1.0"
 
 [dependencies]
-base64 = "0.22.1"
-hex = "0.4.3"
-minijinja = "2"
-rcgen = "0.14"
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
-tempfile = "3.9.0"
-url = "2.5.0"
+base64.workspace = true
+hex.workspace = true
+minijinja.workspace = true
+rcgen.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+url.workspace = true
 
 [lib]
 doctest = false
 
 [dev-dependencies]
-ctrlc = "3.4.2"
-pretty_assertions = "1.4.0"
+ctrlc.workspace = true
+pretty_assertions.workspace = true
 
 [lints]
 workspace = true

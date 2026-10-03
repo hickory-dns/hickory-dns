@@ -5,7 +5,7 @@ publish = false
 description = "tests that rely on the public DNS testing infrastructure extended-dns-errors.com."
 
 [dev-dependencies]
-dns-test = { path = "../dns-test" }
+dns-test.workspace = true
 
 [lints]
 workspace = true

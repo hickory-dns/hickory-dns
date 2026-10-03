@@ -4,14 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
-async-trait = "0.1"
-aws-lc-rs = { version = "1.12.3", default-features = false, features = ["prebuilt-nasm"] }
-base64 = "0.22"
-clap = { version = "4.0", features = ["derive", "std"] }
-data-encoding = "2.9"
-futures = { version = "0.3", default-features = false }
-hickory-proto = { version = "0.26.0", path = "../../crates/proto", default-features = false, features = ["std"] }
-hickory-net = { version = "0.26.0", path = "../../crates/net", default-features = false, features = ["dnssec-aws-lc-rs", "tokio"] }
-tokio = { version = "1.21", features = ["macros", "net", "io-util", "rt-multi-thread"] }
-time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
+anyhow.workspace = true
+async-trait.workspace = true
+aws-lc-rs.workspace = true
+base64.workspace = true
+clap.workspace = true
+data-encoding.workspace = true
+futures.workspace = true
+hickory-proto.workspace = true
+hickory-net = { workspace = true, features = ["dnssec-aws-lc-rs"] }
+tokio.workspace = true
+time = { workspace = true, features = ["formatting", "macros", "parsing"] }
