@@ -9,6 +9,7 @@ use dns_test::{
 };
 
 mod bogus;
+mod no_apex_ns;
 mod nsec3_wrong_zone;
 
 /// Test DNSSEC-signed zone query WITHOUT DO bit set
