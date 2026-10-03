@@ -212,11 +212,14 @@ async fn test_zone_handler() {
         Record::from_rdata(
             handler.origin().clone().into(),
             60,
-            RData::TXT(TXT::new(vec![
-                "$Id: example.com 4415 2015-08-24 \
+            RData::TXT(
+                TXT::try_from(
+                    "$Id: example.com 4415 2015-08-24 \
                  20:12:23Z davids $"
-                    .to_string(),
-            ])),
+                        .to_string(),
+                )
+                .unwrap()
+            ),
         )
     );
 
@@ -511,7 +514,7 @@ async fn test_update() {
         Record::from_rdata(
             www_name.clone(),
             86400,
-            RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])),
+            RData::TXT(TXT::try_from("v=spf1 -all".to_string()).unwrap()),
         ),
         Record::from_rdata(www_name.clone(), 86400, RData::A(A::new(93, 184, 215, 14))),
         Record::from_rdata(
@@ -718,7 +721,7 @@ async fn test_update() {
         Record::from_rdata(
             www_name.clone(),
             86400,
-            RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])),
+            RData::TXT(TXT::try_from("v=spf1 -all".to_string()).unwrap()),
         ),
         Record::from_rdata(
             www_name.clone(),
