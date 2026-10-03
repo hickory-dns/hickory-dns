@@ -622,6 +622,24 @@ async fn zone_transfer(
     now: u64,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
+    // AXFR is restricted to stream transports: RFC 1035 section 4.2.1 states that "UDP is not
+    // acceptable for zone transfers" and RFC 5936 section 4.2 leaves AXFR over UDP undefined.
+    // Answering one also sends the zone to a source address that never completed a handshake.
+    if request.protocol().is_datagram() {
+        warn!(
+            query = %request_info.query,
+            protocol = %request.protocol(),
+            "refused zone transfer over datagram transport"
+        );
+        return send_error_response(
+            request,
+            ResponseCode::FormErr,
+            response_edns,
+            response_handle,
+        )
+        .await;
+    }
+
     let request_edns = request.edns.as_ref();
     let lookup_options = LookupOptions::from_edns(request_edns);
     for handler in handlers.iter() {
