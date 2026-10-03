@@ -1179,7 +1179,6 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
 }
 
 #[cfg(feature = "__dnssec")]
-#[async_trait::async_trait]
 impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteZoneHandler<P> {
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///

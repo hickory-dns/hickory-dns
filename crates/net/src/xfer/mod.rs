@@ -133,7 +133,8 @@ enum DnsResponseStreamInner {
     Boxed(BoxFuture<'static, Result<DnsResponse, NetError>>),
 }
 
-type TimeoutFuture = BoxFuture<'static, Result<Result<DnsResponse, NetError>, io::Error>>;
+pub(crate) type TimeoutFuture =
+    BoxFuture<'static, Result<Result<DnsResponse, NetError>, io::Error>>;
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
