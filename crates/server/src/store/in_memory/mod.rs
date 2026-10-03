@@ -351,7 +351,26 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             query_type = inner.replace_any(name);
         }
 
-        let answer = inner.inner_lookup(name, query_type, lookup_options);
+        let answer = match inner.inner_lookup(name, query_type, lookup_options) {
+            Ok(answer) => Some(answer),
+            Err(error) => {
+                // The answer lookup already checked the query's name partition.
+                // Only probe the other form for a miss lacking that evidence;
+                // recursive wildcard/additional lookups do not need this check.
+                let error = if error.is_nx_domain() {
+                    if inner.name_exists_other_form(name) {
+                        LookupError::NameExists
+                    } else if !self.origin().zone_of(name) {
+                        LookupError::from(ResponseCode::Refused)
+                    } else {
+                        error
+                    }
+                } else {
+                    error
+                };
+                return Continue(Err(error));
+            }
+        };
 
         // CNAME chasing: when the answer is a CNAME and the query was for a
         // different type, restart the lookup at the canonical name and collect
@@ -449,32 +468,12 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             (None, answer, _) => (None, answer),
         };
 
-        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
-        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
-        //   always return empty sets. This is only important in the negative case, where other DNS authorities
-        //   generally return NoError and no results when other types exist at the same name. bah.
-        // TODO: can we get rid of this?
         use LookupControlFlow::*;
         let answers = match (cname_chain, answer) {
             // CNAME chase produced a chain — use it as the answer.
             (Some(chain), _) => LookupRecords::many(lookup_options, chain),
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
-            (None, None) => {
-                return Continue(Err(
-                    if inner
-                        .records
-                        .keys()
-                        .any(|key| key.name() == name || name.zone_of(key.name()))
-                    {
-                        LookupError::NameExists
-                    } else {
-                        LookupError::from(match self.origin().zone_of(name) {
-                            true => ResponseCode::NXDomain,
-                            false => ResponseCode::Refused,
-                        })
-                    },
-                ));
-            }
+            (None, None) => unreachable!("lookup misses return before answer processing"),
         };
 
         Continue(Ok(AuthLookup::answers(
