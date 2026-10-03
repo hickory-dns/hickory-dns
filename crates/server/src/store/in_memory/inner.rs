@@ -322,15 +322,21 @@ impl InnerInMemory {
     /// out-of-zone, a loop is detected, or the chain exceeds
     /// `MAX_CNAME_DEPTH`.
     ///
-    /// Returns the chain of CNAME record sets followed during the chase.
-    /// The terminal (non-CNAME) record, if found, is the last element.
+    /// Returns the chain of CNAME record sets followed during the chase,
+    /// together with the name that ended the chase because no matching
+    /// record set could be found for it, if that is why the chase ended.
+    /// The terminal (non-CNAME) record, if found, is the last element of
+    /// the chain. `chase_cnames` has no notion of zone origin, so it
+    /// cannot tell whether that unresolved name is out-of-zone (a
+    /// referral) or genuinely absent from this zone (NXDOMAIN, RFC 6604
+    /// §3) — the caller decides that using the returned name.
     pub(super) fn chase_cnames(
         &self,
         name: &LowerName,
         first_cname: Arc<RecordSet>,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Vec<Arc<RecordSet>> {
+    ) -> (Vec<Arc<RecordSet>>, Option<LowerName>) {
         /// Safety bound on chain depth to prevent excessive work on
         /// pathological zones.  Cycle detection also terminates loops.
         const MAX_CNAME_DEPTH: usize = 8;
@@ -338,6 +344,7 @@ impl InnerInMemory {
         let mut chain = vec![first_cname];
         let mut seen = HashSet::new();
         seen.insert(name.clone());
+        let mut unresolved = None;
 
         loop {
             if chain.len() >= MAX_CNAME_DEPTH {
@@ -367,12 +374,17 @@ impl InnerInMemory {
                     chain.push(rr_set);
                     break;
                 }
-                // Target not in this zone.
-                None => break,
+                // No record set for `next_name` at `query_type`/CNAME. Remember
+                // the name so the caller can distinguish a referral out of the
+                // zone from a truly non-existent in-zone target.
+                None => {
+                    unresolved = Some(next_name);
+                    break;
+                }
             }
         }
 
-        chain
+        (chain, unresolved)
     }
 
     /// Search for additional records to include in the response

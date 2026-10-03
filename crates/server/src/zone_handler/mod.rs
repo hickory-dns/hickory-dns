@@ -380,6 +380,11 @@ pub enum LookupError {
     /// A record at the same Name as the query exists, but not of the queried RecordType
     #[error("The name exists, but not for the record requested")]
     NameExists,
+    /// A CNAME chain was followed to a name with no data of any kind in the
+    /// zone (RFC 6604 §3). The response code is NXDOMAIN, but the CNAME
+    /// records that were followed still need to be returned to the client.
+    #[error("The name does not exist, following a CNAME chain to a non-existent name")]
+    NxDomainWithAnswers(LookupRecords),
     /// There was an error performing the lookup
     #[error("Error performing lookup: {0}")]
     ResponseCode(ResponseCode),
@@ -406,6 +411,7 @@ impl LookupError {
         match self {
             Self::NetError(e) => e.is_nx_domain(),
             Self::ResponseCode(ResponseCode::NXDomain) => true,
+            Self::NxDomainWithAnswers(_) => true,
             #[cfg(feature = "recursor")]
             Self::RecursiveError(e) if e.is_nx_domain() => true,
             _ => false,
