@@ -180,11 +180,25 @@ When adding a new test to the test suite, it must pass with the `unbound` implem
 
 New tests that don't pass with the `hickory-dns` implementation must be marked as `#[ignore]`-d. The CI workflow will check that non-`#[ignore]`-d tests pass with the `hickory-dns` implementation. Additionally, the CI workflow will check that all `#[ignore]`-d tests *fail* with the `hickory-dns` implementation; this is to ensure that fixed tests get un-`#[ignore]`-d.
 
-## License
+## AppArmor workarounds
 
-Licensed under either of
+On some systems, depending on the OS, Docker installation, and installed
+packages, AppArmor may interfere with running conformance tests. Rules from
+AppArmor profiles defined on the host may be applied to syscalls made by
+processes inside Docker containers, which can interfere with normal execution
+of the tests.
 
-- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
+This has been observed when Docker is installed in rootless mode on Ubuntu 24.04
+with the `bind` package installed, and on Ubuntu 26.04 with no additional
+packages.
 
-at your option.
+If this is an issue, check `dmesg` for operations that were denied by AppArmor,
+and update AppArmor profiles as needed to allow them. For example, to get packet
+captures working again with the Ubuntu 26.04 version of AppArmor's default
+profiles installed, create `/etc/apparmor.d/local/tshark` with the following
+contents.
+
+```
+file r /etc/wireshark/*,
+signal receive peer=runc,
+```
