@@ -460,20 +460,14 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             (Some(chain), _) => LookupRecords::many(lookup_options, chain),
             (None, Some(rr_set)) => LookupRecords::new(lookup_options, rr_set),
             (None, None) => {
-                return Continue(Err(
-                    if inner
-                        .records
-                        .keys()
-                        .any(|key| key.name() == name || name.zone_of(key.name()))
-                    {
-                        LookupError::NameExists
-                    } else {
-                        LookupError::from(match self.origin().zone_of(name) {
-                            true => ResponseCode::NXDomain,
-                            false => ResponseCode::Refused,
-                        })
-                    },
-                ));
+                return Continue(Err(if inner.name_exists(name) {
+                    LookupError::NameExists
+                } else {
+                    LookupError::from(match self.origin().zone_of(name) {
+                        true => ResponseCode::NXDomain,
+                        false => ResponseCode::Refused,
+                    })
+                }));
             }
         };
 
@@ -573,12 +567,16 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     ///
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
+    /// * `has_wildcard_match` - whether the answer section was synthesized from a wildcard. Such
+    ///                          an answer needs no wildcard denial, only the proof that no closer
+    ///                          match exists (RFC 4035 section 3.1.3.3).
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     #[cfg(feature = "__dnssec")]
     async fn nsec_records(
         &self,
         name: &LowerName,
+        has_wildcard_match: bool,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
@@ -596,20 +594,17 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
 
         let closest_proof = inner.closest_nsec(name);
 
-        // we need the wildcard proof, but make sure that it's still part of the zone.
-        let wildcard = name.base_name();
-        let origin = self.origin();
-        let wildcard = if origin.zone_of(&wildcard) {
-            wildcard
-        } else {
-            origin.clone()
-        };
-
-        // don't duplicate the record...
-        let wildcard_proof = if wildcard != *name {
-            inner.closest_nsec(&wildcard)
-        } else {
+        // A denial also denies the wildcard that could have answered: the NSEC covering it where
+        // it does not exist (RFC 4035 §3.1.3.2), and the one matching it where it does, since
+        // that denies the type at the wildcard (§3.1.3.4).
+        let wildcard_proof = if has_wildcard_match {
             None
+        } else {
+            inner
+                .source_of_synthesis(name)
+                // the source of synthesis is out of the zone for a query at or above the apex
+                .filter(|source| self.origin().zone_of(source))
+                .and_then(|source| inner.closest_nsec(&source))
         };
 
         let proofs = match (closest_proof, wildcard_proof) {
@@ -632,6 +627,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     async fn nsec_records(
         &self,
         _name: &LowerName,
+        _has_wildcard_match: bool,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         LookupControlFlow::Continue(Ok(AuthLookup::default()))
