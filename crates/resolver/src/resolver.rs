@@ -70,7 +70,9 @@ pub type TokioResolver = Resolver<TokioRuntimeProvider>;
 impl TokioResolver {
     /// Constructs a new Tokio based Resolver with the system configuration.
     ///
-    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
+    /// This uses SystemConfiguration on Apple platforms, `/etc/resolv.conf` on other
+    /// Unix platforms, and the registry on Windows. macOS also loads `/etc/resolver`
+    /// domain routes. Rebuild the resolver when the system configuration changes.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
     pub fn builder_tokio() -> Result<ResolverBuilder<TokioRuntimeProvider>, NetError> {
@@ -106,7 +108,9 @@ impl<R: ConnectionProvider> Resolver<R> {
     ///
     /// To use this with Tokio, see [TokioResolver::builder_tokio] instead.
     ///
-    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
+    /// This uses SystemConfiguration on Apple platforms, `/etc/resolv.conf` on other
+    /// Unix platforms, and the registry on Windows. macOS also loads `/etc/resolver`
+    /// domain routes. Rebuild the resolver when the system configuration changes.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
     pub fn builder(provider: R) -> Result<ResolverBuilder<R>, NetError> {

@@ -17,6 +17,28 @@ as well as SRV record lookups.
 - Generic Record Type Lookup
 - CNAME chain resolution
 
+## Domain routing
+
+`ResolverConfig::domain_routes` selects DNS servers by the longest matching domain
+suffix. Routes for the same domain follow `search_order`. If every matching route
+fails, the query fails without contacting the default servers or a parent route.
+DNS records still pass through Hickory's cache, answer filters, and DNSSEC validator.
+
+On Apple platforms, `system-config` loads supplemental match domains from
+SystemConfiguration. On macOS it also reads `/etc/resolver` files, including
+`domain`, `nameserver`, `port`, `search_order`, and `options usevc`. Search expansion
+and other query options remain controlled by `ResolverConfig` and `ResolverOpts`.
+Multicast DNS and interface-bound queries are outside this routing support.
+Unsupported scoped nameserver addresses or multicast resolver files return a
+configuration error instead of silently dropping their routes.
+
+Configuration is a snapshot. Rebuild the resolver after DNS configuration changes.
+To compare domain routing with the default servers on your machine, run:
+
+```shell
+cargo run -p hickory-resolver --example system_lookup -- host.corp.example
+```
+
 ## Cryptography provider
 
 Features requiring cryptography require selecting a specific cryptography

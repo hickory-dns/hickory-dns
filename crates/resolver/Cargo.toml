@@ -121,6 +121,10 @@ name = "custom_provider"
 required-features = ["tokio"]
 
 [[example]]
+name = "system_lookup"
+required-features = ["tokio", "system-config"]
+
+[[example]]
 name = "flush_cache"
 required-features = ["tokio", "system-config"]
 
