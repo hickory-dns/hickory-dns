@@ -500,6 +500,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
                     domain,
                     search,
                     name_servers,
+                    domain_routes,
                 },
             mut options,
             provider,
@@ -537,7 +538,8 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             transport_state: AsyncMutex::new(encrypted_transport_state),
         });
 
-        let pool = NameServerPool::from_config(name_servers, context.clone(), provider);
+        let pool = NameServerPool::from_config(name_servers, context.clone(), provider.clone())
+            .with_domain_routes(domain_routes, provider);
 
         let client = RetryDnsHandle::new(pool, context.options.attempts);
 
