@@ -103,59 +103,7 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
 /// Serialize `request` and send it to the DoH server `sender` is connected to
 ///
 /// This is the shared implementation of [`crate::xfer::DnsRequestSender::send_message`] for every
-/// DoH client; `is_shutdown` is the caller's own shutdown flag.
-///
-/// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
-///
-/// If the request fails, this will return the error, and it should be assumed that the Stream portion of
-///   this will have no date.
-///
-/// ```text
-/// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
-///
-///
-/// 4.2.  The HTTP Response
-///
-///    The only response type defined in this document is "application/dns-
-///    message", but it is possible that other response formats will be
-///    defined in the future.  A DoH server MUST be able to process
-///    "application/dns-message" request messages.
-///
-///    Different response media types will provide more or less information
-///    from a DNS response.  For example, one response type might include
-///    information from the DNS header bytes while another might omit it.
-///    The amount and type of information that a media type gives are solely
-///    up to the format, which is not defined in this protocol.
-///
-///    Each DNS request-response pair is mapped to one HTTP exchange.  The
-///    responses may be processed and transported in any order using HTTP's
-///    multi-streaming functionality (see Section 5 of [RFC7540]).
-///
-///    Section 5.1 discusses the relationship between DNS and HTTP response
-///    caching.
-///
-/// 4.2.1.  Handling DNS and HTTP Errors
-///
-///    DNS response codes indicate either success or failure for the DNS
-///    query.  A successful HTTP response with a 2xx status code (see
-///    Section 6.3 of [RFC7231]) is used for any valid DNS response,
-///    regardless of the DNS response code.  For example, a successful 2xx
-///    HTTP status code is used even with a DNS message whose DNS response
-///    code indicates failure, such as SERVFAIL or NXDOMAIN.
-///
-///    HTTP responses with non-successful HTTP status codes do not contain
-///    replies to the original DNS question in the HTTP request.  DoH
-///    clients need to use the same semantic processing of non-successful
-///    HTTP status codes as other HTTP clients.  This might mean that the
-///    DoH client retries the query with the same DoH server, such as if
-///    there are authorization failures (HTTP status code 401; see
-///    Section 3.1 of [RFC7235]).  It could also mean that the DoH client
-///    retries with a different DoH server, such as for unsupported media
-///    types (HTTP status code 415; see Section 6.5.13 of [RFC7231]), or
-///    where the server cannot generate a representation suitable for the
-///    client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
-///    on.
-/// ```
+/// HTTP client; `is_shutdown` is the caller's own shutdown flag.
 pub(crate) fn send_message(
     mut request: DnsRequest,
     sender: &impl HttpSender,
