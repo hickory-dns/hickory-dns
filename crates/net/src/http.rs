@@ -96,75 +96,75 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
         message: Bytes,
     ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
 
+    /// Serialize `request` and send it to the DoH server `sender` is connected to
+    ///
+    /// This is the shared implementation of [`crate::xfer::DnsRequestSender::send_message`] for every
+    /// HTTP client; `is_shutdown` is the caller's own shutdown flag.
+    fn send_request(&self, mut request: DnsRequest) -> DnsResponseStream {
+        // per the RFC, a zero id allows for the HTTP packet to be cached better
+        request.metadata.id = 0;
+
+        let bytes = match request.to_vec() {
+            Ok(bytes) => Bytes::from(bytes),
+            Err(err) => return NetError::from(err).into(),
+        };
+
+        let request = match self.context().build(bytes.remaining()) {
+            Ok(request) => request,
+            Err(err) => return DnsResponseStream::from(err),
+        };
+
+        debug!(
+            method = %request.method(),
+            uri = %request.uri(),
+            headers = ?request.headers(),
+            "sending request"
+        );
+
+        let mut sender = self.clone();
+        Box::pin(async move {
+            let (parts, response_bytes) = sender.send_http_request(request, bytes).await?;
+
+            debug!(status = %parts.status, headers = ?parts.headers, "got response");
+
+            // Was it a successful request?
+            if !parts.status.is_success() {
+                let error_string = String::from_utf8_lossy(response_bytes.as_ref());
+
+                // TODO: make explicit error type
+                return Err(NetError::from(format!(
+                    "http unsuccessful code: {}, message: {}",
+                    parts.status, error_string
+                )));
+            }
+
+            // in the case that the ContentType is not specified, we assume it's the standard DNS format
+            let content_type = parts
+                .headers
+                .get(CONTENT_TYPE)
+                .map(|h| {
+                    h.to_str().map_err(|err| {
+                        // TODO: make explicit error type
+                        NetError::from(format!("ContentType header not a string: {err}"))
+                    })
+                })
+                .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
+
+            if content_type != MIME_APPLICATION_DNS {
+                return Err(NetError::from(format!(
+                    "ContentType unsupported (must be '{}'): '{}'",
+                    MIME_APPLICATION_DNS, content_type
+                )));
+            }
+
+            // and finally convert the bytes into a DNS message
+            DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+        })
+        .into()
+    }
+
     /// The context describing the DoH server this client is connected to
     fn context(&self) -> &RequestContext;
-}
-
-/// Serialize `request` and send it to the DoH server `sender` is connected to
-///
-/// This is the shared implementation of [`crate::xfer::DnsRequestSender::send_message`] for every
-/// HTTP client; `is_shutdown` is the caller's own shutdown flag.
-pub(crate) fn send_message(mut request: DnsRequest, sender: &impl HttpSender) -> DnsResponseStream {
-    // per the RFC, a zero id allows for the HTTP packet to be cached better
-    request.metadata.id = 0;
-
-    let bytes = match request.to_vec() {
-        Ok(bytes) => Bytes::from(bytes),
-        Err(err) => return NetError::from(err).into(),
-    };
-
-    let request = match sender.context().build(bytes.remaining()) {
-        Ok(request) => request,
-        Err(err) => return DnsResponseStream::from(err),
-    };
-
-    debug!(
-        method = %request.method(),
-        uri = %request.uri(),
-        headers = ?request.headers(),
-        "sending request"
-    );
-
-    let mut sender = sender.clone();
-    Box::pin(async move {
-        let (parts, response_bytes) = sender.send_http_request(request, bytes).await?;
-
-        debug!(status = %parts.status, headers = ?parts.headers, "got response");
-
-        // Was it a successful request?
-        if !parts.status.is_success() {
-            let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-            // TODO: make explicit error type
-            return Err(NetError::from(format!(
-                "http unsuccessful code: {}, message: {}",
-                parts.status, error_string
-            )));
-        }
-
-        // in the case that the ContentType is not specified, we assume it's the standard DNS format
-        let content_type = parts
-            .headers
-            .get(CONTENT_TYPE)
-            .map(|h| {
-                h.to_str().map_err(|err| {
-                    // TODO: make explicit error type
-                    NetError::from(format!("ContentType header not a string: {err}"))
-                })
-            })
-            .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
-
-        if content_type != MIME_APPLICATION_DNS {
-            return Err(NetError::from(format!(
-                "ContentType unsupported (must be '{}'): '{}'",
-                MIME_APPLICATION_DNS, content_type
-            )));
-        }
-
-        // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
-    })
-    .into()
 }
 
 /// Verifies the request is well-formed for the name-server and supported protocols
