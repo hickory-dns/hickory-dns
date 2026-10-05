@@ -117,20 +117,14 @@ pub(crate) fn send_message(
     request.metadata.id = 0;
 
     let bytes = match request.to_vec() {
-        Ok(bytes) => bytes,
+        Ok(bytes) => Bytes::from(bytes),
         Err(err) => return NetError::from(err).into(),
     };
 
-    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes))).into()
-}
-
-/// Send `message` as a DoH request, and validate and parse the response
-pub(crate) async fn send_and_parse<T: HttpSender>(
-    mut sender: T,
-    message: Bytes,
-) -> Result<DnsResponse, NetError> {
-    // build up the http request
-    let request = sender.context().build(message.remaining())?;
+    let request = match sender.context().build(bytes.remaining()) {
+        Ok(request) => request,
+        Err(err) => return DnsResponseStream::from(err),
+    };
 
     debug!(
         method = %request.method(),
@@ -139,14 +133,18 @@ pub(crate) async fn send_and_parse<T: HttpSender>(
         "sending request"
     );
 
-    let (parts, response_bytes) = sender.send_http_request(request, message).await?;
+    let mut sender = sender.clone();
+    Box::pin(async move {
+        let (parts, response_bytes) = sender.send_http_request(request, bytes).await?;
 
-    debug!(status = %parts.status, headers = ?parts.headers, "got response");
+        debug!(status = %parts.status, headers = ?parts.headers, "got response");
 
-    verify_response(&parts, response_bytes.as_ref())?;
+        verify_response(&parts, response_bytes.as_ref())?;
 
-    // and finally convert the bytes into a DNS message
-    DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+        // and finally convert the bytes into a DNS message
+        DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+    })
+    .into()
 }
 
 /// Verifies that a DoH response carries a DNS message this client can decode
