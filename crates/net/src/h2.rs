@@ -63,6 +63,32 @@ impl HttpsClientStream {
     }
 }
 
+impl HttpSender for HttpsClientStream {
+    async fn send_http_request(
+        &mut self,
+        request: Request<()>,
+        message: Bytes,
+    ) -> Result<(Parts, BytesMut), NetError> {
+        poll_fn(|cx| self.h2.poll_ready(cx)).await?;
+
+        // Send the request
+        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
+        send_stream.send_data(message, true)?;
+
+        let (parts, body) = response_future.await?.into_parts();
+
+        // get the length of packet
+        let content_length = content_length(&parts.headers)?;
+
+        // read the response body
+        Ok((parts, fetch_body(body, content_length).await?))
+    }
+
+    fn context(&self) -> &RequestContext {
+        &self.context
+    }
+}
+
 impl DnsRequestSender for HttpsClientStream {
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         send_message(request, self, self.is_shutdown)
@@ -226,32 +252,6 @@ pub fn connect(
             context,
             is_shutdown: false,
         })
-    }
-}
-
-impl HttpSender for HttpsClientStream {
-    async fn send_http_request(
-        &mut self,
-        request: Request<()>,
-        message: Bytes,
-    ) -> Result<(Parts, BytesMut), NetError> {
-        poll_fn(|cx| self.h2.poll_ready(cx)).await?;
-
-        // Send the request
-        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
-        send_stream.send_data(message, true)?;
-
-        let (parts, body) = response_future.await?.into_parts();
-
-        // get the length of packet
-        let content_length = content_length(&parts.headers)?;
-
-        // read the response body
-        Ok((parts, fetch_body(body, content_length).await?))
-    }
-
-    fn context(&self) -> &RequestContext {
-        &self.context
     }
 }
 
