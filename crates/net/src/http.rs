@@ -156,10 +156,10 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
 ///    client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
 ///    on.
 /// ```
-pub(crate) fn send_message<T: HttpSender>(
-    sender: &T,
-    is_shutdown: bool,
+pub(crate) fn send_message(
     mut request: DnsRequest,
+    sender: &impl HttpSender,
+    is_shutdown: bool,
 ) -> DnsResponseStream {
     if is_shutdown {
         panic!("can not send messages after stream is shutdown")

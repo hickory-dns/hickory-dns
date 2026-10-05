@@ -66,7 +66,7 @@ impl HttpsClientStream {
 impl DnsRequestSender for HttpsClientStream {
     /// See `crate::http::send_message`
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
-        send_message(self, self.is_shutdown, request)
+        send_message(request, self, self.is_shutdown)
     }
 
     fn shutdown(&mut self) {
