@@ -1,0 +1,107 @@
+target = "https://www.rfc-editor.org/rfc/rfc9606#section-5"
+
+# Resolver Information Keys/Values
+#
+#    The following resolver information keys are defined:
+# 
+#    qnamemin:  The presence of this key indicates that the DNS resolver
+#       supports QNAME minimisation [RFC9156] to improve DNS privacy.
+#       Note that, per the rules for the keys defined in Section 6.4 of
+#       [RFC6763], if there is no '=' in a key, then it is a boolean
+#       attribute, simply identified as being present, with no value.
+# 
+#       The presence of this key indicates that the DNS resolver is
+#       configured to minimise the amount of privacy-sensitive data sent
+#       to an authoritative name server.
+# 
+#       This is an optional attribute.
+# 
+#    exterr:  If the DNS resolver supports the EDE option defined in
+#       [RFC8914] to return additional information about the cause of DNS
+#       errors, the value of this key lists the possible EDE codes that
+#       can be returned by this DNS resolver.  A value can be an
+#       individual EDE or a range of EDEs.  Range values MUST be
+#       identified by "-".  When multiple non-contiguous values are
+#       present, these values MUST be comma-separated.
+# 
+#       Returned EDEs (e.g., Blocked (15), Censored (16), and Filtered
+#       (17)) indicate whether the DNS resolver is configured to reveal
+#       the reason why a query was filtered/blocked when such an event
+#       happens.  If the resolver's capabilities are updated to include
+#       new similar error codes, the resolver can terminate the TLS
+#       session, prompting the client to initiate a new TLS connection and
+#       retrieve the resolver information again.  This allows the client
+#       to become aware of the resolver's updated capabilities.
+#       Alternatively, if the client receives an EDE for a DNS request,
+#       but that EDE was not listed in the "exterr", the client can query
+#       the resolver again to learn about the updated resolver's
+#       capabilities to return new error codes.  If a mismatch still
+#       exists, the client can identify that the resolver information is
+#       inaccurate and discard it.
+# 
+#       This is an optional attribute.
+# 
+#    infourl:  A URL that points to the generic unstructured resolver
+#       information (e.g., DoH APIs supported, possible HTTP status codes
+#       returned by the DoH server, or how to report a problem) for
+#       troubleshooting purposes.  The server that exposes such
+#       information is called "resolver information server".
+# 
+#       The resolver information server MUST support only the content-type
+#       "text/html" for the resolver information.  The DNS client MUST
+#       reject the URL as invalid if the scheme is not "https".  Invalid
+#       URLs MUST be ignored.  The URL MUST be treated only as diagnostic
+#       information for IT staff.  It is not intended for end-user
+#       consumption as the URL can possibly provide misleading
+#       information.
+# 
+#       This key can be used by IT staff to retrieve other useful
+#       information about the resolver and also the procedure to report
+#       problems (e.g., invalid filtering).
+# 
+#       This is an optional attribute.
+# 
+#    New keys can be defined as per the procedure defined in Section 8.2.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Range values MUST be
+identified by "-".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When multiple non-contiguous values are
+present, these values MUST be comma-separated.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The resolver information server MUST support only the content-type
+"text/html" for the resolver information.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DNS client MUST
+reject the URL as invalid if the scheme is not "https".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Invalid
+URLs MUST be ignored.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The URL MUST be treated only as diagnostic
+information for IT staff.
+'''
+

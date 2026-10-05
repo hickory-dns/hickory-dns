@@ -1,0 +1,90 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-8"
+
+# ServiceMode RR Compatibility and Mandatory Keys
+#
+#    In a ServiceMode RR, a SvcParamKey is considered "mandatory" if the
+#    RR will not function correctly for clients that ignore this
+#    SvcParamKey.  Each SVCB protocol mapping SHOULD specify a set of keys
+#    that are "automatically mandatory", i.e., mandatory if they are
+#    present in an RR.  The SvcParamKey "mandatory" is used to indicate
+#    any mandatory keys for this RR, in addition to any automatically
+#    mandatory keys that are present.
+# 
+#    A ServiceMode RR is considered "compatible" by a client if the client
+#    recognizes all the mandatory keys and their values indicate that
+#    successful connection establishment is possible.  Incompatible RRs
+#    are ignored (see step 5 of the procedure defined in Section 3).
+# 
+#    The presentation value SHALL be a comma-separated list (Appendix A.1)
+#    of one or more valid SvcParamKeys, either by their registered name or
+#    in the unknown-key format (Section 2.1).  Keys MAY appear in any
+#    order but MUST NOT appear more than once.  For self-consistency
+#    (Section 2.4.3), listed keys MUST also appear in the SvcParams.
+# 
+#    To enable simpler parsing, this SvcParamValue MUST NOT contain escape
+#    sequences.
+# 
+#    For example, the following is a valid list of SvcParams:
+# 
+#    ipv6hint=... key65333=ex1 key65444=ex2 mandatory=key65444,ipv6hint
+# 
+#    In wire format, the keys are represented by their numeric values in
+#    network byte order, concatenated in strictly increasing numeric
+#    order.
+# 
+#    This SvcParamKey is always automatically mandatory and MUST NOT
+#    appear in its own value-list.  Other automatically mandatory keys
+#    SHOULD NOT appear in the list either.  (Including them wastes space
+#    and otherwise has no effect.)
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Each SVCB protocol mapping SHOULD specify a set of keys
+that are "automatically mandatory", i.e., mandatory if they are
+present in an RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The presentation value SHALL be a comma-separated list (Appendix A.1)
+of one or more valid SvcParamKeys, either by their registered name or
+in the unknown-key format (Section 2.1).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Keys MAY appear in any
+order but MUST NOT appear more than once.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For self-consistency
+(Section 2.4.3), listed keys MUST also appear in the SvcParams.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To enable simpler parsing, this SvcParamValue MUST NOT contain escape
+sequences.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This SvcParamKey is always automatically mandatory and MUST NOT
+appear in its own value-list.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Other automatically mandatory keys
+SHOULD NOT appear in the list either.
+'''
+

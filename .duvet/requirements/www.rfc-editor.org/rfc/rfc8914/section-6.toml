@@ -1,0 +1,39 @@
+target = "https://www.rfc-editor.org/rfc/rfc8914#section-6"
+
+# Security Considerations
+#
+#    Though DNSSEC continues to be deployed, unfortunately a significant
+#    number of clients (~11% according to [GeoffValidation]) that receive
+#    a SERVFAIL from a validating resolver because of a DNSSEC validation
+#    issue will simply ask the next (potentially non-validating) resolver
+#    in their list and thus don't get the protections that DNSSEC should
+#    provide.
+# 
+#    EDE information is unauthenticated information, unless secured by a
+#    form of secured DNS transaction, such as [RFC2845], [RFC2931],
+#    [RFC8094], or [RFC8484].  An attacker (e.g., a man in the middle
+#    (MITM) or malicious recursive server) could insert an extended error
+#    response into untrusted data -- although, ideally, clients and
+#    resolvers would not trust any unauthenticated information.  As such,
+#    EDE content should be treated only as diagnostic information and MUST
+#    NOT alter DNS protocol processing.  Until all DNS answers are
+#    authenticated via DNSSEC or the other mechanisms mentioned above,
+#    there are some trade-offs.  As an example, an attacker who is able to
+#    insert the DNSSEC Bogus Extended Error into a DNS message could
+#    instead simply reply with a fictitious address (A or AAAA) record.
+#    Note that DNS RCODEs also contain no authentication and can be just
+#    as easily manipulated.
+# 
+#    By design, EDE potentially exposes additional information via DNS
+#    resolution processes that may leak information.  An example of this
+#    is the Prohibited EDE code (18), which may leak the fact that the
+#    name is on a blocklist.
+
+[[spec]]
+level = "MUST"
+quote = '''
+As such,
+EDE content should be treated only as diagnostic information and MUST
+NOT alter DNS protocol processing.
+'''
+

@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-6"
+
+# Parent-Side CDS/CDNSKEY Consumption
+#
+#    The CDS/CDNSKEY RRset(s) SHOULD be used by the Parental Agent to
+#    update the DS RRset in the Parent zone.  The Parental Agent for this
+#    uses a tool that understands the CDS/CDNSKEY signing rules in
+#    Section 4.1, so it might not be able to use a standard validator.
+# 
+#    The Parent MUST choose to use either CDNSKEY or CDS resource records
+#    as its default updating mechanism.  The Parent MAY only accept either
+#    CDNSKEY or CDS, but it MAY also accept both so it can use the other
+#    in the absence of the default updating mechanism; it MUST NOT expect
+#    there to be both.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The CDS/CDNSKEY RRset(s) SHOULD be used by the Parental Agent to
+update the DS RRset in the Parent zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Parent MUST choose to use either CDNSKEY or CDS resource records
+as its default updating mechanism.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Parent MAY only accept either
+CDNSKEY or CDS, but it MAY also accept both so it can use the other
+in the absence of the default updating mechanism; it MUST NOT expect
+there to be both.
+'''
+

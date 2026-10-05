@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-6.2.1"
+
+# Connection Reuse
+#
+#    One perceived disadvantage to DNS over TCP is the added connection
+#    setup latency, generally equal to one RTT.  To amortise connection
+#    setup costs, both clients and servers SHOULD support connection reuse
+#    by sending multiple queries and responses over a single persistent
+#    TCP connection.
+# 
+#    When sending multiple queries over a TCP connection, clients MUST NOT
+#    reuse the DNS Message ID of an in-flight query on that connection in
+#    order to avoid Message ID collisions.  This is especially important
+#    if the server could be performing out-of-order processing (see
+#    Section 7).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To amortise connection
+setup costs, both clients and servers SHOULD support connection reuse
+by sending multiple queries and responses over a single persistent
+TCP connection.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When sending multiple queries over a TCP connection, clients MUST NOT
+reuse the DNS Message ID of an in-flight query on that connection in
+order to avoid Message ID collisions.
+'''
+

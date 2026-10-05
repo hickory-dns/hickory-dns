@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.9"
+
+# Always Set the CD Bit on Queries
+#
+#    When processing a request with the Checking Disabled (CD) bit set, a
+#    resolver SHOULD attempt to return all response data, even data that
+#    has failed DNSSEC validation.  Section 3.2.2 of [RFC4035] requires a
+#    resolver processing a request with the CD bit set to set the CD bit
+#    on its upstream queries.
+# 
+#    This document further specifies that validating resolvers SHOULD set
+#    the CD bit on every upstream query.  This is regardless of whether
+#    the CD bit was set on the incoming query or whether it has a trust
+#    anchor at or above the QNAME.
+# 
+#    [RFC4035] is ambiguous about what to do when a cached response was
+#    obtained with the CD bit unset, a case that only arises when the
+#    resolver chooses not to set the CD bit on all upstream queries, as
+#    specified above.  In the typical case, no new query is required, nor
+#    does the cache need to track the state of the CD bit used to make a
+#    given query.  The problem arises when the cached response is a server
+#    failure (RCODE 2), which may indicate that the requested data failed
+#    DNSSEC validation at an upstream validating resolver.  ([RFC2308]
+#    permits caching of server failures for up to five minutes.)  In these
+#    cases, a new query with the CD bit set is required.
+# 
+#    Appendix B discusses more of the logic behind the recommendation
+#    presented in this section.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When processing a request with the Checking Disabled (CD) bit set, a
+resolver SHOULD attempt to return all response data, even data that
+has failed DNSSEC validation.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+This document further specifies that validating resolvers SHOULD set
+the CD bit on every upstream query.
+'''
+

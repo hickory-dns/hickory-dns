@@ -1,0 +1,57 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.3"
+
+# Private Algorithms
+#
+#    As discussed above, Section 5.2 of [RFC4035] requires that validators
+#    make decisions about the security status of zones based on the public
+#    key algorithms shown in the DS records for those zones.  In the case
+#    of private algorithms, as described in Appendix A.1.1 of [RFC4034],
+#    the eight-bit algorithm field in the DS RR is not conclusive about
+#    what algorithm(s) is actually in use.
+# 
+#    If no private algorithms appear in the DS RRset, or if any supported
+#    algorithm appears in the DS RRset, no special processing is needed.
+#    Furthermore, if the validator implementation does not support any
+#    private algorithms, or only supports private algorithms using an
+#    algorithm number not present in the DS RRset, no special processing
+#    is needed.
+# 
+#    In the remaining cases, the security status of the zone depends on
+#    whether or not the resolver supports any of the private algorithms in
+#    use (provided that these DS records use supported message digest
+#    algorithms, as discussed in Section 5.2 of this document).  In these
+#    cases, the resolver MUST retrieve the corresponding DNSKEY for each
+#    private algorithm DS record and examine the public key field to
+#    determine the algorithm in use.  The security-aware resolver MUST
+#    ensure that the hash of the DNSKEY RR's owner name and RDATA matches
+#    the digest in the DS RR as described in Section 5.2 of [RFC4035],
+#    authenticating the DNSKEY.  If all of the retrieved and authenticated
+#    DNSKEY RRs use unknown or unsupported private algorithms, then the
+#    zone is treated as if it were unsigned.
+# 
+#    Note that if none of the private algorithm DS RRs can be securely
+#    matched to DNSKEY RRs and no other DS establishes that the zone is
+#    secure, the referral should be considered Bogus data as discussed in
+#    [RFC4035].
+# 
+#    This clarification facilitates the broader use of private algorithms,
+#    as suggested by [RFC4955].
+
+[[spec]]
+level = "MUST"
+quote = '''
+In these
+cases, the resolver MUST retrieve the corresponding DNSKEY for each
+private algorithm DS record and examine the public key field to
+determine the algorithm in use.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The security-aware resolver MUST
+ensure that the hash of the DNSKEY RR's owner name and RDATA matches
+the digest in the DS RR as described in Section 5.2 of [RFC4035],
+authenticating the DNSKEY.
+'''
+

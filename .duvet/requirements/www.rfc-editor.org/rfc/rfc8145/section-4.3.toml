@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-4.3"
+
+# Use by Responders
+#
+#    An authoritative name server receiving queries with the edns-key-tag
+#    option MAY log or otherwise collect the Key Tag values to provide
+#    information to the zone operator.
+# 
+#    A responder MUST NOT include the edns-key-tag option in any DNS
+#    response.
+
+[[spec]]
+level = "MAY"
+quote = '''
+An authoritative name server receiving queries with the edns-key-tag
+option MAY log or otherwise collect the Key Tag values to provide
+information to the zone operator.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A responder MUST NOT include the edns-key-tag option in any DNS
+response.
+'''
+

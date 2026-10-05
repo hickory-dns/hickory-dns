@@ -1,0 +1,81 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#appendix-B"
+
+# Changes to RFC 5966
+#
+#    This document obsoletes [RFC5966] and differs from it in several
+#    respects.  An overview of the most substantial changes/updates that
+#    implementors should take note of is given below.
+# 
+#    1.   A Terminology section (Section 3) is added defining several new
+#         concepts.
+# 
+#    2.   Paragraph 3 of Section 5 puts TCP on a more equal footing with
+#         UDP than RFC 5966 does.  For example, it states:
+# 
+#         1.  TCP MAY be used before sending any UDP queries.
+# 
+#         2.  TCP ought to be considered a valid alternative transport to
+#             UDP, not purely a fallback option.
+# 
+#    3.   Section 6.2.1 adds a new recommendation that TCP connection
+#         reuse SHOULD be supported.
+# 
+#    4.   Section 6.2.1.1 adds a new recommendation that DNS clients
+#         SHOULD pipeline their queries and DNS servers SHOULD process
+#         pipelined queries concurrently.
+# 
+#    5.   Section 6.2.2 adds new recommendations on the number and usage
+#         of TCP connections for client/server interactions.
+# 
+#    6.   Section 6.2.3 adds a new recommendation that DNS clients SHOULD
+#         close idle sessions unless using a signalling mechanism.
+# 
+#    7.   Section 7 clarifies that servers are RECOMMENDED to prepare TCP
+#         responses in parallel and send answers out of order.  It also
+#         clarifies how TCP queries and responses should be matched by
+#         clients.
+# 
+#    8.   Section 8 adds a new recommendation about how DNS clients and
+#         servers should handle the 2-byte message length field for TCP
+#         messages.
+# 
+#    9.   Section 9 adds a non-normative discussion of the use of TCP Fast
+#         Open.
+# 
+#    10.  Section 10 adds new advice regarding DoS mitigation techniques.
+
+[[spec]]
+level = "MAY"
+quote = '''
+TCP MAY be used before sending any UDP queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Section 6.2.1 adds a new recommendation that TCP connection
+reuse SHOULD be supported.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Section 6.2.1.1 adds a new recommendation that DNS clients
+SHOULD pipeline their queries and DNS servers SHOULD process
+pipelined queries concurrently.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Section 6.2.3 adds a new recommendation that DNS clients SHOULD
+close idle sessions unless using a signalling mechanism.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Section 7 clarifies that servers are RECOMMENDED to prepare TCP
+responses in parallel and send answers out of order.
+'''
+

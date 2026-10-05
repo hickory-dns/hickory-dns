@@ -1,0 +1,46 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.2.2"
+
+# Fallback
+#
+#    If a requestor detects that the remote end does not support EDNS(0),
+#    it MAY issue queries without an OPT record.  It MAY cache this
+#    knowledge for a brief time in order to avoid fallback delays in the
+#    future.  However, if DNSSEC or any future option using EDNS is
+#    required, no fallback should be performed, as these options are only
+#    signaled through EDNS.  If an implementation detects that some
+#    servers for the zone support EDNS(0) while others would force the use
+#    of TCP to fetch all data, preference MAY be given to servers that
+#    support EDNS(0).  Implementers SHOULD analyse this choice and the
+#    impact on both endpoints.
+
+[[spec]]
+level = "MAY"
+quote = '''
+If a requestor detects that the remote end does not support EDNS(0),
+it MAY issue queries without an OPT record.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+It MAY cache this
+knowledge for a brief time in order to avoid fallback delays in the
+future.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If an implementation detects that some
+servers for the zone support EDNS(0) while others would force the use
+of TCP to fetch all data, preference MAY be given to servers that
+support EDNS(0).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementers SHOULD analyse this choice and the
+impact on both endpoints.
+'''
+

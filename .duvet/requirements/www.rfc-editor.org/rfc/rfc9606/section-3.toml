@@ -1,0 +1,70 @@
+target = "https://www.rfc-editor.org/rfc/rfc9606#section-3"
+
+# Retrieving Resolver Information
+#
+#    A DNS client that wants to retrieve the resolver information may use
+#    the RR type "RESINFO" defined in this document.  The content of the
+#    RDATA in a response to a query for RESINFO RR QTYPE is defined in
+#    Section 5.  If the resolver understands the RESINFO RR type, the
+#    RRset MUST have exactly one record.  Invalid records MUST be silently
+#    ignored by DNS clients.  RESINFO is a property of the resolver and is
+#    not subject to recursive resolution.
+# 
+#    A DNS client can retrieve the resolver information using the RESINFO
+#    RR type and the QNAME of the domain name that is used to authenticate
+#    the DNS resolver (referred to as the Authentication Domain Name (ADN)
+#    in DNR [RFC9463]).
+# 
+#    If the Special-Use Domain Name "resolver.arpa", defined in [RFC9462],
+#    is used to discover an encrypted DNS resolver, the client can
+#    retrieve the resolver information using the RESINFO RR type and QNAME
+#    of "resolver.arpa".  In this case, a client has to contend with the
+#    risk that a resolver does not support RESINFO.  The resolver might
+#    pass the query upstream, and then the client can receive a positive
+#    RESINFO response from either a legitimate DNS resolver or an
+#    attacker.
+# 
+#    The DNS client MUST set the Recursion Desired (RD) bit of the query
+#    to 0.  The DNS client MUST discard the response if the AA flag in the
+#    response is set to 0, indicating that the DNS resolver is not
+#    authoritative for the response.
+# 
+#    If a group of resolvers is sharing the same ADN and/or anycast
+#    address, then these instances SHOULD expose a consistent RESINFO.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the resolver understands the RESINFO RR type, the
+RRset MUST have exactly one record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Invalid records MUST be silently
+ignored by DNS clients.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DNS client MUST set the Recursion Desired (RD) bit of the query
+to 0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DNS client MUST discard the response if the AA flag in the
+response is set to 0, indicating that the DNS resolver is not
+authoritative for the response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a group of resolvers is sharing the same ADN and/or anycast
+address, then these instances SHOULD expose a consistent RESINFO.
+'''
+

@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-6.1"
+
+# Detecting a Changed CDS/CDNSKEY
+#
+#    How the Parental Agent gets the CDS/CDNSKEY RRset may differ.  Below
+#    are two examples of how this can take place.
+# 
+#    Polling:  The Parental Agent operates a tool that periodically checks
+#          each of the Children that has a DS record to see if there is a
+#          CDS or CDNSKEY RRset.
+# 
+#    Pushing:  The delegation user interface has a button {Fetch DS} that,
+#          when pushed, performs the CDS/CDNSKEY processing.  If the
+#          Parent zone does not contain DS for this delegation, then the
+#          "push" SHOULD be ignored.  If the Parental Agent displays the
+#          contents of the CDS/CDNSKEY to the user and gets confirmation
+#          that this represents their key, the Parental Agent MAY use this
+#          for initial enrollment (when the Parent zone does not contain
+#          the DS for this delegation).
+# 
+#    In either case, the Parental Agent MAY apply additional rules that
+#    defer the acceptance of a CDS/CDNSKEY change.  These rules may
+#    include a condition that the CDS/CDNSKEY remains in place and valid
+#    for some time period before it is accepted.  It may be appropriate in
+#    the "Pushing" case to assume that the Child is ready and thus accept
+#    changes without delay.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the
+Parent zone does not contain DS for this delegation, then the
+"push" SHOULD be ignored.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the Parental Agent displays the
+contents of the CDS/CDNSKEY to the user and gets confirmation
+that this represents their key, the Parental Agent MAY use this
+for initial enrollment (when the Parent zone does not contain
+the DS for this delegation).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In either case, the Parental Agent MAY apply additional rules that
+defer the acceptance of a CDS/CDNSKEY change.
+'''
+

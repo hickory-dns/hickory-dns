@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-2"
+
+# Updates to RFCs
+#
+#    The DS enrollment methods described in Section 3 of [RFC8078] are
+#    less secure than the method described in Section 4 of this document.
+#    Therefore, child DNS operators and parental agents wishing to use
+#    CDS/CDNSKEY records for initial DS enrollment SHOULD support the
+#    authentication protocol described here.
+# 
+#    In order to facilitate publication of signaling records for the
+#    purpose of DNSSEC bootstrapping (see Section 4.1), the first bullet
+#    ("Location") of Section 4.1 of [RFC7344] is removed.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore, child DNS operators and parental agents wishing to use
+CDS/CDNSKEY records for initial DS enrollment SHOULD support the
+authentication protocol described here.
+'''
+

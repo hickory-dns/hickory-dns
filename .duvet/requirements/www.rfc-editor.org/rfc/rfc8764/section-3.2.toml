@@ -1,0 +1,104 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-3.2"
+
+# Opt-RR Format
+#
+#    As required by the EDNS(0) specification [RFC6891], all OPT
+#    pseudo-RRs used in LLQs are formatted as follows:
+# 
+#           +------------+--------------+-------------------------+
+#           | Field Name | Field Type   | Description             |
+#           +============+==============+=========================+
+#           | NAME       | domain name  | MUST be 0 (root domain) |
+#           +------------+--------------+-------------------------+
+#           | TYPE       | u_int16_t    | OPT (41)                |
+#           +------------+--------------+-------------------------+
+#           | CLASS      | u_int16_t    | 0*                      |
+#           +------------+--------------+-------------------------+
+#           | TTL        | u_int32_t    | 0                       |
+#           +------------+--------------+-------------------------+
+#           | RDLEN      | u_int16_t    | length of all RDATA     |
+#           +------------+--------------+-------------------------+
+#           | RDATA      | octet stream | (see below)             |
+#           +------------+--------------+-------------------------+
+# 
+#                        Table 1: OPT-RRs Used in LLQs
+# 
+#    * The CLASS field indicates, as per the EDNS(0) specification
+#    [RFC6891], the sender's UDP payload size.  However, clients and
+#    servers are not required to determine their reassembly buffer size,
+#    path MTU, etc., to support LLQ.  Thus, the sender of an LLQ Request
+#    or Response MAY set the CLASS field to 0.  The recipient MUST ignore
+#    the class field if it is set to 0.
+# 
+#    The RDATA of an EDNS(0) OPT pseudo-RR consists of zero or more
+#    options of the form { OPTION-CODE, OPTION-LENGTH, OPTION-DATA }
+#    packed together, with the RDLEN field set accordingly to indicate the
+#    total size.  An LLQ OPTION is illustrated below.  An EDNS(0) OPT
+#    pseudo-RR may contain zero or more LLQ OPTIONS in addition to zero or
+#    more other EDNS(0) options.
+# 
+#    +---------------+------------+-------------------------------------+
+#    | Field Name    | Field Type | Description                         |
+#    +===============+============+=====================================+
+#    | OPTION-CODE   | u_int16_t  | LLQ (1)                             |
+#    +---------------+------------+-------------------------------------+
+#    | OPTION-LENGTH | u_int16_t  | Length of following fields (18)     |
+#    +---------------+------------+-------------------------------------+
+#    | LLQ-VERSION   | u_int16_t  | Version of LLQ protocol implemented |
+#    +---------------+------------+-------------------------------------+
+#    | LLQ-OPCODE    | u_int16_t  | Identifies LLQ operation            |
+#    +---------------+------------+-------------------------------------+
+#    | LLQ-ERROR     | u_int16_t  | Identifies LLQ errors               |
+#    +---------------+------------+-------------------------------------+
+#    | LLQ-ID        | u_int64_t  | Identifier for an LLQ               |
+#    +---------------+------------+-------------------------------------+
+#    | LLQ-LEASE     | u_int32_t  | Requested or granted life of LLQ,   |
+#    |               |            | in seconds                          |
+#    +---------------+------------+-------------------------------------+
+# 
+#                            Table 2: LLQ OPTION
+# 
+#    The size and meaning of the OPTION-CODE and OPTION-LENGTH fields are
+#    as described in the EDNS(0) specification [RFC6891].  The remainder
+#    of the fields comprise the OPTION-DATA of the EDNS(0) LLQ OPTION.
+#    Since for LLQ the OPTION-DATA is a fixed size, in EDNS(0) LLQ OPTIONS
+#    the OPTION-LENGTH field always has the value 18.
+# 
+#    In keeping with Internet convention, all multi-byte numeric
+#    quantities (u_int16_t, u_int32_t, and u_int64_t) are represented in
+#    big endian byte order (most significant byte first).
+
+[[spec]]
+level = "MUST"
+quote = '''
++------------+--------------+-------------------------+
+| Field Name | Field Type   | Description             |
++============+==============+=========================+
+| NAME       | domain name  | MUST be 0 (root domain) |
++------------+--------------+-------------------------+
+| TYPE       | u_int16_t    | OPT (41)                |
++------------+--------------+-------------------------+
+| CLASS      | u_int16_t    | 0*                      |
++------------+--------------+-------------------------+
+| TTL        | u_int32_t    | 0                       |
++------------+--------------+-------------------------+
+| RDLEN      | u_int16_t    | length of all RDATA     |
++------------+--------------+-------------------------+
+| RDATA      | octet stream | (see below)             |
++------------+--------------+-------------------------+
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Thus, the sender of an LLQ Request
+or Response MAY set the CLASS field to 0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The recipient MUST ignore
+the class field if it is set to 0.
+'''
+

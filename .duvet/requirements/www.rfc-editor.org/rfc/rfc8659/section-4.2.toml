@@ -1,0 +1,89 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-4.2"
+
+# CAA issue Property
+#
+#    If the issue Property Tag is present in the Relevant RRset for an
+#    FQDN, it is a request that Issuers:
+# 
+#    1.  Perform CAA issue restriction processing for the FQDN, and
+# 
+#    2.  Grant authorization to issue certificates containing that FQDN to
+#        the holder of the issuer-domain-name or a party acting under the
+#        explicit authority of the holder of the issuer-domain-name.
+# 
+#    The CAA issue Property Value has the following sub-syntax (specified
+#    in ABNF as per [RFC5234]).
+# 
+#    issue-value = *WSP [issuer-domain-name *WSP]
+#       [";" *WSP [parameters *WSP]]
+# 
+#    issuer-domain-name = label *("." label)
+#    label = (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT))
+# 
+#    parameters = (parameter *WSP ";" *WSP parameters) / parameter
+#    parameter = tag *WSP "=" *WSP value
+#    tag = (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT))
+#    value = *(%x21-3A / %x3C-7E)
+# 
+#    For consistency with other aspects of DNS administration, FQDN values
+#    are specified in letter-digit-hyphen Label (LDH-Label) form.
+# 
+#    The following CAA RRset requests that no certificates be issued for
+#    the FQDN "certs.example.com" by any Issuer other than ca1.example.net
+#    or ca2.example.org.
+# 
+#    certs.example.com         CAA 0 issue "ca1.example.net"
+#    certs.example.com         CAA 0 issue "ca2.example.org"
+# 
+#    Because the presence of an issue Property Tag in the Relevant RRset
+#    for an FQDN restricts issuance, FQDN owners can use an issue Property
+#    Tag with no issuer-domain-name to request no issuance.
+# 
+#    For example, the following RRset requests that no certificates be
+#    issued for the FQDN "nocerts.example.com" by any Issuer.
+# 
+#    nocerts.example.com       CAA 0 issue ";"
+# 
+#    An issue Property Tag where the issue-value does not match the ABNF
+#    grammar MUST be treated the same as one specifying an empty
+#    issuer-domain-name.  For example, the following malformed CAA RRset
+#    forbids issuance:
+# 
+#    malformed.example.com     CAA 0 issue "%%%%%"
+# 
+#    CAA authorizations are additive; thus, the result of specifying both
+#    an empty issuer-domain-name and a non-empty issuer-domain-name is the
+#    same as specifying just the non-empty issuer-domain-name.
+# 
+#    An Issuer MAY choose to specify parameters that further constrain the
+#    issue of certificates by that Issuer -- for example, specifying that
+#    certificates are to be subject to specific validation policies,
+#    billed to certain accounts, or issued under specific trust anchors.
+# 
+#    For example, if ca1.example.net has requested that its customer
+#    account.example.com specify their account number "230123" in each of
+#    the customer's CAA records using the (CA-defined) "account"
+#    parameter, it would look like this:
+# 
+#    account.example.com   CAA 0 issue "ca1.example.net; account=230123"
+# 
+#    The semantics of parameters to the issue Property Tag are determined
+#    by the Issuer alone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+An issue Property Tag where the issue-value does not match the ABNF
+grammar MUST be treated the same as one specifying an empty
+issuer-domain-name.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An Issuer MAY choose to specify parameters that further constrain the
+issue of certificates by that Issuer -- for example, specifying that
+certificates are to be subject to specific validation policies,
+billed to certain accounts, or issued under specific trust anchors.
+'''
+

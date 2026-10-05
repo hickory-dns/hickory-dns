@@ -1,0 +1,60 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.5"
+
+# Special Considerations for Forwarding Servers
+#
+#    A server acting as a forwarding server of a DNS message SHOULD check
+#    for the existence of a TSIG record.  If the name on the TSIG is not
+#    of a secret that the server shares with the originator, the server
+#    MUST forward the message unchanged including the TSIG.  If the name
+#    of the TSIG is of a key this server shares with the originator, it
+#    MUST process the TSIG.  If the TSIG passes all checks, the forwarding
+#    server MUST, if possible, include a TSIG of its own to the
+#    destination or the next forwarder.  If no transaction security is
+#    available to the destination and the message is a query, and if the
+#    corresponding response has the AD flag (see [RFC4035]) set, the
+#    forwarder MUST clear the AD flag before adding the TSIG to the
+#    response and returning the result to the system from which it
+#    received the query.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A server acting as a forwarding server of a DNS message SHOULD check
+for the existence of a TSIG record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the name on the TSIG is not
+of a secret that the server shares with the originator, the server
+MUST forward the message unchanged including the TSIG.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the name
+of the TSIG is of a key this server shares with the originator, it
+MUST process the TSIG.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the TSIG passes all checks, the forwarding
+server MUST, if possible, include a TSIG of its own to the
+destination or the next forwarder.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If no transaction security is
+available to the destination and the message is a query, and if the
+corresponding response has the AD flag (see [RFC4035]) set, the
+forwarder MUST clear the AD flag before adding the TSIG to the
+response and returning the result to the system from which it
+received the query.
+'''
+

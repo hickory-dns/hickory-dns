@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-8.4"
+
+# Updating
+#
+#    At any time, if the rdata of any of a host's Multicast DNS records
+#    changes, the host MUST repeat the Announcing step described above to
+#    update neighboring caches.  For example, if any of a host's IP
+#    addresses change, it MUST re-announce those address records.  The
+#    host does not need to repeat the Probing step because it has already
+#    established unique ownership of that name.
+# 
+#    In the case of shared records, a host MUST send a "goodbye"
+#    announcement with RR TTL zero (see Section 10.1, "Goodbye Packets")
+#    for the old rdata, to cause it to be deleted from peer caches, before
+#    announcing the new rdata.  In the case of unique records, a host
+#    SHOULD omit the "goodbye" announcement, since the cache-flush bit on
+#    the newly announced records will cause old rdata to be flushed from
+#    peer caches anyway.
+# 
+#    A host may update the contents of any of its records at any time,
+#    though a host SHOULD NOT update records more frequently than ten
+#    times per minute.  Frequent rapid updates impose a burden on the
+#    network.  If a host has information to disseminate which changes more
+#    frequently than ten times per minute, then it may be more appropriate
+#    to design a protocol for that specific purpose.
+
+[[spec]]
+level = "MUST"
+quote = '''
+At any time, if the rdata of any of a host's Multicast DNS records
+changes, the host MUST repeat the Announcing step described above to
+update neighboring caches.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For example, if any of a host's IP
+addresses change, it MUST re-announce those address records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the case of shared records, a host MUST send a "goodbye"
+announcement with RR TTL zero (see Section 10.1, "Goodbye Packets")
+for the old rdata, to cause it to be deleted from peer caches, before
+announcing the new rdata.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the case of unique records, a host
+SHOULD omit the "goodbye" announcement, since the cache-flush bit on
+the newly announced records will cause old rdata to be flushed from
+peer caches anyway.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A host may update the contents of any of its records at any time,
+though a host SHOULD NOT update records more frequently than ten
+times per minute.
+'''
+

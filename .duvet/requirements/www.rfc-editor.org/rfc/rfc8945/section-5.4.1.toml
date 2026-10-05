@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.4.1"
+
+# Key Error Handling
+#
+#    If an RCODE on a response is 9 (NOTAUTH), but the response TSIG
+#    validates and the TSIG key is recognized by the client but is
+#    different from that used on the request, then this is a key-related
+#    error.  The client MAY retry the request using the key specified by
+#    the server.  However, this should never occur, as a server MUST NOT
+#    sign a response with a different key to that used to sign the
+#    request.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The client MAY retry the request using the key specified by
+the server.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, this should never occur, as a server MUST NOT
+sign a response with a different key to that used to sign the
+request.
+'''
+

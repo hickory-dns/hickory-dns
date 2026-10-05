@@ -1,0 +1,105 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-3"
+
+# Client Behavior
+#
+#    "SVCB resolution" is the process of enumerating and ordering the
+#    available endpoints for a service, as performed by the client.  SVCB
+#    resolution is implemented as follows:
+# 
+#    1.  Let $QNAME be the service name plus appropriate prefixes for the
+#        scheme (see Section 2.3).
+# 
+#    2.  Issue a SVCB query for $QNAME.
+# 
+#    3.  If an AliasMode SVCB record is returned for $QNAME (after
+#        following CNAMEs as normal), set $QNAME to its TargetName
+#        (without additional prefixes) and loop back to Step 2, subject to
+#        chain length limits and loop detection heuristics (see
+#        Section 3.1).
+# 
+#    4.  If one or more "compatible" (Section 8) ServiceMode records are
+#        returned, these represent the alternative endpoints.  Sort the
+#        records by ascending SvcPriority.
+# 
+#    5.  Otherwise, SVCB resolution has failed, and the list of available
+#        endpoints is empty.
+# 
+#    This procedure does not rely on any recursive or authoritative DNS
+#    server to comply with this specification or have any awareness of
+#    SVCB.
+# 
+#    A client is called "SVCB-optional" if it can connect without the use
+#    of ServiceMode records; otherwise, it is called "SVCB-reliant".
+#    Clients for pre-existing protocols (e.g., HTTP) SHALL implement SVCB-
+#    optional behavior (except as noted in Section 3.1 or when modified by
+#    future specifications).
+# 
+#    SVCB-optional clients SHOULD issue in parallel any other DNS queries
+#    that might be needed for connection establishment if the SVCB record
+#    is absent, in order to minimize delay in that case and enable the
+#    optimizations discussed in Section 5.
+# 
+#    Once SVCB resolution has concluded, whether successful or not, if at
+#    least one AliasMode record was processed, SVCB-optional clients SHALL
+#    append to the list of endpoints an endpoint consisting of the final
+#    value of $QNAME, the authority endpoint's port number, and no
+#    SvcParams.  (This endpoint will be attempted before falling back to
+#    non-SVCB connection modes.  This ensures that SVCB-optional clients
+#    will make use of an AliasMode record whose TargetName has A and/or
+#    AAAA records but no SVCB records.)
+# 
+#    The client proceeds with connection establishment using this list of
+#    endpoints.  Clients SHOULD try higher-priority alternatives first,
+#    with fallback to lower-priority alternatives.  Clients resolve AAAA
+#    and/or A records for the selected TargetName and MAY choose between
+#    them using an approach such as Happy Eyeballs [HappyEyeballsV2].
+# 
+#    If the client is SVCB-optional and connecting using this list of
+#    endpoints has failed, the client now attempts to use non-SVCB
+#    connection modes.
+# 
+#    Some important optimizations are discussed in Section 5 to avoid
+#    additional latency in comparison to ordinary AAAA/A lookups.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients for pre-existing protocols (e.g., HTTP) SHALL implement SVCB-
+optional behavior (except as noted in Section 3.1 or when modified by
+future specifications).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SVCB-optional clients SHOULD issue in parallel any other DNS queries
+that might be needed for connection establishment if the SVCB record
+is absent, in order to minimize delay in that case and enable the
+optimizations discussed in Section 5.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once SVCB resolution has concluded, whether successful or not, if at
+least one AliasMode record was processed, SVCB-optional clients SHALL
+append to the list of endpoints an endpoint consisting of the final
+value of $QNAME, the authority endpoint's port number, and no
+SvcParams.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD try higher-priority alternatives first,
+with fallback to lower-priority alternatives.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Clients resolve AAAA
+and/or A records for the selected TargetName and MAY choose between
+them using an approach such as Happy Eyeballs [HappyEyeballsV2].
+'''
+

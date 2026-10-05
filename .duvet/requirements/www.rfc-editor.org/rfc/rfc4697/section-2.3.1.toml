@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.3.1"
+
+# Recommendation
+#
+#    Clearly constructing a delegation that relies on multiple levels of
+#    indirection is not a good administrative practice.  However, the
+#    practice is widespread enough to require that iterative resolvers be
+#    able to cope with it.  Iterative resolvers SHOULD be able to handle
+#    arbitrary levels of indirection resulting from out-of-zone name
+# 
+#    servers.  Iterative resolvers SHOULD implement a level-of-effort
+#    counter to avoid loops or otherwise performing too much work in
+#    resolving pathological cases.
+# 
+#    A best practice that avoids this entire issue of indirection is to
+#    name one or more of a zone's name servers in the zone itself.  For
+#    example, if the zone is named "example.com", consider naming some of
+#    the name servers "ns{1,2,...}.example.com" (or similar).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Iterative resolvers SHOULD be able to handle
+arbitrary levels of indirection resulting from out-of-zone name
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Iterative resolvers SHOULD implement a level-of-effort
+counter to avoid loops or otherwise performing too much work in
+resolving pathological cases.
+'''
+

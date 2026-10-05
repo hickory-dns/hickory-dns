@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc9520#section-5"
+
+# Security Considerations
+#
+#    As noted in Section 3.2, an attacker might attempt a resource
+#    exhaustion attack by sending queries for a large number of names and/
+#    or types that result in resolution failure.  Resolvers SHOULD
+#    implement measures to protect themselves and bound the amount of
+#    memory devoted to caching resolution failures.
+# 
+#    A cache poisoning attack (see Section 2.2 of [RFC7873]) resulting in
+#    denial of service may be possible because failure messages cannot be
+#    signed.  An attacker might generate queries and send forged failure
+#    messages, causing the resolver to cease sending queries to the
+#    authoritative name server (see Section 2.6 of [RFC4732] for a similar
+#    "data corruption attack" and Section 5.2 of [TuDoor] for a "DNSDoS
+#    attack").  However, this would require continued spoofing throughout
+#    the backoff period and repeated attacks due to the 5-minute cache
+#    limit.  As in Section 4.1.12 of [RFC4686], this attack's effects
+#    would be "localized and of limited duration".
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Resolvers SHOULD
+implement measures to protect themselves and bound the amount of
+memory devoted to caching resolution failures.
+'''
+

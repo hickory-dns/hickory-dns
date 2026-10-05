@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-8"
+
+# Security Considerations
+#
+#    This document describes the format of four DNS resource records used
+#    by the DNS security extensions and presents an algorithm for
+#    calculating a key tag for a public key.  Other than the items
+#    described below, the resource records themselves introduce no
+#    security considerations.  Please see [RFC4033] and [RFC4035] for
+#    additional security considerations related to the use of these
+#    records.
+# 
+#    The DS record points to a DNSKEY RR by using a cryptographic digest,
+#    the key algorithm type, and a key tag.  The DS record is intended to
+#    identify an existing DNSKEY RR, but it is theoretically possible for
+#    an attacker to generate a DNSKEY that matches all the DS fields.  The
+#    probability of constructing a matching DNSKEY depends on the type of
+#    digest algorithm in use.  The only currently defined digest algorithm
+#    is SHA-1, and the working group believes that constructing a public
+#    key that would match the algorithm, key tag, and SHA-1 digest given
+#    in a DS record would be a sufficiently difficult problem that such an
+#    attack is not a serious threat at this time.
+# 
+#    The key tag is used to help select DNSKEY resource records
+#    efficiently, but it does not uniquely identify a single DNSKEY
+#    resource record.  It is possible for two distinct DNSKEY RRs to have
+#    the same owner name, the same algorithm type, and the same key tag.
+#    An implementation that uses only the key tag to select a DNSKEY RR
+#    might select the wrong public key in some circumstances.  Please see
+#    Appendix B for further details.
+# 
+#    The table of algorithms in Appendix A and the key tag calculation
+#    algorithms in Appendix B include the RSA/MD5 algorithm for
+#    completeness, but the RSA/MD5 algorithm is NOT RECOMMENDED, as
+#    explained in [RFC3110].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The table of algorithms in Appendix A and the key tag calculation
+algorithms in Appendix B include the RSA/MD5 algorithm for
+completeness, but the RSA/MD5 algorithm is NOT RECOMMENDED, as
+explained in [RFC3110].
+'''
+

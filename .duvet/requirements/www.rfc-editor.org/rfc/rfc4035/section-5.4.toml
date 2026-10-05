@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.4"
+
+# Authenticated Denial of Existence
+#
+#    A resolver can use authenticated NSEC RRs to prove that an RRset is
+#    not present in a signed zone.  Security-aware name servers should
+#    automatically include any necessary NSEC RRs for signed zones in
+#    their responses to security-aware resolvers.
+# 
+#    Denial of existence is determined by the following rules:
+# 
+#    o  If the requested RR name matches the owner name of an
+#       authenticated NSEC RR, then the NSEC RR's type bit map field lists
+#       all RR types present at that owner name, and a resolver can prove
+#       that the requested RR type does not exist by checking for the RR
+#       type in the bit map.  If the number of labels in an authenticated
+#       NSEC RR's owner name equals the Labels field of the covering RRSIG
+#       RR, then the existence of the NSEC RR proves that wildcard
+#       expansion could not have been used to match the request.
+# 
+#    o  If the requested RR name would appear after an authenticated NSEC
+#       RR's owner name and before the name listed in that NSEC RR's Next
+#       Domain Name field according to the canonical DNS name order
+#       defined in [RFC4034], then no RRsets with the requested name exist
+#       in the zone.  However, it is possible that a wildcard could be
+#       used to match the requested RR owner name and type, so proving
+#       that the requested RRset does not exist also requires proving that
+#       no possible wildcard RRset exists that could have been used to
+#       generate a positive response.
+# 
+#    In addition, security-aware resolvers MUST authenticate the NSEC
+#    RRsets that comprise the non-existence proof as described in Section
+#    5.3.
+# 
+#    To prove the non-existence of an RRset, the resolver must be able to
+#    verify both that the queried RRset does not exist and that no
+#    relevant wildcard RRset exists.  Proving this may require more than
+# 
+#    one NSEC RRset from the zone.  If the complete set of necessary NSEC
+#    RRsets is not present in a response (perhaps due to message
+#    truncation), then a security-aware resolver MUST resend the query in
+#    order to attempt to obtain the full collection of NSEC RRs necessary
+#    to verify the non-existence of the requested RRset.  As with all DNS
+#    operations, however, the resolver MUST bound the work it puts into
+#    answering any particular query.
+# 
+#    Since a validated NSEC RR proves the existence of both itself and its
+#    corresponding RRSIG RR, a validator MUST ignore the settings of the
+#    NSEC and RRSIG bits in an NSEC RR.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In addition, security-aware resolvers MUST authenticate the NSEC
+RRsets that comprise the non-existence proof as described in Section
+5.3.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the complete set of necessary NSEC
+RRsets is not present in a response (perhaps due to message
+truncation), then a security-aware resolver MUST resend the query in
+order to attempt to obtain the full collection of NSEC RRs necessary
+to verify the non-existence of the requested RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As with all DNS
+operations, however, the resolver MUST bound the work it puts into
+answering any particular query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since a validated NSEC RR proves the existence of both itself and its
+corresponding RRSIG RR, a validator MUST ignore the settings of the
+NSEC and RRSIG bits in an NSEC RR.
+'''
+

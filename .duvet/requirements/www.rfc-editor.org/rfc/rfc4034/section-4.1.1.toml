@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-4.1.1"
+
+# The Next Domain Name Field
+#
+#    The Next Domain field contains the next owner name (in the canonical
+#    ordering of the zone) that has authoritative data or contains a
+#    delegation point NS RRset; see Section 6.1 for an explanation of
+#    canonical ordering.  The value of the Next Domain Name field in the
+#    last NSEC record in the zone is the name of the zone apex (the owner
+#    name of the zone's SOA RR).  This indicates that the owner name of
+#    the NSEC RR is the last name in the canonical ordering of the zone.
+# 
+#    A sender MUST NOT use DNS name compression on the Next Domain Name
+#    field when transmitting an NSEC RR.
+# 
+#    Owner names of RRsets for which the given zone is not authoritative
+#    (such as glue records) MUST NOT be listed in the Next Domain Name
+#    unless at least one authoritative RRset exists at the same owner
+#    name.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A sender MUST NOT use DNS name compression on the Next Domain Name
+field when transmitting an NSEC RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Owner names of RRsets for which the given zone is not authoritative
+(such as glue records) MUST NOT be listed in the Next Domain Name
+unless at least one authoritative RRset exists at the same owner
+name.
+'''
+

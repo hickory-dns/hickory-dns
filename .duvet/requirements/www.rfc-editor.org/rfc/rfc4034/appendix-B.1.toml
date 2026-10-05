@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#appendix-B.1"
+
+# Key Tag for Algorithm 1 (RSA/MD5)
+#
+#    The key tag for algorithm 1 (RSA/MD5) is defined differently from the
+#    key tag for all other algorithms, for historical reasons.  For a
+#    DNSKEY RR with algorithm 1, the key tag is defined to be the most
+#    significant 16 bits of the least significant 24 bits in the public
+#    key modulus (in other words, the 4th to last and 3rd to last octets
+#    of the public key modulus).
+# 
+#    Please note that Algorithm 1 is NOT RECOMMENDED.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Please note that Algorithm 1 is NOT RECOMMENDED.
+'''
+

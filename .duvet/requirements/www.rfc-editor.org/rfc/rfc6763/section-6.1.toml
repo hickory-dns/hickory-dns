@@ -1,0 +1,58 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-6.1"
+
+# General Format Rules for DNS TXT Records
+#
+#    A DNS TXT record can be up to 65535 (0xFFFF) bytes long.  The total
+#    length is indicated by the length given in the resource record header
+#    in the DNS message.  There is no way to tell directly from the data
+#    alone how long it is (e.g., there is no length count at the start, or
+#    terminating NULL byte at the end).
+# 
+#    Note that when using Multicast DNS [RFC6762] the maximum packet size
+#    is 9000 bytes, including the IP header, UDP header, and DNS message
+#    header, which imposes an upper limit on the size of TXT records of
+#    about 8900 bytes.  In practice the maximum sensible size of a DNS-SD
+#    TXT record is smaller even than this, typically at most a few hundred
+#    bytes, as described below in Section 6.2.
+# 
+#    The format of the data within a DNS TXT record is one or more
+#    strings, packed together in memory without any intervening gaps or
+#    padding bytes for word alignment.
+# 
+#    The format of each constituent string within the DNS TXT record is a
+#    single length byte, followed by 0-255 bytes of text data.
+# 
+#    These format rules for TXT records are defined in Section 3.3.14 of
+#    the DNS specification [RFC1035] and are not specific to DNS-SD.
+#    DNS-SD specifies additional rules for what data should be stored in
+#    those constituent strings when used for DNS-SD service advertising,
+#    i.e., when used to describe services advertised using the PTR+SRV+TXT
+#    convention specified in this document.
+# 
+#    An empty TXT record containing zero strings is not allowed [RFC1035].
+#    DNS-SD implementations MUST NOT emit empty TXT records.  DNS-SD
+#    clients MUST treat the following as equivalent:
+# 
+#    o  A TXT record containing a single zero byte.
+#       (i.e., a single empty string.)
+# 
+#    o  An empty (zero-length) TXT record.
+#       (This is not strictly legal, but should one be received, it should
+#       be interpreted as the same as a single empty string.)
+# 
+#    o  No TXT record.
+#       (i.e., an NXDOMAIN or no-error-no-answer response.)
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS-SD implementations MUST NOT emit empty TXT records.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS-SD
+clients MUST treat the following as equivalent:
+'''
+

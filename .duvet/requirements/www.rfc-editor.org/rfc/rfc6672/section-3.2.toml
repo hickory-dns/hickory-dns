@@ -1,0 +1,98 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-3.2"
+
+# Server Algorithm
+#
+#    Below is the revised version of the server algorithm, which appears
+#    in RFC 2672, Section 4.1.
+# 
+#    1.  Set or clear the value of recursion available in the response
+#        depending on whether the name server is willing to provide
+#        recursive service.  If recursive service is available and
+#        requested via the RD bit in the query, go to step 5; otherwise,
+#        step 2.
+# 
+#    2.  Search the available zones for the zone which is the nearest
+#        ancestor to QNAME.  If such a zone is found, go to step 3;
+#        otherwise, step 4.
+# 
+#    3.  Start matching down, label by label, in the zone.  The matching
+#        process can terminate several ways:
+# 
+#        A.  If the whole of QNAME is matched, we have found the node.
+# 
+#            If the data at the node is a CNAME, and QTYPE does not match
+#            CNAME, copy the CNAME RR into the answer section of the
+#            response, change QNAME to the canonical name in the CNAME RR,
+#            and go back to step 1.
+# 
+#            Otherwise, copy all RRs which match QTYPE into the answer
+#            section and go to step 6.
+# 
+#        B.  If a match would take us out of the authoritative data, we
+#            have a referral.  This happens when we encounter a node with
+#            NS RRs marking cuts along the bottom of a zone.
+# 
+#            Copy the NS RRs for the sub-zone into the authority section
+#            of the reply.  Put whatever addresses are available into the
+#            additional section, using glue RRs if the addresses are not
+#            available from authoritative data or the cache.  Go to step
+#            4.
+# 
+#        C.  If at some label, a match is impossible (i.e., the
+#            corresponding label does not exist), look to see whether the
+#            last label matched has a DNAME record.
+# 
+#            If a DNAME record exists at that point, copy that record into
+#            the answer section.  If substitution of its <target> for its
+#            <owner> in QNAME would overflow the legal size for a <domain-
+#            name>, set RCODE to YXDOMAIN [RFC2136] and exit; otherwise,
+#            perform the substitution and continue.  The server MUST
+# 
+#            synthesize a CNAME record as described above and include it
+#            in the answer section.  Go back to step 1.
+# 
+#            If there was no DNAME record, look to see if the "*" label
+#            exists.
+# 
+#            If the "*" label does not exist, check whether the name we
+#            are looking for is the original QNAME in the query or a name
+#            we have followed due to a CNAME or DNAME.  If the name is
+#            original, set an authoritative name error in the response and
+#            exit.  Otherwise, just exit.
+# 
+#            If the "*" label does exist, match RRs at that node against
+#            QTYPE.  If any match, copy them into the answer section, but
+#            set the owner of the RR to be QNAME, and not the node with
+#            the "*" label.  If the data at the node with the "*" label is
+#            a CNAME, and QTYPE doesn't match CNAME, copy the CNAME RR
+#            into the answer section of the response changing the owner
+#            name to the QNAME, change QNAME to the canonical name in the
+#            CNAME RR, and go back to step 1.  Otherwise, go to step 6.
+# 
+#    4.  Start matching down in the cache.  If QNAME is found in the
+#        cache, copy all RRs attached to it that match QTYPE into the
+#        answer section.  If QNAME is not found in the cache but a DNAME
+#        record is present at an ancestor of QNAME, copy that DNAME record
+#        into the answer section.  If there was no delegation from
+#        authoritative data, look for the best one from the cache, and put
+#        it in the authority section.  Go to step 6.
+# 
+#    5.  Use the local resolver or a copy of its algorithm to answer the
+#        query.  Store the results, including any intermediate CNAMEs and
+#        DNAMEs, in the answer section of the response.
+# 
+#    6.  Using local data only, attempt to add other RRs that may be
+#        useful to the additional section of the query.  Exit.
+# 
+#    Note that there will be at most one ancestor with a DNAME as
+#    described in step 4 unless some zone's data is in violation of the
+#    no-descendants limitation in Section 3.  An implementation might take
+#    advantage of this limitation by stopping the search of step 3c or
+#    step 4 when a DNAME record is encountered.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST
+'''
+

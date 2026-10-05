@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc9715#section-7.3"
+
+# Weaknesses of IP Fragmentation
+#
+#    "Fragmentation Considered Poisonous" [Herzberg2013] notes effective
+#    off-path DNS cache poisoning attack vectors using IP fragmentation.
+#    "IP fragmentation attack on DNS" [Hlavacek2013] and "Domain
+#    Validation++ For MitM-Resilient PKI" [Brandt2018] note that off-path
+#    attackers can intervene in the Path MTU Discovery [RFC1191] to cause
+#    authoritative servers to produce fragmented responses.  [RFC7739]
+#    states the security implications of predictable fragment
+#    identification values.
+# 
+#    Section 3.2 of [RFC8085] states that "an application SHOULD NOT send
+#    UDP datagrams that result in IP packets that exceed the Maximum
+#    Transmission Unit (MTU) along the path to the destination".
+# 
+#    A DNS message receiver cannot trust fragmented UDP datagrams
+#    primarily due to the small amount of entropy provided by UDP port
+#    numbers and DNS message identifiers, each of which is only 16 bits in
+#    size, and both are likely to be in the first fragment of a packet if
+#    fragmentation occurs.  By comparison, the TCP protocol stack controls
+#    packet size and avoids IP fragmentation under ICMP NEEDFRAG attacks.
+#    In TCP, fragmentation should be avoided for performance reasons,
+#    whereas for UDP, fragmentation should be avoided for resiliency and
+#    authenticity reasons.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Section 3.2 of [RFC8085] states that "an application SHOULD NOT send
+UDP datagrams that result in IP packets that exceed the Maximum
+Transmission Unit (MTU) along the path to the destination".
+'''
+

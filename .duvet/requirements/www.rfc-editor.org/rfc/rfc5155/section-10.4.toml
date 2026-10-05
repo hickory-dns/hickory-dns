@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-10.4"
+
+# Transitioning a Signed Zone from NSEC to NSEC3
+#
+#    When transitioning an already signed and trusted zone to this
+#    specification, care must be taken to prevent client validation
+#    failures during the process.
+# 
+#    The basic procedure is as follows:
+# 
+#    1.  Transition all DNSKEYs to DNSKEYs using the algorithm aliases
+#        described in Section 2.  The actual method for safely and
+#        securely changing the DNSKEY RRSet of the zone is outside the
+#        scope of this specification.  However, the end result MUST be
+#        that all DS RRs in the parent use the specified algorithm
+#        aliases.
+# 
+#        After this transition is complete, all NSEC3-unaware clients will
+#        treat the zone as insecure.  At this point, the authoritative
+#        server still returns negative and wildcard responses that contain
+#        NSEC RRs.
+# 
+#    2.  Add signed NSEC3 RRs to the zone, either incrementally or all at
+#        once.  If adding incrementally, then the last RRSet added MUST be
+#        the NSEC3PARAM RRSet.
+# 
+#    3.  Upon the addition of the NSEC3PARAM RRSet, the server switches to
+#        serving negative and wildcard responses with NSEC3 RRs according
+#        to this specification.
+# 
+#    4.  Remove the NSEC RRs either incrementally or all at once.
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, the end result MUST be
+that all DS RRs in the parent use the specified algorithm
+aliases.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If adding incrementally, then the last RRSet added MUST be
+the NSEC3PARAM RRSet.
+'''
+

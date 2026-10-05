@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-3.2.1"
+
+# The NS type
+#
+#    The NS type flag indicates that the NS records from the child zone
+#    should be copied into the parent's delegation information records for
+#    the child.
+# 
+#    NS records found within the child's zone should be copied verbatim
+#    (with the exception of the Time to Live (TTL) field, for which the
+#    parent MAY want to select a different value) and the result published
+#    within the parent zone should be a set of NS records that match
+#    exactly.  If the child has published a new NS record within their
+#    set, this record should be added to the parent zone.  Similarly, if
+#    NS records in the parent's delegation records for the child contain
+#    records that have been removed in the child's NS set, then they
+#    should be removed in the parent's set as well.
+# 
+#    Parental agents MAY refuse to perform NS updates if the replacement
+#    records fail to meet NS record policies required by the parent zone
+#    (e.g., "every child zone must have at least two NS records").
+#    Parental agents MUST NOT perform NS updates if there are no NS
+#    records returned in a query, as verified by DNSSEC denial-of-
+#    existence protection.  This situation should never happen unless the
+#    child nameservers are misconfigured.
+# 
+#    Note that it is permissible for a child's nameserver to return a
+#    CSYNC record that removes the queried nameserver itself from the
+#    future NS or address set.
+
+[[spec]]
+level = "MAY"
+quote = '''
+NS records found within the child's zone should be copied verbatim
+(with the exception of the Time to Live (TTL) field, for which the
+parent MAY want to select a different value) and the result published
+within the parent zone should be a set of NS records that match
+exactly.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Parental agents MAY refuse to perform NS updates if the replacement
+records fail to meet NS record policies required by the parent zone
+(e.g., "every child zone must have at least two NS records").
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Parental agents MUST NOT perform NS updates if there are no NS
+records returned in a query, as verified by DNSSEC denial-of-
+existence protection.
+'''
+

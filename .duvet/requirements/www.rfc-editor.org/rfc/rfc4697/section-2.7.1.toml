@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.7.1"
+
+# Recommendation
+#
+#    Because of the additional load placed on a zone's parent's
+#    authoritative servers resulting from a zero TTL on a zone's NS RRSet,
+#    under such circumstances authoritative name servers SHOULD issue a
+#    warning when loading a zone.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Because of the additional load placed on a zone's parent's
+authoritative servers resulting from a zero TTL on a zone's NS RRSet,
+under such circumstances authoritative name servers SHOULD issue a
+warning when loading a zone.
+'''
+

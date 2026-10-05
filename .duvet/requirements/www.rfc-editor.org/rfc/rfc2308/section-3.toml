@@ -1,0 +1,31 @@
+target = "https://www.rfc-editor.org/rfc/rfc2308#section-3"
+
+# - Negative Answers from Authoritative Servers
+#
+#    Name servers authoritative for a zone MUST include the SOA record of
+#    the zone in the authority section of the response when reporting an
+#    NXDOMAIN or indicating that no data of the requested type exists.
+#    This is required so that the response may be cached.  The TTL of this
+#    record is set from the minimum of the MINIMUM field of the SOA record
+#    and the TTL of the SOA itself, and indicates how long a resolver may
+#    cache the negative answer.  The TTL SIG record associated with the
+#    SOA record should also be trimmed in line with the SOA's TTL.
+# 
+#    If the containing zone is signed [RFC2065] the SOA and appropriate
+#    NXT and SIG records MUST be added.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Name servers authoritative for a zone MUST include the SOA record of
+the zone in the authority section of the response when reporting an
+NXDOMAIN or indicating that no data of the requested type exists.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the containing zone is signed [RFC2065] the SOA and appropriate
+NXT and SIG records MUST be added.
+'''
+

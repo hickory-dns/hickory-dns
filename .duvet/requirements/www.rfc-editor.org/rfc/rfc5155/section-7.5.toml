@@ -1,0 +1,100 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.5"
+
+# Dynamic Update
+#
+#    A zone signed using NSEC3 may accept dynamic updates [RFC2136].
+#    However, NSEC3 introduces some special considerations for dynamic
+#    updates.
+# 
+#    Adding and removing names in a zone MUST account for the creation or
+#    removal of empty non-terminals.
+# 
+#    o  When removing a name with a corresponding NSEC3 RR, any NSEC3 RRs
+#       corresponding to empty non-terminals created by that name MUST be
+#       removed.  Note that more than one name may be asserting the
+#       existence of a particular empty non-terminal.
+# 
+#    o  When adding a name that requires adding an NSEC3 RR, NSEC3 RRs
+#       MUST also be added for any empty non-terminals that are created.
+#       That is, if there is not an existing NSEC3 RR matching an empty
+#       non-terminal, it must be created and added.
+# 
+#    The presence of Opt-Out in a zone means that some additions or
+#    delegations of names will not require changes to the NSEC3 RRs in a
+#    zone.
+# 
+#    o  When removing a delegation RRSet, if that delegation does not have
+#       a matching NSEC3 RR, then it was opted out.  In this case, nothing
+#       further needs to be done.
+# 
+#    o  When adding a delegation RRSet, if the "next closer" name of the
+#       delegation is covered by an existing Opt-Out NSEC3 RR, then the
+#       delegation MAY be added without modifying the NSEC3 RRs in the
+#       zone.
+# 
+#    The presence of Opt-Out in a zone means that when adding or removing
+#    NSEC3 RRs, the value of the Opt-Out flag that should be set in new or
+#    modified NSEC3 RRs is ambiguous.  Servers SHOULD follow this set of
+#    basic rules to resolve the ambiguity.
+# 
+#    The central concept to these rules is that the state of the Opt-Out
+#    flag of the covering NSEC3 RR is preserved.
+# 
+#    o  When removing an NSEC3 RR, the value of the Opt-Out flag for the
+#       previous NSEC3 RR (the one whose next hashed owner name is
+#       modified) should not be changed.
+# 
+#    o  When adding an NSEC3 RR, the value of the Opt-Out flag is set to
+#       the value of the Opt-Out flag of the NSEC3 RR that previously
+#       covered the owner name of the NSEC3 RR.  That is, the now previous
+#       NSEC3 RR.
+# 
+#    If the zone in question is consistent with its use of the Opt-Out
+#    flag (that is, all NSEC3 RRs in the zone have the same value for the
+#    flag) then these rules will retain that consistency.  If the zone is
+#    not consistent in the use of the flag (i.e., a partially Opt-Out
+#    zone), then these rules will not retain the same pattern of use of
+#    the Opt-Out flag.
+# 
+#    For zones that partially use the Opt-Out flag, if there is a logical
+#    pattern for that use, the pattern could be maintained by using a
+#    local policy on the server.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Adding and removing names in a zone MUST account for the creation or
+removal of empty non-terminals.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  When removing a name with a corresponding NSEC3 RR, any NSEC3 RRs
+corresponding to empty non-terminals created by that name MUST be
+removed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  When adding a name that requires adding an NSEC3 RR, NSEC3 RRs
+MUST also be added for any empty non-terminals that are created.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+o  When adding a delegation RRSet, if the "next closer" name of the
+delegation is covered by an existing Opt-Out NSEC3 RR, then the
+delegation MAY be added without modifying the NSEC3 RRs in the
+zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD follow this set of
+basic rules to resolve the ambiguity.
+'''
+

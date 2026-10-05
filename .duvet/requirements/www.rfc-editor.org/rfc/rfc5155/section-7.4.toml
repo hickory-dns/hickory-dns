@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.4"
+
+# Zones Using Unknown Hash Algorithms
+#
+#    Zones that are signed according to this specification, but are using
+#    an unrecognized NSEC3 hash algorithm value, cannot be effectively
+#    served.  Such zones SHOULD be rejected when loading.  Servers SHOULD
+#    respond with RCODE=2 (server failure) responses when handling queries
+#    that would fall under such zones.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Such zones SHOULD be rejected when loading.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD
+respond with RCODE=2 (server failure) responses when handling queries
+that would fall under such zones.
+'''
+

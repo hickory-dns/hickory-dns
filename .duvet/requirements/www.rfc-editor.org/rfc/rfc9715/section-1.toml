@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc9715#section-1"
+
+# Introduction
+#
+#    This document was originally intended to be a Best Current Practice,
+#    but due to operating system and socket option limitations, some of
+#    the recommendations have not yet gained real-world experience;
+#    therefore, this document is Informational.  It is expected that, as
+#    operating systems and implementations evolve, we will gain more
+#    experience with the recommendations and will publish an updated
+#    document as a Best Current Practice in the future.
+# 
+#    DNS has an EDNS(0) mechanism [RFC6891].  The widely deployed EDNS(0)
+#    feature in the DNS enables a DNS receiver to indicate its received
+#    UDP message size capacity, which supports the sending of large UDP
+#    responses by a DNS server.  DNS over UDP invites IP fragmentation
+#    when a packet is larger than the Maximum Transmission Unit (MTU) of
+#    some network in the packet's path.
+# 
+#    Fragmented DNS UDP responses have systemic weaknesses, which expose
+#    the requestor to DNS cache poisoning from off-path attackers (see
+#    Section 7.3 for references and details).
+# 
+#    [RFC8900] states that IP fragmentation introduces fragility to
+#    Internet communication.  The transport of DNS messages over UDP
+#    should take account of the observations stated in that document.
+# 
+#    TCP avoids fragmentation by segmenting data into packets that are
+#    smaller than or equal to the Maximum Segment Size (MSS).  For each
+#    transmitted segment, the size of the IP and TCP headers is known, and
+#    the IP packet size can be chosen to keep it within the estimated MTU
+#    and the MSS.  This takes advantage of the elasticity of the TCP's
+#    packetizing process, depending on how much queued data will fit into
+#    the next segment.  In contrast, DNS over UDP has little datagram size
+#    elasticity and lacks insight into IP header and option size, so we
+#    must make more conservative estimates about available UDP payload
+#    space.
+# 
+#    [RFC7766] states that all general-purpose DNS implementations MUST
+#    support both UDP and TCP transport.
+# 
+#    DNS transaction security [RFC8945] [RFC2931] does protect against the
+#    security risks of fragmentation, and it protects delegation
+#    responses.  But [RFC8945] has limited applicability due to key
+#    distribution requirements, and there is little if any deployment of
+#    [RFC2931].
+# 
+#    This document describes various techniques to avoid IP fragmentation
+#    of UDP packets in DNS.  This document is primarily applicable to DNS
+#    use on the global Internet.
+# 
+#    In contrast, a path MTU that deviates from the recommended value
+#    might be obtained through static configuration, server routing hints,
+#    or a future discovery protocol.  However, addressing this falls
+#    outside the scope of this document and may be the subject of future
+#    specifications.
+
+[[spec]]
+level = "MUST"
+quote = '''
+[RFC7766] states that all general-purpose DNS implementations MUST
+support both UDP and TCP transport.
+'''
+

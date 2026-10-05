@@ -1,0 +1,19 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.2"
+
+# QR (Query/Response) Bit
+#
+#    In query messages the QR bit MUST be zero.
+#    In response messages the QR bit MUST be one.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In query messages the QR bit MUST be zero.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In response messages the QR bit MUST be one.
+'''
+

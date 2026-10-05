@@ -296,3 +296,19 @@ jobs:
 
       - name: Test android implementation
         run: just cross-test ${{ matrix.target }} hickory-resolver
+
+  requirements:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install duvet
+        uses: taiki-e/install-action@v2
+        with:
+          tool: duvet@0.4.2
+
+      - name: Check report snapshot
+        run: duvet report --ci

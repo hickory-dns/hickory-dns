@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc5702#section-5.2"
+
+# Support for NSEC3 Denial of Existence
+#
+#    [RFC5155] defines new algorithm identifiers for existing signing
+#    algorithms, to indicate that zones signed with these algorithm
+#    identifiers can use NSEC3 as well as NSEC records to provide denial
+#    of existence.  That mechanism was chosen to protect implementations
+#    predating RFC 5155 from encountering resource records about which
+#    they could not know.  This document does not define such algorithm
+#    aliases.
+# 
+#    A DNSSEC validator that implements RSA/SHA-2 MUST be able to validate
+#    negative answers in the form of both NSEC and NSEC3 with hash
+#    algorithm 1, as defined in [RFC5155].  An authoritative server that
+#    does not implement NSEC3 MAY still serve zones that use RSA/SHA-2
+#    with NSEC denial of existence.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DNSSEC validator that implements RSA/SHA-2 MUST be able to validate
+negative answers in the form of both NSEC and NSEC3 with hash
+algorithm 1, as defined in [RFC5155].
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An authoritative server that
+does not implement NSEC3 MAY still serve zones that use RSA/SHA-2
+with NSEC denial of existence.
+'''
+

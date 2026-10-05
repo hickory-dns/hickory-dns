@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc2308#section-8"
+
+# - Changes from RFC 1034
+#
+#    Negative caching in resolvers is no-longer optional, if a resolver
+#    caches anything it must also cache negative answers.
+# 
+#    Non-authoritative negative answers MAY be cached.
+# 
+#    The SOA record from the authority section MUST be cached.  Name error
+#    indications must be cached against the tuple <query name, QCLASS>.
+#    No data indications must be cached against <query name, QTYPE,
+#    QCLASS> tuple.
+# 
+#    A cached SOA record must be added to the response.  This was
+#    explicitly not allowed because previously the distinction between a
+#    normal cached SOA record, and the SOA cached as a result of a
+#    negative response was not made, and simply extracting a normal cached
+#    SOA and adding that to a cached negative response causes problems.
+# 
+#    The $TTL TTL directive was added to the master file format.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Non-authoritative negative answers MAY be cached.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The SOA record from the authority section MUST be cached.
+'''
+

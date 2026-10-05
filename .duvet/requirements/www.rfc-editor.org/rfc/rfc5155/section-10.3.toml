@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-10.3"
+
+# Iterations
+#
+#    Setting the number of iterations used allows the zone owner to choose
+#    the cost of computing a hash, and therefore the cost of generating a
+#    dictionary.  Note that this is distinct from the effect of salt,
+#    which prevents the use of a single precomputed dictionary for all
+#    time.
+# 
+#    Obviously the number of iterations also affects the zone owner's cost
+#    of signing and serving the zone as well as the validator's cost of
+#    verifying responses from the zone.  We therefore impose an upper
+#    limit on the number of iterations.  We base this on the number of
+#    iterations that approximates the cost of verifying an RRSet.
+# 
+#    The limits, therefore, are based on the size of the smallest zone
+#    signing key, rounded up to the nearest table value (or rounded down
+#    if the key is larger than the largest table value).
+# 
+#    A zone owner MUST NOT use a value higher than shown in the table
+#    below for iterations for the given key size.  A resolver MAY treat a
+#    response with a higher value as insecure, after the validator has
+#    verified that the signature over the NSEC3 RR is correct.
+# 
+#                          +----------+------------+
+#                          | Key Size | Iterations |
+#                          +----------+------------+
+#                          | 1024     | 150        |
+#                          | 2048     | 500        |
+#                          | 4096     | 2,500      |
+#                          +----------+------------+
+# 
+#    This table is based on an approximation of the ratio between the cost
+#    of an SHA-1 calculation and the cost of an RSA verification for keys
+#    of size 1024 bits (150 to 1), 2048 bits (500 to 1), and 4096 bits
+#    (2500 to 1).
+# 
+#    The ratio between SHA-1 calculation and DSA verification is higher
+#    (1500 to 1 for keys of size 1024).  A higher iteration count degrades
+#    performance, while DSA verification is already more expensive than
+#    RSA for the same key size.  Therefore the values in the table MUST be
+#    used independent of the key algorithm.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A zone owner MUST NOT use a value higher than shown in the table
+below for iterations for the given key size.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A resolver MAY treat a
+response with a higher value as insecure, after the validator has
+verified that the signature over the NSEC3 RR is correct.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Therefore the values in the table MUST be
+used independent of the key algorithm.
+'''
+

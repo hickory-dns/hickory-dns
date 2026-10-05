@@ -1,0 +1,59 @@
+target = "https://www.rfc-editor.org/rfc/rfc7766#section-6.2.2"
+
+# Concurrent Connections
+#
+#    To mitigate the risk of unintentional server overload, DNS clients
+#    MUST take care to minimize the number of concurrent TCP connections
+#    made to any individual server.  It is RECOMMENDED that for any given
+#    client/server interaction there SHOULD be no more than one connection
+#    for regular queries, one for zone transfers, and one for each
+#    protocol that is being used on top of TCP (for example, if the
+#    resolver was using TLS).  However, it is noted that certain primary/
+#    secondary configurations with many busy zones might need to use more
+#    than one TCP connection for zone transfers for operational reasons
+#    (for example, to support concurrent transfers of multiple zones).
+# 
+#    Similarly, servers MAY impose limits on the number of concurrent TCP
+#    connections being handled for any particular client IP address or
+#    subnet.  These limits SHOULD be much looser than the client
+#    guidelines above, because the server does not know, for example, if a
+#    client IP address belongs to a single client, is multiple resolvers
+#    on a single machine, or is multiple clients behind a device
+#    performing Network Address Translation (NAT).
+
+[[spec]]
+level = "MUST"
+quote = '''
+To mitigate the risk of unintentional server overload, DNS clients
+MUST take care to minimize the number of concurrent TCP connections
+made to any individual server.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that for any given
+client/server interaction there SHOULD be no more than one connection
+for regular queries, one for zone transfers, and one for each
+protocol that is being used on top of TCP (for example, if the
+resolver was using TLS).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Similarly, servers MAY impose limits on the number of concurrent TCP
+connections being handled for any particular client IP address or
+subnet.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+These limits SHOULD be much looser than the client
+guidelines above, because the server does not know, for example, if a
+client IP address belongs to a single client, is multiple resolvers
+on a single machine, or is multiple clients behind a device
+performing Network Address Translation (NAT).
+'''
+

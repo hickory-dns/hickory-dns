@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-2.5"
+
+# Including ZONEMD RRs in a Zone
+#
+#    The zone operator chooses an appropriate hash algorithm and scheme
+#    and includes the calculated zone digest in the apex ZONEMD RRset.
+#    The zone operator MAY choose any of the defined hash algorithms and
+#    schemes, including the Private Use code points.
+# 
+#    The ZONEMD RRset MAY contain multiple records to support algorithm
+#    agility ([BCP201]).  When multiple ZONEMD RRs are present, each MUST
+#    specify a unique Scheme and Hash Algorithm tuple.  It is RECOMMENDED
+#    that a zone include only one ZONEMD RR, unless the zone operator is
+#    in the process of transitioning to a new scheme or hash algorithm.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The zone operator MAY choose any of the defined hash algorithms and
+schemes, including the Private Use code points.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The ZONEMD RRset MAY contain multiple records to support algorithm
+agility ([BCP201]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When multiple ZONEMD RRs are present, each MUST
+specify a unique Scheme and Hash Algorithm tuple.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED
+that a zone include only one ZONEMD RR, unless the zone operator is
+in the process of transitioning to a new scheme or hash algorithm.
+'''
+

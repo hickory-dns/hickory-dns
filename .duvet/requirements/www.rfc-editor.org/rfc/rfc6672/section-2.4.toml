@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-2.4"
+
+# Names next to and below a DNAME Record
+#
+#    Resource records MUST NOT exist at any subdomain of the owner of a
+#    DNAME RR.  To get the contents for names subordinate to that owner
+#    name, the DNAME redirection must be invoked and the resulting target
+#    queried.  A server MAY refuse to load a zone that has data at a
+#    subdomain of a domain name owning a DNAME RR.  If the server does
+#    load the zone, those names below the DNAME RR will be occluded as
+#    described in RFC 2136 [RFC2136], Section 7.18.  Also, a server ought
+#    to refuse to load a zone subordinate to the owner of a DNAME record
+#    in the ancestor zone.  See Section 5.2 for further discussion related
+#    to dynamic update.
+# 
+#    DNAME is a singleton type, meaning only one DNAME is allowed per
+#    name.  The owner name of a DNAME can only have one DNAME RR, and no
+#    CNAME RRs can exist at that name.  These rules make sure that for a
+#    single domain name, only one redirection exists; thus, there's no
+#    confusion about which one to follow.  A server ought to refuse to
+#    load a zone that violates these rules.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resource records MUST NOT exist at any subdomain of the owner of a
+DNAME RR.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A server MAY refuse to load a zone that has data at a
+subdomain of a domain name owning a DNAME RR.
+'''
+

@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc5452#section-9.2"
+
+# Extending the Q-ID Space by Using Ports and Addresses
+#
+#    Resolver implementations MUST:
+# 
+#    o  Use an unpredictable source port for outgoing queries from the
+#       range of available ports (53, or 1024 and above) that is as large
+#       as possible and practicable;
+# 
+#    o  Use multiple different source ports simultaneously in case of
+#       multiple outstanding queries;
+# 
+#    o  Use an unpredictable query ID for outgoing queries, utilizing the
+#       full range available (0-65535).
+# 
+#    Resolvers that have multiple IP addresses SHOULD use them in an
+#    unpredictable manner for outgoing queries.
+# 
+#    Resolver implementations SHOULD provide means to avoid usage of
+#    certain ports.
+# 
+#    Resolvers SHOULD favor authoritative nameservers with which a trust
+#    relation has been established; stub-resolvers SHOULD be able to use
+#    Transaction Signature (TSIG) ([RFC2845]) or IPsec ([RFC4301]) when
+#    communicating with their recursive resolver.
+# 
+#    In case a cryptographic verification of response validity is
+#    available (TSIG, SIG(0)), resolver implementations MAY waive above
+#    rules, and rely on this guarantee instead.
+# 
+#    Proper unpredictability can be achieved by employing a high quality
+#    (pseudo-)random generator, as described in [RFC4086].
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolver implementations MUST:
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Resolvers that have multiple IP addresses SHOULD use them in an
+unpredictable manner for outgoing queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Resolver implementations SHOULD provide means to avoid usage of
+certain ports.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Resolvers SHOULD favor authoritative nameservers with which a trust
+relation has been established; stub-resolvers SHOULD be able to use
+Transaction Signature (TSIG) ([RFC2845]) or IPsec ([RFC4301]) when
+communicating with their recursive resolver.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In case a cryptographic verification of response validity is
+available (TSIG, SIG(0)), resolver implementations MAY waive above
+rules, and rely on this guarantee instead.
+'''
+

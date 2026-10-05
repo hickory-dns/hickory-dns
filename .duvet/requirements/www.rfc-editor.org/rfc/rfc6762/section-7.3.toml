@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-7.3"
+
+# Duplicate Question Suppression
+#
+#    If a host is planning to transmit (or retransmit) a query, and it
+#    sees another host on the network send a query containing the same
+#    "QM" question, and the Known-Answer Section of that query does not
+#    contain any records that this host would not also put in its own
+#    Known-Answer Section, then this host SHOULD treat its own query as
+#    having been sent.  When multiple queriers on the network are querying
+#    for the same resource records, there is no need for them to all be
+#    repeatedly asking the same question.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a host is planning to transmit (or retransmit) a query, and it
+sees another host on the network send a query containing the same
+"QM" question, and the Known-Answer Section of that query does not
+contain any records that this host would not also put in its own
+Known-Answer Section, then this host SHOULD treat its own query as
+having been sent.
+'''
+

@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc7830#section-4"
+
+# Usage Considerations
+#
+#    This document does not specify the actual amount of padding to be
+#    used, since this depends on the situation in which the option is
+#    used.  However, padded DNS messages MUST NOT exceed the number of
+#    octets specified in the Requestor's Payload Size field encoded in the
+#    RR Class Field (see Sections 6.2.3 and 6.2.4 of [RFC6891]).
+# 
+#    Responders MUST pad DNS responses when the respective DNS query
+#    included the "Padding" option, unless doing so would violate the
+#    maximum UDP payload size.
+# 
+#    Responders MAY pad DNS responses when the respective DNS query
+#    indicated EDNS(0) support of the Requestor and the "Padding" option
+#    was not included.
+# 
+#    Responders MUST NOT pad DNS responses when the respective DNS query
+#    did not indicate EDNS(0) support.
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, padded DNS messages MUST NOT exceed the number of
+octets specified in the Requestor's Payload Size field encoded in the
+RR Class Field (see Sections 6.2.3 and 6.2.4 of [RFC6891]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Responders MUST pad DNS responses when the respective DNS query
+included the "Padding" option, unless doing so would violate the
+maximum UDP payload size.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Responders MAY pad DNS responses when the respective DNS query
+indicated EDNS(0) support of the Requestor and the "Padding" option
+was not included.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Responders MUST NOT pad DNS responses when the respective DNS query
+did not indicate EDNS(0) support.
+'''
+

@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.11"
+
+# RCODE (Response Code)
+#
+#    In both multicast query and multicast response messages, the Response
+#    Code MUST be zero on transmission.  Multicast DNS messages received
+#    with non-zero Response Codes MUST be silently ignored.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both multicast query and multicast response messages, the Response
+Code MUST be zero on transmission.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS messages received
+with non-zero Response Codes MUST be silently ignored.
+'''
+

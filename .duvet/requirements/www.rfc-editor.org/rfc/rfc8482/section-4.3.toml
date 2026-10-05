@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-4.3"
+
+# Answer with Best Guess as to Intention
+#
+#    In some cases, it is possible to guess what the initiator wants in
+#    the answer (but not always).  Some implementations have implemented
+#    the spirit of this document by returning all RRsets of RRTYPE CNAME,
+#    MX, A, and AAAA that are present at the owner name while suppressing
+#    others.  This heuristic seems to work well in practice; it satisfies
+#    the needs of some applications whilst suppressing other RRsets such
+#    as TXT and DNSKEY that can often contribute to large responses.
+#    Whilst some applications may be satisfied by this behavior, the
+#    resulting responses in the general case are larger than in the
+#    approaches described in Sections 4.1 and 4.2.
+# 
+#    As before, if the zone is signed and the DO bit is set on the
+#    corresponding query, an RRSIG RRset MUST be included in the response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+As before, if the zone is signed and the DO bit is set on the
+corresponding query, an RRSIG RRset MUST be included in the response.
+'''
+

@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-2.2"
+
+# The DNSKEY RR Presentation Format
+#
+#    The presentation format of the RDATA portion is as follows:
+# 
+#    The Flag field MUST be represented as an unsigned decimal integer.
+#    Given the currently defined flags, the possible values are: 0, 256,
+#    and 257.
+# 
+#    The Protocol Field MUST be represented as an unsigned decimal integer
+#    with a value of 3.
+# 
+#    The Algorithm field MUST be represented either as an unsigned decimal
+#    integer or as an algorithm mnemonic as specified in Appendix A.1.
+# 
+#    The Public Key field MUST be represented as a Base64 encoding of the
+#    Public Key.  Whitespace is allowed within the Base64 text.  For a
+#    definition of Base64 encoding, see [RFC3548].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Flag field MUST be represented as an unsigned decimal integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Protocol Field MUST be represented as an unsigned decimal integer
+with a value of 3.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Algorithm field MUST be represented either as an unsigned decimal
+integer or as an algorithm mnemonic as specified in Appendix A.1.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Public Key field MUST be represented as a Base64 encoding of the
+Public Key.
+'''
+

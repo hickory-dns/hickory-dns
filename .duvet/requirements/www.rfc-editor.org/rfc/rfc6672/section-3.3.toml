@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-3.3"
+
+# Wildcards
+#
+#    The use of DNAME in conjunction with wildcards is discouraged
+#    [RFC4592].  Thus, records of the form "*.example.com DNAME
+#    example.net" SHOULD NOT be used.
+# 
+#    The interaction between the expansion of the wildcard and the
+#    redirection of the DNAME is non-deterministic.  Due to the fact that
+#    the processing is non-deterministic, DNSSEC validating resolvers may
+#    not be able to validate a wildcarded DNAME.
+# 
+#    A server MAY give a warning that the behavior is unspecified if such
+#    a wildcarded DNAME is loaded.  The server MAY refuse it, refuse to
+#    load the zone, or refuse dynamic updates.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Thus, records of the form "*.example.com DNAME
+example.net" SHOULD NOT be used.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A server MAY give a warning that the behavior is unspecified if such
+a wildcarded DNAME is loaded.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The server MAY refuse it, refuse to
+load the zone, or refuse dynamic updates.
+'''
+

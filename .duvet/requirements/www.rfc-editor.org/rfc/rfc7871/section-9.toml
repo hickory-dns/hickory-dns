@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-9"
+
+# DNSSEC Considerations
+#
+#    The presence or absence of an EDNS0 OPT resource record ([RFC6891])
+#    containing an ECS option in a DNS query does not change the usage of
+#    the resource records and mechanisms used to provide data origin
+#    authentication and data integrity to the DNS, as described in
+#    [RFC4033], [RFC4034], and [RFC4035].  OPT records are not signed.
+# 
+#    Use of this option, however, does imply increased DNS traffic between
+#    any given Recursive Resolver and Authoritative Nameserver, which
+#    could be another barrier to further DNSSEC adoption in this area.
+# 
+#    The initial version of this protocol, against which several
+#    Authoritative and Recursive Nameserver implementations were written,
+#    did not discuss the handling of DNSSEC RRs; thus, it is expected that
+#    there are operational inconsistencies in handling them.
+# 
+#    Given the intention of this document to describe how ECS is currently
+#    deployed, specifying new requirements for DNSSEC handling is out of
+#    scope.  However, some recommendations can be made as to what is most
+#    likely to result in successful interoperation for a DNSSEC-signed ECS
+#    zone, mainly from the point of view of Authoritative Nameservers.
+# 
+#    Most DNSSEC records SHOULD be scoped at /0, except for the RRSIG
+#    records, which MUST be tied to the RRset that they sign in a Tailored
+#    Response.  While it is possible to conceive of a way to get other
+#    DNSSEC records working in a network-specific way, it has little
+#    apparent benefit or likelihood of working with deployed validating
+#    resolvers.
+# 
+#    One further implication here is that, despite the discussion about
+#    negative answers in Section 7.4, scoping NextSECure (NSEC) or NSEC3
+#    records at /0 per the previous paragraph necessarily implies that
+#    DNSSEC-signed negative answers must also be network-invariant.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Most DNSSEC records SHOULD be scoped at /0, except for the RRSIG
+records, which MUST be tied to the RRset that they sign in a Tailored
+Response.
+'''
+

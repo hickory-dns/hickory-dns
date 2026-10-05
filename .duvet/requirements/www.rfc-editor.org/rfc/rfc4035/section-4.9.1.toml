@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-4.9.1"
+
+# Handling of the DO Bit
+#
+#    A non-validating security-aware stub resolver MAY include the DNSSEC
+#    RRs returned by a security-aware recursive name server as part of the
+#    data that the stub resolver hands back to the application that
+#    invoked it, but is not required to do so.  A non-validating stub
+#    resolver that seeks to do this will need to set the DO bit in order
+#    to receive DNSSEC RRs from the recursive name server.
+# 
+#    A validating security-aware stub resolver MUST set the DO bit,
+#    because otherwise it will not receive the DNSSEC RRs it needs to
+#    perform signature validation.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A non-validating security-aware stub resolver MAY include the DNSSEC
+RRs returned by a security-aware recursive name server as part of the
+data that the stub resolver hands back to the application that
+invoked it, but is not required to do so.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A validating security-aware stub resolver MUST set the DO bit,
+because otherwise it will not receive the DNSSEC RRs it needs to
+perform signature validation.
+'''
+

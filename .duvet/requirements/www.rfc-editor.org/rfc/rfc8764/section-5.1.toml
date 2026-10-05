@@ -1,0 +1,88 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-5.1"
+
+# Setup Message Retransmission
+#
+#    LLQ Setup Requests and Responses sent by the client SHOULD be
+#    retransmitted if no acknowledgments are received.  The client SHOULD
+#    retry up to two more times (for a total of 3 attempts) before
+#    considering the server down or unreachable.  The client MUST wait at
+#    least 2 seconds before the first retransmission and 4 seconds between
+#    the first and second retransmissions.  The client SHOULD listen for a
+#    response for at least 8 seconds after the 3rd attempt before
+#    considering the server down or unreachable.  Upon determining a
+#    server to be down, a client MAY periodically attempt to re-initiate
+#    an LLQ setup at a rate of not more than once per hour.
+# 
+#    Servers MUST NOT retransmit acknowledgments that do not generate
+#    responses from the client.  Retransmission in setup is client driven,
+#    freeing servers from maintaining timers for incomplete LLQ setups.
+#    If servers receive duplicate messages from clients (perhaps due to
+#    the loss of the server's responses mid-flight), the server MUST
+#    resend its reply (possibly modifying the LLQ-LEASE as described in
+#    Section 5.2.4, "ACK + Answers").
+# 
+#    Servers MUST NOT garbage collect LLQs that fail to complete the four-
+#    way handshake until the initially granted LLQ-LEASE has elapsed.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+LLQ Setup Requests and Responses sent by the client SHOULD be
+retransmitted if no acknowledgments are received.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD
+retry up to two more times (for a total of 3 attempts) before
+considering the server down or unreachable.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST wait at
+least 2 seconds before the first retransmission and 4 seconds between
+the first and second retransmissions.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD listen for a
+response for at least 8 seconds after the 3rd attempt before
+considering the server down or unreachable.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Upon determining a
+server to be down, a client MAY periodically attempt to re-initiate
+an LLQ setup at a rate of not more than once per hour.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Servers MUST NOT retransmit acknowledgments that do not generate
+responses from the client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If servers receive duplicate messages from clients (perhaps due to
+the loss of the server's responses mid-flight), the server MUST
+resend its reply (possibly modifying the LLQ-LEASE as described in
+Section 5.2.4, "ACK + Answers").
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Servers MUST NOT garbage collect LLQs that fail to complete the four-
+way handshake until the initially granted LLQ-LEASE has elapsed.
+'''
+

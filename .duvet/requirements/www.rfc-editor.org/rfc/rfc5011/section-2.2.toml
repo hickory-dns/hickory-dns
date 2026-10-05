@@ -1,0 +1,61 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-2.2"
+
+# Add Hold-Down
+#
+#    Assume two trust point keys A and B.  Assume that B has been
+#    compromised.  An attacker could generate and add a new trust anchor
+#    key C (by adding C to the DNSKEY RRSet and signing it with B), and
+#    then invalidate the compromised key.  This would result in both the
+#    attacker and owner being able to sign data in the zone and have it
+#    accepted as valid by resolvers.
+# 
+#    To mitigate but not completely solve this problem, we add a hold-down
+#    time to the addition of the trust anchor.  When the resolver sees a
+#    new SEP key in a validated trust point DNSKEY RRSet, the resolver
+#    starts an acceptance timer, and remembers all the keys that validated
+#    the RRSet.  If the resolver ever sees the DNSKEY RRSet without the
+#    new key but validly signed, it stops the acceptance process for that
+#    key and resets the acceptance timer.  If all of the keys that were
+# 
+#    originally used to validate this key are revoked prior to the timer
+#    expiring, the resolver stops the acceptance process and resets the
+#    timer.
+# 
+#    Once the timer expires, the new key will be added as a trust anchor
+#    the next time the validated RRSet with the new key is seen at the
+#    resolver.  The resolver MUST NOT treat the new key as a trust anchor
+#    until the hold-down time expires AND it has retrieved and validated a
+#    DNSKEY RRSet after the hold-down time that contains the new key.
+# 
+#    N.B.: Once the resolver has accepted a key as a trust anchor, the key
+#    MUST be considered a valid trust anchor by that resolver until
+#    explicitly revoked as described above.
+# 
+#    In the given example, the zone owner can recover from a compromise by
+#    revoking B and adding a new key D and signing the DNSKEY RRSet with
+#    both A and B.
+# 
+#    The reason this does not completely solve the problem has to do with
+#    the distributed nature of DNS.  The resolver only knows what it sees.
+#    A determined attacker who holds one compromised key could keep a
+#    single resolver from realizing that the key had been compromised by
+#    intercepting 'real' data from the originating zone and substituting
+#    their own (e.g., using the example, signed only by B).  This is no
+#    worse than the current situation assuming a compromised key.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The resolver MUST NOT treat the new key as a trust anchor
+until the hold-down time expires AND it has retrieved and validated a
+DNSKEY RRSet after the hold-down time that contains the new key.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+N.B.: Once the resolver has accepted a key as a trust anchor, the key
+MUST be considered a valid trust anchor by that resolver until
+explicitly revoked as described above.
+'''
+

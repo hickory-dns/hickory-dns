@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc9558#section-5.3"
+
+# Digest Sizes
+#
+#    The size of a GOST R 34.11-2012 digest conforming to this
+#    specification MUST be 256 bits according to RFC 6986 [RFC6986].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The size of a GOST R 34.11-2012 digest conforming to this
+specification MUST be 256 bits according to RFC 6986 [RFC6986].
+'''
+

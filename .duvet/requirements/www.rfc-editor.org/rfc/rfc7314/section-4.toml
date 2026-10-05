@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc7314#section-4"
+
+# Secondary Behaviour
+#
+#    When a secondary server performs a zone-transfer request or a zone-
+#    refresh query, it SHALL add an EDNS EXPIRE option to the query
+#    message.
+# 
+#    If a secondary receives an EDNS EXPIRE option in a response to an SOA
+#    query, it SHALL update its expire timer to be the maximum of the
+#    value returned in the EDNS EXPIRE option and the current timer value.
+#    Similarly, if a secondary receives an EDNS EXPIRE option in its
+#    response to an IXFR query that indicated the secondary is up to date
+#    (serial matches current serial), the secondary SHALL update the
+#    expire timer to be the maximum of the value returned in the EDNS
+#    EXPIRE option and the current timer value.
+# 
+#    If the zone is transferred or updated as the result of an AXFR or
+#    IXFR query and there is an EDNS EXPIRE option with the response, then
+#    the value of the EDNS EXPIRE option SHOULD be used instead of the
+#    value of the SOA EXPIRE field to initialise the expire timer.
+# 
+#    In all cases, if the value of the SOA EXPIRE field is less than the
+#    value of the EDNS EXPIRE option, then the value of the SOA EXPIRE
+#    field MUST be used and MUST be treated as a maximum when updating or
+#    initialising the expire timer.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a secondary server performs a zone-transfer request or a zone-
+refresh query, it SHALL add an EDNS EXPIRE option to the query
+message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a secondary receives an EDNS EXPIRE option in a response to an SOA
+query, it SHALL update its expire timer to be the maximum of the
+value returned in the EDNS EXPIRE option and the current timer value.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Similarly, if a secondary receives an EDNS EXPIRE option in its
+response to an IXFR query that indicated the secondary is up to date
+(serial matches current serial), the secondary SHALL update the
+expire timer to be the maximum of the value returned in the EDNS
+EXPIRE option and the current timer value.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the zone is transferred or updated as the result of an AXFR or
+IXFR query and there is an EDNS EXPIRE option with the response, then
+the value of the EDNS EXPIRE option SHOULD be used instead of the
+value of the SOA EXPIRE field to initialise the expire timer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In all cases, if the value of the SOA EXPIRE field is less than the
+value of the EDNS EXPIRE option, then the value of the SOA EXPIRE
+field MUST be used and MUST be treated as a maximum when updating or
+initialising the expire timer.
+'''
+

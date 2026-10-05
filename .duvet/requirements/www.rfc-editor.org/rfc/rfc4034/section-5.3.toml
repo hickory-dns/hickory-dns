@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-5.3"
+
+# The DS RR Presentation Format
+#
+#    The presentation format of the RDATA portion is as follows:
+# 
+#    The Key Tag field MUST be represented as an unsigned decimal integer.
+# 
+#    The Algorithm field MUST be represented either as an unsigned decimal
+#    integer or as an algorithm mnemonic specified in Appendix A.1.
+# 
+#    The Digest Type field MUST be represented as an unsigned decimal
+#    integer.
+# 
+#    The Digest MUST be represented as a sequence of case-insensitive
+#    hexadecimal digits.  Whitespace is allowed within the hexadecimal
+#    text.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Key Tag field MUST be represented as an unsigned decimal integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Algorithm field MUST be represented either as an unsigned decimal
+integer or as an algorithm mnemonic specified in Appendix A.1.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Digest Type field MUST be represented as an unsigned decimal
+integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Digest MUST be represented as a sequence of case-insensitive
+hexadecimal digits.
+'''
+

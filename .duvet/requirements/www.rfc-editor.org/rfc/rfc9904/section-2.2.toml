@@ -1,0 +1,78 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#section-2.2"
+
+# Adding and Changing Values
+#
+#    The following note describing the procedures for adding and changing
+#    values has been added to the "DNS Security Algorithm Numbers"
+#    registry:
+# 
+#    |  Adding a new entry to the "DNS Security Algorithm Numbers"
+#    |  registry with a recommended value of "MAY" in the "Use for DNSSEC
+#    |  Signing", "Use for DNSSEC Validation", "Implement for DNSSEC
+#    |  Signing", or "Implement for DNSSEC Validation" columns will be
+#    |  subject to the Specification Required policy as defined in
+#    |  [RFC8126] in order to promote continued evolution of DNSSEC
+#    |  algorithms and DNSSEC agility.  New entries added through the
+#    |  Specification Required process will have the value of "MAY" for
+#    |  all columns.
+#    |  
+#    |  Adding a new entry to, or changing an existing value in, the "DNS
+#    |  Security Algorithm Numbers" registry that has any value other than
+#    |  "MAY" in the "Use for DNSSEC Signing", "Use for DNSSEC
+#    |  Validation", "Implement for DNSSEC Signing", or "Implement for
+#    |  DNSSEC Validation" columns requires Standards Action.
+#    |  
+#    |  If an item is not marked as "RECOMMENDED", it does not necessarily
+#    |  mean that it is flawed; rather, it indicates that the item either
+#    |  has not been through the IETF consensus process, has limited
+#    |  applicability, or is intended only for specific use cases.
+# 
+#    The following note has been added to the "Digest Algorithms"
+#    registry:
+# 
+#    |  Adding a new entry to the "Digest Algorithms" registry with a
+#    |  recommended value of "MAY" in the "Use for DNSSEC Delegation",
+#    |  "Use for DNSSEC Validation", "Implement for DNSSEC Delegation", or
+#    |  "Implement for DNSSEC Validation" columns SHALL follow the
+#    |  Specification Required policy as defined in [RFC8126].
+#    |  
+#    |  Adding a new entry to, or changing an existing value in, the
+#    |  "Digest Algorithms" registry that has any value other than "MAY"
+#    |  in the "Use for DNSSEC Delegation", "Use for DNSSEC Validation",
+#    |  "Implement for DNSSEC Delegation", or "Implement for DNSSEC
+#    |  Validation" columns requires Standards Action.
+#    |  
+#    |  If an item is not marked as "RECOMMENDED", it does not necessarily
+#    |  mean that it is flawed; rather, it indicates that the item either
+#    |  has not been through the IETF consensus process, has limited
+#    |  applicability, or is intended only for specific use cases.
+# 
+#    Only values of "MAY", "RECOMMENDED", "MUST NOT", and "NOT
+#    RECOMMENDED" may be placed into the "Use for DNSSEC Signing" and "Use
+#    for DNSSEC Validation" columns.  Only values of "MAY", "RECOMMENDED",
+#    "MUST", "MUST NOT", and "NOT RECOMMENDED" may be placed into the
+#    "Implement for DNSSEC Signing" and "Implement for DNSSEC Validation"
+#    columns.  Note that a value of "MUST" is not an allowed value for the
+#    two "Use for" columns.
+# 
+#    The following sections state the initial values that have been
+#    populated into these columns.  The values in the "Implement for"
+#    columns are transcribed from [RFC8624].  The "Use for" columns are
+#    set to the same values as those in the "Implement for" columns since
+#    the general interpretation to date indicates they have been treated
+#    as values for both "use" and "implementation".  Note that the value
+#    in the "Use for" column is "RECOMMENDED" when the value in the
+#    corresponding "Implement for" column is "MUST".  We note that the
+#    values for "Implement for" and "Use for" may diverge in the future as
+#    implementations generally precede deployments.
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  Adding a new entry to the "Digest Algorithms" registry with a
+|  recommended value of "MAY" in the "Use for DNSSEC Delegation",
+|  "Use for DNSSEC Validation", "Implement for DNSSEC Delegation", or
+|  "Implement for DNSSEC Validation" columns SHALL follow the
+|  Specification Required policy as defined in [RFC8126].
+'''
+

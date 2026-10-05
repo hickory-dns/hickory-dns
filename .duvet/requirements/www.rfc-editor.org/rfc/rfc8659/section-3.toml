@@ -1,0 +1,87 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-3"
+
+# Relevant Resource Record Set
+#
+#    Before issuing a certificate, a compliant CA MUST check for
+#    publication of a Relevant RRset.  If such an RRset exists, a CA
+#    MUST NOT issue a certificate unless the CA determines that either
+#    (1) the certificate request is consistent with the applicable CAA
+#    RRset or (2) an exception specified in the relevant CP or CPS
+#    applies.  If the Relevant RRset for an FQDN or Wildcard Domain Name
+#    contains no Property Tags that restrict issuance (for instance, if it
+#    contains only iodef Property Tags or only Property Tags unrecognized
+#    by the CA), CAA does not restrict issuance.
+# 
+#    A certificate request MAY specify more than one FQDN and MAY specify
+#    Wildcard Domain Names.  Issuers MUST verify authorization for all the
+#    FQDNs and Wildcard Domain Names specified in the request.
+# 
+#    The search for a CAA RRset climbs the DNS name tree from the
+#    specified label up to, but not including, the DNS root "." until a
+#    CAA RRset is found.
+# 
+#    Given a request for a specific FQDN X or a request for a Wildcard
+#    Domain Name *.X, the Relevant RRset RelevantCAASet(X) is determined
+#    as follows (in pseudocode):
+# 
+#       Let CAA(X) be the RRset returned by performing a CAA record query
+#       for the FQDN X, according to the lookup algorithm specified in
+#       Section 4.3.2 of [RFC1034] (in particular, chasing aliases).  Let
+#       Parent(X) be the FQDN produced by removing the leftmost label of
+#       X.
+# 
+#       RelevantCAASet(domain):
+#         while domain is not ".":
+#           if CAA(domain) is not Empty:
+#             return CAA(domain)
+#           domain = Parent(domain)
+#         return Empty
+# 
+#       For example, processing CAA for the FQDN "X.Y.Z" where there are
+#       no CAA records at any level in the tree RelevantCAASet would have
+#       the following steps:
+# 
+#       CAA("X.Y.Z.") = Empty; domain = Parent("X.Y.Z.") = "Y.Z."
+#       CAA("Y.Z.")   = Empty; domain = Parent("Y.Z.")   = "Z."
+#       CAA("Z.")     = Empty; domain = Parent("Z.")     = "."
+#       return Empty
+# 
+#       Processing CAA for the FQDN "A.B.C" where there is a CAA record
+#       "issue example.com" at "B.C" would terminate early upon finding
+#       the CAA record:
+# 
+#       CAA("A.B.C.") = Empty; domain = Parent("A.B.C.") = "B.C."
+#       CAA("B.C.")   = "issue example.com"
+#       return "issue example.com"
+
+[[spec]]
+level = "MUST"
+quote = '''
+Before issuing a certificate, a compliant CA MUST check for
+publication of a Relevant RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If such an RRset exists, a CA
+MUST NOT issue a certificate unless the CA determines that either
+(1) the certificate request is consistent with the applicable CAA
+RRset or (2) an exception specified in the relevant CP or CPS
+applies.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A certificate request MAY specify more than one FQDN and MAY specify
+Wildcard Domain Names.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Issuers MUST verify authorization for all the
+FQDNs and Wildcard Domain Names specified in the request.
+'''
+

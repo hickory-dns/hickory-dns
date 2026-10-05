@@ -1,0 +1,58 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.3.2"
+
+# Transaction Errors
+#
+#    Servers normally complete transactions by sending a DNS response (or
+#    responses) on the transaction's stream, including cases where the DNS
+#    response indicates a DNS error.  For example, a client SHOULD be
+#    notified of a Server Failure (SERVFAIL, [RFC1035]) through a response
+#    with the Response Code set to SERVFAIL.
+# 
+#    If a server is incapable of sending a DNS response due to an internal
+#    error, it SHOULD issue a QUIC RESET_STREAM frame.  The error code
+#    SHOULD be set to DOQ_INTERNAL_ERROR.  The corresponding DNS
+#    transaction MUST be abandoned.  Clients MAY limit the number of
+#    unsolicited QUIC RESET_STREAM frames received on a connection before
+#    choosing to close the connection.
+# 
+#    Note that this mechanism provides a way for primaries to abort a
+#    single zone transfer occurring on a given stream without having to
+#    close the QUIC connection.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For example, a client SHOULD be
+notified of a Server Failure (SERVFAIL, [RFC1035]) through a response
+with the Response Code set to SERVFAIL.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a server is incapable of sending a DNS response due to an internal
+error, it SHOULD issue a QUIC RESET_STREAM frame.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The error code
+SHOULD be set to DOQ_INTERNAL_ERROR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The corresponding DNS
+transaction MUST be abandoned.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Clients MAY limit the number of
+unsolicited QUIC RESET_STREAM frames received on a connection before
+choosing to close the connection.
+'''
+

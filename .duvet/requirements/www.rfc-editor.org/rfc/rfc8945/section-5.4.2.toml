@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.4.2"
+
+# MAC Error Handling
+#
+#    If the response RCODE is 9 (NOTAUTH) and TSIG ERROR is 16 (BADSIG),
+#    this is a MAC-related error, and clients MAY retry the request with a
+#    new request ID, but it would be better to try a different shared key
+#    if one is available.  Clients SHOULD keep track of how many MAC
+#    errors are associated with each key.  Clients SHOULD log this event.
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the response RCODE is 9 (NOTAUTH) and TSIG ERROR is 16 (BADSIG),
+this is a MAC-related error, and clients MAY retry the request with a
+new request ID, but it would be better to try a different shared key
+if one is available.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD keep track of how many MAC
+errors are associated with each key.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients SHOULD log this event.
+'''
+

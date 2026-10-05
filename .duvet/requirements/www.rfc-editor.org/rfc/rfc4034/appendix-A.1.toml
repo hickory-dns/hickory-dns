@@ -1,0 +1,48 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#appendix-A.1"
+
+# DNSSEC Algorithm Types
+#
+#    The DNSKEY, RRSIG, and DS RRs use an 8-bit number to identify the
+#    security algorithm being used.  These values are stored in the
+#    "Algorithm number" field in the resource record RDATA.
+# 
+#    Some algorithms are usable only for zone signing (DNSSEC), some only
+#    for transaction security mechanisms (SIG(0) and TSIG), and some for
+#    both.  Those usable for zone signing may appear in DNSKEY, RRSIG, and
+#    DS RRs.  Those usable for transaction security would be present in
+#    SIG(0) and KEY RRs, as described in [RFC2931].
+# 
+#                                 Zone
+#    Value Algorithm [Mnemonic]  Signing  References   Status
+#    ----- -------------------- --------- ----------  ---------
+#      0   reserved
+#      1   RSA/MD5 [RSAMD5]         n      [RFC2537]  NOT RECOMMENDED
+#      2   Diffie-Hellman [DH]      n      [RFC2539]   -
+#      3   DSA/SHA-1 [DSA]          y      [RFC2536]  OPTIONAL
+#      4   Elliptic Curve [ECC]              TBA       -
+#      5   RSA/SHA-1 [RSASHA1]      y      [RFC3110]  MANDATORY
+#    252   Indirect [INDIRECT]      n                  -
+#    253   Private [PRIVATEDNS]     y      see below  OPTIONAL
+#    254   Private [PRIVATEOID]     y      see below  OPTIONAL
+#    255   reserved
+# 
+#    6 - 251  Available for assignment by IETF Standards Action.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Zone
+Value Algorithm [Mnemonic]  Signing  References   Status
+----- -------------------- --------- ----------  ---------
+0   reserved
+1   RSA/MD5 [RSAMD5]         n      [RFC2537]  NOT RECOMMENDED
+2   Diffie-Hellman [DH]      n      [RFC2539]   -
+3   DSA/SHA-1 [DSA]          y      [RFC2536]  OPTIONAL
+4   Elliptic Curve [ECC]              TBA       -
+5   RSA/SHA-1 [RSASHA1]      y      [RFC3110]  MANDATORY
+252   Indirect [INDIRECT]      n                  -
+253   Private [PRIVATEDNS]     y      see below  OPTIONAL
+254   Private [PRIVATEOID]     y      see below  OPTIONAL
+255   reserved
+'''
+

@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc6605#section-4"
+
+# DNSKEY and RRSIG Resource Records for ECDSA
+#
+#    ECDSA public keys consist of a single value, called "Q" in FIPS
+#    186-3.  In DNSSEC keys, Q is a simple bit string that represents the
+#    uncompressed form of a curve point, "x | y".
+# 
+#    The ECDSA signature is the combination of two non-negative integers,
+#    called "r" and "s" in FIPS 186-3.  The two integers, each of which is
+#    formatted as a simple octet string, are combined into a single longer
+#    octet string for DNSSEC as the concatenation "r | s".  (Conversion of
+#    the integers to bit strings is described in Section C.2 of FIPS
+#    186-3.)  For P-256, each integer MUST be encoded as 32 octets; for
+#    P-384, each integer MUST be encoded as 48 octets.
+# 
+#    The algorithm numbers associated with the DNSKEY and RRSIG resource
+#    records are fully defined in the IANA Considerations section.  They
+#    are:
+# 
+#    o  DNSKEY and RRSIG RRs signifying ECDSA with the P-256 curve and
+#       SHA-256 use the algorithm number 13.
+# 
+#    o  DNSKEY and RRSIG RRs signifying ECDSA with the P-384 curve and
+#       SHA-384 use the algorithm number 14.
+# 
+#    Conformant implementations that create records to be put into the DNS
+#    MUST implement signing and verification for both of the above
+#    algorithms.  Conformant DNSSEC verifiers MUST implement verification
+#    for both of the above algorithms.
+
+[[spec]]
+level = "MUST"
+quote = '''
+(Conversion of
+the integers to bit strings is described in Section C.2 of FIPS
+186-3.)  For P-256, each integer MUST be encoded as 32 octets; for
+P-384, each integer MUST be encoded as 48 octets.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Conformant implementations that create records to be put into the DNS
+MUST implement signing and verification for both of the above
+algorithms.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Conformant DNSSEC verifiers MUST implement verification
+for both of the above algorithms.
+'''
+

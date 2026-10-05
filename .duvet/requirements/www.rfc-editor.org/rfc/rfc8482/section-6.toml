@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-6"
+
+# HINFO Considerations
+#
+#    It is possible that the synthesized HINFO RRset in an ANY response,
+#    once cached by the initiator, might suppress subsequent queries from
+#    the same initiator with QTYPE=HINFO.  Thus, the use of HINFO in this
+#    proposal would effectively mask the HINFO RRset present in the zone.
+# 
+#    Operators of authoritative servers who serve zones that rely upon
+#    conventional use of the HINFO RRTYPE SHOULD sensibly choose the
+#    "single RRset" method described in this document or select another
+#    type.
+# 
+#    The HINFO RRTYPE is believed to be rarely used in the DNS at the time
+#    of writing, based on observations made in passive DNS and at
+#    recursive and authoritative DNS servers.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Operators of authoritative servers who serve zones that rely upon
+conventional use of the HINFO RRTYPE SHOULD sensibly choose the
+"single RRset" method described in this document or select another
+type.
+'''
+

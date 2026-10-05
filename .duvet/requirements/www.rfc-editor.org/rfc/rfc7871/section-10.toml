@@ -1,0 +1,97 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-10"
+
+# NAT Considerations
+#
+#    Special awareness of ECS in devices that perform Network Address
+#    Translation (NAT) as described in [RFC2663] is not required; queries
+#    can be passed through as is.  The client's network address SHOULD NOT
+#    be added, and existing ECS options, if present, SHOULD NOT be
+#    modified by NAT devices.
+# 
+#    In large-scale global networks behind a NAT device (but, for example
+#    with Centralized Resolver infrastructure), an internal Intermediate
+#    Nameserver might have detailed network layout information, and may
+# 
+#    know which external subnets are used for egress traffic by each
+#    internal network.  In such cases, the Intermediate Nameserver MAY use
+#    that information when originating ECS options.
+# 
+#    In other cases, if a Recursive Resolver knows that it is situated
+#    behind a NAT device, it SHOULD NOT originate ECS options with their
+#    external IP address and instead rely on downstream Intermediate
+#    Nameservers to do so.  It MAY, however, choose to include the option
+#    with their internal address for the purposes of signaling its own
+#    limit for SOURCE PREFIX-LENGTH.
+# 
+#    Full treatment of special network addresses is beyond the scope of
+#    this document; handling them will likely differ according to the
+#    operational environments of each service provider.  As a general
+#    guideline, if an Authoritative Nameserver on the publicly routed
+#    Internet receives a query that specifies an ADDRESS in [RFC1918] or
+#    [RFC4193] private address space, it SHOULD ignore ADDRESS and look up
+#    its answer based on the address of the Recursive Resolver.  In the
+#    response, it SHOULD set SCOPE PREFIX-LENGTH to cover all of the
+#    relevant private space.  For example, a query for ADDRESS 10.1.2.0
+#    with a SOURCE PREFIX-LENGTH of 24 would get a returned SCOPE PREFIX-
+#    LENGTH of 8.  The Intermediate Nameserver MAY elect to cache the
+#    answer under one entry for special-purpose addresses [RFC6890]; see
+#    Section 11.3 of this document.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client's network address SHOULD NOT
+be added, and existing ECS options, if present, SHOULD NOT be
+modified by NAT devices.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In such cases, the Intermediate Nameserver MAY use
+that information when originating ECS options.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In other cases, if a Recursive Resolver knows that it is situated
+behind a NAT device, it SHOULD NOT originate ECS options with their
+external IP address and instead rely on downstream Intermediate
+Nameservers to do so.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+It MAY, however, choose to include the option
+with their internal address for the purposes of signaling its own
+limit for SOURCE PREFIX-LENGTH.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As a general
+guideline, if an Authoritative Nameserver on the publicly routed
+Internet receives a query that specifies an ADDRESS in [RFC1918] or
+[RFC4193] private address space, it SHOULD ignore ADDRESS and look up
+its answer based on the address of the Recursive Resolver.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the
+response, it SHOULD set SCOPE PREFIX-LENGTH to cover all of the
+relevant private space.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The Intermediate Nameserver MAY elect to cache the
+answer under one entry for special-purpose addresses [RFC6890]; see
+Section 11.3 of this document.
+'''
+

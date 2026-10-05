@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-1"
+
+# Introduction
+#
+#    In the DNS, a zone is the collection of authoritative resource
+#    records (RRs) sharing a common origin ([RFC8499]).  Zones are often
+#    stored as files in the so-called "master file format" ([RFC1034]).
+#    Zones are generally distributed among name servers using the zone
+#    transfer (AXFR) ([RFC5936]) and incremental zone transfer (IXFR)
+#    ([RFC1995]) protocols.  They can also be distributed outside of the
+#    DNS with any file transfer protocol such as FTP, HTTP, and rsync, or
+#    even as email attachments.  Currently, there is no standard way to
+#    compute a hash or message digest for a stand-alone zone.
+# 
+#    This document specifies an RR type that provides a cryptographic
+#    message digest of the data in a zone.  It allows a receiver of the
+#    zone to verify the zone's integrity and authenticity when used in
+#    combination with DNSSEC.  The digest RR is a part of the zone itself,
+#    allowing verification of the zone, no matter how it is transmitted.
+#    The digest uses the wire format of zone data in a canonical ordering.
+#    Thus, it is independent of presentation format such as whitespace,
+#    capitalization, and comments.
+# 
+#    This specification is OPTIONAL to implement by both publishers and
+#    consumers of zone data.
+
+[[spec]]
+level = "MAY"
+quote = '''
+This specification is OPTIONAL to implement by both publishers and
+consumers of zone data.
+'''
+

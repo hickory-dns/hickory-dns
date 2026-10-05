@@ -1,0 +1,70 @@
+target = "https://www.rfc-editor.org/rfc/rfc7858#section-8"
+
+# Security Considerations
+#
+#    Use of DNS over TLS is designed to address the privacy risks that
+#    arise out of the ability to eavesdrop on DNS messages.  It does not
+#    address other security issues in DNS, and there are a number of
+#    residual risks that may affect its success at protecting privacy:
+# 
+#    1.  There are known attacks on TLS, such as person-in-the-middle and
+#        protocol downgrade.  These are general attacks on TLS and not
+#        specific to DNS over TLS; please refer to the TLS RFCs for
+#        discussion of these security issues.  Clients and servers MUST
+#        adhere to the TLS implementation recommendations and security
+#        considerations of [BCP195].  DNS clients keeping track of servers
+#        known to support TLS enables clients to detect downgrade attacks.
+#        For servers with no connection history and no apparent support
+#        for TLS, depending on their privacy profile and privacy
+#        requirements, clients may choose to (a) try another server when
+#        available, (b) continue without TLS, or (c) refuse to forward the
+#        query.
+# 
+#    2.  Middleboxes [RFC3234] are present in some networks and have been
+#        known to interfere with normal DNS resolution.  Use of a
+#        designated port for DNS over TLS should avoid such interference.
+#        In general, clients that attempt TLS and fail can either fall
+#        back on unencrypted DNS or wait and retry later, depending on
+#        their privacy profile and privacy requirements.
+# 
+#    3.  Any DNS protocol interactions performed in the clear can be
+#        modified by a person-in-the-middle attacker.  For example,
+#        unencrypted queries and responses might take place over port 53
+#        between a client and server.  For this reason, clients MAY
+# 
+#        discard cached information about server capabilities advertised
+#        in cleartext.
+# 
+#    4.  This document does not, itself, specify ideas to resist known
+#        traffic analysis or side-channel leaks.  Even with encrypted
+#        messages, a well-positioned party may be able to glean certain
+#        details from an analysis of message timings and sizes.  Clients
+#        and servers may consider the use of a padding method to address
+#        privacy leakage due to message sizes [RFC7830].  Since traffic
+#        analysis can be based on many kinds of patterns and many kinds of
+#        classifiers, simple padding schemes alone might not be sufficient
+#        to mitigate such an attack.  Padding will, however, form a part
+#        of more complex mitigations for traffic-analysis attacks that are
+#        likely to be developed over time.  Implementors who can offer
+#        flexibility in terms of how padding can be used may be in a
+#        better position to enable such mitigations to be deployed in the
+#        future.
+# 
+#    As noted earlier, DNSSEC and DNS over TLS are independent and fully
+#    compatible protocols, each solving different problems.  The use of
+#    one does not diminish the need nor the usefulness of the other.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients and servers MUST
+adhere to the TLS implementation recommendations and security
+considerations of [BCP195].
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+For this reason, clients MAY
+'''
+

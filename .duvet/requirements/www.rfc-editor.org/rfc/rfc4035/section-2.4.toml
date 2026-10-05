@@ -1,0 +1,63 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-2.4"
+
+# Including DS RRs in a Zone
+#
+#    The DS resource record establishes authentication chains between DNS
+#    zones.  A DS RRset SHOULD be present at a delegation point when the
+#    child zone is signed.  The DS RRset MAY contain multiple records,
+#    each referencing a public key in the child zone used to verify the
+#    RRSIGs in that zone.  All DS RRsets in a zone MUST be signed, and DS
+#    RRsets MUST NOT appear at a zone's apex.
+# 
+#    A DS RR SHOULD point to a DNSKEY RR that is present in the child's
+#    apex DNSKEY RRset, and the child's apex DNSKEY RRset SHOULD be signed
+#    by the corresponding private key.  DS RRs that fail to meet these
+#    conditions are not useful for validation, but because the DS RR and
+#    its corresponding DNSKEY RR are in different zones, and because the
+#    DNS is only loosely consistent, temporary mismatches can occur.
+# 
+#    The TTL of a DS RRset SHOULD match the TTL of the delegating NS RRset
+#    (that is, the NS RRset from the same zone containing the DS RRset).
+# 
+#    Construction of a DS RR requires knowledge of the corresponding
+#    DNSKEY RR in the child zone, which implies communication between the
+#    child and parent zones.  This communication is an operational matter
+#    not covered by this document.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A DS RRset SHOULD be present at a delegation point when the
+child zone is signed.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The DS RRset MAY contain multiple records,
+each referencing a public key in the child zone used to verify the
+RRSIGs in that zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+All DS RRsets in a zone MUST be signed, and DS
+RRsets MUST NOT appear at a zone's apex.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A DS RR SHOULD point to a DNSKEY RR that is present in the child's
+apex DNSKEY RRset, and the child's apex DNSKEY RRset SHOULD be signed
+by the corresponding private key.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The TTL of a DS RRset SHOULD match the TTL of the delegating NS RRset
+(that is, the NS RRset from the same zone containing the DS RRset).
+'''
+

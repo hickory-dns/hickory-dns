@@ -1,0 +1,43 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-4.3"
+
+# Out-of-Bailiwick NS Records
+#
+#    When a zone contains NS records where the domain name pointed at does
+#    not fall within the zone itself, there is no way for the parent to
+#    safely update the associated glue records.  Thus, the child DNS
+#    operator MAY indicate that the NS records should be synchronized, and
+# 
+#    MAY set any glue record flags (A, AAAA) as well, but the parent will
+#    only update those glue records that are below the child's delegation
+#    point.
+# 
+#    Children deploying NS records pointing to domain names within their
+#    own children (the "grandchildren") SHOULD ensure the grandchildren's
+#    associated glue records are properly set before publishing the CSYNC
+#    record.  That is, it is imperative that proper communication and
+#    synchronization exist between the child and the grandchild.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Thus, the child DNS
+operator MAY indicate that the NS records should be synchronized, and
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+MAY set any glue record flags (A, AAAA) as well, but the parent will
+only update those glue records that are below the child's delegation
+point.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Children deploying NS records pointing to domain names within their
+own children (the "grandchildren") SHOULD ensure the grandchildren's
+associated glue records are properly set before publishing the CSYNC
+record.
+'''
+

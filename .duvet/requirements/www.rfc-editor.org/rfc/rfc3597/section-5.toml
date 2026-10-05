@@ -1,0 +1,76 @@
+target = "https://www.rfc-editor.org/rfc/rfc3597#section-5"
+
+# Text Representation
+#
+#    In the "type" field of a master file line, an unknown RR type is
+#    represented by the word "TYPE" immediately followed by the decimal RR
+#    type number, with no intervening whitespace.  In the "class" field,
+#    an unknown class is similarly represented as the word "CLASS"
+#    immediately followed by the decimal class number.
+# 
+#    This convention allows types and classes to be distinguished from
+#    each other and from TTL values, allowing the "[<TTL>] [<class>]
+#    <type> <RDATA>" and "[<class>] [<TTL>] <type> <RDATA>" forms of
+#    [RFC1035] to both be unambiguously parsed.
+# 
+#    The RDATA section of an RR of unknown type is represented as a
+#    sequence of white space separated words as follows:
+# 
+#       The special token \# (a backslash immediately followed by a hash
+#       sign), which identifies the RDATA as having the generic encoding
+#       defined herein rather than a traditional type-specific encoding.
+# 
+#       An unsigned decimal integer specifying the RDATA length in octets.
+# 
+#       Zero or more words of hexadecimal data encoding the actual RDATA
+#       field, each containing an even number of hexadecimal digits.
+# 
+#    If the RDATA is of zero length, the text representation contains only
+#    the \# token and the single zero representing the length.
+# 
+#    An implementation MAY also choose to represent some RRs of known type
+#    using the above generic representations for the type, class and/or
+#    RDATA, which carries the benefit of making the resulting master file
+#    portable to servers where these types are unknown.  Using the generic
+#    representation for the RDATA of an RR of known type can also be
+#    useful in the case of an RR type where the text format varies
+#    depending on a version, protocol, or similar field (or several)
+#    embedded in the RDATA when such a field has a value for which no text
+#    format is known, e.g., a LOC RR [RFC1876] with a VERSION other than
+#    0.
+# 
+#    Even though an RR of known type represented in the \# format is
+#    effectively treated as an unknown type for the purpose of parsing the
+#    RDATA text representation, all further processing by the server MUST
+#    treat it as a known type and take into account any applicable type-
+#    specific rules regarding compression, canonicalization, etc.
+# 
+#    The following are examples of RRs represented in this manner,
+#    illustrating various combinations of generic and type-specific
+#    encodings for the different fields of the master file format:
+# 
+#       a.example.   CLASS32     TYPE731         \# 6 abcd (
+#                                                ef 01 23 45 )
+#       b.example.   HS          TYPE62347       \# 0
+#       e.example.   IN          A               \# 4 0A000001
+#       e.example.   CLASS1      TYPE1           10.0.0.2
+
+[[spec]]
+level = "MAY"
+quote = '''
+An implementation MAY also choose to represent some RRs of known type
+using the above generic representations for the type, class and/or
+RDATA, which carries the benefit of making the resulting master file
+portable to servers where these types are unknown.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Even though an RR of known type represented in the \# format is
+effectively treated as an unknown type for the purpose of parsing the
+RDATA text representation, all further processing by the server MUST
+treat it as a known type and take into account any applicable type-
+specific rules regarding compression, canonicalization, etc.
+'''
+

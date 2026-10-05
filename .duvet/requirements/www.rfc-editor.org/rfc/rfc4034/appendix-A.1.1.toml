@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#appendix-A.1.1"
+
+# Private Algorithm Types
+#
+#    Algorithm number 253 is reserved for private use and will never be
+#    assigned to a specific algorithm.  The public key area in the DNSKEY
+#    RR and the signature area in the RRSIG RR begin with a wire encoded
+#    domain name, which MUST NOT be compressed.  The domain name indicates
+#    the private algorithm to use, and the remainder of the public key
+#    area is determined by that algorithm.  Entities should only use
+#    domain names they control to designate their private algorithms.
+# 
+#    Algorithm number 254 is reserved for private use and will never be
+#    assigned to a specific algorithm.  The public key area in the DNSKEY
+#    RR and the signature area in the RRSIG RR begin with an unsigned
+#    length byte followed by a BER encoded Object Identifier (ISO OID) of
+#    that length.  The OID indicates the private algorithm in use, and the
+#    remainder of the area is whatever is required by that algorithm.
+#    Entities should only use OIDs they control to designate their private
+#    algorithms.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The public key area in the DNSKEY
+RR and the signature area in the RRSIG RR begin with a wire encoded
+domain name, which MUST NOT be compressed.
+'''
+

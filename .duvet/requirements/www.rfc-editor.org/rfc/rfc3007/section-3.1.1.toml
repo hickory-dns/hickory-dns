@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc3007#section-3.1.1"
+
+# - User types
+#
+#    User types include all data types except SOA, NS, SIG, and NXT.  SOA
+#    and NS records SHOULD NOT be modified by normal users, since these
+#    types create or modify delegation points.  The addition of SIG
+#    records can lead to attacks resulting in additional workload for
+#    resolvers, and the deletion of SIG records could lead to extra work
+#    for the server if the zone SIG was deleted.  Note that these records
+#    are not forbidden, but not recommended for normal users.
+# 
+#    NXT records MUST NOT be created, modified, or deleted by dynamic
+#    update, as their update may cause instability in the protocol.  This
+#    is an update to RFC 2136.
+# 
+#    Issues concerning updates of KEY records are discussed in the
+#    Security Considerations section.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+SOA
+and NS records SHOULD NOT be modified by normal users, since these
+types create or modify delegation points.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+NXT records MUST NOT be created, modified, or deleted by dynamic
+update, as their update may cause instability in the protocol.
+'''
+

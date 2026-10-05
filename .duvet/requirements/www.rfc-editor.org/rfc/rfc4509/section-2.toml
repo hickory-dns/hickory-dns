@@ -1,0 +1,17 @@
+target = "https://www.rfc-editor.org/rfc/rfc4509#section-2"
+
+# Implementing the SHA-256 Algorithm for DS Record Support
+#
+#    This document specifies that the digest type code 2 has been assigned
+#    to SHA-256 [SHA256] [SHA256CODE] for use within DS records.  The
+#    results of the digest algorithm MUST NOT be truncated, and the entire
+#    32 byte digest result is to be published in the DS record.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+results of the digest algorithm MUST NOT be truncated, and the entire
+32 byte digest result is to be published in the DS record.
+'''
+

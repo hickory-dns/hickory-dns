@@ -1,0 +1,58 @@
+target = "https://www.rfc-editor.org/rfc/rfc7858#section-5"
+
+# Performance Considerations
+#
+#    DNS over TLS incurs additional latency at session startup.  It also
+#    requires additional state (memory) and increased processing (CPU).
+# 
+#    Latency:  Compared to UDP, DNS over TCP requires an additional round-
+#       trip time (RTT) of latency to establish a TCP connection.  TCP
+#       Fast Open [RFC7413] can eliminate that RTT when information exists
+#       from prior connections.  The TLS handshake adds another two RTTs
+#       of latency.  Clients and servers should support connection
+#       keepalive (reuse) and out-of-order processing to amortize
+#       connection setup costs.  Fast TLS connection resumption [RFC5077]
+#       further reduces the setup delay and avoids the DNS server keeping
+#       per-client session state.
+# 
+#       TLS False Start [TLS-FALSESTART] can also lead to a latency
+#       reduction in certain situations.  Implementations supporting TLS
+#       False Start need to be aware that it imposes additional
+#       constraints on how one uses TLS, over and above those stated in
+#       [BCP195].  It is unsafe to use False Start if your implementation
+#       and deployment does not adhere to these specific requirements.
+#       See [TLS-FALSESTART] for the details of these additional
+#       constraints.
+# 
+#    State:  The use of connection-oriented TCP requires keeping
+#       additional state at the server in both the kernel and application.
+#       The state requirements are of particular concern on servers with
+#       many clients, although memory-optimized TLS can add only modest
+#       state over TCP.  Smaller timeout values will reduce the number of
+#       concurrent connections, and servers can preemptively close
+#       connections when resource limits are exceeded.
+# 
+#    Processing:  The use of TLS encryption algorithms results in slightly
+#       higher CPU usage.  Servers can choose to refuse new DNS-over-TLS
+#       clients if processing limits are exceeded.
+# 
+#    Number of connections:  To minimize state on DNS servers and
+#       connection startup time, clients SHOULD minimize the creation of
+#       new TCP connections.  Use of a local DNS request aggregator (a
+#       particular type of forwarder) allows a single active DNS-over-TLS
+#       connection from any given client computer to its server.
+#       Additional guidance can be found in [RFC7766].
+# 
+#    A full performance evaluation is outside the scope of this
+#    specification.  A more detailed analysis of the performance
+#    implications of DNS over TLS (and DNS over TCP) is discussed in
+#    [TDNS] and [RFC7766].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Number of connections:  To minimize state on DNS servers and
+connection startup time, clients SHOULD minimize the creation of
+new TCP connections.
+'''
+

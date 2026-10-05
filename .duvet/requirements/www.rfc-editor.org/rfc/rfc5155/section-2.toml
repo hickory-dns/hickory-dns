@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-2"
+
+# Backwards Compatibility
+#
+#    This specification describes a protocol change that is not generally
+#    backwards compatible with [RFC4033], [RFC4034], and [RFC4035].  In
+#    particular, security-aware resolvers that are unaware of this
+#    specification (NSEC3-unaware resolvers) may fail to validate the
+#    responses introduced by this document.
+# 
+#    In order to aid deployment, this specification uses a signaling
+#    technique to prevent NSEC3-unaware resolvers from attempting to
+#    validate responses from NSEC3-signed zones.
+# 
+#    This specification allocates two new DNSKEY algorithm identifiers for
+#    this purpose.  Algorithm 6, DSA-NSEC3-SHA1 is an alias for algorithm
+#    3, DSA.  Algorithm 7, RSASHA1-NSEC3-SHA1 is an alias for algorithm 5,
+#    RSASHA1.  These are not new algorithms, they are additional
+#    identifiers for the existing algorithms.
+# 
+#    Zones signed according to this specification MUST only use these
+#    algorithm identifiers for their DNSKEY RRs.  Because these new
+#    identifiers will be unknown algorithms to existing, NSEC3-unaware
+#    resolvers, those resolvers will then treat responses from the NSEC3
+#    signed zone as insecure, as detailed in Section 5.2 of [RFC4035].
+# 
+#    These algorithm identifiers are used with the NSEC3 hash algorithm
+#    SHA1.  Using other NSEC3 hash algorithms requires allocation of a new
+#    alias (see Section 12.1.3).
+# 
+#    Security aware resolvers that are aware of this specification MUST
+#    recognize the new algorithm identifiers and treat them as equivalent
+#    to the algorithms that they alias.
+# 
+#    A methodology for transitioning from a DNSSEC signed zone to a zone
+#    signed using NSEC3 is discussed in Section 10.4.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Zones signed according to this specification MUST only use these
+algorithm identifiers for their DNSKEY RRs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Security aware resolvers that are aware of this specification MUST
+recognize the new algorithm identifiers and treat them as equivalent
+to the algorithms that they alias.
+'''
+

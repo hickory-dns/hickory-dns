@@ -1,0 +1,49 @@
+target = "https://www.rfc-editor.org/rfc/rfc4343#section-3"
+
+# Name Lookup, Label Types, and CLASS
+#
+#    According to the original DNS design decision, comparisons on name
+#    lookup for DNS queries should be case insensitive [STD13].  That is
+#    to say, a lookup string octet with a value in the inclusive range
+#    from 0x41 to 0x5A, the uppercase ASCII letters, MUST match the
+#    identical value and also match the corresponding value in the
+#    inclusive range from 0x61 to 0x7A, the lowercase ASCII letters.  A
+#    lookup string octet with a lowercase ASCII letter value MUST
+#    similarly match the identical value and also match the corresponding
+#    value in the uppercase ASCII letter range.
+# 
+#    (Historical note: The terms "uppercase" and "lowercase" were invented
+#    after movable type.  The terms originally referred to the two font
+#    trays for storing, in partitioned areas, the different physical type
+#    elements.  Before movable type, the nearest equivalent terms were
+#    "majuscule" and "minuscule".)
+# 
+#    One way to implement this rule would be to subtract 0x20 from all
+#    octets in the inclusive range from 0x61 to 0x7A before comparing
+#    octets.  Such an operation is commonly known as "case folding", but
+#    implementation via case folding is not required.  Note that the DNS
+#    case insensitivity does NOT correspond to the case folding specified
+#    in [ISO-8859-1] or [ISO-8859-2].  For example, the octets 0xDD (\221)
+#    and 0xFD (\253) do NOT match, although in other contexts, where they
+#    are interpreted as the upper- and lower-case version of "Y" with an
+#    acute accent, they might.
+
+[[spec]]
+level = "MUST"
+quote = '''
+That is
+to say, a lookup string octet with a value in the inclusive range
+from 0x41 to 0x5A, the uppercase ASCII letters, MUST match the
+identical value and also match the corresponding value in the
+inclusive range from 0x61 to 0x7A, the lowercase ASCII letters.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A
+lookup string octet with a lowercase ASCII letter value MUST
+similarly match the identical value and also match the corresponding
+value in the uppercase ASCII letter range.
+'''
+

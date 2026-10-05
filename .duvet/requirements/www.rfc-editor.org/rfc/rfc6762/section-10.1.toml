@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-10.1"
+
+# Goodbye Packets
+#
+#    In the case where a host knows that certain resource record data is
+#    about to become invalid (for example, when the host is undergoing a
+#    clean shutdown), the host SHOULD send an unsolicited Multicast DNS
+# 
+#    response packet, giving the same resource record name, rrtype,
+#    rrclass, and rdata, but an RR TTL of zero.  This has the effect of
+#    updating the TTL stored in neighboring hosts' cache entries to zero,
+#    causing that cache entry to be promptly deleted.
+# 
+#    Queriers receiving a Multicast DNS response with a TTL of zero SHOULD
+#    NOT immediately delete the record from the cache, but instead record
+#    a TTL of 1 and then delete the record one second later.  In the case
+#    of multiple Multicast DNS responders on the network described in
+#    Section 6.6 above, if one of the responders shuts down and
+#    incorrectly sends goodbye packets for its records, it gives the other
+#    cooperating responders one second to send out their own response to
+#    "rescue" the records before they expire and are deleted.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the case where a host knows that certain resource record data is
+about to become invalid (for example, when the host is undergoing a
+clean shutdown), the host SHOULD send an unsolicited Multicast DNS
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Queriers receiving a Multicast DNS response with a TTL of zero SHOULD
+NOT immediately delete the record from the cache, but instead record
+a TTL of 1 and then delete the record one second later.
+'''
+

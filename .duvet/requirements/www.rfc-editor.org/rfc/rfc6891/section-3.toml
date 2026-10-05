@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-3"
+
+# EDNS Support Requirement
+#
+#    EDNS provides a mechanism to improve the scalability of DNS as its
+#    uses get more diverse on the Internet.  It does this by enabling the
+#    use of UDP transport for DNS messages with sizes beyond the limits
+#    specified in RFC 1035 as well as providing extra data space for
+#    additional flags and return codes (RCODEs).  However, implementation
+#    experience indicates that adding new RCODEs should be avoided due to
+#    the difficulty in upgrading the installed base.  Flags SHOULD be used
+#    only when necessary for DNS resolution to function.
+# 
+#    For many uses, an EDNS Option Code may be preferred.
+# 
+#    Over time, some applications of DNS have made EDNS a requirement for
+#    their deployment.  For instance, DNSSEC uses the additional flag
+#    space introduced in EDNS to signal the request to include DNSSEC data
+#    in a DNS response.
+# 
+#    Given the increase in DNS response sizes when including larger data
+#    items such as AAAA records, DNSSEC information (e.g., RRSIG or
+#    DNSKEY), or large TXT records, the additional UDP payload
+#    capabilities provided by EDNS can help improve the scalability of the
+#    DNS by avoiding widespread use of TCP for DNS transport.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Flags SHOULD be used
+only when necessary for DNS resolution to function.
+'''
+

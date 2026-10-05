@@ -1,0 +1,196 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-5.2"
+
+# Continuous Multicast DNS Querying
+#
+#    In one-shot queries, the underlying assumption is that the
+#    transaction begins when the application issues a query, and ends when
+#    the first response is received.  There is another type of query
+#    operation that is more asynchronous, in which having received one
+#    response is not necessarily an indication that there will be no more
+#    relevant responses, and the querying operation continues until no
+#    further responses are required.  Determining when no further
+#    responses are required depends on the type of operation being
+#    performed.  If the operation is looking up the IPv4 and IPv6
+#    addresses of another host, then no further responses are required
+#    once a successful connection has been made to one of those IPv4 or
+#    IPv6 addresses.  If the operation is browsing to present the user
+#    with a list of DNS-SD services found on the network [RFC6763], then
+#    no further responses are required once the user indicates this to the
+#    user-interface software, e.g., by closing the network browsing window
+#    that was displaying the list of discovered services.
+# 
+#    Imagine some hypothetical software that allows users to discover
+#    network printers.  The user wishes to discover all printers on the
+#    local network, not only the printer that is quickest to respond.
+#    When the user is actively looking for a network printer to use, they
+#    open a network browsing window that displays the list of discovered
+#    printers.  It would be convenient for the user if they could rely on
+#    this list of network printers to stay up to date as network printers
+#    come and go, rather than displaying out-of-date stale information,
+#    and requiring the user explicitly to click a "refresh" button any
+#    time they want to see accurate information (which, from the moment it
+#    is displayed, is itself already beginning to become out-of-date and
+#    stale).  If we are to display a continuously updated live list like
+#    this, we need to be able to do it efficiently, without naive constant
+#    polling, which would be an unreasonable burden on the network.  It is
+#    not expected that all users will be browsing to discover new printers
+#    all the time, but when a user is browsing to discover service
+#    instances for an extended period, we want to be able to support that
+#    operation efficiently.
+# 
+#    Therefore, when retransmitting Multicast DNS queries to implement
+#    this kind of continuous monitoring, the interval between the first
+#    two queries MUST be at least one second, the intervals between
+#    successive queries MUST increase by at least a factor of two, and the
+#    querier MUST implement Known-Answer Suppression, as described below
+# 
+#    in Section 7.1.  The Known-Answer Suppression mechanism tells
+#    responders which answers are already known to the querier, thereby
+#    allowing responders to avoid wasting network capacity with pointless
+#    repeated transmission of those answers.  A querier retransmits its
+#    question because it wishes to receive answers it may have missed the
+#    first time, not because it wants additional duplicate copies of
+#    answers it already received.  Failure to implement Known-Answer
+#    Suppression can result in unacceptable levels of network traffic.
+#    When the interval between queries reaches or exceeds 60 minutes, a
+#    querier MAY cap the interval to a maximum of 60 minutes, and perform
+#    subsequent queries at a steady-state rate of one query per hour.  To
+#    avoid accidental synchronization when, for some reason, multiple
+#    clients begin querying at exactly the same moment (e.g., because of
+#    some common external trigger event), a Multicast DNS querier SHOULD
+#    also delay the first query of the series by a randomly chosen amount
+#    in the range 20-120 ms.
+# 
+#    When a Multicast DNS querier receives an answer, the answer contains
+#    a TTL value that indicates for how many seconds this answer is valid.
+#    After this interval has passed, the answer will no longer be valid
+#    and SHOULD be deleted from the cache.  Before the record expiry time
+#    is reached, a Multicast DNS querier that has local clients with an
+#    active interest in the state of that record (e.g., a network browsing
+#    window displaying a list of discovered services to the user) SHOULD
+#    reissue its query to determine whether the record is still valid.
+# 
+#    To perform this cache maintenance, a Multicast DNS querier should
+#    plan to retransmit its query after at least 50% of the record
+#    lifetime has elapsed.  This document recommends the following
+#    specific strategy.
+# 
+#    The querier should plan to issue a query at 80% of the record
+#    lifetime, and then if no answer is received, at 85%, 90%, and 95%.
+#    If an answer is received, then the remaining TTL is reset to the
+#    value given in the answer, and this process repeats for as long as
+#    the Multicast DNS querier has an ongoing interest in the record.  If
+#    no answer is received after four queries, the record is deleted when
+#    it reaches 100% of its lifetime.  A Multicast DNS querier MUST NOT
+#    perform this cache maintenance for records for which it has no local
+#    clients with an active interest.  If the expiry of a particular
+#    record from the cache would result in no net effect to any client
+#    software running on the querier device, and no visible effect to the
+#    human user, then there is no reason for the Multicast DNS querier to
+#    waste network capacity checking whether the record remains valid.
+# 
+#    To avoid the case where multiple Multicast DNS queriers on a network
+#    all issue their queries simultaneously, a random variation of 2% of
+#    the record TTL should be added, so that queries are scheduled to be
+#    performed at 80-82%, 85-87%, 90-92%, and then 95-97% of the TTL.
+# 
+#    An additional efficiency optimization SHOULD be performed when a
+#    Multicast DNS response is received containing a unique answer (as
+#    indicated by the cache-flush bit being set, described in Section
+#    10.2, "Announcements to Flush Outdated Cache Entries").  In this
+#    case, there is no need for the querier to continue issuing a stream
+#    of queries with exponentially increasing intervals, since the receipt
+#    of a unique answer is a good indication that no other answers will be
+#    forthcoming.  In this case, the Multicast DNS querier SHOULD plan to
+#    issue its next query for this record at 80-82% of the record's TTL,
+#    as described above.
+# 
+#    A compliant Multicast DNS querier, which implements the rules
+#    specified in this document, MUST send its Multicast DNS queries from
+#    UDP source port 5353 (the well-known port assigned to mDNS), and MUST
+#    listen for Multicast DNS replies sent to UDP destination port 5353 at
+#    the mDNS link-local multicast address (224.0.0.251 and/or its IPv6
+#    equivalent FF02::FB).
+
+[[spec]]
+level = "MUST"
+quote = '''
+Therefore, when retransmitting Multicast DNS queries to implement
+this kind of continuous monitoring, the interval between the first
+two queries MUST be at least one second, the intervals between
+successive queries MUST increase by at least a factor of two, and the
+querier MUST implement Known-Answer Suppression, as described below
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+When the interval between queries reaches or exceeds 60 minutes, a
+querier MAY cap the interval to a maximum of 60 minutes, and perform
+subsequent queries at a steady-state rate of one query per hour.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To
+avoid accidental synchronization when, for some reason, multiple
+clients begin querying at exactly the same moment (e.g., because of
+some common external trigger event), a Multicast DNS querier SHOULD
+also delay the first query of the series by a randomly chosen amount
+in the range 20-120 ms.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+After this interval has passed, the answer will no longer be valid
+and SHOULD be deleted from the cache.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Before the record expiry time
+is reached, a Multicast DNS querier that has local clients with an
+active interest in the state of that record (e.g., a network browsing
+window displaying a list of discovered services to the user) SHOULD
+reissue its query to determine whether the record is still valid.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS querier MUST NOT
+perform this cache maintenance for records for which it has no local
+clients with an active interest.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An additional efficiency optimization SHOULD be performed when a
+Multicast DNS response is received containing a unique answer (as
+indicated by the cache-flush bit being set, described in Section
+10.2, "Announcements to Flush Outdated Cache Entries").
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this case, the Multicast DNS querier SHOULD plan to
+issue its next query for this record at 80-82% of the record's TTL,
+as described above.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A compliant Multicast DNS querier, which implements the rules
+specified in this document, MUST send its Multicast DNS queries from
+UDP source port 5353 (the well-known port assigned to mDNS), and MUST
+listen for Multicast DNS replies sent to UDP destination port 5353 at
+the mDNS link-local multicast address (224.0.0.251 and/or its IPv6
+equivalent FF02::FB).
+'''
+

@@ -1,0 +1,15 @@
+target = "https://www.rfc-editor.org/rfc/rfc8914#section-4.1"
+
+# Extended DNS Error Code 0 - Other
+#
+#    The error in question falls into a category that does not match known
+#    extended error codes.  Implementations SHOULD include an EXTRA-TEXT
+#    value to augment this error code with additional information.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD include an EXTRA-TEXT
+value to augment this error code with additional information.
+'''
+

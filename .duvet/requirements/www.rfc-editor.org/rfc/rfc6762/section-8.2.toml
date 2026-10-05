@@ -1,0 +1,96 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-8.2"
+
+# Simultaneous Probe Tiebreaking
+#
+#    The astute reader will observe that there is a race condition
+#    inherent in the previous description.  If two hosts are probing for
+#    the same name simultaneously, neither will receive any response to
+#    the probe, and the hosts could incorrectly conclude that they may
+#    both proceed to use the name.  To break this symmetry, each host
+#    populates the query message's Authority Section with the record or
+# 
+#    records with the rdata that it would be proposing to use, should its
+#    probing be successful.  The Authority Section is being used here in a
+#    way analogous to the way it is used as the "Update Section" in a DNS
+#    Update message [RFC2136] [RFC3007].
+# 
+#    When a host is probing for a group of related records with the same
+#    name (e.g., the SRV and TXT record describing a DNS-SD service), only
+#    a single question need be placed in the Question Section, since query
+#    type "ANY" (255) is used, which will elicit answers for all records
+#    with that name.  However, for tiebreaking to work correctly in all
+#    cases, the Authority Section must contain *all* the records and
+#    proposed rdata being probed for uniqueness.
+# 
+#    When a host that is probing for a record sees another host issue a
+#    query for the same record, it consults the Authority Section of that
+#    query.  If it finds any resource record(s) there which answers the
+#    query, then it compares the data of that (those) resource record(s)
+#    with its own tentative data.  We consider first the simple case of a
+#    host probing for a single record, receiving a simultaneous probe from
+#    another host also probing for a single record.  The two records are
+#    compared and the lexicographically later data wins.  This means that
+#    if the host finds that its own data is lexicographically later, it
+#    simply ignores the other host's probe.  If the host finds that its
+#    own data is lexicographically earlier, then it defers to the winning
+#    host by waiting one second, and then begins probing for this record
+#    again.  The logic for waiting one second and then trying again is to
+#    guard against stale probe packets on the network (possibly even stale
+#    probe packets sent moments ago by this host itself, before some
+#    configuration change, which may be echoed back after a short delay by
+#    some Ethernet switches and some 802.11 base stations).  If the
+#    winning simultaneous probe was from a real other host on the network,
+#    then after one second it will have completed its probing, and will
+#    answer subsequent probes.  If the apparently winning simultaneous
+#    probe was in fact just an old stale packet on the network (maybe from
+#    the host itself), then when it retries its probing in one second, its
+#    probes will go unanswered, and it will successfully claim the name.
+# 
+#    The determination of "lexicographically later" is performed by first
+#    comparing the record class (excluding the cache-flush bit described
+#    in Section 10.2), then the record type, then raw comparison of the
+#    binary content of the rdata without regard for meaning or structure.
+#    If the record classes differ, then the numerically greater class is
+#    considered "lexicographically later".  Otherwise, if the record types
+#    differ, then the numerically greater type is considered
+#    "lexicographically later".  If the rrtype and rrclass both match,
+#    then the rdata is compared.
+# 
+#    In the case of resource records containing rdata that is subject to
+#    name compression [RFC1035], the names MUST be uncompressed before
+#    comparison.  (The details of how a particular name is compressed is
+#    an artifact of how and where the record is written into the DNS
+#    message; it is not an intrinsic property of the resource record
+#    itself.)
+# 
+#    The bytes of the raw uncompressed rdata are compared in turn,
+#    interpreting the bytes as eight-bit UNSIGNED values, until a byte is
+#    found whose value is greater than that of its counterpart (in which
+#    case, the rdata whose byte has the greater value is deemed
+#    lexicographically later) or one of the resource records runs out of
+#    rdata (in which case, the resource record which still has remaining
+#    data first is deemed lexicographically later).  The following is an
+#    example of a conflict:
+# 
+#      MyPrinter.local. A 169.254.99.200
+#      MyPrinter.local. A 169.254.200.50
+# 
+#    In this case, 169.254.200.50 is lexicographically later (the third
+#    byte, with value 200, is greater than its counterpart with value 99),
+#    so it is deemed the winner.
+# 
+#    Note that it is vital that the bytes are interpreted as UNSIGNED
+#    values in the range 0-255, or the wrong outcome may result.  In the
+#    example above, if the byte with value 200 had been incorrectly
+#    interpreted as a signed eight-bit value, then it would be interpreted
+#    as value -56, and the wrong address record would be deemed the
+#    winner.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the case of resource records containing rdata that is subject to
+name compression [RFC1035], the names MUST be uncompressed before
+comparison.
+'''
+

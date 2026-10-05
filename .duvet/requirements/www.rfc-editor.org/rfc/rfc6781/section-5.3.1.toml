@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc6781#section-5.3.1"
+
+# NSEC3 Algorithm
+#
+#    The NSEC3 hashing algorithm is performed on the Fully Qualified
+#    Domain Name (FQDN) in its uncompressed form.  This ensures that brute
+#    force work done by an attacker for one FQDN cannot be reused for
+#    another FQDN attack, as these entries are by definition unique.
+# 
+#    At the time of this writing, there is only one NSEC3 hash algorithm
+#    defined.  [RFC5155] specifically states: "When specifying a new hash
+#    algorithm for use with NSEC3, a transition mechanism MUST also be
+#    defined".  Therefore, this document does not consider NSEC3 hash
+#    algorithm transition.
+
+[[spec]]
+level = "MUST"
+quote = '''
+[RFC5155] specifically states: "When specifying a new hash
+algorithm for use with NSEC3, a transition mechanism MUST also be
+defined".
+'''
+

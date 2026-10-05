@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-5.3"
+
+# Server Push
+#
+#    Before using DoH response data for DNS resolution, the client MUST
+#    establish that the HTTP request URI can be used for the DoH query.
+#    For HTTP requests initiated by the DoH client, this is implicit in
+#    the selection of URI.  For HTTP server push (see Section 8.2 of
+#    [RFC7540]), extra care must be taken to ensure that the pushed URI is
+#    one that the client would have directed the same query to if the
+#    client had initiated the request (in addition to the other security
+#    checks normally needed for server push).
+
+[[spec]]
+level = "MUST"
+quote = '''
+Before using DoH response data for DNS resolution, the client MUST
+establish that the HTTP request URI can be used for the DoH query.
+'''
+

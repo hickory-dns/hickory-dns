@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-5"
+
+# Trust Point Deletion
+#
+#    A trust point that has all of its trust anchors revoked is considered
+#    deleted and is treated as if the trust point was never configured.
+#    If there are no superior configured trust points, data at and below
+#    the deleted trust point are considered insecure by the resolver.  If
+#    there ARE superior configured trust points, data at and below the
+#    deleted trust point are evaluated with respect to the superior trust
+#    point(s).
+# 
+#    Alternately, a trust point that is subordinate to another configured
+#    trust point MAY be deleted by a resolver after 180 days, where such a
+# 
+#    subordinate trust point validly chains to a superior trust point.
+#    The decision to delete the subordinate trust anchor is a local
+#    configuration decision.  Once the subordinate trust point is deleted,
+#    validation of the subordinate zone is dependent on validating the
+#    chain of trust to the superior trust point.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Alternately, a trust point that is subordinate to another configured
+trust point MAY be deleted by a resolver after 180 days, where such a
+'''
+

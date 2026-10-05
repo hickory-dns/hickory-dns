@@ -1,0 +1,119 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-5.1"
+
+# Cache Interaction
+#
+#    A DoH exchange can pass through a hierarchy of caches that include
+#    both HTTP- and DNS-specific caches.  These caches may exist between
+#    the DoH server and client, or they may exist on the DoH client
+#    itself.  HTTP caches are generic by design; that is, they do not
+#    understand this protocol.  Even if a DoH client has modified its
+#    cache implementation to be aware of DoH semantics, it does not follow
+#    that all upstream caches (for example, inline proxies, server-side
+#    gateways, and content delivery networks) will be.
+# 
+#    As a result, DoH servers need to carefully consider the HTTP caching
+#    metadata they send in response to GET requests (responses to POST
+#    requests are not cacheable unless specific response header fields are
+#    sent; this is not widely implemented and is not advised for DoH).
+# 
+#    In particular, DoH servers SHOULD assign an explicit HTTP freshness
+#    lifetime (see Section 4.2 of [RFC7234]) so that the DoH client is
+#    more likely to use fresh DNS data.  This requirement is due to HTTP
+#    caches being able to assign their own heuristic freshness (such as
+#    that described in Section 4.2.2 of [RFC7234]), which would take
+#    control of the cache contents out of the hands of the DoH server.
+# 
+#    The assigned freshness lifetime of a DoH HTTP response MUST be less
+#    than or equal to the smallest TTL in the Answer section of the DNS
+#    response.  A freshness lifetime equal to the smallest TTL in the
+#    Answer section is RECOMMENDED.  For example, if a HTTP response
+#    carries three RRsets with TTLs of 30, 600, and 300, the HTTP
+#    freshness lifetime should be 30 seconds (which could be specified as
+#    "Cache-Control: max-age=30").  This requirement helps prevent expired
+#    RRsets in messages in an HTTP cache from unintentionally being
+#    served.
+# 
+#    If the DNS response has no records in the Answer section, and the DNS
+#    response has an SOA record in the Authority section, the response
+#    freshness lifetime MUST NOT be greater than the MINIMUM field from
+#    that SOA record (see [RFC2308]).
+# 
+#    The stale-while-revalidate and stale-if-error Cache-Control
+#    directives [RFC5861] could be well suited to a DoH implementation
+#    when allowed by server policy.  Those mechanisms allow a client, at
+#    the server's discretion, to reuse an HTTP cache entry that is no
+#    longer fresh.  In such a case, the client reuses either all of a
+#    cached entry or none of it.
+# 
+#    DoH servers also need to consider HTTP caching when generating
+#    responses that are not globally valid.  For instance, if a DoH server
+#    customizes a response based on the client's identity, it would not
+#    want to allow global reuse of that response.  This could be
+#    accomplished through a variety of HTTP techniques, such as a Cache-
+#    Control max-age of 0, or by using the Vary response header field (see
+#    Section 7.1.4 of [RFC7231]) to establish a secondary cache key (see
+#    Section 4.1 of [RFC7234]).
+# 
+#    DoH clients MUST account for the Age response header field's value
+#    [RFC7234] when calculating the DNS TTL of a response.  For example,
+#    if an RRset is received with a DNS TTL of 600, but the Age header
+#    field indicates that the response has been cached for 250 seconds,
+#    the remaining lifetime of the RRset is 350 seconds.  This requirement
+#    applies to both DoH client HTTP caches and DoH client DNS caches.
+# 
+#    DoH clients can request an uncached copy of a HTTP response by using
+#    the "no-cache" request Cache-Control directive (see Section 5.2.1.4
+#    of [RFC7234]) and similar controls.  Note that some caches might not
+#    honor these directives, either due to configuration or interaction
+#    with traditional DNS caches that do not have such a mechanism.
+# 
+#    HTTP conditional requests [RFC7232] may be of limited value to DoH,
+#    as revalidation provides only a bandwidth benefit and DNS
+#    transactions are normally latency bound.  Furthermore, the HTTP
+#    response header fields that enable revalidation (such as "Last-
+# 
+#    Modified" and "Etag") are often fairly large when compared to the
+#    overall DNS response size and have a variable nature that creates
+#    constant pressure on the HTTP/2 compression dictionary [RFC7541].
+#    Other types of DNS data, such as zone transfers, may be larger and
+#    benefit more from revalidation.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In particular, DoH servers SHOULD assign an explicit HTTP freshness
+lifetime (see Section 4.2 of [RFC7234]) so that the DoH client is
+more likely to use fresh DNS data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The assigned freshness lifetime of a DoH HTTP response MUST be less
+than or equal to the smallest TTL in the Answer section of the DNS
+response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A freshness lifetime equal to the smallest TTL in the
+Answer section is RECOMMENDED.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the DNS response has no records in the Answer section, and the DNS
+response has an SOA record in the Authority section, the response
+freshness lifetime MUST NOT be greater than the MINIMUM field from
+that SOA record (see [RFC2308]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DoH clients MUST account for the Age response header field's value
+[RFC7234] when calculating the DNS TTL of a response.
+'''
+

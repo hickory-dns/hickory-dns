@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc9904#section-6"
+
+# Operational Considerations
+#
+#    DNSKEY algorithm rollover in a live zone is a complex process.  See
+#    [RFC6781] and [RFC7583] for guidelines on how to perform algorithm
+#    rollovers.
+# 
+#    DS algorithm rollover in a live zone is also a complex process.
+#    Upgrading an algorithm at the same time as rolling to the new Key
+#    Signing Key (KSK) key will lead to DNSSEC validation failures, and
+#    users MUST upgrade the DS algorithm first before rolling to a new
+#    KSK.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Upgrading an algorithm at the same time as rolling to the new Key
+Signing Key (KSK) key will lead to DNSSEC validation failures, and
+users MUST upgrade the DS algorithm first before rolling to a new
+KSK.
+'''
+

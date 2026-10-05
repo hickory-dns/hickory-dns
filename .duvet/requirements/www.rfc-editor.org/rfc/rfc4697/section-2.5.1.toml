@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.5.1"
+
+# Recommendation
+#
+#    The most obvious recommendation is that administrators SHOULD take
+#    care not to place iterative resolvers behind a firewall that allows
+#    queries, but not the resulting replies, to pass through.
+# 
+#    Iterative resolvers SHOULD take care to avoid sending queries at
+#    excessive rates.  Implementations SHOULD support throttling logic to
+#    detect when queries are sent but no responses are received.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The most obvious recommendation is that administrators SHOULD take
+care not to place iterative resolvers behind a firewall that allows
+queries, but not the resulting replies, to pass through.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Iterative resolvers SHOULD take care to avoid sending queries at
+excessive rates.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD support throttling logic to
+detect when queries are sent but no responses are received.
+'''
+

@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-6.5"
+
+# Attacks Utilizing ZONEMD Queries
+#
+#    Nothing in this specification prevents clients from making, and
+#    servers from responding to, ZONEMD queries.  Servers SHOULD NOT
+#    calculate zone digests dynamically (for each query) as this can be
+#    used as a CPU resource exhaustion attack.
+# 
+#    ZONEMD responses could be used in a distributed denial-of-service
+#    amplification attack.  The ZONEMD RR is moderately sized, much like
+#    the DS RR.  A single ZONEMD RR contributes approximately 65 to 95
+#    octets to a DNS response for digest types defined herein.  Other RR
+#    types, such as DNS Public Key (DNSKEY), can result in larger
+#    amplification effects.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD NOT
+calculate zone digests dynamically (for each query) as this can be
+used as a CPU resource exhaustion attack.
+'''
+

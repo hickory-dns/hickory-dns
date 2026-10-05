@@ -1,0 +1,89 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.1.2"
+
+# Stub Resolvers
+#
+#    A Stub Resolver MAY generate DNS queries with an ECS option that sets
+#    SOURCE PREFIX-LENGTH to limit how network information should be
+#    revealed.  An Intermediate Nameserver that receives such a query MUST
+#    NOT make queries that include more bits of client address than in the
+#    originating query.
+# 
+#    A SOURCE PREFIX-LENGTH value of 0 means that the Recursive Resolver
+#    MUST NOT add the client's address information to its queries.  The
+#    subsequent Recursive Resolver query to the Authoritative Nameserver
+#    will then either not include an ECS option or MAY optionally include
+#    its own address information, which is what the Authoritative
+#    Nameserver will almost certainly use to generate any Tailored
+#    Response in lieu of an option.  This allows the answer to be handled
+#    by the same caching mechanism as other queries, with an explicit
+#    indicator of the applicable scope.  Subsequent Stub Resolver queries
+#    for /0 can then be answered from this cached response.
+# 
+#    A Stub Resolver MUST set SCOPE PREFIX-LENGTH to 0.  It MAY include
+#    FAMILY and ADDRESS data, but should be prepared to handle a REFUSED
+#    response if the Intermediate Nameserver that it queries has a policy
+#    that denies forwarding of ADDRESS.  If there is no ADDRESS set, i.e.,
+#    SOURCE PREFIX-LENGTH is set to 0, then FAMILY SHOULD be set to the
+#    transport over which the query is sent.  This is for
+# 
+#    interoperability; at least one major authoritative server will ignore
+#    the option if FAMILY is not 1 or 2, even though it is irrelevant if
+#    there are no ADDRESS bits.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A Stub Resolver MAY generate DNS queries with an ECS option that sets
+SOURCE PREFIX-LENGTH to limit how network information should be
+revealed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+An Intermediate Nameserver that receives such a query MUST
+NOT make queries that include more bits of client address than in the
+originating query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A SOURCE PREFIX-LENGTH value of 0 means that the Recursive Resolver
+MUST NOT add the client's address information to its queries.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The
+subsequent Recursive Resolver query to the Authoritative Nameserver
+will then either not include an ECS option or MAY optionally include
+its own address information, which is what the Authoritative
+Nameserver will almost certainly use to generate any Tailored
+Response in lieu of an option.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Stub Resolver MUST set SCOPE PREFIX-LENGTH to 0.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+It MAY include
+FAMILY and ADDRESS data, but should be prepared to handle a REFUSED
+response if the Intermediate Nameserver that it queries has a policy
+that denies forwarding of ADDRESS.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If there is no ADDRESS set, i.e.,
+SOURCE PREFIX-LENGTH is set to 0, then FAMILY SHOULD be set to the
+transport over which the query is sent.
+'''
+

@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-2.1"
+
+# Revocation
+#
+#    Assume two trust anchor keys A and B.  Assume that B has been
+#    compromised.  Without a specific revocation bit, B could invalidate A
+#    simply by sending out a signed trust point key set that didn't
+#    contain A.  To fix this, we add a mechanism that requires knowledge
+#    of the private key of a DNSKEY to revoke that DNSKEY.
+# 
+#    A key is considered revoked when the resolver sees the key in a
+#    self-signed RRSet and the key has the REVOKE bit (see Section 7
+#    below) set to '1'.  Once the resolver sees the REVOKE bit, it MUST
+#    NOT use this key as a trust anchor or for any other purpose except to
+#    validate the RRSIG it signed over the DNSKEY RRSet specifically for
+#    the purpose of validating the revocation.  Unlike the 'Add' operation
+#    below, revocation is immediate and permanent upon receipt of a valid
+#    revocation at the resolver.
+# 
+#    A self-signed RRSet is a DNSKEY RRSet that contains the specific
+#    DNSKEY and for which there is a corresponding validated RRSIG record.
+#    It's not a special DNSKEY RRSet, just a way of describing the
+#    validation requirements for that RRSet.
+# 
+#    N.B.: A DNSKEY with the REVOKE bit set has a different fingerprint
+#    than one without the bit set.  This affects the matching of a DNSKEY
+#    to DS records in the parent [RFC3755], or the fingerprint stored at a
+#    resolver used to configure a trust point.
+# 
+#    In the given example, the attacker could revoke B because it has
+#    knowledge of B's private key, but could not revoke A.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once the resolver sees the REVOKE bit, it MUST
+NOT use this key as a trust anchor or for any other purpose except to
+validate the RRSIG it signed over the DNSKEY RRSet specifically for
+the purpose of validating the revocation.
+'''
+

@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-5.4"
+
+# Content Negotiation
+#
+#    In order to maximize interoperability, DoH clients and DoH servers
+#    MUST support the "application/dns-message" media type.  Other media
+#    types MAY be used as defined by HTTP Content Negotiation (see
+#    Section 3.4 of [RFC7231]).  Those media types MUST be flexible enough
+#    to express every DNS query that would normally be sent in DNS over
+#    UDP (including queries and responses that use DNS extensions, but not
+#    those that require multiple responses).
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order to maximize interoperability, DoH clients and DoH servers
+MUST support the "application/dns-message" media type.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Other media
+types MAY be used as defined by HTTP Content Negotiation (see
+Section 3.4 of [RFC7231]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Those media types MUST be flexible enough
+to express every DNS query that would normally be sent in DNS over
+UDP (including queries and responses that use DNS extensions, but not
+those that require multiple responses).
+'''
+

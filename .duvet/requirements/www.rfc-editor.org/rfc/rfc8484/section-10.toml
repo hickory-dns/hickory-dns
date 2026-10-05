@@ -1,0 +1,74 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-10"
+
+# Operational Considerations
+#
+#    Local policy considerations and similar factors mean different DNS
+#    servers may provide different results to the same query, for
+#    instance, in split DNS configurations [RFC6950].  It logically
+#    follows that the server that is queried can influence the end result.
+#    Therefore, a client's choice of DNS server may affect the responses
+#    it gets to its queries.  For example, in the case of DNS64 [RFC6147],
+#    the choice could affect whether IPv6/IPv4 translation will work at
+#    all.
+# 
+#    The HTTPS channel used by this specification establishes secure two-
+#    party communication between the DoH client and the DoH server.
+#    Filtering or inspection systems that rely on unsecured transport of
+#    DNS will not function in a DNS over HTTPS environment due to the
+#    confidentiality and integrity protection provided by TLS.
+# 
+#    Some HTTPS client implementations perform real time third-party
+#    checks of the revocation status of the certificates being used by
+#    TLS.  If this check is done as part of the DoH server connection
+#    procedure and the check itself requires DNS resolution to connect to
+#    the third party, a deadlock can occur.  The use of Online Certificate
+#    Status Protocol (OCSP) [RFC6960] servers or Authority Information
+#    Access (AIA) for Certificate Revocation List (CRL) fetching (see
+#    Section 4.2.2.1 of [RFC5280]) are examples of how this deadlock can
+#    happen.  To mitigate the possibility of deadlock, the authentication
+#    given DoH servers SHOULD NOT rely on DNS-based references to external
+#    resources in the TLS handshake.  For OCSP, the server can bundle the
+#    certificate status as part of the handshake using a mechanism
+#    appropriate to the version of TLS, such as using Section 4.4.2.1 of
+#    [RFC8446] for TLS version 1.3.  AIA deadlocks can be avoided by
+#    providing intermediate certificates that might otherwise be obtained
+#    through additional requests.  Note that these deadlocks also need to
+#    be considered for servers that a DoH server might redirect to.
+# 
+#    A DoH client may face a similar bootstrapping problem when the HTTP
+#    request needs to resolve the hostname portion of the DNS URI.  Just
+#    as the address of a traditional DNS nameserver cannot be originally
+#    determined from that same server, a DoH client cannot use its DoH
+#    server to initially resolve the server's host name into an address.
+#    Alternative strategies a client might employ include 1) making the
+#    initial resolution part of the configuration, 2) IP-based URIs and
+#    corresponding IP-based certificates for HTTPS, or 3) resolving the
+#    DNS API server's hostname via traditional DNS or another DoH server
+#    while still authenticating the resulting connection via HTTPS.
+# 
+#    HTTP [RFC7230] is a stateless application-level protocol, and
+#    therefore DoH implementations do not provide stateful ordering
+#    guarantees between different requests.  DoH cannot be used as a
+#    transport for other protocols that require strict ordering.
+# 
+#    A DoH server is allowed to answer queries with any valid DNS
+#    response.  For example, a valid DNS response might have the TC
+#    (truncation) bit set in the DNS header to indicate that the server
+#    was not able to retrieve a full answer for the query but is providing
+#    the best answer it could get.  A DoH server can reply to queries with
+#    an HTTP error for queries that it cannot fulfill.  In this same
+#    example, a DoH server could use an HTTP error instead of a non-error
+#    response that has the TC bit set.
+# 
+#    Many extensions to DNS, using [RFC6891], have been defined over the
+#    years.  Extensions that are specific to the choice of transport, such
+#    as [RFC7828], are not applicable to DoH.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To mitigate the possibility of deadlock, the authentication
+given DoH servers SHOULD NOT rely on DNS-based references to external
+resources in the TLS handshake.
+'''
+

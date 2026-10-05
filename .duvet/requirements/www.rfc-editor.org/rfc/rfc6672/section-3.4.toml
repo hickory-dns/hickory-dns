@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-3.4"
+
+# Acceptance and Intermediate Storage
+#
+#    Recursive caching name servers can encounter data at names below the
+#    owner name of a DNAME RR, due to a change at the authoritative server
+#    where data from before and after the change resides in the cache.
+#    This conflict situation is a transitional phase that ends when the
+#    old data times out.  The caching name server can opt to store both
+#    old and new data and treat each as if the other did not exist, or
+#    drop the old data, or drop the longer domain name.  In any approach,
+#    consistency returns after the older data TTL times out.
+# 
+#    Recursive caching name servers MUST perform CNAME synthesis on behalf
+#    of clients.
+# 
+#    If a recursive caching name server encounters a DNSSEC validated
+#    DNAME RR that contradicts information already in the cache (excluding
+#    CNAME records), it SHOULD cache the DNAME RR, but it MAY cache the
+#    CNAME record received along with it, subject to the rules for CNAME.
+#    If the DNAME RR cannot be validated via DNSSEC (i.e., not BOGUS, but
+#    not able to validate), the recursive caching server SHOULD NOT cache
+#    the DNAME RR but MAY cache the CNAME record received along with it,
+#    subject to the rules for CNAME.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Recursive caching name servers MUST perform CNAME synthesis on behalf
+of clients.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a recursive caching name server encounters a DNSSEC validated
+DNAME RR that contradicts information already in the cache (excluding
+CNAME records), it SHOULD cache the DNAME RR, but it MAY cache the
+CNAME record received along with it, subject to the rules for CNAME.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the DNAME RR cannot be validated via DNSSEC (i.e., not BOGUS, but
+not able to validate), the recursive caching server SHOULD NOT cache
+the DNAME RR but MAY cache the CNAME record received along with it,
+subject to the rules for CNAME.
+'''
+

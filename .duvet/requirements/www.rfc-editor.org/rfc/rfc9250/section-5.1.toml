@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.1"
+
+# Authentication
+#
+#    For the stub to recursive scenario, the authentication requirements
+#    are the same as described in DoT [RFC7858] and "Usage Profiles for
+#    DNS over TLS and DNS over DTLS" [RFC8310].  [RFC8932] states that DNS
+#    privacy services SHOULD provide credentials that clients can use to
+#    authenticate the server.  Given this, and to align with the
+#    authentication model for DoH, DoQ stubs SHOULD use a Strict usage
+#    profile.  Client authentication for the encrypted stub to recursive
+#    scenario is not described in any DNS RFC.
+# 
+#    For zone transfer, the authentication requirements are the same as
+#    described in [RFC9103].
+# 
+#    For the recursive to authoritative scenario, authentication
+#    requirements are unspecified at the time of writing and are the
+#    subject of ongoing work in the DPRIVE WG.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+[RFC8932] states that DNS
+privacy services SHOULD provide credentials that clients can use to
+authenticate the server.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Given this, and to align with the
+authentication model for DoH, DoQ stubs SHOULD use a Strict usage
+profile.
+'''
+

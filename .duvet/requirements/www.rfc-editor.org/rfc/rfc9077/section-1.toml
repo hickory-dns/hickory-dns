@@ -1,0 +1,75 @@
+target = "https://www.rfc-editor.org/rfc/rfc9077#section-1"
+
+# Introduction
+#
+#    [RFC2308] defines the TTL of the Start of Authority (SOA) record that
+#    must be returned in negative answers (NXDOMAIN or NODATA):
+# 
+#    |  The TTL of this record is set from the minimum of the MINIMUM
+#    |  field of the SOA record and the TTL of the SOA itself, and
+#    |  indicates how long a resolver may cache the negative answer.
+# 
+#    Thus, if the TTL of the SOA in the zone is lower than the SOA MINIMUM
+#    value (the last number in the SOA record), the authoritative server
+#    sends that lower value as the TTL of the returned SOA record.  The
+#    resolver always uses the TTL of the returned SOA record when setting
+#    the negative TTL in its cache.
+# 
+#    However, [RFC4034], Section 4 has this unfortunate text:
+# 
+#    |  The NSEC RR SHOULD have the same TTL value as the SOA minimum TTL
+#    |  field.  This is in the spirit of negative caching ([RFC2308]).
+# 
+#    This text, while referring to [RFC2308], can cause NSEC records to
+#    have much higher TTLs than the appropriate negative TTL for a zone.
+#    [RFC5155] contains equivalent text.
+# 
+#    [RFC8198], Section 5.4 tries to correct this:
+# 
+#    |  Section 5 of [RFC2308] also states that a negative cache entry TTL
+#    |  is taken from the minimum of the SOA.MINIMUM field and SOA's TTL.
+#    |  This can be less than the TTL of an NSEC or NSEC3 record, since
+#    |  their TTL is equal to the SOA.MINIMUM field (see [RFC4035],
+#    |  Section 2.3 and [RFC5155], Section 3).
+#    |  
+#    |  A resolver that supports aggressive use of NSEC and NSEC3 SHOULD
+#    |  reduce the TTL of NSEC and NSEC3 records to match the SOA.MINIMUM
+#    |  field in the authority section of a negative response, if
+#    |  SOA.MINIMUM is smaller.
+# 
+#    But the NSEC and NSEC3 RRs should, according to [RFC4034] and
+#    [RFC5155], already be at the value of the MINIMUM field in the SOA.
+#    Thus, the advice from [RFC8198] would not actually change the TTL
+#    used for the NSEC and NSEC3 RRs for authoritative servers that follow
+#    the RFCs.
+# 
+#    As a theoretical exercise, consider a top-level domain (TLD) named
+#    .example with an SOA record like this:
+# 
+#    example.    900 IN  SOA primary.example. dnsadmin.example. (
+#                                             1 1800 900 604800 86400 )
+# 
+#    The SOA record has a 900-second TTL and an 86400-second MINIMUM TTL.
+#    Negative responses from this zone have a 900-second TTL, but the NSEC
+#    or NSEC3 records in those negative responses have an 86400-second
+#    TTL.  If a resolver were to use those NSEC or NSEC3 records
+#    aggressively, they would be considered valid for a day instead of the
+#    intended 15 minutes.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  The NSEC RR SHOULD have the same TTL value as the SOA minimum TTL
+|  field.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|
+|  A resolver that supports aggressive use of NSEC and NSEC3 SHOULD
+|  reduce the TTL of NSEC and NSEC3 records to match the SOA.MINIMUM
+|  field in the authority section of a negative response, if
+|  SOA.MINIMUM is smaller.
+'''
+

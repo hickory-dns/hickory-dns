@@ -1,0 +1,94 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-3"
+
+# Constructing a Client Cookie
+#
+#    The Client Cookie acts as an identifier for a given client and its IP
+#    address and needs to be unguessable.  In order to provide minimal
+#    authentication of the targeted server, a client MUST use a different
+#    Client Cookie for each different Server IP address.  This complicates
+#    a server's ability to spoof answers for other DNS servers.  The
+#    Client Cookie SHOULD have 64 bits of entropy.
+# 
+#    When a server does not support DNS Cookies, the client MUST NOT send
+#    the same Client Cookie to that same server again.  Instead, it is
+#    recommended that the client does not send a Client Cookie to that
+#    server for a certain period (for example, five minutes) before it
+#    retries with a new Client Cookie.
+# 
+#    When a server does support DNS Cookies, the client should store the
+#    Client Cookie alongside the Server Cookie it registered for that
+#    server.
+# 
+#    Except for when the Client IP address changes, there is no need to
+#    change the Client Cookie often.  It is then reasonable to change the
+#    Client Cookie only if it has been compromised or after a relatively
+#    long implementation-defined period of time.  The time period should
+#    be no longer than a year, and in any case, Client Cookies are not
+#    expected to survive a program restart.
+# 
+#    Client-Cookie = 64 bits of entropy
+# 
+#    Previously, the recommended algorithm to compute the Client Cookie
+#    included the Client IP address as an input to a hashing function.
+#    However, when implementing the DNS Cookies, several DNS vendors found
+#    it impractical to include the Client IP as the Client Cookie is
+#    typically computed before the Client IP address is known.  Therefore,
+#    the requirement to put the Client IP address as input was removed.
+# 
+#    However, for privacy reasons, in order to prevent tracking of devices
+#    across links and to not circumvent IPv6 Privacy Extensions [RFC8981],
+#    clients MUST NOT reuse a Client or Server Cookie after the Client IP
+#    address has changed.
+# 
+#    One way to satisfy this requirement for non-reuse is to register the
+#    Client IP address alongside the Server Cookie when it receives the
+#    Server Cookie.  In subsequent queries to the server with that Server
+#    Cookie, the socket MUST be bound to the Client IP address that was
+#    also used (and registered) when it received the Server Cookie.
+#    Failure to bind MUST then result in a new Client Cookie.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order to provide minimal
+authentication of the targeted server, a client MUST use a different
+Client Cookie for each different Server IP address.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The
+Client Cookie SHOULD have 64 bits of entropy.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a server does not support DNS Cookies, the client MUST NOT send
+the same Client Cookie to that same server again.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, for privacy reasons, in order to prevent tracking of devices
+across links and to not circumvent IPv6 Privacy Extensions [RFC8981],
+clients MUST NOT reuse a Client or Server Cookie after the Client IP
+address has changed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In subsequent queries to the server with that Server
+Cookie, the socket MUST be bound to the Client IP address that was
+also used (and registered) when it received the Server Cookie.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Failure to bind MUST then result in a new Client Cookie.
+'''
+

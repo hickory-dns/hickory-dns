@@ -1,0 +1,94 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-4.1.1"
+
+# Instance Names
+#
+#    The <Instance> portion of the Service Instance Name is a user-
+#    friendly name consisting of arbitrary Net-Unicode text [RFC5198].  It
+#    MUST NOT contain ASCII control characters (byte values 0x00-0x1F and
+#    0x7F) [RFC20] but otherwise is allowed to contain any characters,
+#    without restriction, including spaces, uppercase, lowercase,
+#    punctuation -- including dots -- accented characters, non-Roman text,
+#    and anything else that may be represented using Net-Unicode.  For
+#    discussion of why the <Instance> name should be a user-visible, user-
+#    friendly name rather than an invisible machine-generated opaque
+#    identifier, see Appendix C, "What You See Is What You Get".
+# 
+#    The <Instance> portion of the name of a service being offered on the
+#    network SHOULD be configurable by the user setting up the service, so
+#    that he or she may give it an informative name.  However, the device
+#    or service SHOULD NOT require the user to configure a name before it
+#    can be used.  A sensible choice of default name can in many cases
+#    allow the device or service to be accessed without any manual
+#    configuration at all.  The default name should be short and
+#    descriptive, and SHOULD NOT include the device's Media Access Control
+#    (MAC) address, serial number, or any similar incomprehensible
+#    hexadecimal string in an attempt to make the name globally unique.
+#    For discussion of why <Instance> names don't need to be (and SHOULD
+#    NOT be) made unique at the factory, see Appendix D, "Choice of
+#    Factory-Default Names".
+# 
+#    This <Instance> portion of the Service Instance Name is stored
+#    directly in the DNS as a single DNS label of canonical precomposed
+#    UTF-8 [RFC3629] "Net-Unicode" (Unicode Normalization Form C)
+#    [RFC5198] text.  For further discussion of text encodings, see
+#    Appendix E, "Name Encodings in the Domain Name System".
+# 
+#    DNS labels are currently limited to 63 octets in length.  UTF-8
+#    encoding can require up to four octets per Unicode character, which
+#    means that in the worst case, the <Instance> portion of a name could
+#    be limited to fifteen Unicode characters.  However, the Unicode
+# 
+#    characters with longer octet lengths under UTF-8 encoding tend to be
+#    the more rarely used ones, and tend to be the ones that convey
+#    greater meaning per character.
+# 
+#    Note that any character in the commonly used 16-bit Unicode Basic
+#    Multilingual Plane [Unicode6] can be encoded with no more than three
+#    octets of UTF-8 encoding.  This means that an instance name can
+#    contain up to 21 Kanji characters, which is a sufficiently expressive
+#    name for most purposes.
+
+[[spec]]
+level = "MUST"
+quote = '''
+It
+MUST NOT contain ASCII control characters (byte values 0x00-0x1F and
+0x7F) [RFC20] but otherwise is allowed to contain any characters,
+without restriction, including spaces, uppercase, lowercase,
+punctuation -- including dots -- accented characters, non-Roman text,
+and anything else that may be represented using Net-Unicode.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The <Instance> portion of the name of a service being offered on the
+network SHOULD be configurable by the user setting up the service, so
+that he or she may give it an informative name.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+However, the device
+or service SHOULD NOT require the user to configure a name before it
+can be used.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The default name should be short and
+descriptive, and SHOULD NOT include the device's Media Access Control
+(MAC) address, serial number, or any similar incomprehensible
+hexadecimal string in an attempt to make the name globally unique.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For discussion of why <Instance> names don't need to be (and SHOULD
+NOT be) made unique at the factory, see Appendix D, "Choice of
+Factory-Default Names".
+'''
+

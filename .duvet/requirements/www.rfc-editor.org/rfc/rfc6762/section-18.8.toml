@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.8"
+
+# Z (Zero) Bit
+#
+#    In both query and response messages, the Zero bit MUST be zero on
+#    transmission, and MUST be ignored on reception.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both query and response messages, the Zero bit MUST be zero on
+transmission, and MUST be ignored on reception.
+'''
+

@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-5"
+
+# Security Considerations
+#
+#    The edns-tcp-keepalive option can potentially be abused to request
+#    large numbers of long-lived sessions in a quick burst.  When a DNS
+#    server detects abusive behaviour, it SHOULD immediately close the TCP
+#    connection and free the resources used.
+# 
+#    Servers could choose to monitor client behaviour with respect to the
+#    edns-tcp-keepalive option to build up profiles of clients that do not
+#    honour the specified timeout.
+# 
+#    Readers are advised to familiarise themselves with the security
+#    considerations outlined in [RFC7766]
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a DNS
+server detects abusive behaviour, it SHOULD immediately close the TCP
+connection and free the resources used.
+'''
+

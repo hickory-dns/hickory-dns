@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.4"
+
+# Caution about Local Policy and Multiple RRSIGs
+#
+#    When multiple RRSIGs cover a given RRset, Section 5.3.3 of [RFC4035]
+#    suggests that "the local resolver security policy determines whether
+#    the resolver also has to test these RRSIG RRs and how to resolve
+#    conflicts if these RRSIG RRs lead to differing results".
+# 
+#    This document specifies that a resolver SHOULD accept any valid RRSIG
+#    as sufficient, and only determine that an RRset is Bogus if all
+#    RRSIGs fail validation.
+# 
+#    If a resolver adopts a more restrictive policy, there's a danger that
+#    properly signed data might unnecessarily fail validation due to cache
+#    timing issues.  Furthermore, certain zone management techniques, like
+#    the Double Signature Zone Signing Key Rollover method described in
+#    Section 4.2.1.2 of [RFC6781], will not work reliably.  Such a
+#    resolver is also vulnerable to malicious insertion of gibberish
+#    signatures.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+This document specifies that a resolver SHOULD accept any valid RRSIG
+as sufficient, and only determine that an RRset is Bogus if all
+RRSIGs fail validation.
+'''
+

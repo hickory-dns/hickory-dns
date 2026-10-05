@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2.2"
+
+# Signer's Name (replaces RFC 3008 section 2.7)
+#
+#    The signer's name field of a SIG RR MUST contain the name of the zone
+#    to which the data and signature belong.  The combination of signer's
+#    name, key tag, and algorithm MUST identify a zone key if the SIG is
+#    to be considered material.  This document defines a standard policy
+#    for DNSSEC validation; local policy MAY override the standard policy.
+# 
+#    There are no restrictions on the signer field of a SIG(0) record. The
+#    combination of signer's name, key tag, and algorithm MUST identify a
+#    key if this SIG(0) is to be processed.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The signer's name field of a SIG RR MUST contain the name of the zone
+to which the data and signature belong.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The combination of signer's
+name, key tag, and algorithm MUST identify a zone key if the SIG is
+to be considered material.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+This document defines a standard policy
+for DNSSEC validation; local policy MAY override the standard policy.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+combination of signer's name, key tag, and algorithm MUST identify a
+key if this SIG(0) is to be processed.
+'''
+

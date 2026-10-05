@@ -1,0 +1,86 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-12"
+
+# Security Considerations
+#
+#    SVCB/HTTPS RRs permit distribution over untrusted channels, and
+#    clients are REQUIRED to verify that the alternative endpoint is
+#    authoritative for the service (similar to Section 2.1 of [AltSvc]).
+#    Therefore, DNSSEC signing and validation are OPTIONAL for publishing
+#    and using SVCB and HTTPS RRs.
+# 
+#    Clients MUST ensure that their DNS cache is partitioned for each
+#    local network, or flushed on network changes, to prevent a local
+#    adversary in one network from implanting a forged DNS record that
+#    allows them to track users or hinder their connections after they
+#    leave that network.
+# 
+#    An attacker who can prevent SVCB resolution can deny clients any
+#    associated security benefits.  A hostile recursive resolver can
+#    always deny service to SVCB queries, but network intermediaries can
+#    often prevent resolution as well, even when the client and recursive
+#    resolver validate DNSSEC and use a secure transport.  These downgrade
+#    attacks can prevent the "https" upgrade provided by the HTTPS RR
+#    (Section 9.5) and can disable any other protections coordinated via
+#    SvcParams.  To prevent downgrades, Section 3.1 recommends that
+#    clients abandon the connection attempt when such an attack is
+#    detected.
+# 
+#    A hostile DNS intermediary might forge AliasMode "." records
+#    (Section 2.5.1) as a way to block clients from accessing particular
+#    services.  Such an adversary could already block entire domains by
+#    forging erroneous responses, but this mechanism allows them to target
+#    particular protocols or ports within a domain.  Clients that might be
+#    subject to such attacks SHOULD ignore AliasMode "." records.
+# 
+#    A hostile DNS intermediary or authoritative server can return SVCB
+#    records indicating any IP address and port number, including IP
+#    addresses inside the local network and port numbers assigned to
+#    internal services.  If the attacker can influence the client's
+#    payload (e.g., TLS session ticket contents) and an internal service
+#    has a sufficiently lax parser, the attacker could gain access to the
+#    internal service.  (The same concerns apply to SRV records, HTTP Alt-
+#    Svc, and HTTP redirects.)  As a mitigation, SVCB mapping documents
+#    SHOULD indicate any port number restrictions that are appropriate for
+#    the supported transports.
+
+[[spec]]
+level = "MUST"
+quote = '''
+SVCB/HTTPS RRs permit distribution over untrusted channels, and
+clients are REQUIRED to verify that the alternative endpoint is
+authoritative for the service (similar to Section 2.1 of [AltSvc]).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Therefore, DNSSEC signing and validation are OPTIONAL for publishing
+and using SVCB and HTTPS RRs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients MUST ensure that their DNS cache is partitioned for each
+local network, or flushed on network changes, to prevent a local
+adversary in one network from implanting a forged DNS record that
+allows them to track users or hinder their connections after they
+leave that network.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients that might be
+subject to such attacks SHOULD ignore AliasMode "." records.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+(The same concerns apply to SRV records, HTTP Alt-
+Svc, and HTTP redirects.)  As a mitigation, SVCB mapping documents
+SHOULD indicate any port number restrictions that are appropriate for
+the supported transports.
+'''
+

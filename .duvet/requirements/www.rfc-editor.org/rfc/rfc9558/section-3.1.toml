@@ -1,0 +1,37 @@
+target = "https://www.rfc-editor.org/rfc/rfc9558#section-3.1"
+
+# RRSIG RR Example
+#
+#    Consider a given RRset consisting of one MX RR to be signed with the
+#    private key described in Section 2.2 of this document:
+# 
+#    example.  600  IN  MX  10 mail.example.
+# 
+#    Setting the inception date to 2022-10-06 12:32:30 UTC and the
+#    expiration date to 2022-11-03 12:32:30 UTC, the following signature
+#    RR will be valid:
+# 
+#    example.  600 IN  RRSIG MX 23 1 600 20221103123230 (
+#                           20221006123230 47355 example.
+#                           EuLO0Qpn6zT1pzj9T2H5AWjcgzfmjNiK/vj811bExa0V
+#                           HMOVD9ma8rpf0B+D+V4Q0CWu1Ayzu+H/SyndnOWGxw==
+#    )
+# 
+#    The GOST R 34.10-2012 signature algorithm uses random (pseudorandom)
+#    integer k as described in Section 6.1 of RFC 7091 [RFC7091].  The
+#    following value for k was used to produce the signature example.
+# 
+#    k = 8BBD0CE7CAF3FC1C2503DF30D13ED5DB75EEC44060FA22FB7E29628407C1E34
+# 
+#    This value for k MUST NOT be used when computing GOST R 34.10-2012
+#    signatures.  It is provided only so the above signature example can
+#    be reproduced.  The actual signature value will differ between
+#    signature calculations.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This value for k MUST NOT be used when computing GOST R 34.10-2012
+signatures.
+'''
+

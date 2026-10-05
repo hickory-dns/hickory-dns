@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc9558#section-5.2"
+
+# Signature Sizes
+#
+#    The size of a GOST R 34.10-2012 signature conforming to this
+#    specification MUST be 512 bits according to RFC 7091 [RFC7091].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The size of a GOST R 34.10-2012 signature conforming to this
+specification MUST be 512 bits according to RFC 7091 [RFC7091].
+'''
+

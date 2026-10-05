@@ -1,0 +1,48 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-3.2.1"
+
+# Sending Queries
+#
+#    DNS clients MUST NOT include the edns-tcp-keepalive option in queries
+#    sent using UDP transport.
+# 
+#    DNS clients MAY include the edns-tcp-keepalive option in the first
+#    query sent to a server using TCP transport to signal their desire to
+#    keep the connection open when idle.
+# 
+#    DNS clients MAY include the edns-tcp-keepalive option in subsequent
+#    queries sent to a server using TCP transport to signal their
+#    continued desire to keep the connection open when idle.
+# 
+#    Clients MUST specify an OPTION-LENGTH of 0 and omit the TIMEOUT
+#    value.
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS clients MUST NOT include the edns-tcp-keepalive option in queries
+sent using UDP transport.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+DNS clients MAY include the edns-tcp-keepalive option in the first
+query sent to a server using TCP transport to signal their desire to
+keep the connection open when idle.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+DNS clients MAY include the edns-tcp-keepalive option in subsequent
+queries sent to a server using TCP transport to signal their
+continued desire to keep the connection open when idle.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients MUST specify an OPTION-LENGTH of 0 and omit the TIMEOUT
+value.
+'''
+

@@ -1,0 +1,37 @@
+target = "https://www.rfc-editor.org/rfc/rfc5001#section-2.2"
+
+# Name Server Behavior
+#
+#    A name server that understands the NSID option and chooses to honor a
+#    particular NSID request responds by including identifying information
+#    in a NSID option (Section 2.3) in an EDNS OPT pseudo-RR in the
+#    response message.
+# 
+#    The name server MUST ignore any NSID payload data that might be
+#    present in the query message.
+# 
+#    The NSID option is not transitive.  A name server MUST NOT send an
+#    NSID option back to a resolver which did not request it.  In
+#    particular, while a recursive name server may choose to add an NSID
+#    option when sending a query, this has no effect on the presence or
+#    absence of the NSID option in the recursive name server's response to
+#    the original client.
+# 
+#    As stated in Section 2.1, this mechanism is not restricted to
+#    authoritative name servers; the semantics are intended to be equally
+#    applicable to recursive name servers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name server MUST ignore any NSID payload data that might be
+present in the query message.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A name server MUST NOT send an
+NSID option back to a resolver which did not request it.
+'''
+

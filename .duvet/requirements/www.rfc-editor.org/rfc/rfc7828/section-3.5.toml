@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc7828#section-3.5"
+
+# Non-clean Paths
+#
+#    Many paths between DNS clients and servers suffer from poor hygiene,
+#    limiting the free flow of DNS messages that include particular EDNS0
+#    options or messages that exceed a particular size.  A fallback
+#    strategy similar to that described in [RFC6891], Section 6.2.2 SHOULD
+#    be employed to avoid persistent interference due to non-clean paths.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A fallback
+strategy similar to that described in [RFC6891], Section 6.2.2 SHOULD
+be employed to avoid persistent interference due to non-clean paths.
+'''
+

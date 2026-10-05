@@ -1,0 +1,45 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-3"
+
+# Selection of DoH Server
+#
+#    The DoH client is configured with a URI Template [RFC6570], which
+#    describes how to construct the URL to use for resolution.
+#    Configuration, discovery, and updating of the URI Template is done
+#    out of band from this protocol.  Note that configuration might be
+#    manual (such as a user typing URI Templates in a user interface for
+#    "options") or automatic (such as URI Templates being supplied in
+#    responses from DHCP or similar protocols).  DoH servers MAY support
+#    more than one URI Template.  This allows the different endpoints to
+#    have different properties, such as different authentication
+#    requirements or service-level guarantees.
+# 
+#    A DoH client uses configuration to select the URI, and thus the DoH
+#    server, that is to be used for resolution.  [RFC2818] defines how
+#    HTTPS verifies the DoH server's identity.
+# 
+#    A DoH client MUST NOT use a different URI simply because it was
+#    discovered outside of the client's configuration (such as through
+#    HTTP/2 server push) or because a server offers an unsolicited
+#    response that appears to be a valid answer to a DNS query.  This
+#    specification does not extend DNS resolution privileges to URIs that
+#    are not recognized by the DoH client as configured URIs.  Such
+#    scenarios may create additional operational, tracking, and security
+#    hazards that require limitations for safe usage.  A future
+#    specification may support this use case.
+
+[[spec]]
+level = "MAY"
+quote = '''
+DoH servers MAY support
+more than one URI Template.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DoH client MUST NOT use a different URI simply because it was
+discovered outside of the client's configuration (such as through
+HTTP/2 server push) or because a server offers an unsolicited
+response that appears to be a valid answer to a DNS query.
+'''
+

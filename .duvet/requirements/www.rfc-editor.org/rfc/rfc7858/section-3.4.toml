@@ -1,0 +1,143 @@
+target = "https://www.rfc-editor.org/rfc/rfc7858#section-3.4"
+
+# Connection Reuse, Close, and Reestablishment
+#
+#    For DNS clients that use library functions such as "getaddrinfo()"
+#    and "gethostbyname()", current implementations are known to open and
+#    close TCP connections for each DNS query.  To avoid excess TCP
+#    connections, each with a single query, clients SHOULD reuse a single
+#    TCP connection to the recursive resolver.  Alternatively, they may
+#    prefer to use UDP to a DNS-over-TLS-enabled caching resolver on the
+#    same machine that then uses a system-wide TCP connection to the
+#    recursive resolver.
+# 
+#    In order to amortize TCP and TLS connection setup costs, clients and
+#    servers SHOULD NOT immediately close a connection after each
+#    response.  Instead, clients and servers SHOULD reuse existing
+#    connections for subsequent queries as long as they have sufficient
+#    resources.  In some cases, this means that clients and servers may
+#    need to keep idle connections open for some amount of time.
+# 
+#    Proper management of established and idle connections is important to
+#    the healthy operation of a DNS server.  An implementor of DNS over
+#    TLS SHOULD follow best practices for DNS over TCP, as described in
+#    [RFC7766].  Failure to do so may lead to resource exhaustion and
+#    denial of service.
+# 
+#    Whereas client and server implementations from the era of [RFC1035]
+#    are known to have poor TCP connection management, this document
+#    stipulates that successful negotiation of TLS indicates the
+#    willingness of both parties to keep idle DNS connections open,
+#    independent of timeouts or other recommendations for DNS over TCP
+#    without TLS.  In other words, software implementing this protocol is
+#    assumed to support idle, persistent connections and be prepared to
+#    manage multiple, potentially long-lived TCP connections.
+# 
+#    This document does not make specific recommendations for timeout
+#    values on idle connections.  Clients and servers should reuse and/or
+#    close connections depending on the level of available resources.
+#    Timeouts may be longer during periods of low activity and shorter
+#    during periods of high activity.  Current work in this area may also
+#    assist DNS-over-TLS clients and servers in selecting useful timeout
+#    values [RFC7828] [TDNS].
+# 
+#    Clients and servers that keep idle connections open MUST be robust to
+#    termination of idle connection by either party.  As with current DNS
+#    over TCP, DNS servers MAY close the connection at any time (perhaps
+#    due to resource constraints).  As with current DNS over TCP, clients
+#    MUST handle abrupt closes and be prepared to reestablish connections
+#    and/or retry queries.
+# 
+#    When reestablishing a DNS-over-TCP connection that was terminated, as
+#    discussed in [RFC7766], TCP Fast Open [RFC7413] is of benefit.
+#    Underlining the requirement for sending only encrypted DNS data on a
+#    DNS-over-TLS port (Section 3.2), when using TCP Fast Open, the client
+#    and server MUST immediately initiate or resume a TLS handshake
+#    (cleartext DNS MUST NOT be exchanged).  DNS servers SHOULD enable
+#    fast TLS session resumption [RFC5077], and this SHOULD be used when
+#    reestablishing connections.
+# 
+#    When closing a connection, DNS servers SHOULD use the TLS close-
+#    notify request to shift TCP TIME-WAIT state to the clients.
+#    Additional requirements and guidance for optimizing DNS over TCP are
+#    provided by [RFC7766].
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To avoid excess TCP
+connections, each with a single query, clients SHOULD reuse a single
+TCP connection to the recursive resolver.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In order to amortize TCP and TLS connection setup costs, clients and
+servers SHOULD NOT immediately close a connection after each
+response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Instead, clients and servers SHOULD reuse existing
+connections for subsequent queries as long as they have sufficient
+resources.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An implementor of DNS over
+TLS SHOULD follow best practices for DNS over TCP, as described in
+[RFC7766].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients and servers that keep idle connections open MUST be robust to
+termination of idle connection by either party.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+As with current DNS
+over TCP, DNS servers MAY close the connection at any time (perhaps
+due to resource constraints).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As with current DNS over TCP, clients
+MUST handle abrupt closes and be prepared to reestablish connections
+and/or retry queries.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Underlining the requirement for sending only encrypted DNS data on a
+DNS-over-TLS port (Section 3.2), when using TCP Fast Open, the client
+and server MUST immediately initiate or resume a TLS handshake
+(cleartext DNS MUST NOT be exchanged).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS servers SHOULD enable
+fast TLS session resumption [RFC5077], and this SHOULD be used when
+reestablishing connections.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When closing a connection, DNS servers SHOULD use the TLS close-
+notify request to shift TCP TIME-WAIT state to the clients.
+'''
+

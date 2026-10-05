@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-8.1"
+
+# Key Ownership vs. Acceptance Policy
+#
+#    The reader should note that, while the zone owner is responsible for
+#    creating and distributing keys, it's wholly the decision of the
+#    resolver owner as to whether to accept such keys for the
+#    authentication of the zone information.  This implies the decision to
+#    update trust-anchor keys based on trusting a current trust-anchor key
+#    is also the resolver owner's decision.
+# 
+#    The resolver owner (and resolver implementers) MAY choose to permit
+#    or prevent key status updates based on this mechanism for specific
+#    trust points.  If they choose to prevent the automated updates, they
+#    will need to establish a mechanism for manual or other out-of-band
+#    updates, which are outside the scope of this document.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The resolver owner (and resolver implementers) MAY choose to permit
+or prevent key status updates based on this mechanism for specific
+trust points.
+'''
+

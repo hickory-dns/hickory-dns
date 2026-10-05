@@ -1,0 +1,80 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-3.1.8.1"
+
+# Signature Calculation
+#
+#    A signature covers the RRSIG RDATA (excluding the Signature Field)
+#    and covers the data RRset specified by the RRSIG owner name, RRSIG
+#    class, and RRSIG Type Covered fields.  The RRset is in canonical form
+#    (see Section 6), and the set RR(1),...RR(n) is signed as follows:
+# 
+#          signature = sign(RRSIG_RDATA | RR(1) | RR(2)... ) where
+# 
+#             "|" denotes concatenation;
+# 
+#             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
+#                with the Signer's Name field in canonical form and
+#                the Signature field excluded;
+# 
+#             RR(i) = owner | type | class | TTL | RDATA length | RDATA
+# 
+#                "owner" is the fully qualified owner name of the RRset in
+#                canonical form (for RRs with wildcard owner names, the
+#                wildcard label is included in the owner name);
+# 
+#                Each RR MUST have the same owner name as the RRSIG RR;
+# 
+#                Each RR MUST have the same class as the RRSIG RR;
+# 
+#                Each RR in the RRset MUST have the RR type listed in the
+#                RRSIG RR's Type Covered field;
+# 
+#                Each RR in the RRset MUST have the TTL listed in the
+#                RRSIG Original TTL Field;
+# 
+#                Any DNS names in the RDATA field of each RR MUST be in
+#                canonical form; and
+# 
+#                The RRset MUST be sorted in canonical order.
+# 
+#    See Sections 6.2 and 6.3 for details on canonical form and ordering
+#    of RRsets.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each RR MUST have the same owner name as the RRSIG RR;
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each RR MUST have the same class as the RRSIG RR;
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each RR in the RRset MUST have the RR type listed in the
+RRSIG RR's Type Covered field;
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each RR in the RRset MUST have the TTL listed in the
+RRSIG Original TTL Field;
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any DNS names in the RDATA field of each RR MUST be in
+canonical form; and
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The RRset MUST be sorted in canonical order.
+'''
+

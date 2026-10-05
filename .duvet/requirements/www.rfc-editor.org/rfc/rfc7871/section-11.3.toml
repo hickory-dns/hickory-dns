@@ -1,0 +1,116 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-11.3"
+
+# Cache Pollution
+#
+#    It is simple for an arbitrary resolver or client to provide false
+#    information in the ECS option, or to send UDP packets with forged
+#    source IP addresses.
+# 
+#    This could be used to:
+# 
+#    o  pollute the cache of Intermediate Resolvers by filling it with
+#       results that will rarely (if ever) be used.
+# 
+#    o  reverse-engineer the algorithms (or data) used by the
+#       Authoritative Nameserver to calculate Tailored Responses.
+# 
+#    o  mount a denial-of-service attack against an Intermediate
+#       Nameserver by forcing it to perform many more recursive queries
+#       than it would normally do, due to how caching is handled for
+#       queries containing the ECS option.
+# 
+#    Even without malicious intent, Centralized Resolvers providing
+#    answers to clients in multiple networks will need to cache different
+#    responses for different networks, putting more memory pressure on the
+#    cache.
+# 
+#    To mitigate those problems:
+# 
+#    o  Recursive Resolvers implementing ECS should only enable it in
+#       deployments where it is expected to bring clear advantages to the
+#       end users, such as when expecting clients from a variety of
+#       networks or from a wide geographical area.  Due to the high cache
+#       pressure introduced by ECS, the feature SHOULD be disabled in all
+#       default configurations.
+# 
+#    o  Recursive Resolvers SHOULD limit the number of networks and
+#       answers they keep in the cache for any given query.
+# 
+#    o  Recursive Resolvers SHOULD limit the total number of different
+#       networks that they keep in cache.
+# 
+#    o  Recursive Resolvers MUST NOT send an ECS option with SOURCE
+#       PREFIX-LENGTH providing more bits in ADDRESS than they are willing
+#       to cache responses for.
+# 
+#    o  Recursive Resolvers should implement algorithms to improve the
+#       cache hit rate, given the size constraints indicated above.
+#       Recursive Resolvers MAY, for example, decide to discard more-
+#       specific cache entries first.
+# 
+#    o  Authoritative Nameservers and Recursive Resolvers should discard
+#       ECS options that are either obviously forged or otherwise known to
+#       be wrong.  They SHOULD at least treat unroutable addresses, such
+#       as some of the address blocks defined in [RFC6890], as equivalent
+#       to the Recursive Resolver's own identity.  They SHOULD ignore and
+#       never forward ECS options specifying other routable addresses that
+#       are known not to be served by the query source.
+# 
+#    o  The ECS option is just a hint to Authoritative Nameservers for
+#       customizing results.  They can decide to ignore the content of the
+#       ECS option based on blacklists or whitelists, rate-limiting
+#       mechanisms, or any other logic implemented in the software.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Due to the high cache
+pressure introduced by ECS, the feature SHOULD be disabled in all
+default configurations.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  Recursive Resolvers SHOULD limit the number of networks and
+answers they keep in the cache for any given query.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  Recursive Resolvers SHOULD limit the total number of different
+networks that they keep in cache.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Recursive Resolvers MUST NOT send an ECS option with SOURCE
+PREFIX-LENGTH providing more bits in ADDRESS than they are willing
+to cache responses for.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Recursive Resolvers MAY, for example, decide to discard more-
+specific cache entries first.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+They SHOULD at least treat unroutable addresses, such
+as some of the address blocks defined in [RFC6890], as equivalent
+to the Recursive Resolver's own identity.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+They SHOULD ignore and
+never forward ECS options specifying other routable addresses that
+are known not to be served by the query source.
+'''
+

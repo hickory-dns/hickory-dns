@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-2.1.2"
+
+# The CSYNC Presentation Format
+#
+#    The CSYNC presentation format is as follows:
+# 
+#       The SOA Serial field is represented as an integer.
+# 
+#       The Flags field is represented as an integer.
+# 
+#       The Type Bit Map field is represented as a sequence of RRType
+#       mnemonics.  When the mnemonic is not known, the TYPE
+#       representation described in [RFC3597], Section 5, MUST be used.
+#       Implementations that support parsing of presentation format
+#       records SHOULD be able to read and understand these TYPE
+#       representations as well.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When the mnemonic is not known, the TYPE
+representation described in [RFC3597], Section 5, MUST be used.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations that support parsing of presentation format
+records SHOULD be able to read and understand these TYPE
+representations as well.
+'''
+

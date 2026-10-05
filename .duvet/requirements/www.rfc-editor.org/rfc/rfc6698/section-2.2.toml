@@ -1,0 +1,48 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-2.2"
+
+# TLSA RR Presentation Format
+#
+#    The presentation format of the RDATA portion (as defined in
+#    [RFC1035]) is as follows:
+# 
+#    o  The certificate usage field MUST be represented as an 8-bit
+#       unsigned integer.
+# 
+#    o  The selector field MUST be represented as an 8-bit unsigned
+#       integer.
+# 
+#    o  The matching type field MUST be represented as an 8-bit unsigned
+#       integer.
+# 
+#    o  The certificate association data field MUST be represented as a
+#       string of hexadecimal characters.  Whitespace is allowed within
+#       the string of hexadecimal characters, as described in [RFC1035].
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The certificate usage field MUST be represented as an 8-bit
+unsigned integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The selector field MUST be represented as an 8-bit unsigned
+integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The matching type field MUST be represented as an 8-bit unsigned
+integer.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The certificate association data field MUST be represented as a
+string of hexadecimal characters.
+'''
+

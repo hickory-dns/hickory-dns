@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-4.4"
+
+# Insecure Delegation Proofs
+#
+#    Section 5.2 of [RFC4035] specifies that a validator, when proving a
+#    delegation is not secure, needs to check for the absence of the DS
+#    and SOA bits in the NSEC (or NSEC3) type bitmap.  The validator also
+#    MUST check for the presence of the NS bit in the matching NSEC (or
+#    NSEC3) RR (proving that there is, indeed, a delegation), or
+#    alternately make sure that the delegation is covered by an NSEC3 RR
+#    with the Opt-Out flag set.
+# 
+#    Without this check, an attacker could reuse an NSEC or NSEC3 RR
+#    matching a non-delegation name to spoof an unsigned delegation at
+#    that name.  This would claim that an existing signed RRset (or set of
+#    signed RRsets) is below an unsigned delegation, thus not signed and
+#    vulnerable to further attack.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The validator also
+MUST check for the presence of the NS bit in the matching NSEC (or
+NSEC3) RR (proving that there is, indeed, a delegation), or
+alternately make sure that the delegation is covered by an NSEC3 RR
+with the Opt-Out flag set.
+'''
+

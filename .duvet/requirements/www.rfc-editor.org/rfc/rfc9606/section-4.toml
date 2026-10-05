@@ -1,0 +1,47 @@
+target = "https://www.rfc-editor.org/rfc/rfc9606#section-4"
+
+# Format of the Resolver Information
+#
+#    The resolver information record uses the same format as DNS TXT
+#    records.  The format rules for TXT records are defined in the base
+#    DNS specification (Section 3.3.14 of [RFC1035]) and are further
+#    elaborated in the DNS-based Service Discovery (DNS-SD) specification
+#    (Section 6.1 of [RFC6763]).  The recommendations to limit the TXT
+#    record size are discussed in Section 6.1 of [RFC6763].
+# 
+#    Similar to DNS-SD, the RESINFO RR type uses "key/value" pairs to
+#    convey the resolver information.  Each key/value pair is encoded
+#    using the format rules defined in Section 6.3 of [RFC6763].  Using
+#    standardized key/value syntax within the RESINFO RR type makes it
+#    easier for future keys to be defined.  If a DNS client sees unknown
+#    keys in a RESINFO RR type, it MUST silently ignore them.  The same
+#    rules for the keys, as defined in Section 6.4 of [RFC6763], MUST be
+#    followed for RESINFO.
+# 
+#    Resolver information keys MUST either be defined in the IANA registry
+#    (Section 8.2) or begin with the substring "temp-" for names defined
+#    for local use only.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a DNS client sees unknown
+keys in a RESINFO RR type, it MUST silently ignore them.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The same
+rules for the keys, as defined in Section 6.4 of [RFC6763], MUST be
+followed for RESINFO.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolver information keys MUST either be defined in the IANA registry
+(Section 8.2) or begin with the substring "temp-" for names defined
+for local use only.
+'''
+

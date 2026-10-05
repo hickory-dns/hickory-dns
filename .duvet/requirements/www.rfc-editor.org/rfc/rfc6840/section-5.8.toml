@@ -1,0 +1,23 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.8"
+
+# Setting the AD Bit on Replies
+#
+#    Section 3.2.3 of [RFC4035] describes under which conditions a
+#    validating resolver should set or clear the AD bit in a response.  In
+#    order to interoperate with legacy stub resolvers and middleboxes that
+#    neither understand nor ignore the AD bit, validating resolvers SHOULD
+#    only set the AD bit when a response both meets the conditions listed
+#    in Section 3.2.3 of [RFC4035], and the request contained either a set
+#    DO bit or a set AD bit.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In
+order to interoperate with legacy stub resolvers and middleboxes that
+neither understand nor ignore the AD bit, validating resolvers SHOULD
+only set the AD bit when a response both meets the conditions listed
+in Section 3.2.3 of [RFC4035], and the request contained either a set
+DO bit or a set AD bit.
+'''
+

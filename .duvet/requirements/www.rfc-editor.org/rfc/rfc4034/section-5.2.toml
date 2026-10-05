@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-5.2"
+
+# Processing of DS RRs When Validating Responses
+#
+#    The DS RR links the authentication chain across zone boundaries, so
+#    the DS RR requires extra care in processing.  The DNSKEY RR referred
+#    to in the DS RR MUST be a DNSSEC zone key.  The DNSKEY RR Flags MUST
+#    have Flags bit 7 set.  If the DNSKEY flags do not indicate a DNSSEC
+#    zone key, the DS RR (and the DNSKEY RR it references) MUST NOT be
+#    used in the validation process.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DNSKEY RR referred
+to in the DS RR MUST be a DNSSEC zone key.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The DNSKEY RR Flags MUST
+have Flags bit 7 set.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the DNSKEY flags do not indicate a DNSSEC
+zone key, the DS RR (and the DNSKEY RR it references) MUST NOT be
+used in the validation process.
+'''
+

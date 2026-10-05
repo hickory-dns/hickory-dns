@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6.1"
+
+# Update to RFC 1995 for IXFR over TCP
+#
+#    For clarity, an IXFR-over-TCP server compliant with this
+#    specification MUST be able to handle multiple concurrent IXoT
+#    requests on a single TCP connection (for the same and different
+#    zones) and SHOULD send the responses as soon as they are available,
+#    which might be out of order compared to the requests.
+
+[[spec]]
+level = "MUST"
+quote = '''
+For clarity, an IXFR-over-TCP server compliant with this
+specification MUST be able to handle multiple concurrent IXoT
+requests on a single TCP connection (for the same and different
+zones) and SHOULD send the responses as soon as they are available,
+which might be out of order compared to the requests.
+'''
+

@@ -1,0 +1,159 @@
+target = "https://www.rfc-editor.org/rfc/rfc6781#section-4.1.4"
+
+# Algorithm Rollovers
+#
+#    A special class of key rollovers is the one needed for a change of
+#    signature algorithms (either adding a new algorithm, removing an old
+#    algorithm, or both).  Additional steps are needed to retain integrity
+#    during this rollover.  We first describe the generic case; special
+#    considerations for rollovers that involve trust anchors and single-
+#    type keys are discussed later.
+# 
+#    There exist both a conservative and a liberal approach for algorithm
+#    rollover.  This has to do with Section 2.2 of RFC 4035 [RFC4035]:
+# 
+#       There MUST be an RRSIG for each RRset using at least one DNSKEY
+#       of each algorithm in the zone apex DNSKEY RRset.  The apex
+#       DNSKEY RRset itself MUST be signed by each algorithm appearing
+#       in the DS RRset located at the delegating parent (if any).
+# 
+#    The conservative approach interprets this section very strictly,
+#    meaning that it expects that every RRset has a valid signature for
+#    every algorithm signaled by the zone apex DNSKEY RRset, including
+#    RRsets in caches.  The liberal approach uses a more loose
+#    interpretation of the section and limits the rule to RRsets in the
+#    zone at the authoritative name servers.  There is a reasonable
+#    argument for saying that this is valid, because the specific section
+#    is a subsection of Section 2 ("Zone Signing") of RFC 4035.
+# 
+#    When following the more liberal approach, algorithm rollover is just
+#    as easy as a regular Double-Signature KSK rollover (Section 4.1.2).
+#    Note that the Double-DS KSK rollover method cannot be used, since
+#    that would introduce a parental DS of which the apex DNSKEY RRset has
+#    not been signed with the introduced algorithm.
+# 
+#    However, there are implementations of validators known to follow the
+#    more conservative approach.  Performing a Double-Signature KSK
+#    algorithm rollover will temporarily make your zone appear as Bogus by
+#    such validators during the rollover.  Therefore, the rollover
+#    described in this section will explain the stages of deployment and
+#    will assume that the conservative approach is used.
+# 
+#    When adding a new algorithm, the signatures should be added first.
+#    After the TTL of RRSIGs has expired and caches have dropped the old
+#    data covered by those signatures, the DNSKEY with the new algorithm
+#    can be added.
+# 
+#    After the new algorithm has been added, the DS record can be
+#    exchanged using Double-Signature KSK rollover.
+# 
+#    When removing an old algorithm, the DS for the algorithm should be
+#    removed from the parent zone first, followed by the DNSKEY and the
+#    signatures (in the child zone).
+# 
+#    Figure 8 describes the steps.
+# 
+#    ----------------------------------------------------------------
+#     initial              new RRSIGs           new DNSKEY
+#    ----------------------------------------------------------------
+#    Parent:
+#     SOA_0 -------------------------------------------------------->
+#     RRSIG_par(SOA) ----------------------------------------------->
+#     DS_K_1 ------------------------------------------------------->
+#     RRSIG_par(DS_K_1) -------------------------------------------->
+# 
+#    Child:
+#     SOA_0                SOA_1                SOA_2
+#     RRSIG_Z_10(SOA)      RRSIG_Z_10(SOA)      RRSIG_Z_10(SOA)
+#                          RRSIG_Z_11(SOA)      RRSIG_Z_11(SOA)
+# 
+#     DNSKEY_K_1           DNSKEY_K_1           DNSKEY_K_1
+#                                               DNSKEY_K_2
+#     DNSKEY_Z_10          DNSKEY_Z_10          DNSKEY_Z_10
+#                                               DNSKEY_Z_11
+#     RRSIG_K_1(DNSKEY)    RRSIG_K_1(DNSKEY)    RRSIG_K_1(DNSKEY)
+#                                               RRSIG_K_2(DNSKEY)
+# 
+#    ----------------------------------------------------------------
+#     new DS               DNSKEY removal       RRSIGs removal
+#    ----------------------------------------------------------------
+#    Parent:
+#     SOA_1 ------------------------------------------------------->
+#     RRSIG_par(SOA) ---------------------------------------------->
+#     DS_K_2 ------------------------------------------------------>
+#     RRSIG_par(DS_K_2) ------------------------------------------->
+# 
+#    Child:
+#     -------------------> SOA_3                SOA_4
+#     -------------------> RRSIG_Z_10(SOA)
+#     -------------------> RRSIG_Z_11(SOA)      RRSIG_Z_11(SOA)
+# 
+#     ------------------->
+#     -------------------> DNSKEY_K_2           DNSKEY_K_2
+#     ------------------->
+#     -------------------> DNSKEY_Z_11          DNSKEY_Z_11
+#     ------------------->
+#     -------------------> RRSIG_K_2(DNSKEY)    RRSIG_K_2(DNSKEY)
+#    ----------------------------------------------------------------
+# 
+#         Figure 8: Stages of Deployment during an Algorithm Rollover
+# 
+#    initial:  Describes the state of the zone before any transition is
+#       done.  The number of the keys may vary, but all keys (in DNSKEY
+#       records) for the zone use the same algorithm.
+# 
+#    new RRSIGs:  The signatures made with the new key over all records in
+#       the zone are added, but the key itself is not.  This step is
+#       needed to propagate the signatures created with the new algorithm
+#       to the caches.  If this is not done, it is possible for a resolver
+#       to retrieve the new DNSKEY RRset (containing the new algorithm)
+#       but to have RRsets in its cache with signatures created by the old
+#       DNSKEY RRset (i.e., without the new algorithm).
+# 
+#       The RRSIG for the DNSKEY RRset does not need to be pre-published
+#       (since these records will travel together) and does not need
+#       special processing in order to keep them synchronized.
+# 
+#    new DNSKEY:  After the old data has expired from caches, the new key
+#       can be added to the zone.
+# 
+#    new DS:  After the cache data for the old DNSKEY RRset has expired,
+#       the DS record for the new key can be added to the parent zone and
+#       the DS record for the old key can be removed in the same step.
+# 
+#    DNSKEY removal:  After the cache data for the old DS RRset has
+#       expired, the old algorithm can be removed.  This time, the old key
+#       needs to be removed first, before removing the old signatures.
+# 
+#    RRSIGs removal:  After the cache data for the old DNSKEY RRset has
+#       expired, the old signatures can also be removed during this step.
+# 
+#    Below, we deal with a few special cases of algorithm rollovers:
+# 
+#    1: Single-Type Signing Scheme Algorithm rollover:  when there is no
+#       differentiation between ZSKs and KSKs (Section 4.1.4.1).
+# 
+#    2: RFC 5011 Algorithm rollover:  when trust anchors can track the
+#       roll via RFC 5011 style rollover (Section 4.1.4.2).
+# 
+#    3: 1 and 2 combined:  when a Single-Type Signing Scheme Algorithm
+#       rollover is performed RFC 5011 style (Section 4.1.4.3).
+# 
+#    In addition to the narrative below, these special cases are
+#    represented in Figures 12, 13, and 14 in Appendix C.
+
+[[spec]]
+level = "MUST"
+quote = '''
+There MUST be an RRSIG for each RRset using at least one DNSKEY
+of each algorithm in the zone apex DNSKEY RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The apex
+DNSKEY RRset itself MUST be signed by each algorithm appearing
+in the DS RRset located at the delegating parent (if any).
+'''
+

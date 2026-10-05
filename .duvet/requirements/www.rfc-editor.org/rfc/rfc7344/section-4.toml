@@ -1,0 +1,43 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-4"
+
+# Automating DS Maintenance with CDS/CDNSKEY Records
+#
+#    CDS/CDNSKEY resource records are intended to be "consumed" by
+#    delegation trust maintainers.  The use of CDS/CDNSKEY is OPTIONAL.
+# 
+#    If the Child publishes either the CDS or the CDNSKEY resource record,
+#    it SHOULD publish both.  If the Child knows which the Parent
+#    consumes, it MAY choose to only publish that record type (for
+#    example, some Children wish the Parent to publish a DS, but they wish
+#    to keep the DNSKEY "hidden" until needed).  If the Child publishes
+#    both, the two RRsets MUST match in content.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The use of CDS/CDNSKEY is OPTIONAL.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the Child publishes either the CDS or the CDNSKEY resource record,
+it SHOULD publish both.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the Child knows which the Parent
+consumes, it MAY choose to only publish that record type (for
+example, some Children wish the Parent to publish a DS, but they wish
+to keep the DNSKEY "hidden" until needed).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the Child publishes
+both, the two RRsets MUST match in content.
+'''
+

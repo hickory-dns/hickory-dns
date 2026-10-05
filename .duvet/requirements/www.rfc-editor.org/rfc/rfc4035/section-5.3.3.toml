@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.3.3"
+
+# Checking the Signature
+#
+#    Once the resolver has validated the RRSIG RR as described in Section
+#    5.3.1 and reconstructed the original signed data as described in
+#    Section 5.3.2, the validator can attempt to use the cryptographic
+#    signature to authenticate the signed data, and thus (finally!)
+#    authenticate the RRset.
+# 
+#    The Algorithm field in the RRSIG RR identifies the cryptographic
+#    algorithm used to generate the signature.  The signature itself is
+#    contained in the Signature field of the RRSIG RDATA, and the public
+#    key used to verify the signature is contained in the Public Key field
+#    of the matching DNSKEY RR(s) (found in Section 5.3.1).  [RFC4034]
+#    provides a list of algorithm types and provides pointers to the
+#    documents that define each algorithm's use.
+# 
+#    Note that it is possible for more than one DNSKEY RR to match the
+#    conditions in Section 5.3.1.  In this case, the validator can only
+#    determine which DNSKEY RR is correct by trying each matching public
+#    key until the validator either succeeds in validating the signature
+#    or runs out of keys to try.
+# 
+#    If the Labels field of the RRSIG RR is not equal to the number of
+#    labels in the RRset's fully qualified owner name, then the RRset is
+#    either invalid or the result of wildcard expansion.  The resolver
+#    MUST verify that wildcard expansion was applied properly before
+#    considering the RRset to be authentic.  Section 5.3.4 describes how
+#    to determine whether a wildcard was applied properly.
+# 
+#    If other RRSIG RRs also cover this RRset, the local resolver security
+#    policy determines whether the resolver also has to test these RRSIG
+#    RRs and how to resolve conflicts if these RRSIG RRs lead to differing
+#    results.
+# 
+#    If the resolver accepts the RRset as authentic, the validator MUST
+#    set the TTL of the RRSIG RR and each RR in the authenticated RRset to
+#    a value no greater than the minimum of:
+# 
+#    o  the RRset's TTL as received in the response;
+# 
+#    o  the RRSIG RR's TTL as received in the response;
+# 
+#    o  the value in the RRSIG RR's Original TTL field; and
+# 
+#    o  the difference of the RRSIG RR's Signature Expiration time and the
+#       current time.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The resolver
+MUST verify that wildcard expansion was applied properly before
+considering the RRset to be authentic.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the resolver accepts the RRset as authentic, the validator MUST
+set the TTL of the RRSIG RR and each RR in the authenticated RRset to
+a value no greater than the minimum of:
+'''
+

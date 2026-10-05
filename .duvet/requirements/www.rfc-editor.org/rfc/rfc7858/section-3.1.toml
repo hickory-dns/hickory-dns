@@ -1,0 +1,103 @@
+target = "https://www.rfc-editor.org/rfc/rfc7858#section-3.1"
+
+# Session Initiation
+#
+#    By default, a DNS server that supports DNS over TLS MUST listen for
+#    and accept TCP connections on port 853, unless it has mutual
+#    agreement with its clients to use a port other than 853 for DNS over
+#    TLS.  In order to use a port other than 853, both clients and servers
+#    would need a configuration option in their software.
+# 
+#    By default, a DNS client desiring privacy from DNS over TLS from a
+#    particular server MUST establish a TCP connection to port 853 on the
+#    server, unless it has mutual agreement with its server to use a port
+#    other than port 853 for DNS over TLS.  Such another port MUST NOT be
+#    port 53 but MAY be from the "first-come, first-served" port range.
+#    This recommendation against use of port 53 for DNS over TLS is to
+#    avoid complication in selecting use or non-use of TLS and to reduce
+#    risk of downgrade attacks.  The first data exchange on this TCP
+#    connection MUST be the client and server initiating a TLS handshake
+#    using the procedure described in [RFC5246].
+# 
+#    DNS clients and servers MUST NOT use port 853 to transport cleartext
+#    DNS messages.  DNS clients MUST NOT send and DNS servers MUST NOT
+#    respond to cleartext DNS messages on any port used for DNS over TLS
+#    (including, for example, after a failed TLS handshake).  There are
+#    significant security issues in mixing protected and unprotected data,
+# 
+#    and for this reason, TCP connections on a port designated by a given
+#    server for DNS over TLS are reserved purely for encrypted
+#    communications.
+# 
+#    DNS clients SHOULD remember server IP addresses that don't support
+#    DNS over TLS, including timeouts, connection refusals, and TLS
+#    handshake failures, and not request DNS over TLS from them for a
+#    reasonable period (such as one hour per server).  DNS clients
+#    following an out-of-band key-pinned privacy profile (Section 4.2) MAY
+#    be more aggressive about retrying DNS-over-TLS connection failures.
+
+[[spec]]
+level = "MUST"
+quote = '''
+By default, a DNS server that supports DNS over TLS MUST listen for
+and accept TCP connections on port 853, unless it has mutual
+agreement with its clients to use a port other than 853 for DNS over
+TLS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+By default, a DNS client desiring privacy from DNS over TLS from a
+particular server MUST establish a TCP connection to port 853 on the
+server, unless it has mutual agreement with its server to use a port
+other than port 853 for DNS over TLS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Such another port MUST NOT be
+port 53 but MAY be from the "first-come, first-served" port range.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The first data exchange on this TCP
+connection MUST be the client and server initiating a TLS handshake
+using the procedure described in [RFC5246].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS clients and servers MUST NOT use port 853 to transport cleartext
+DNS messages.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS clients MUST NOT send and DNS servers MUST NOT
+respond to cleartext DNS messages on any port used for DNS over TLS
+(including, for example, after a failed TLS handshake).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS clients SHOULD remember server IP addresses that don't support
+DNS over TLS, including timeouts, connection refusals, and TLS
+handshake failures, and not request DNS over TLS from them for a
+reasonable period (such as one hour per server).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+DNS clients
+following an out-of-band key-pinned privacy profile (Section 4.2) MAY
+be more aggressive about retrying DNS-over-TLS connection failures.
+'''
+

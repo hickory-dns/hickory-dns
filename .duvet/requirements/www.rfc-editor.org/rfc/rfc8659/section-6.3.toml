@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-6.3"
+
+# Delegation to Private Nameservers
+#
+#    Some FQDN administrators make the contents of a subdomain
+#    unresolvable on the public Internet by delegating that subdomain to a
+#    nameserver whose IP address is private.  A CA processing CAA records
+#    for such subdomains will receive SERVFAIL from its recursive
+#    resolver.  The CA MAY interpret that as preventing issuance.  FQDN
+#    administrators wishing to issue certificates for private FQDNs SHOULD
+#    use split-horizon DNS with a publicly available nameserver, so that
+#    CAs can receive a valid, empty CAA response for those FQDNs.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The CA MAY interpret that as preventing issuance.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+FQDN
+administrators wishing to issue certificates for private FQDNs SHOULD
+use split-horizon DNS with a publicly available nameserver, so that
+CAs can receive a valid, empty CAA response for those FQDNs.
+'''
+

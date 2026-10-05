@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc7830#section-3"
+
+# The "Padding" Option
+#
+#    The EDNS(0) [RFC6891] specifies a mechanism to include new options in
+#    DNS packets, contained in the RDATA of the OPT meta-RR.  This
+#    document specifies the "Padding" option in order to allow clients and
+#    servers to pad DNS packets by a variable number of bytes.  The
+#    "Padding" option MUST occur at most, once per OPT meta-RR (and hence,
+#    at most once per message).
+# 
+#    The figure below specifies the structure of the option in the RDATA
+#    of the OPT RR:
+# 
+#                 0                       8                      16
+#                 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#                 |                  OPTION-CODE                  |
+#                 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#                 |                 OPTION-LENGTH                 |
+#                 +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+#                 |        (PADDING) ...        (PADDING) ...     /
+#                 +-  -  -  -  -  -  -  -  -  -  -  -  -  -  -  -
+# 
+#                                  Figure 1
+# 
+#    The OPTION-CODE for the "Padding" option is 12.
+# 
+#    The OPTION-LENGTH for the "Padding" option is the size (in octets) of
+#    the PADDING.  The minimum number of PADDING octets is 0.
+# 
+#    The PADDING octets SHOULD be set to 0x00.  Other values MAY be used,
+#    for example, in cases where there is a concern that the padded
+#    message could be subject to compression before encryption.  PADDING
+#    octets of any value MUST be accepted in the messages received.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+"Padding" option MUST occur at most, once per OPT meta-RR (and hence,
+at most once per message).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The PADDING octets SHOULD be set to 0x00.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Other values MAY be used,
+for example, in cases where there is a concern that the padded
+message could be subject to compression before encryption.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+PADDING
+octets of any value MUST be accepted in the messages received.
+'''
+

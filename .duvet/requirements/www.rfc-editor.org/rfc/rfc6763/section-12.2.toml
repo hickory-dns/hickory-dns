@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-12.2"
+
+# SRV Records
+#
+#    When including an SRV record in a response packet, the
+#    server/responder SHOULD include the following additional records:
+# 
+#    o  All address records (type "A" and "AAAA") named in the SRV rdata.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When including an SRV record in a response packet, the
+server/responder SHOULD include the following additional records:
+'''
+

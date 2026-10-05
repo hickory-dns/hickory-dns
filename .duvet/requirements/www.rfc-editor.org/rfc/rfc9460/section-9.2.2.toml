@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9.2.2"
+
+# Untrusted Channels
+#
+#    HTTPS records do not require or provide any assurance of
+#    authenticity.  (DNSSEC signing and verification, which would provide
+#    such assurance, are OPTIONAL.)  The DNS resolution process is modeled
+#    as an untrusted channel that might be controlled by an attacker, so
+#    Alt-Svc parameters that cannot be safely received in this model MUST
+#    NOT have a corresponding defined SvcParamKey.  For example, there is
+#    no SvcParamKey corresponding to the Alt-Svc "persist" parameter,
+#    because this parameter is not safe to accept over an untrusted
+#    channel.
+
+[[spec]]
+level = "MUST"
+quote = '''
+(DNSSEC signing and verification, which would provide
+such assurance, are OPTIONAL.)  The DNS resolution process is modeled
+as an untrusted channel that might be controlled by an attacker, so
+Alt-Svc parameters that cannot be safely received in this model MUST
+NOT have a corresponding defined SvcParamKey.
+'''
+

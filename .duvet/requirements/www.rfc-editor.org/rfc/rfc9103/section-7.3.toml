@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.3"
+
+# Port Selection
+#
+#    The connection for XoT SHOULD be established using port 853, as
+#    specified in [RFC7858], unless there is mutual agreement between the
+#    primary and secondary to use a port other than port 853 for XoT.
+#    There MAY be agreement to use different ports for AXoT and IXoT or
+#    for different zones.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The connection for XoT SHOULD be established using port 853, as
+specified in [RFC7858], unless there is mutual agreement between the
+primary and secondary to use a port other than port 853 for XoT.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+There MAY be agreement to use different ports for AXoT and IXoT or
+for different zones.
+'''
+

@@ -1,0 +1,106 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.3.1"
+
+# Transaction Cancellation
+#
+#    In QUIC, sending STOP_SENDING requests that a peer cease transmission
+#    on a stream.  If a DoQ client wishes to cancel an outstanding
+#    request, it MUST issue a QUIC STOP_SENDING, and it SHOULD use the
+#    error code DOQ_REQUEST_CANCELLED.  It MAY use a more specific error
+#    code registered according to Section 8.4.  The STOP_SENDING request
+#    may be sent at any time but will have no effect if the server
+#    response has already been sent, in which case the client will simply
+#    discard the incoming response.  The corresponding DNS transaction
+#    MUST be abandoned.
+# 
+#    Servers that receive STOP_SENDING act in accordance with Section 3.5
+#    of [RFC9000].  Servers SHOULD NOT continue processing a DNS
+#    transaction if they receive a STOP_SENDING.
+# 
+#    Servers MAY impose implementation limits on the total number or rate
+#    of cancellation requests.  If limits are encountered, servers MAY
+#    close the connection.  In this case, servers wanting to help client
+#    debugging MAY use the error code DOQ_EXCESSIVE_LOAD.  There is always
+#    a trade-off between helping good faith clients debug issues and
+#    allowing denial-of-service attackers to test server defenses;
+#    depending on circumstances servers might very well choose to send
+#    different error codes.
+# 
+#    Note that this mechanism provides a way for secondaries to cancel a
+#    single zone transfer occurring on a given stream without having to
+#    close the QUIC connection.
+# 
+#    Servers MUST NOT continue processing a DNS transaction if they
+#    receive a RESET_STREAM request from the client before the client
+#    indicates the STREAM FIN.  The server MUST issue a RESET_STREAM to
+#    indicate that the transaction is abandoned unless:
+# 
+#    *  it has already done so for another reason or
+# 
+#    *  it has already both sent the response and indicated the STREAM
+#       FIN.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a DoQ client wishes to cancel an outstanding
+request, it MUST issue a QUIC STOP_SENDING, and it SHOULD use the
+error code DOQ_REQUEST_CANCELLED.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+It MAY use a more specific error
+code registered according to Section 8.4.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The corresponding DNS transaction
+MUST be abandoned.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD NOT continue processing a DNS
+transaction if they receive a STOP_SENDING.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Servers MAY impose implementation limits on the total number or rate
+of cancellation requests.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If limits are encountered, servers MAY
+close the connection.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+In this case, servers wanting to help client
+debugging MAY use the error code DOQ_EXCESSIVE_LOAD.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Servers MUST NOT continue processing a DNS transaction if they
+receive a RESET_STREAM request from the client before the client
+indicates the STREAM FIN.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST issue a RESET_STREAM to
+indicate that the transaction is abandoned unless:
+'''
+
