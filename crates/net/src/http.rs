@@ -139,47 +139,40 @@ pub(crate) fn send_message(
 
         debug!(status = %parts.status, headers = ?parts.headers, "got response");
 
-        verify_response(&parts, response_bytes.as_ref())?;
+        // Was it a successful request?
+        if !parts.status.is_success() {
+            let error_string = String::from_utf8_lossy(response_bytes.as_ref());
+
+            // TODO: make explicit error type
+            return Err(NetError::from(format!(
+                "http unsuccessful code: {}, message: {}",
+                parts.status, error_string
+            )));
+        }
+
+        // in the case that the ContentType is not specified, we assume it's the standard DNS format
+        let content_type = parts
+            .headers
+            .get(CONTENT_TYPE)
+            .map(|h| {
+                h.to_str().map_err(|err| {
+                    // TODO: make explicit error type
+                    NetError::from(format!("ContentType header not a string: {err}"))
+                })
+            })
+            .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
+
+        if content_type != MIME_APPLICATION_DNS {
+            return Err(NetError::from(format!(
+                "ContentType unsupported (must be '{}'): '{}'",
+                MIME_APPLICATION_DNS, content_type
+            )));
+        }
 
         // and finally convert the bytes into a DNS message
         DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
     })
     .into()
-}
-
-/// Verifies that a DoH response carries a DNS message this client can decode
-fn verify_response(parts: &Parts, body: &[u8]) -> Result<(), NetError> {
-    // Was it a successful request?
-    if !parts.status.is_success() {
-        let error_string = String::from_utf8_lossy(body);
-
-        // TODO: make explicit error type
-        return Err(NetError::from(format!(
-            "http unsuccessful code: {}, message: {}",
-            parts.status, error_string
-        )));
-    }
-
-    // in the case that the ContentType is not specified, we assume it's the standard DNS format
-    let content_type = parts
-        .headers
-        .get(CONTENT_TYPE)
-        .map(|h| {
-            h.to_str().map_err(|err| {
-                // TODO: make explicit error type
-                NetError::from(format!("ContentType header not a string: {err}"))
-            })
-        })
-        .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
-
-    if content_type != MIME_APPLICATION_DNS {
-        return Err(NetError::from(format!(
-            "ContentType unsupported (must be '{}'): '{}'",
-            MIME_APPLICATION_DNS, content_type
-        )));
-    }
-
-    Ok(())
 }
 
 /// Verifies the request is well-formed for the name-server and supported protocols
