@@ -26,7 +26,9 @@ use tracing::{debug, warn};
 
 use super::{ALPN_H3, BodyStream};
 use crate::error::NetError;
-use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, send_message};
+use crate::http::{
+    HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, send_message,
+};
 use crate::proto::ProtoError;
 use crate::proto::op::DnsRequest;
 use crate::quic::connect_quic;
@@ -95,7 +97,7 @@ impl HttpSender for H3ClientStream {
 impl DnsRequestSender for H3ClientStream {
     /// See `crate::http::send_message`
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
-        send_message(self, self.is_shutdown, request)
+        send_message(request, self, self.is_shutdown)
     }
 
     fn shutdown(&mut self) {
