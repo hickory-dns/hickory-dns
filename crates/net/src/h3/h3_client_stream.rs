@@ -96,7 +96,10 @@ impl HttpSender for H3ClientStream {
 
 impl DnsRequestSender for H3ClientStream {
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
-        send_message(request, self, self.is_shutdown)
+        if self.is_shutdown {
+            panic!("can not send messages after stream is shutdown")
+        }
+        send_message(request, self)
     }
 
     fn shutdown(&mut self) {
