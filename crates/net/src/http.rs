@@ -104,15 +104,7 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
 ///
 /// This is the shared implementation of [`crate::xfer::DnsRequestSender::send_message`] for every
 /// HTTP client; `is_shutdown` is the caller's own shutdown flag.
-pub(crate) fn send_message(
-    mut request: DnsRequest,
-    sender: &impl HttpSender,
-    is_shutdown: bool,
-) -> DnsResponseStream {
-    if is_shutdown {
-        panic!("can not send messages after stream is shutdown")
-    }
-
+pub(crate) fn send_message(mut request: DnsRequest, sender: &impl HttpSender) -> DnsResponseStream {
     // per the RFC, a zero id allows for the HTTP packet to be cached better
     request.metadata.id = 0;
 
