@@ -30,9 +30,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{
-    HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body, send_message,
-};
+use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::op::DnsRequest;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -94,7 +92,7 @@ impl DnsRequestSender for HttpsClientStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
-        send_message(request, self)
+        self.send_request(request)
     }
 
     fn shutdown(&mut self) {
