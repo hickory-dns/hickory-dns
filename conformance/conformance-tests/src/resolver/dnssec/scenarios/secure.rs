@@ -1,10 +1,9 @@
 use std::net::Ipv4Addr;
-use std::time::Duration;
 
 use dns_test::client::{Client, DigSettings, DigStatus};
 use dns_test::name_server::{Graph, NameServer, Sign};
 use dns_test::record::{Record, RecordType};
-use dns_test::tshark::{Capture, Direction};
+use dns_test::tshark::Capture;
 use dns_test::zone_file::{Nsec, SignSettings};
 use dns_test::{Error, FQDN, Network, PEER, Resolver, TrustAnchor};
 
@@ -148,7 +147,7 @@ fn caches_answer() -> Result<(), Error> {
     }
 
     let mut tshark = tshark.unwrap();
-    tshark.wait_for_capture()?;
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     // we validate caching behavior by eavesdropping on the second query and expecting no
@@ -349,22 +348,7 @@ fn no_root_ds_query() -> Result<(), Error> {
         &FQDN::TEST_TLD,
     )?;
 
-    let client_ip = client.ipv4_addr();
-    tshark.wait_until(
-        |captures| {
-            captures.iter().any(|capture| {
-                matches!(
-                    capture,
-                    Capture {
-                        direction: Direction::Outgoing { destination },
-                        ..
-                    } if *destination == client_ip
-                )
-            })
-        },
-        Duration::from_secs(10),
-    )?;
-
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
     for capture in captures {
         let message_object = capture.message.as_value().as_object().unwrap();
