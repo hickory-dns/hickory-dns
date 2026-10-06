@@ -1089,7 +1089,6 @@ dependencies = [
  "h3-quinn",
  "hickory-proto",
  "http",
- "idna",
  "ipnet",
  "lru-cache",
  "parking_lot",
@@ -1109,7 +1108,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
- "url",
  "webpki-roots",
 ]
 
