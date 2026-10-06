@@ -185,6 +185,34 @@ impl NetError {
         matches!(self, Self::Dns(DnsError::NoRecordsFound { .. }))
     }
 
+    /// Returns true if the error indicates a failure at the transport layer.
+    ///
+    /// Matches only the benign cases, so a new transport-level variant is
+    /// penalized by default in name server pool ordering.
+    pub fn is_transport_error(&self) -> bool {
+        match self {
+            // A response from the server, or a property of the query, not a
+            // transport failure.
+            Self::Dns(_)
+            | Self::ForeignClassRecord { .. }
+            | Self::QueryCaseMismatch
+            | Self::Truncated
+            // Errors derived from request or configuration, not the path
+            // to the server. Message is a catch-all; unpenalized is the
+            // safer default.
+            | Self::Message(_)
+            | Self::NoConnections
+            // Internal resource pressure, not a property of the server.
+            | Self::Busy
+            => false,
+            // The server responded; only its body exceeded our size limit.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::RequestTooLarge => false,
+            // A new transport-level variant is penalized by default.
+            _ => true,
+        }
+    }
+
     /// Returns true for a transport-level connection error: the connection was
     /// closed, reset, or refused, as opposed to a timeout or a server-side (DNS)
     /// error.
@@ -596,6 +624,49 @@ mod tests {
         assert!(
             !NetError::from(h2::Error::from(h2::Reason::INTERNAL_ERROR)).is_connection_closed()
         );
+    }
+
+    #[test]
+    fn is_transport_error() {
+        // Errors that come from a response or query property, not the transport.
+        assert!(
+            !NetError::from(DnsError::ResponseCode(ResponseCode::ServFail)).is_transport_error()
+        );
+        assert!(!NetError::Truncated.is_transport_error());
+        assert!(!NetError::QueryCaseMismatch.is_transport_error());
+        #[cfg(any(feature = "__https", feature = "__h3"))]
+        assert!(!NetError::RequestTooLarge.is_transport_error());
+        assert!(!NetError::from("configuration error").is_transport_error());
+        assert!(!NetError::NoConnections.is_transport_error());
+        assert!(!NetError::Busy.is_transport_error());
+
+        // Transport-level failures should be penalized.
+        assert!(NetError::Timeout.is_transport_error());
+        assert!(
+            NetError::from(io::Error::new(
+                io::ErrorKind::NetworkUnreachable,
+                "no route"
+            ))
+            .is_transport_error()
+        );
+        assert!(
+            NetError::from(io::Error::new(io::ErrorKind::ConnectionRefused, "refused"))
+                .is_transport_error()
+        );
+        assert!(NetError::Proto(ProtoError::from("bad header")).is_transport_error());
+    }
+
+    #[cfg(feature = "__quic")]
+    #[test]
+    fn is_transport_error_quic() {
+        assert!(NetError::QuinnConnect(quinn::ConnectError::EndpointStopping).is_transport_error());
+        assert!(NetError::QuinnConfigError(quinn::ConfigError::OutOfBounds).is_transport_error());
+    }
+
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn is_transport_error_tls() {
+        assert!(NetError::RustlsError(rustls::Error::NoCertificatesPresented).is_transport_error());
     }
 
     #[cfg(feature = "__quic")]

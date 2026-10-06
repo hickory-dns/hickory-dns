@@ -1690,6 +1690,55 @@ mod tests {
         );
     }
 
+    /// For TCP the connect failure surfaces from `connected_mut_client`, not
+    /// the send-error arm of `send_inner`, so it needs its own test.
+    #[tokio::test]
+    async fn test_connect_failure_penalizes_server_srtt() {
+        subscribe();
+
+        let dead_ip = IpAddr::from([10, 0, 0, 1]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let mock_provider = MockProvider::new(MockNetworkHandler::new(Vec::new()));
+        let provider =
+            SlowTimeoutProvider::new(mock_provider, vec![dead_ip], Duration::from_millis(1));
+
+        let opts = ResolverOpts {
+            num_concurrent_reqs: 1,
+            server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+            ..ResolverOpts::default()
+        };
+
+        let ns = Arc::new(NameServer::new(
+            [].into_iter(),
+            NameServerConfig::tcp(dead_ip),
+            &opts,
+            provider.clone(),
+        ));
+        let initial_srtt = ns.decayed_srtt();
+
+        let pool = NameServerPool::from_nameservers(
+            vec![ns.clone()],
+            Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+        );
+
+        let result = pool
+            .lookup(
+                Query::new(query_name, RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await;
+        assert!(result.is_err(), "lookup should fail: no reachable server");
+
+        assert!(
+            ns.decayed_srtt() > initial_srtt,
+            "connection failure should penalize server SRTT: {} should be > {}",
+            ns.decayed_srtt(),
+            initial_srtt,
+        );
+    }
+
     /// A [`RuntimeProvider`] wrapper that returns `io::ErrorKind::TimedOut` from `bind_udp`
     /// for a specified set of server IPs, simulating a connection-level timeout. All other
     /// IPs are delegated to the inner provider.
