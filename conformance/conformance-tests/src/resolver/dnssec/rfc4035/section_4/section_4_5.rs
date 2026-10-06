@@ -42,8 +42,7 @@ fn caches_dnssec_records() -> Result<(), Error> {
     assert!(matches!(answer, Record::SOA(_)));
     assert!(matches!(rrsig, Record::RRSIG(_)));
 
-    tshark.wait_for_capture()?;
-
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     // second query is cached so no communication between the resolver and the nameserver is
@@ -85,8 +84,7 @@ fn caches_query_without_dnssec_to_return_all_dnssec_records_in_subsequent_query(
     let dig = client.dig(settings, resolver.ipv4_addr(), RecordType::SOA, &FQDN::ROOT)?;
     assert!(dig.status.is_noerror());
 
-    tshark.wait_for_capture()?;
-
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     // second query is cached so no communication between the resolver and the nameserver is
@@ -144,7 +142,7 @@ fn caches_intermediate_records() -> Result<(), Error> {
     assert!(output.status.is_noerror());
     assert!(output.flags.authenticated_data);
 
-    tshark.wait_for_capture()?;
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     let ns_addrs = nameservers

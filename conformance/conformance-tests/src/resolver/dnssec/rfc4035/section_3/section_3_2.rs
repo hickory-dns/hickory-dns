@@ -28,8 +28,7 @@ fn do_bit_not_set_in_request() -> Result<(), Error> {
 
     assert!(matches!(answer, Record::SOA(_)));
 
-    tshark.wait_for_capture()?;
-
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     let ns_addr = ns.ipv4_addr();
@@ -163,8 +162,7 @@ fn do_bit_set_in_request() -> Result<(), Error> {
     assert!(matches!(answer, Record::SOA(_)));
     assert!(matches!(rrsig, Record::RRSIG(_)));
 
-    tshark.wait_for_capture()?;
-
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     let ns_addr = ns.ipv4_addr();

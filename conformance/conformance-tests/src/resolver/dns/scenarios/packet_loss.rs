@@ -53,7 +53,7 @@ fn packet_loss_udp() -> Result<(), Error> {
         Ipv4Addr::new(192, 0, 2, 1)
     );
 
-    tshark.wait_for_capture()?;
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     // The default Hickory retry timer is 333ms; the query must have taken at least that long
@@ -63,10 +63,8 @@ fn packet_loss_udp() -> Result<(), Error> {
         assert!(query_time >= 333);
 
         let leaf_ip = _leaf_ns.ipv4_addr();
-        let client_ip = client.ipv4_addr();
         let mut query_count = 0;
         let mut response_count = 0;
-        let mut saw_response_to_client = false;
         for Capture {
             message, direction, ..
         } in captures.iter()
@@ -82,9 +80,6 @@ fn packet_loss_udp() -> Result<(), Error> {
                             query_count += 1;
                         }
                     }
-                }
-                Direction::Outgoing { destination } if *destination == client_ip => {
-                    saw_response_to_client = true;
                 }
                 Direction::Incoming { source } if *source == leaf_ip => {
                     let answers = message.as_value()["Answers"]
@@ -108,7 +103,6 @@ fn packet_loss_udp() -> Result<(), Error> {
 
         // Extra debugging information to help diagnose test flakes:
         println!("{}", _leaf_ns.logs()?);
-        println!("Saw response to client? {saw_response_to_client}");
 
         assert_eq!(query_count, 2);
         assert_eq!(response_count, 1);

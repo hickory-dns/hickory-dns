@@ -44,13 +44,6 @@ pub struct Tshark {
 
     /// Packets received so far.
     captures: Vec<Capture>,
-
-    /// High watermark count of packets observed by [`Self::wait_for_capture`].
-    ///
-    /// This field keeps track of how many packets had been received at the time
-    /// [`Self::wait_for_capture`] was last called. This is done to match the behavior of the
-    /// previous implementation of this method.
-    wait_capture_count_watermark: usize,
 }
 
 impl Tshark {
@@ -62,6 +55,23 @@ impl Tshark {
     /// Construct a TsharkBuilder that can build a customized Tshark instance.
     pub fn builder() -> TsharkBuilder {
         TsharkBuilder::default()
+    }
+
+    /// Waits until a packet sent to `destination` has been captured.
+    ///
+    /// Packets are captured in order, so once the last packet of an exchange (like the resolver's
+    /// response to the client) has been seen, all earlier packets have been captured as well.
+    /// Packets that have not been reported yet may be lost by [`Self::terminate`].
+    pub fn wait_for_outgoing_packet(&mut self, destination: Ipv4Addr) -> Result<(), Error> {
+        self.wait_until(
+            |captures| {
+                captures.iter().any(|capture| match capture.direction {
+                    Direction::Outgoing { destination: dst } => dst == destination,
+                    Direction::Incoming { .. } => false,
+                })
+            },
+            Duration::from_secs(10),
+        )
     }
 
     /// Waits until the captured packets satisfy some condition.
@@ -82,31 +92,6 @@ impl Tshark {
             }
         }
         Ok(())
-    }
-
-    /// Blocks until `tshark` reports that it has captured new DNS messages.
-    ///
-    /// This method returns the number of newly captured messages.
-    ///
-    /// Consider using [`Self::wait_until`] instead, and waiting for packets with specific
-    /// properties.
-    pub fn wait_for_capture(&mut self) -> Result<usize, Error> {
-        let old_watermark = self.wait_capture_count_watermark;
-        if self.captures.len() <= old_watermark {
-            // Block until we receive a new packet.
-            match self.receiver.recv() {
-                Ok(capture) => self.captures.push(capture),
-                Err(_) => return Err("unexpected EOF".into()),
-            }
-        }
-        // If there are more packets ready in the channel, move them into the vector.
-        while let Ok(capture) = self.receiver.try_recv() {
-            self.captures.push(capture);
-        }
-
-        let new_watermark = self.captures.len();
-        self.wait_capture_count_watermark = new_watermark;
-        Ok(new_watermark - old_watermark)
     }
 
     pub fn terminate(mut self) -> Result<Vec<Capture>, Error> {
@@ -239,7 +224,6 @@ exec tshark -l -i eth0 -T json -O dns {ssl_keylog_arg}-f '({protocol_filter})'"
             id,
             receiver,
             captures: Vec::new(),
-            wait_capture_count_watermark: 0,
         })
     }
 }
@@ -776,9 +760,7 @@ mod tests {
 
         assert!(output.status.is_noerror());
 
-        let count = tshark.wait_for_capture()?;
-        dbg!(count);
-
+        tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
         let messages = tshark.terminate()?;
         assert!(messages.len() > 2);
 

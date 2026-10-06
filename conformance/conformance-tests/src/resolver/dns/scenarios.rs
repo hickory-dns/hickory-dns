@@ -104,7 +104,7 @@ fn recursion_desired_flag() -> Result<(), Error> {
     assert_eq!(needle_fqdn, a.fqdn);
     assert_eq!(expected_ipv4_addr, a.ipv4_addr);
 
-    tshark.wait_for_capture()?;
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     // Query from client to resolver should have RD=1.

@@ -1,4 +1,4 @@
-use std::{net::Ipv4Addr, time::Duration};
+use std::net::Ipv4Addr;
 
 use dns_test::{
     Error, FQDN,
@@ -27,19 +27,7 @@ fn clears_ad_bit_in_outgoing_queries() -> Result<(), Error> {
     let settings = *DigSettings::default().recurse().authentic_data();
     let _output = client.dig(settings, resolver_addr, RecordType::A, &leaf_fqdn)?;
 
-    tshark.wait_until(
-        |captures| {
-            captures.iter().any(|Capture { direction, .. }| {
-                matches!(
-                    direction,
-                    Direction::Outgoing {
-                        destination
-                    } if *destination == client_addr
-                )
-            })
-        },
-        Duration::from_secs(10),
-    )?;
+    tshark.wait_for_outgoing_packet(client_addr)?;
     let captures = tshark.terminate()?;
 
     let mut ns_checks_count = 0;
