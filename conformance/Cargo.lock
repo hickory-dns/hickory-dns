@@ -538,7 +538,6 @@ dependencies = [
  "futures-io",
  "futures-util",
  "hickory-proto",
- "idna",
  "ipnet",
  "lru-cache",
  "parking_lot",
@@ -552,7 +551,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
- "url",
 ]
 
 [[package]]
