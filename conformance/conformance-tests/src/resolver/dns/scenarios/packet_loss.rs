@@ -101,9 +101,6 @@ fn packet_loss_udp() -> Result<(), Error> {
             }
         }
 
-        // Extra debugging information to help diagnose test flakes:
-        println!("{}", _leaf_ns.logs()?);
-
         assert_eq!(query_count, 2);
         assert_eq!(response_count, 1);
     }
