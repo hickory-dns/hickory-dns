@@ -563,7 +563,6 @@ dependencies = [
  "time",
  "tinyvec",
  "tracing",
- "url",
 ]
 
 [[package]]

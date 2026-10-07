@@ -1133,7 +1133,6 @@ dependencies = [
  "time",
  "tinyvec",
  "tracing",
- "url",
  "wasm-bindgen",
 ]
 
@@ -3274,7 +3273,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
- "serde_derive",
 ]
 
 [[package]]

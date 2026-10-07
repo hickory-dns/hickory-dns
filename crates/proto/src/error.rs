@@ -76,10 +76,6 @@ pub enum ProtoError {
     #[error("response received with incorrect QR flag")]
     NotAResponse,
 
-    /// An url parsing error
-    #[error("url parsing error")]
-    UrlParsing(#[from] url::ParseError),
-
     /// A utf8 parsing error
     #[error("error parsing utf8 string")]
     Utf8(#[from] core::str::Utf8Error),
