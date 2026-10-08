@@ -5,22 +5,13 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! TLS protocol related components for DNS over TLS
-
 use std::{future::Future, net::SocketAddr, sync::Arc, time::Duration};
 
 use futures_util::future::BoxFuture;
-#[cfg(not(feature = "rustls-platform-verifier"))]
-use rustls::RootCertStore;
-use rustls::{
-    ClientConfig,
-    crypto::{self, CryptoProvider},
-    pki_types::ServerName,
-};
-#[cfg(feature = "rustls-platform-verifier")]
-use rustls_platform_verifier::BuilderVerifierExt;
+use rustls::{ClientConfig, pki_types::ServerName};
 use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 use tracing::debug;
 
 use crate::{
@@ -34,8 +25,7 @@ use crate::{
 };
 
 /// Type of TlsClientStream used with Rustls
-pub type TlsClientStream<S> =
-    TcpClientStream<AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>>>;
+pub type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// Create a new [`DnsExchange`] wrapped around a multiplexed [`TlsClientStream`],
 /// optionally binding the underlying TCP socket to a local address.
@@ -183,13 +173,13 @@ fn tls_client_connect_with_future<S: DnsTcpStream>(
     )
 }
 
-pub(super) async fn connect_tls_stream<S: DnsTcpStream>(
+async fn connect_tls_stream<S: DnsTcpStream>(
     tls_connector: TlsConnector,
     stream: S,
     name_server: SocketAddr,
     server_name: ServerName<'static>,
     outbound_messages: StreamReceiver,
-) -> Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>, NetError> {
+) -> Result<TcpStream<AsyncIoTokioAsStd<TlsStream<AsyncIoStdAsTokio<S>>>>, NetError> {
     let stream = AsyncIoStdAsTokio(stream);
     let s = match timeout(CONNECT_TIMEOUT, tls_connector.connect(server_name, stream)).await {
         Ok(Ok(s)) => s,
@@ -206,47 +196,3 @@ pub(super) async fn connect_tls_stream<S: DnsTcpStream>(
         outbound_messages,
     ))
 }
-
-/// Make a new [`ClientConfig`] with the default settings
-pub fn client_config() -> Result<ClientConfig, rustls::Error> {
-    let builder = ClientConfig::builder_with_provider(Arc::new(default_provider()))
-        .with_safe_default_protocol_versions()
-        .unwrap();
-
-    #[cfg(feature = "rustls-platform-verifier")]
-    let builder = builder.with_platform_verifier()?;
-    #[cfg(not(feature = "rustls-platform-verifier"))]
-    let builder = builder.with_root_certificates({
-        #[cfg_attr(not(feature = "webpki-roots"), allow(unused_mut))]
-        let mut root_store = RootCertStore::empty();
-        #[cfg(feature = "webpki-roots")]
-        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        root_store
-    });
-
-    Ok(builder.with_no_client_auth())
-}
-
-/// Instantiate a new [`CryptoProvider`] for use with rustls
-#[cfg(all(feature = "tls-aws-lc-rs", not(feature = "tls-ring")))]
-pub fn default_provider() -> CryptoProvider {
-    crypto::aws_lc_rs::default_provider()
-}
-
-/// Instantiate a new [`CryptoProvider`] for use with rustls
-#[cfg(feature = "tls-ring")]
-pub fn default_provider() -> CryptoProvider {
-    crypto::ring::default_provider()
-}
-
-/// Predefined type for abstracting the TlsClientStream with TokioTls
-pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
-
-/// TLS configuration factories for server transports.
-#[path = "tls/tls_config.rs"]
-pub mod tls_config;
-
-#[path = "tls/tls_listener.rs"]
-mod tls_listener;
-
-pub use tls_listener::{TlsListener, TlsServerStream};

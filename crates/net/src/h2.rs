@@ -307,7 +307,7 @@ mod tests {
     use crate::proto::op::{DnsRequestOptions, Edns, Message, Query};
     use crate::proto::rr::{Name, RData, RecordType};
     use crate::runtime::TokioRuntimeProvider;
-    use crate::tls::client_config;
+    use crate::tls::tls_config;
     use crate::xfer::FirstAnswer;
 
     #[cfg(any(feature = "webpki-roots", feature = "rustls-platform-verifier"))]
@@ -525,7 +525,7 @@ mod tests {
     }
 
     fn client_config_h2() -> ClientConfig {
-        let mut config = client_config().unwrap();
+        let mut config = tls_config::client_config().unwrap();
         config.alpn_protocols = vec![ALPN_H2.to_vec()];
         config
     }

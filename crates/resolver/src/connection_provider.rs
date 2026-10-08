@@ -32,7 +32,7 @@ use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{client_config, default_provider, tls_exchange};
+use crate::net::tls::{tls_config, tls_exchange};
 use crate::{
     config::{ConnectionConfig, ProtocolConfig},
     name_server_pool::PoolContext,
@@ -216,7 +216,7 @@ impl TlsConfig {
     pub fn new() -> Result<Self, NetError> {
         Ok(Self {
             #[cfg(feature = "__tls")]
-            config: client_config()?,
+            config: tls_config::client_config()?,
         })
     }
 
@@ -252,7 +252,7 @@ struct NoCertificateVerification(CryptoProvider);
 #[cfg(feature = "__tls")]
 impl Default for NoCertificateVerification {
     fn default() -> Self {
-        Self(default_provider())
+        Self(tls_config::default_provider())
     }
 }
 
@@ -336,7 +336,7 @@ mod tests {
     use crate::config::ServerOrderingStrategy;
     use crate::net::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
-    use crate::net::tls::client_config;
+    use crate::net::tls::tls_config;
 
     #[cfg(feature = "__h3")]
     #[tokio::test]
@@ -375,7 +375,7 @@ mod tests {
         subscribe();
 
         // AdGuard requires SNI.
-        let config = client_config().unwrap();
+        let config = tls_config::client_config().unwrap();
 
         let group = ServerGroup {
             ips: &[

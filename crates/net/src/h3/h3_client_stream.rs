@@ -31,7 +31,7 @@ use crate::proto::ProtoError;
 use crate::proto::op::DnsRequest;
 use crate::quic::connect_quic;
 use crate::runtime::{RuntimeProvider, Spawn};
-use crate::tls::client_config;
+use crate::tls::tls_config;
 use crate::udp::UdpSocket;
 use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
@@ -278,7 +278,7 @@ impl H3ClientStreamBuilder {
                 ALPN_H3,
                 match self.crypto_config {
                     Some(crypto_config) => crypto_config,
-                    None => client_config()?,
+                    None => tls_config::client_config()?,
                 },
                 self.transport_config,
                 endpoint,
@@ -366,7 +366,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -434,7 +434,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -506,7 +506,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -572,7 +572,7 @@ mod tests {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client_config().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let h3 = H3ClientStream::builder()

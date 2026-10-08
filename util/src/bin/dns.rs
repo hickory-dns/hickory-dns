@@ -27,10 +27,10 @@ use hickory_net::h2::HttpsClientStream;
 use hickory_net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use hickory_net::quic::QuicClientStream;
-#[cfg(any(feature = "__tls", feature = "__https"))]
-use hickory_net::tls::client_config;
 #[cfg(feature = "__tls")]
 use hickory_net::tls::tls_client_connect;
+#[cfg(any(feature = "__tls", feature = "__https"))]
+use hickory_net::tls::tls_config;
 use hickory_net::{
     NetError,
     client::{Client, ClientHandle},
@@ -483,7 +483,7 @@ async fn tls<P: RuntimeProvider>(
         .expect("tls_dns_name is required tls connections");
     println!("; using tls:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config()?;
+    let mut config = tls_config::client_config()?;
     if opts.do_not_verify_nameserver_cert {
         do_not_verify_nameserver_cert(&mut config);
     }
@@ -530,7 +530,7 @@ async fn https<P: RuntimeProvider>(
         .expect("http_endpoint is required for https connections");
     println!("; using https:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config()?;
+    let mut config = tls_config::client_config()?;
     if opts.do_not_verify_nameserver_cert {
         do_not_verify_nameserver_cert(&mut config);
     }
@@ -566,7 +566,7 @@ async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("tls_dns_name is required quic connections");
     println!("; using quic:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config()?;
+    let mut config = tls_config::client_config()?;
     if opts.do_not_verify_nameserver_cert {
         do_not_verify_nameserver_cert(&mut config);
     }
@@ -605,7 +605,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
         .expect("http_endpoint is required for H3 connections");
     println!("; using h3:{nameserver} dns_name:{dns_name}");
 
-    let mut config = client_config()?;
+    let mut config = tls_config::client_config()?;
     if opts.do_not_verify_nameserver_cert {
         do_not_verify_nameserver_cert(&mut config);
     }
