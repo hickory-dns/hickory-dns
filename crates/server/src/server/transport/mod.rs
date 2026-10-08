@@ -44,3 +44,8 @@ pub use h2::H2;
 mod quic;
 #[cfg(feature = "__quic")]
 pub use quic::Quic;
+
+#[cfg(feature = "__h3")]
+mod h3;
+#[cfg(feature = "__h3")]
+pub use h3::H3;
