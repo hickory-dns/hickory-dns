@@ -54,7 +54,6 @@ use crate::{
         BufDnsStreamHandle, NetError,
         runtime::{TokioTime, iocompat::AsyncIoTokioAsStd},
         tcp::TcpStream,
-        udp::UdpStream,
         xfer::Protocol,
     },
     proto::{
@@ -128,12 +127,6 @@ impl<T: RequestHandler> Server<T> {
     pub fn register(&mut self, transport: impl Transport + Debug) {
         debug!(?transport, "registering transport");
         self.join_set.spawn(transport.run(self.context.clone()));
-    }
-
-    /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket) {
-        let task = handle_udp(socket, self.context.clone());
-        self.join_set.spawn(task);
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -500,70 +493,6 @@ impl<T: RequestHandler> Server<T> {
         }
 
         out
-    }
-}
-
-async fn handle_udp(
-    socket: net::UdpSocket,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!("registering udp: {:?}", socket);
-
-    // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-    //   the address used is acquired from the inbound queries
-    let (mut stream, stream_handle) =
-        UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
-
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
-            // Graceful shutdown
-            break;
-        };
-        let Some(message_res) = option else {
-            // End of stream
-            break;
-        };
-
-        let message = match message_res {
-            Err(error) => {
-                warn!(%error, "error receiving message on udp_socket");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
-                }
-                continue;
-            }
-            Ok(message) => message,
-        };
-
-        let src_addr = message.addr();
-        debug!("received udp request from: {}", src_addr);
-
-        // verify that the src address is safe for responses
-        if let Err(e) = sanitize_src_address(src_addr) {
-            warn!(
-                "address can not be responded to {src_addr}: {e}",
-                src_addr = src_addr,
-                e = e
-            );
-            continue;
-        }
-
-        let cx = cx.clone();
-        let stream_handle = stream_handle.with_remote_addr(src_addr);
-        inner_join_set.spawn(async move {
-            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
-                .await;
-        });
-
-        reap_tasks(&mut inner_join_set);
-    }
-
-    if cx.shutdown.is_cancelled() {
-        Ok(())
-    } else {
-        // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-        Err(NetError::from("unexpected close of UDP socket"))
     }
 }
 
@@ -1120,17 +1049,22 @@ async fn optional_timeout<T>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::zone_handler::Catalog;
+    use std::{net::SocketAddr, time::Duration};
+
     use futures_util::future;
     #[cfg(feature = "__tls")]
-    use rustls::sign::SingleCertAndKey;
-    use std::net::SocketAddr;
+    use rustls::{server::ResolvesServerCert, sign::SingleCertAndKey};
     #[cfg(feature = "__tls")]
     use test_support::TestCertificates;
     use test_support::subscribe;
-    use tokio::net::{TcpListener, UdpSocket};
-    use tokio::time::timeout;
+    use tokio::{
+        net::{TcpListener, UdpSocket},
+        time::timeout,
+    };
+
+    use super::*;
+    use crate::server::transport::Udp;
+    use crate::zone_handler::Catalog;
 
     #[tokio::test]
     async fn abort() {
@@ -1232,7 +1166,7 @@ mod tests {
         }
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
-            server.register_socket(UdpSocket::bind(self.udp_addr).await.unwrap());
+            server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Some(Duration::from_secs(1)),
