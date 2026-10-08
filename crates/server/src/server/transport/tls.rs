@@ -91,80 +91,64 @@ impl<L: DnsTcpListener> Tls<L> {
 }
 
 impl<L: DnsTcpListener> Transport for Tls<L> {
-    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        handle_tls(
-            self.listener,
-            self.handshake_timeout,
-            self.stream_timeout,
-            cx,
-        )
-        .await
-    }
-}
-
-#[cfg(feature = "__tls")]
-async fn handle_tls<L: DnsTcpListener>(
-    mut listener: TlsListener<L>,
-    handshake_timeout: Option<Duration>,
-    stream_timeout: Option<Duration>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(result) = cx
-            .shutdown
-            .run_until_cancelled(listener.accept(handshake_timeout))
-            .await
-        else {
-            // A graceful shutdown was initiated. Break out of the loop.
-            break;
-        };
-        let accepted = match result {
-            Ok(accepted) => accepted,
-            Err(error) => {
-                debug!(%error, "error receiving TLS tcp_stream error");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
-                }
-                continue;
-            }
-        };
-
-        let cx = cx.clone();
-        inner_join_set.spawn(async move {
-            let src_addr = accepted.src_addr;
-            let (stream_handle, outbound_messages) = BufDnsStreamHandle::new(src_addr);
-            let buf_stream = TcpStream::from_stream_with_receiver(
-                accepted.connection,
-                src_addr,
-                outbound_messages,
-            );
-            let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
-            while let Some(message) = timeout_stream.next().await {
-                let message = match message {
-                    Ok(message) => message,
-                    Err(error) => {
-                        debug!(
-                            %src_addr, %error,
-                            "error in TLS request stream",
-                        );
-
-                        // kill this connection
-                        return;
+    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(result) = cx
+                .shutdown
+                .run_until_cancelled(self.listener.accept(self.handshake_timeout))
+                .await
+            else {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            };
+            let accepted = match result {
+                Ok(accepted) => accepted,
+                Err(error) => {
+                    debug!(%error, "error receiving TLS tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
                     }
-                };
+                    continue;
+                }
+            };
 
-                cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
-                    .await;
-            }
-        });
+            let cx = cx.clone();
+            inner_join_set.spawn(async move {
+                let src_addr = accepted.src_addr;
+                let (stream_handle, outbound_messages) = BufDnsStreamHandle::new(src_addr);
+                let buf_stream = TcpStream::from_stream_with_receiver(
+                    accepted.connection,
+                    src_addr,
+                    outbound_messages,
+                );
+                let mut timeout_stream = TimeoutStream::new(buf_stream, self.stream_timeout);
+                while let Some(message) = timeout_stream.next().await {
+                    let message = match message {
+                        Ok(message) => message,
+                        Err(error) => {
+                            debug!(
+                                %src_addr, %error,
+                                "error in TLS request stream",
+                            );
 
-        reap_tasks(&mut inner_join_set);
-    }
+                            // kill this connection
+                            return;
+                        }
+                    };
 
-    if cx.shutdown.is_cancelled() {
+                    cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
+                        .await;
+                }
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        if !cx.shutdown.is_cancelled() {
+            return Err(NetError::from("unexpected close of socket"));
+        }
+
         Ok(())
-    } else {
-        Err(NetError::from("unexpected close of socket"))
     }
 }
