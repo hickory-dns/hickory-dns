@@ -22,6 +22,7 @@ use quinn::{
 };
 use tokio::time::timeout;
 
+use crate::tls::alpn;
 use crate::{
     error::NetError,
     proto::op::{DnsRequest, DnsResponse},
@@ -32,8 +33,6 @@ use crate::{
     udp::UdpSocket,
     xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream},
 };
-
-use super::quic_stream;
 
 /// A DNS client connection for DNS-over-QUIC
 #[must_use = "futures do nothing unless polled"]
@@ -320,7 +319,7 @@ impl QuicClientStreamBuilder {
             connect_quic(
                 name_server,
                 server_name.clone(),
-                quic_stream::DOQ_ALPN,
+                alpn::DOQ,
                 crypto_config,
                 self.transport_config,
                 endpoint,

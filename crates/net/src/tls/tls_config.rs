@@ -41,7 +41,7 @@ pub fn client_config() -> Result<ClientConfig, rustls::Error> {
 /// Construct a default [`ServerConfig`] for TLS over TCP, such as DoT or HTTP/2.
 ///
 /// The returned configuration uses the safe default protocol versions and does not request client
-/// certificates. `alpn` selects the ALPN, such as `b"dot"` or `b"h2"`.
+/// certificates. `alpn` selects the ALPN, such as [`super::alpn::DOT`] or [`super::alpn::H2`].
 /// For QUIC-based protocols, use `server_quic` instead.
 pub fn server_tcp(
     alpn: &[u8],
@@ -61,7 +61,7 @@ pub fn server_tcp(
 ///
 /// The returned configuration only enables TLS 1.3, as required by QUIC, uses the given ALPN
 /// protocol and does not request client certificates. `alpn` selects the ALPN, such as
-/// `b"doq"` or `b"h3"`.
+/// [`super::alpn::DOQ`] or [`super::alpn::H3`].
 #[cfg(feature = "__quic")]
 pub fn server_quic(alpn: &[u8], cert_resolver: Arc<dyn ResolvesServerCert>) -> ServerConfig {
     let mut config = ServerConfig::builder_with_provider(Arc::new(default_provider()))

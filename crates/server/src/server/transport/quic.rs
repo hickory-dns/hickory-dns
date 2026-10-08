@@ -13,7 +13,7 @@ use crate::{
         NetError,
         quic::{IntoQuicSocket, QuicConnection, QuicListener, QuicStream},
         runtime::Accepted,
-        tls::tls_config,
+        tls::{alpn, tls_config},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -69,7 +69,7 @@ impl Quic {
     ) -> Result<Self, NetError> {
         Self::with_tls_config(
             socket,
-            Arc::new(tls_config::server_quic(b"doq", server_cert_resolver)),
+            Arc::new(tls_config::server_quic(alpn::DOQ, server_cert_resolver)),
         )
     }
 

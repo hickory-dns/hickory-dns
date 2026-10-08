@@ -49,6 +49,8 @@ use hickory_server::{
 
 mod config;
 use config::{Config, TcpSocketConfig, UdpSocketConfig};
+#[cfg(feature = "__tls")]
+use hickory_net::tls::alpn;
 
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
@@ -640,7 +642,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = tls_config::server_tcp(b"dot", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(alpn::DOT, cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoT SSL_KEYLOG_FILE support enabled");
@@ -680,7 +682,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = tls_config::server_tcp(b"h2", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(alpn::H2, cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoH SSL_KEYLOG_FILE support enabled");
@@ -719,7 +721,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = tls_config::server_tcp(b"doq", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(alpn::DOQ, cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoQ SSL_KEYLOG_FILE support enabled");

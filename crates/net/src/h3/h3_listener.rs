@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use super::h3_config;
-use crate::tls::tls_config;
+use crate::tls::{alpn, tls_config};
 use crate::{
     error::NetError,
     quic::{
@@ -83,7 +83,7 @@ impl H3Listener {
         socket: impl IntoQuicSocket,
         cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, NetError> {
-        let config = tls_config::server_quic(b"h3", cert_resolver);
+        let config = tls_config::server_quic(alpn::H3, cert_resolver);
         Self::with_socket_and_tls_config(socket, Arc::new(config))
     }
 

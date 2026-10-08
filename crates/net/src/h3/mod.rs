@@ -24,8 +24,6 @@ mod h3_listener;
 
 pub use h3_listener::{H3Connection, H3Listener};
 
-const ALPN_H3: &[u8] = b"h3";
-
 /// [`Stream`] adapter for h3 body streaming.
 pub struct BodyStream<T>(T);
 

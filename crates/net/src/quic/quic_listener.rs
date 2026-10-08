@@ -15,7 +15,7 @@ use super::{
     quic_endpoint::{QuicEndpoint, QuicHandshake},
     quic_stream::QuicStream,
 };
-use crate::tls::tls_config;
+use crate::tls::{alpn, tls_config};
 use crate::{error::NetError, runtime::Accepted};
 use quinn::{Connecting, Connection};
 use rustls::server::ResolvesServerCert;
@@ -65,7 +65,7 @@ impl QuicListener {
         socket: impl IntoQuicSocket,
         cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> Result<Self, NetError> {
-        let config = tls_config::server_quic(b"doq", cert_resolver);
+        let config = tls_config::server_quic(alpn::DOQ, cert_resolver);
         Self::with_socket_and_tls_config(socket, Arc::new(config))
     }
 

@@ -24,14 +24,14 @@ use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
-use super::{ALPN_H3, BodyStream, h3_config};
+use super::{BodyStream, h3_config};
 use crate::error::NetError;
 use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::ProtoError;
 use crate::proto::op::DnsRequest;
 use crate::quic::connect_quic;
 use crate::runtime::{RuntimeProvider, Spawn};
-use crate::tls::tls_config;
+use crate::tls::{alpn, tls_config};
 use crate::udp::UdpSocket;
 use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
@@ -275,7 +275,7 @@ impl H3ClientStreamBuilder {
             connect_quic(
                 name_server,
                 server_name.clone(),
-                ALPN_H3,
+                alpn::H3,
                 match self.crypto_config {
                     Some(crypto_config) => crypto_config,
                     None => tls_config::client_config()?,

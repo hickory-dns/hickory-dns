@@ -15,7 +15,7 @@ use crate::{
         http::{self, Version, fetch_body},
         quic::IntoQuicSocket,
         runtime::Accepted,
-        tls::tls_config,
+        tls::{alpn, tls_config},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -73,7 +73,7 @@ impl H3 {
     ) -> Result<Self, NetError> {
         Self::with_tls_config(
             socket,
-            Arc::new(tls_config::server_quic(b"h3", cert_resolver)),
+            Arc::new(tls_config::server_quic(alpn::H3, cert_resolver)),
         )
     }
 

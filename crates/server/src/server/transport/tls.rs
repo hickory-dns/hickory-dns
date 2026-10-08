@@ -18,8 +18,7 @@ use crate::{
         BufDnsStreamHandle, NetError,
         runtime::{Accepted, DnsTcpListener},
         tcp::TcpStream,
-        tls::tls_config,
-        tls::{TlsListener, TlsServerStream},
+        tls::{TlsListener, TlsServerStream, alpn, tls_config},
         xfer::Protocol,
     },
     server::{
@@ -61,7 +60,7 @@ impl<L: DnsTcpListener> Tls<L> {
     ) -> Result<Self, NetError> {
         Ok(Self::with_tls_config(
             listener,
-            Arc::new(tls_config::server_tcp(b"dot", server_cert_resolver)?),
+            Arc::new(tls_config::server_tcp(alpn::DOT, server_cert_resolver)?),
         ))
     }
 

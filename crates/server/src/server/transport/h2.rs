@@ -20,7 +20,7 @@ use crate::{
         h2::{H2Connection, H2Listener, message_from},
         http::{self, Version},
         runtime::{DnsTcpListener, DnsTcpStream},
-        tls::tls_config,
+        tls::{alpn, tls_config},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -72,7 +72,7 @@ impl<L: DnsTcpListener> H2<L> {
     ) -> Result<Self, NetError> {
         Ok(Self::with_tls_config(
             listener,
-            Arc::new(tls_config::server_tcp(b"h2", server_cert_resolver)?),
+            Arc::new(tls_config::server_tcp(alpn::H2, server_cert_resolver)?),
         ))
     }
 

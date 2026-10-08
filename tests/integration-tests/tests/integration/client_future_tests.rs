@@ -112,10 +112,8 @@ async fn test_query_tcp_ipv6() {
 async fn test_query_https() {
     use hickory_integration::CLOUDFLARE_V4_TLS;
     use hickory_net::h2::HttpsClientStream;
-    use hickory_net::tls::tls_config;
+    use hickory_net::tls::{alpn, tls_config};
     use rustls::{ClientConfig, RootCertStore};
-
-    const ALPN_H2: &[u8] = b"h2";
 
     subscribe();
 
@@ -129,7 +127,7 @@ async fn test_query_https() {
             .unwrap()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-    client_config.alpn_protocols.push(ALPN_H2.to_vec());
+    client_config.alpn_protocols.push(alpn::H2.to_vec());
 
     let sender = HttpsClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new())
         .build(
