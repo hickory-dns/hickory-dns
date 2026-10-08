@@ -7,17 +7,7 @@
 
 use std::{net::SocketAddr, sync::Arc, task::Context, time::Duration};
 
-use bytes::{Buf, Bytes};
-use h3::server::RequestStream;
-use h3_quinn::BidiStream;
-use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
-use tracing::{debug, warn};
-
-use super::{
-    ResponseInfo, ServerContext, reap_tasks, request_handler::RequestHandler,
-    response_handler::ResponseHandler, sanitize_src_address,
-};
+use super::Transport;
 use crate::{
     net::{
         NetError,
@@ -26,35 +16,124 @@ use crate::{
             h3_server::{H3Connection, H3Server},
         },
         http::{self, Version, fetch_body},
+        quic::IntoQuicSocket,
+        tls::tls_config,
         xfer::Protocol,
     },
     proto::rr::Record,
-    server::optional_timeout,
+    server::{
+        ResponseInfo, ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
+        response_handler::ResponseHandler, sanitize_src_address,
+    },
     zone_handler::MessageResponse,
 };
+use bytes::{Buf, Bytes};
+use h3::server::RequestStream;
+use h3_quinn::BidiStream;
+use rustls::{ServerConfig, server::ResolvesServerCert};
+use tokio::task::JoinSet;
+use tracing::{debug, warn};
 
-pub(super) async fn handle_h3(
-    socket: net::UdpSocket,
+/// Builder and transport implementation for DNS-over-HTTP/3 (DoH3).
+///
+/// Wraps an already-bound UDP socket and a TLS configuration to accept HTTP/3 connections.
+#[derive(Debug)]
+pub struct H3 {
+    listener: H3Server,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    dns_hostname: Option<String>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!("registered h3: {:?}", socket);
-    handle_h3_with_server(
-        H3Server::with_socket(socket, server_cert_resolver)?,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        dns_hostname,
-        cx,
-    )
-    .await
 }
 
-pub(super) async fn handle_h3_with_server(
+impl H3 {
+    /// Constructs a new HTTP/3 transport with the provided [`ServerConfig`].
+    ///
+    /// The `socket` must be already bound to the desired local address, and the configuration
+    /// must enable the H3 ALPN protocol. Default timeouts are `None`.
+    ///
+    /// Initializes the QUIC endpoint immediately and requires a Tokio runtime.
+    /// Returns errors from TLS configuration conversion, socket conversion, or endpoint creation.
+    pub fn with_tls_config(
+        socket: impl IntoQuicSocket,
+        tls_config: Arc<ServerConfig>,
+    ) -> Result<Self, NetError> {
+        Ok(Self {
+            listener: H3Server::with_socket_and_tls_config(socket, tls_config)?,
+            handshake_timeout: None,
+            idle_timeout: None,
+            request_timeout: None,
+        })
+    }
+
+    /// Constructs a new HTTP/3 transport with a certificate resolver.
+    ///
+    /// A default TLS 1.3 configuration with ALPN `h3` and the QUIC endpoint are constructed
+    /// immediately. Requires a Tokio runtime and returns listener initialization errors.
+    pub fn new(
+        socket: impl IntoQuicSocket,
+        cert_resolver: Arc<dyn ResolvesServerCert>,
+    ) -> Result<Self, NetError> {
+        Self::with_tls_config(
+            socket,
+            Arc::new(tls_config::server_quic(b"h3", cert_resolver)),
+        )
+    }
+
+    /// Sets the timeout for the QUIC handshake and HTTP/3 initialization together.
+    pub fn handshake_timeout(self, handshake_timeout: Duration) -> Self {
+        self.maybe_handshake_timeout(Some(handshake_timeout))
+    }
+
+    /// Sets the handshake timeout; pass `None` to disable it.
+    pub fn maybe_handshake_timeout(self, handshake_timeout: Option<Duration>) -> Self {
+        Self {
+            handshake_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the timeout before closing an idle connection.
+    pub fn idle_timeout(self, idle_timeout: Duration) -> Self {
+        self.maybe_idle_timeout(Some(idle_timeout))
+    }
+
+    /// Sets the idle timeout; pass `None` to disable it.
+    pub fn maybe_idle_timeout(self, idle_timeout: Option<Duration>) -> Self {
+        Self {
+            idle_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the timeout for receiving a complete request over a stream.
+    pub fn request_timeout(self, request_timeout: Duration) -> Self {
+        self.maybe_request_timeout(Some(request_timeout))
+    }
+
+    /// Sets the request timeout; pass `None` to disable it.
+    pub fn maybe_request_timeout(self, request_timeout: Option<Duration>) -> Self {
+        Self {
+            request_timeout,
+            ..self
+        }
+    }
+}
+
+impl Transport for H3 {
+    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        handle_h3_with_server(
+            self.listener,
+            self.handshake_timeout,
+            self.idle_timeout,
+            self.request_timeout,
+            None,
+            cx,
+        )
+        .await
+    }
+}
+
+async fn handle_h3_with_server(
     mut server: H3Server,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
@@ -141,7 +220,7 @@ pub(super) async fn handle_h3_with_server(
     Ok(())
 }
 
-pub(crate) async fn h3_handler(
+async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,
