@@ -121,12 +121,11 @@ async fn test_query_https() {
     let mut root_store = RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
 
-    let mut client_config =
-        ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+    let mut client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
     client_config.alpn_protocols.push(alpn::H2.to_vec());
 
     let sender = HttpsClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new())

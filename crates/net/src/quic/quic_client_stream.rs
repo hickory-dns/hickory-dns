@@ -306,7 +306,7 @@ impl QuicClientStreamBuilder {
         let crypto_config = if let Some(crypto_config) = self.crypto_config {
             crypto_config
         } else {
-            tls_config::client_config().map_err(|e| {
+            tls_config::client().map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::InvalidInput,
                     format!("failed to initialize default TLS client config: {e}"),

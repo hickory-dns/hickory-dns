@@ -43,12 +43,11 @@ async fn test_example_https_toml_startup() {
 
     root_store.add(ca_cert.clone()).unwrap();
 
-    let mut client_config =
-        ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+    let mut client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
     client_config.alpn_protocols.push(alpn::H2.to_vec());
 
     let client_config = Arc::new(client_config);

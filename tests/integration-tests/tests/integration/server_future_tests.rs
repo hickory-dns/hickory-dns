@@ -422,12 +422,11 @@ async fn test_server_www_quic() {
     let (_, ignored) = roots.add_parsable_certificates([certificates.ca.der().clone()]);
     assert_eq!(ignored, 0);
 
-    let client_config =
-        ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+    let client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
 
     let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(
         hickory_net::quic::QuicClientStream::builder()
@@ -479,12 +478,11 @@ async fn test_server_www_h3() {
     let (_, ignored) = roots.add_parsable_certificates([certificates.ca.der().clone()]);
     assert_eq!(ignored, 0);
 
-    let client_config =
-        ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(roots)
-            .with_no_client_auth();
+    let client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
 
     let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(
         hickory_net::h3::H3ClientStream::builder()
@@ -540,7 +538,7 @@ async fn lazy_tls_client(
     let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
 
-    let config = ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
+    let config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
         .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_store)

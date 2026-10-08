@@ -37,7 +37,7 @@ async fn test_example_tls_toml_startup() {
     let mut root_store = RootCertStore::empty();
     root_store.add(ca_cert.clone()).expect("bad certificate");
 
-    let config = ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
+    let config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
         .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_store)

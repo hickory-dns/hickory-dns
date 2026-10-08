@@ -40,12 +40,11 @@ async fn test_example_quic_toml_startup() {
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     root_store.add(ca_cert.clone()).unwrap();
 
-    let client_config =
-        ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
-            .with_safe_default_protocol_versions()
-            .unwrap()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
+    let client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
 
     let (mut client, bg) = Client::<TokioRuntimeProvider>::from_sender(
         QuicClientStream::builder()

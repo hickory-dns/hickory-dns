@@ -278,7 +278,7 @@ impl H3ClientStreamBuilder {
                 alpn::H3,
                 match self.crypto_config {
                     Some(crypto_config) => crypto_config,
-                    None => tls_config::client_config()?,
+                    None => tls_config::client()?,
                 },
                 self.transport_config,
                 endpoint,
@@ -366,7 +366,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = tls_config::client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -434,7 +434,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = tls_config::client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -506,7 +506,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = tls_config::client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -572,7 +572,7 @@ mod tests {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
-        let mut client_config = tls_config::client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let h3 = H3ClientStream::builder()

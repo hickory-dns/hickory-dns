@@ -771,9 +771,8 @@ impl TlsCertConfig {
             ));
         };
 
-        let certified_key =
-            CertifiedKey::from_der(cert_chain, key, &tls_config::default_provider())
-                .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
+        let certified_key = CertifiedKey::from_der(cert_chain, key, &tls_config::provider())
+            .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
 
         Ok(Arc::new(SingleCertAndKey::from(certified_key)))
     }

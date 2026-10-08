@@ -216,7 +216,7 @@ impl TlsConfig {
     pub fn new() -> Result<Self, NetError> {
         Ok(Self {
             #[cfg(feature = "__tls")]
-            config: tls_config::client_config()?,
+            config: tls_config::client()?,
         })
     }
 
@@ -252,7 +252,7 @@ struct NoCertificateVerification(CryptoProvider);
 #[cfg(feature = "__tls")]
 impl Default for NoCertificateVerification {
     fn default() -> Self {
-        Self(tls_config::default_provider())
+        Self(tls_config::provider())
     }
 }
 
@@ -375,7 +375,7 @@ mod tests {
         subscribe();
 
         // AdGuard requires SNI.
-        let config = tls_config::client_config().unwrap();
+        let config = tls_config::client().unwrap();
 
         let group = ServerGroup {
             ips: &[
