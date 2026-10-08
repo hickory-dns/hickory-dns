@@ -12,11 +12,11 @@ use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::Transport;
+use crate::net::sanitize_src_address;
 use crate::{
     net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
     server::{
         ServerContext, is_unrecoverable_socket_error, reap_tasks, request_handler::RequestHandler,
-        sanitize_src_address,
     },
 };
 

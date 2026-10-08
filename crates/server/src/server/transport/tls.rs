@@ -14,6 +14,7 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
 
 use super::Transport;
+use crate::net::sanitize_src_address;
 use crate::{
     net::{
         NetError,
@@ -26,7 +27,7 @@ use crate::{
     },
     server::{
         ServerContext, TimeoutStream, is_unrecoverable_socket_error, optional_timeout, reap_tasks,
-        request_handler::RequestHandler, sanitize_src_address,
+        request_handler::RequestHandler,
     },
 };
 

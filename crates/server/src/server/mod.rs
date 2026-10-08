@@ -19,7 +19,7 @@ use std::time::Duration;
 use std::{
     fmt::{self, Debug},
     io,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::SocketAddr,
     sync::Arc,
 };
 
@@ -461,48 +461,6 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
     }
 }
 
-/// Checks if the IP address is safe for returning messages
-///
-/// Examples of unsafe addresses are any with a port of `0`
-///
-/// # Returns
-///
-/// Error if the address should not be used for returned requests
-fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
-    // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
-    if src.port() == 0 {
-        return Err(format!("cannot respond to src on port 0: {src}"));
-    }
-
-    fn verify_v4(src: Ipv4Addr) -> Result<(), String> {
-        if src.is_unspecified() {
-            return Err(format!("cannot respond to unspecified v4 addr: {src}"));
-        }
-
-        if src.is_broadcast() {
-            return Err(format!("cannot respond to broadcast v4 addr: {src}"));
-        }
-
-        // TODO: add check for is_reserved when that stabilizes
-
-        Ok(())
-    }
-
-    fn verify_v6(src: Ipv6Addr) -> Result<(), String> {
-        if src.is_unspecified() {
-            return Err(format!("cannot respond to unspecified v6 addr: {src}"));
-        }
-
-        Ok(())
-    }
-
-    // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
-    match src.ip() {
-        IpAddr::V4(v4) => verify_v4(v4),
-        IpAddr::V6(v6) => verify_v6(v6),
-    }
-}
-
 /// Returns `true` if an `accept()` error means the listener itself is no longer usable.
 fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
     matches!(err.kind(), io::ErrorKind::NotConnected)
@@ -592,30 +550,6 @@ mod tests {
             .expect("error while awaiting tasks");
 
         endpoints.rebind_all().await;
-    }
-
-    #[test]
-    fn test_sanitize_src_addr() {
-        // ipv4 tests
-        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4_096))).is_ok());
-        assert!(sanitize_src_address(SocketAddr::from(([127, 0, 0, 1], 53))).is_ok());
-
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4_096))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4_096))).is_err());
-
-        // ipv6 tests
-        assert!(
-            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4_096))).is_ok()
-        );
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4_096))).is_ok());
-
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4_096))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
-        assert!(
-            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err()
-        );
     }
 
     #[tokio::test]

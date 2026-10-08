@@ -8,6 +8,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use super::Transport;
+use crate::net::sanitize_src_address;
 use crate::{
     net::{
         NetError,
@@ -18,7 +19,7 @@ use crate::{
     proto::rr::Record,
     server::{
         ResponseInfo, ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
-        response_handler::ResponseHandler, sanitize_src_address,
+        response_handler::ResponseHandler,
     },
     zone_handler::MessageResponse,
 };
