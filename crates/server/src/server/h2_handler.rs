@@ -19,10 +19,10 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, default_tls_server_config, is_unrecoverable_socket_error,
-    reap_tasks, request_handler::RequestHandler, response_handler::ResponseHandler,
-    sanitize_src_address,
+    ResponseInfo, ServerContext, is_unrecoverable_socket_error, reap_tasks,
+    request_handler::RequestHandler, response_handler::ResponseHandler, sanitize_src_address,
 };
+use crate::net::tls::tls_config;
 use crate::{
     net::{
         NetError, h2,
@@ -51,7 +51,7 @@ pub(super) async fn handle_h2(
         handshake_timeout,
         idle_timeout,
         request_timeout,
-        TlsAcceptor::from(Arc::new(default_tls_server_config(
+        TlsAcceptor::from(Arc::new(tls_config::server_tcp(
             b"h2",
             server_cert_resolver,
         )?)),

@@ -53,7 +53,7 @@ use crate::net::quic::QuicServer;
 #[cfg(feature = "__tls")]
 use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{default_provider, tls_from_stream};
+use crate::net::tls::tls_from_stream;
 use crate::{
     access::AccessControl,
     net::{BufDnsStreamHandle, NetError, runtime::TokioTime, xfer::Protocol},
@@ -74,6 +74,9 @@ mod h2_handler;
 mod h3_handler;
 #[cfg(feature = "__quic")]
 mod quic_handler;
+#[cfg(feature = "__tls")]
+pub use crate::net::tls::tls_config;
+
 mod request_handler;
 pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 mod response_handler;
@@ -193,7 +196,7 @@ impl<T: RequestHandler> Server<T> {
             listener,
             handshake_timeout,
             stream_timeout,
-            Arc::new(default_tls_server_config(b"dot", server_cert_resolver)?),
+            Arc::new(tls_config::server_tcp(b"dot", server_cert_resolver)?),
         )
     }
 
@@ -562,23 +565,6 @@ async fn handle_tls(
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
 fn reap_tasks(join_set: &mut JoinSet<()>) {
     while join_set.try_join_next().is_some() {}
-}
-
-/// Construct a default `ServerConfig` for the given ALPN protocol and server cert resolver.
-#[cfg(feature = "__tls")]
-pub fn default_tls_server_config(
-    protocol: &[u8],
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-) -> io::Result<ServerConfig> {
-    let mut config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
-        .with_safe_default_protocol_versions()
-        .map_err(|e| io::Error::other(format!("error creating TLS acceptor: {e}")))?
-        .with_no_client_auth()
-        .with_cert_resolver(server_cert_resolver);
-
-    config.alpn_protocols = vec![protocol.to_vec()];
-
-    Ok(config)
 }
 
 /// Shared request handling and shutdown state for registered transports.
