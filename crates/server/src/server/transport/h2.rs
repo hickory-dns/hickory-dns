@@ -141,75 +141,53 @@ impl<L: DnsTcpListener> H2<L> {
 }
 
 impl<L: DnsTcpListener> Transport for H2<L> {
-    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        handle_h2_with_acceptor(
-            self.listener,
-            self.handshake_timeout,
-            self.idle_timeout,
-            self.request_timeout,
-            self.dns_hostname,
-            self.http_endpoint,
-            cx,
-        )
-        .await
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn handle_h2_with_acceptor<L: DnsTcpListener>(
-    mut listener: H2Listener<L>,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    dns_hostname: Option<String>,
-    http_endpoint: String,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let shutdown = &cx.shutdown;
-        let Some(result) = shutdown
-            .run_until_cancelled(listener.accept(handshake_timeout))
-            .await
-        else {
-            // A graceful shutdown was initiated. Break out of the loop.
-            break;
-        };
-        let accepted = match result {
-            Ok(accepted) => accepted,
-            Err(error) => {
-                debug!(%error, "error receiving HTTPS tcp_stream error");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
+    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let dns_hostname: Option<Arc<str>> = self.dns_hostname.map(|n| n.into());
+        let http_endpoint: Arc<str> = Arc::from(self.http_endpoint);
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(result) = cx
+                .shutdown
+                .run_until_cancelled(self.listener.accept(self.handshake_timeout))
+                .await
+            else {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            };
+            let accepted = match result {
+                Ok(accepted) => accepted,
+                Err(error) => {
+                    debug!(%error, "error receiving HTTPS tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
                 }
-                continue;
-            }
-        };
+            };
 
-        let cx = cx.clone();
-        let dns_hostname = dns_hostname.clone();
-        let http_endpoint = http_endpoint.clone();
-        inner_join_set.spawn(async move {
-            h2_handler(
-                accepted,
-                idle_timeout,
-                request_timeout,
-                dns_hostname,
-                http_endpoint,
-                cx,
-            )
-            .await;
-        });
+            let cx = cx.clone();
+            let dns_hostname = dns_hostname.clone();
+            let http_endpoint = http_endpoint.clone();
+            inner_join_set.spawn(async move {
+                h2_handler(
+                    accepted,
+                    self.idle_timeout,
+                    self.request_timeout,
+                    dns_hostname,
+                    http_endpoint,
+                    cx,
+                )
+                .await;
+            });
 
-        reap_tasks(&mut inner_join_set);
-    }
+            reap_tasks(&mut inner_join_set);
+        }
 
-    if cx.shutdown.is_cancelled() {
+        if !cx.shutdown.is_cancelled() {
+            return Err(NetError::from("unexpected close of socket"));
+        }
+
         Ok(())
-    } else {
-        Err(NetError::from("unexpected close of socket"))
     }
 }
 
