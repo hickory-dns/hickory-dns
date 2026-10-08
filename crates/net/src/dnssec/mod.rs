@@ -37,9 +37,7 @@ use crate::{
 };
 
 mod context;
-use context::{
-    RrsetMap, RrsetProof, RrsetVerificationContext, RrsigVerificationOutcome, VerifiedRrsetMap,
-};
+use context::{RrsetMap, RrsetProof, RrsetVerificationContext, VerifiedRrsetMap};
 
 mod error;
 pub use error::{ProofError, ProofErrorKind};
@@ -281,18 +279,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             }));
         }
 
-        // If we have any wildcard records, they must be validated with covering
-        // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|(key, rrset)| match rrset.outcome {
-            RrsigVerificationOutcome::Secure { rrsig } => {
-                rrsig.input().num_labels < key.name.num_labels()
-            }
-            // If the zone is insecure, we don't need to finish validation of wildcard expansion. If
-            // the RRset's signature is bogus, we likewise don't need to further check the wildcard
-            // expansion proof.
-            RrsigVerificationOutcome::Insecure | RrsigVerificationOutcome::Bogus => false,
-        });
-
         if !authorities.is_empty()
             && authorities.iter().all(|(_, rrset)| {
                 rrset.records.iter().all(|x| x.proof == Proof::Insecure)
@@ -344,34 +330,28 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         // Both NSEC and NSEC3 records cannot coexist during
         // transition periods, as per RFC 5515 10.4.3 and
         // 10.5.2
-        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty(), must_validate_nsec) {
-            (true, false, _) => verify_nsec3(
+        let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty()) {
+            (true, false) => verify_nsec3(
                 &query,
                 find_soa_name(&message),
                 message.response_code,
-                &message.answers,
                 &nsec3s,
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
             ),
-            (false, true, _) => verify_nsec(
+            (false, true) => verify_nsec(
                 &query,
                 find_soa_name(&message),
                 message.response_code,
-                &message.answers,
                 &nsecs,
             ),
-            (true, true, _) => {
+            (true, true) => {
                 warn!(
                     "response contains both NSEC and NSEC3 records\nQuery:\n{query:?}\nResponse:\n{message:?}"
                 );
                 Proof::Bogus
             }
-            (false, false, true) => {
-                warn!("response contains wildcard RRSIGs, but no NSEC/NSEC3s are present.");
-                Proof::Bogus
-            }
-            (false, false, false) => {
+            (false, false) => {
                 // Calling find_ds_records for a DS query will cause a validation loop if the zone being
                 // queried is insecure and its parent zone is insecure (no DS records will exist and no
                 // NSEC records will be available to prove that non-existence.)  Return ok/insecure:
