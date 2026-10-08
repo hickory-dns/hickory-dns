@@ -47,8 +47,9 @@ use crate::{
         rr::{
             Name, RData, Record,
             rdata::{
-                A, AAAA,
+                A, AAAA, HTTPS, SVCB,
                 opt::{ClientSubnet, EdnsCode, EdnsOption},
+                svcb::{IpHint, Mandatory, SvcParamKey, SvcParamValue},
             },
         },
     },
@@ -224,32 +225,49 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                 return Ok(response);
             }
 
-            let answer_filter = |record: &Record| {
-                let ip = match &record.data {
-                    RData::A(A(ipv4)) => (*ipv4).into(),
-                    RData::AAAA(AAAA(ipv6)) => (*ipv6).into(),
+            let denied = |ip: IpAddr| {
+                if !acs.denied(ip) {
+                    return false;
+                }
+
+                error!(
+                    %query,
+                    %ip,
+                    "removing ip from response: answer filter matched"
+                );
+
+                true
+            };
+
+            let answer_filter = |record: &mut Record| {
+                let ip = match &mut record.data {
+                    RData::A(A(ipv4)) => IpAddr::from(*ipv4),
+                    RData::AAAA(AAAA(ipv6)) => IpAddr::from(*ipv6),
+                    RData::SVCB(svcb) | RData::HTTPS(HTTPS(svcb)) => {
+                        if retain_allowed_hints(svcb, &denied) {
+                            return true;
+                        }
+
+                        error!(
+                            %query,
+                            "removing record from response: answer filter emptied a \
+                            mandatory parameter"
+                        );
+
+                        return false;
+                    }
                     _ => return true,
                 };
 
-                if acs.denied(ip) {
-                    error!(
-                        %query,
-                        %ip,
-                        "removing ip from response: answer filter matched"
-                    );
-
-                    false
-                } else {
-                    true
-                }
+                !denied(ip)
             };
 
             let answers_len = response.answers.len();
             let authorities_len = response.authorities.len();
 
-            response.additionals.retain(answer_filter);
-            response.answers.retain(answer_filter);
-            response.authorities.retain(answer_filter);
+            response.additionals.retain_mut(answer_filter);
+            response.answers.retain_mut(answer_filter);
+            response.authorities.retain_mut(answer_filter);
 
             if response.answers.is_empty() && answers_len != 0
                 || (response.answers.is_empty()
@@ -443,6 +461,45 @@ impl<P: ConnectionProvider> PoolState<P> {
             }
         }
     }
+}
+
+/// Drop the addresses `denied` matches from a SVCB or HTTPS record's IP hints.
+///
+/// `ipv4hint` and `ipv6hint` carry addresses a client may connect to without ever
+/// looking up the target's A or AAAA records, so they have to go through the answer
+/// filter too. An empty hint list is invalid on the wire (RFC 9460 section 7.3), so a
+/// hint whose addresses were all filtered out is removed entirely.
+///
+/// Returns false if the record itself should be dropped, which happens when a removed
+/// hint is listed in `mandatory`: RFC 9460 section 8 makes such a record malformed, and
+/// a client has to discard it anyway.
+fn retain_allowed_hints(svcb: &mut SVCB, denied: &impl Fn(IpAddr) -> bool) -> bool {
+    let mut removed = SmallVec::<[SvcParamKey; 2]>::new();
+
+    svcb.svc_params.retain_mut(|(key, value)| {
+        let emptied = match value {
+            SvcParamValue::Ipv4Hint(IpHint(hints)) => {
+                hints.retain(|A(ip)| !denied(IpAddr::from(*ip)));
+                hints.is_empty()
+            }
+            SvcParamValue::Ipv6Hint(IpHint(hints)) => {
+                hints.retain(|AAAA(ip)| !denied(IpAddr::from(*ip)));
+                hints.is_empty()
+            }
+            _ => return true,
+        };
+
+        if emptied {
+            removed.push(*key);
+        }
+
+        !emptied
+    });
+
+    !svcb.svc_params.iter().any(|(_, value)| match value {
+        SvcParamValue::Mandatory(Mandatory(keys)) => keys.iter().any(|key| removed.contains(key)),
+        _ => false,
+    })
 }
 
 /// Compare two errors to see if one contains a server response.
@@ -1078,6 +1135,7 @@ mod tests {
     use std::time::Duration;
 
     use futures_util::future;
+    use ipnet::IpNet;
     use test_support::{
         MockNetworkHandler, MockProvider, MockRecord, MockTcpStream, MockUdpSocket, subscribe,
     };
@@ -1087,6 +1145,7 @@ mod tests {
     use crate::config::{NameServerConfig, ResolverConfig, ServerOrderingStrategy};
     use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
     use crate::net::xfer::{DnsHandle, FirstAnswer, Protocol};
+    use crate::proto::access_control::AccessControlSetBuilder;
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::{DNSClass, Name, RecordType};
 
@@ -2204,6 +2263,115 @@ mod tests {
         )
         .first_answer()
         .await
+    }
+
+    /// RFC 9460 `ipv4hint`/`ipv6hint` values are addresses a client may connect to
+    /// without ever querying the target's A or AAAA records, so the answer filter has
+    /// to reach into SVCB and HTTPS records as well.
+    #[tokio::test]
+    async fn test_pool_filters_svcb_ip_hints() {
+        subscribe();
+
+        let server_ip = IpAddr::from([192, 0, 2, 1]);
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        let svcb = SVCB::new(
+            1,
+            Name::root(),
+            vec![
+                (
+                    SvcParamKey::Ipv4Hint,
+                    SvcParamValue::Ipv4Hint(IpHint(vec![
+                        A([10, 1, 2, 3].into()),
+                        A([93, 184, 216, 34].into()),
+                    ])),
+                ),
+                (
+                    SvcParamKey::Ipv6Hint,
+                    SvcParamValue::Ipv6Hint(IpHint(vec![AAAA(
+                        [0x2001, 0xdb8, 0, 0, 0, 0, 0, 1].into(),
+                    )])),
+                ),
+            ],
+        );
+
+        let filter = AccessControlSetBuilder::new("test answers")
+            .deny(
+                [
+                    "10.0.0.0/8".parse::<IpNet>().unwrap(),
+                    "2001:db8::/32".parse::<IpNet>().unwrap(),
+                ]
+                .iter(),
+            )
+            .build()
+            .unwrap();
+
+        let pool = NameServerPool::from_nameservers(
+            vec![Arc::new(NameServer::new(
+                [].into_iter(),
+                NameServerConfig::udp(server_ip),
+                &ResolverOpts::default(),
+                MockProvider::new(MockNetworkHandler::new(vec![MockRecord::https(
+                    server_ip,
+                    &query_name,
+                    svcb,
+                )])),
+            ))],
+            Arc::new(
+                PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap())
+                    .with_answer_filter(filter),
+            ),
+        );
+
+        let response = pool
+            .lookup(
+                Query::new(query_name, RecordType::HTTPS),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .expect("lookup failed");
+
+        let [answer] = &response.answers[..] else {
+            panic!("expected one answer, got {:?}", response.answers);
+        };
+        let RData::HTTPS(HTTPS(svcb)) = &answer.data else {
+            panic!("expected an HTTPS record, got {:?}", answer.data);
+        };
+
+        // The denied v4 hint is gone, and the v6 hint is dropped entirely rather than
+        // left with an empty address list.
+        assert_eq!(
+            svcb.svc_params,
+            vec![(
+                SvcParamKey::Ipv4Hint,
+                SvcParamValue::Ipv4Hint(IpHint(vec![A([93, 184, 216, 34].into())])),
+            )]
+        );
+    }
+
+    /// A hint listed in `mandatory` cannot be dropped on its own, since RFC 9460
+    /// section 8 makes the remaining record malformed.
+    #[test]
+    fn filter_drops_record_with_emptied_mandatory_hint() {
+        subscribe();
+
+        let mut svcb = SVCB::new(
+            1,
+            Name::root(),
+            vec![
+                (
+                    SvcParamKey::Mandatory,
+                    SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::Ipv4Hint])),
+                ),
+                (
+                    SvcParamKey::Ipv4Hint,
+                    SvcParamValue::Ipv4Hint(IpHint(vec![A([10, 1, 2, 3].into())])),
+                ),
+            ],
+        );
+
+        assert!(!retain_allowed_hints(&mut svcb, &|ip| ip == IpAddr::from([10, 1, 2, 3])));
     }
 
     #[derive(Clone, Copy)]

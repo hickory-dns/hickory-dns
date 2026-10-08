@@ -22,7 +22,7 @@ use hickory_proto::{
     op::{Message, OpCode, Query, ResponseCode},
     rr::{
         Name, RData, Record, RecordType,
-        rdata::{A, CNAME, NS, SOA, TXT},
+        rdata::{A, CNAME, HTTPS, NS, SOA, SVCB, TXT},
     },
     serialize::binary::BinDecodable,
 };
@@ -131,6 +131,19 @@ impl MockRecord {
             query_type: RecordType::A,
             record_name: rr_name.clone(),
             record_data: RData::CNAME(CNAME(target.clone())),
+            section: MockResponseSection::Answer,
+        }
+    }
+
+    /// An HTTPS record answering an HTTPS query for `rr_name`.
+    pub fn https(server: IpAddr, rr_name: &Name, svcb: SVCB) -> Self {
+        Self {
+            ns: server,
+            ttl: 3600,
+            query_name: rr_name.clone(),
+            query_type: RecordType::HTTPS,
+            record_name: rr_name.clone(),
+            record_data: RData::HTTPS(HTTPS(svcb)),
             section: MockResponseSection::Answer,
         }
     }
