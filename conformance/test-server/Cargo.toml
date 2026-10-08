@@ -15,3 +15,6 @@ hickory-proto = { workspace = true, default-features = false, features = ["std"]
 hickory-net = { workspace = true, default-features = false, features = ["dnssec-aws-lc-rs", "tokio"] }
 tokio = { workspace = true, features = ["macros", "net", "io-util", "rt-multi-thread"] }
 time = { workspace = true, features = ["formatting", "macros", "parsing"] }
+
+[lints]
+workspace = true
