@@ -16,7 +16,7 @@ use std::{future::Future, time::Duration};
 /// # Returns
 ///
 /// Error if the address should not be used for returned requests
-pub fn sanitize_src_address(src_addr: SocketAddr) -> Result<(), String> {
+pub(super) fn sanitize_src_address(src_addr: SocketAddr) -> Result<(), String> {
     if src_addr.port() == 0 {
         return Err(format!("cannot respond to src on port 0: {src_addr}"));
     }

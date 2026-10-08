@@ -20,7 +20,9 @@ use crate::NetError;
 
 mod h3_client_stream;
 pub use h3_client_stream::{H3ClientStream, H3ClientStreamBuilder};
-pub mod h3_server;
+mod h3_listener;
+
+pub use h3_listener::{H3Connection, H3Listener};
 
 const ALPN_H3: &[u8] = b"h3";
 
@@ -75,4 +77,8 @@ where
     fn from(stream: T) -> Self {
         Self(stream)
     }
+}
+
+fn endpoint() -> quinn::EndpointConfig {
+    quinn::EndpointConfig::default()
 }
