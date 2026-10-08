@@ -17,7 +17,7 @@ use core::{
     time::Duration,
 };
 use std::{
-    collections::{HashMap, HashSet, hash_map::DefaultHasher},
+    collections::{HashMap, hash_map::DefaultHasher},
     sync::Arc,
     time::Instant,
 };
@@ -406,7 +406,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         options: DnsRequestOptions,
         current_time: u32,
     ) -> Vec<Record> {
-        let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
+        // In order of first appearance: the records are rebuilt in this order, and a
+        // hash order would shuffle a CNAME chain the recursor has already ordered.
+        let mut rrset_types: Vec<(Name, RecordType)> = Vec::new();
 
         for rrset in records
             .iter()
@@ -423,7 +425,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             })
             .map(|rr| (rr.name.clone(), rr.record_type()))
         {
-            rrset_types.insert(rrset);
+            if !rrset_types.contains(&rrset) {
+                rrset_types.push(rrset);
+            }
         }
 
         // there were no records to verify
