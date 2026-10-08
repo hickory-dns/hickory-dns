@@ -67,76 +67,65 @@ impl<L: DnsTcpListener> Tcp<L> {
 }
 
 impl<L: DnsTcpListener> Transport for Tcp<L> {
-    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        handle_tcp(
-            self.listener,
-            self.stream_timeout,
-            self.response_buffer_size,
-            cx,
-        )
-        .await
-    }
-}
-
-async fn handle_tcp<L: DnsTcpListener>(
-    mut listener: TcpListener<L>,
-    stream_timeout: Option<Duration>,
-    response_buffer_size: usize,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
-            // A graceful shutdown was initiated. Break out of the loop.
-            break;
-        };
-        let accepted = match result {
-            Ok(accepted) => accepted,
-            Err(error) => {
-                debug!(%error, "error receiving TCP tcp_stream error");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
-                }
-                continue;
-            }
-        };
-
-        // and spawn to the io_loop
-        let cx = cx.clone();
-        inner_join_set.spawn(async move {
-            let src_addr = accepted.src_addr;
-            debug!(%src_addr, "accepted TCP request");
-            // take the created stream...
-            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                accepted.connection,
-                src_addr,
-                response_buffer_size,
-            );
-            let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
-
-            while let Some(message) = timeout_stream.next().await {
-                let message = match message {
-                    Ok(message) => message,
-                    Err(error) => {
-                        debug!(%src_addr, %error, "error in TCP request stream");
-                        // we're going to bail on this connection...
-                        return;
+    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(result) = cx
+                .shutdown
+                .run_until_cancelled(self.listener.accept())
+                .await
+            else {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            };
+            let accepted = match result {
+                Ok(accepted) => accepted,
+                Err(error) => {
+                    debug!(%error, "error receiving TCP tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
                     }
-                };
+                    continue;
+                }
+            };
 
-                // we don't spawn here to limit clients from getting too many resources
-                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
-                    .await;
-            }
-        });
+            // and spawn to the io_loop
+            let cx = cx.clone();
+            inner_join_set.spawn(async move {
+                let src_addr = accepted.src_addr;
+                debug!(%src_addr, "accepted TCP request");
+                // take the created stream...
+                let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
+                    accepted.connection,
+                    src_addr,
+                    self.response_buffer_size,
+                );
+                let mut timeout_stream = TimeoutStream::new(buf_stream, self.stream_timeout);
 
-        reap_tasks(&mut inner_join_set);
-    }
+                while let Some(message) = timeout_stream.next().await {
+                    let message = match message {
+                        Ok(message) => message,
+                        Err(error) => {
+                            debug!(%src_addr, %error, "error in TCP request stream");
+                            // we're going to bail on this connection...
+                            return;
+                        }
+                    };
 
-    if cx.shutdown.is_cancelled() {
+                    // we don't spawn here to limit clients from getting too many resources
+                    cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                        .await;
+                }
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        if !cx.shutdown.is_cancelled() {
+            return Err(NetError::from("unexpected close of socket"));
+        }
+
         Ok(())
-    } else {
-        Err(NetError::from("unexpected close of socket"))
     }
 }
 
