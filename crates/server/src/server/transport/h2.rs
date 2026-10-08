@@ -169,7 +169,10 @@ impl<L: DnsTcpListener> Transport for H2<L> {
             let dns_hostname = dns_hostname.clone();
             let http_endpoint = http_endpoint.clone();
             inner_join_set.spawn(async move {
-                h2_handler(
+                let src_addr = accepted.src_addr();
+                debug!(%src_addr, protocol = %Protocol::Https, "starting request processing");
+
+                let result = Self::handle(
                     accepted,
                     self.idle_timeout,
                     self.request_timeout,
@@ -178,6 +181,10 @@ impl<L: DnsTcpListener> Transport for H2<L> {
                     cx,
                 )
                 .await;
+
+                if let Err(error) = result {
+                    warn!(%src_addr, %error, protocol = %Protocol::Https, "request processing failed");
+                }
             });
 
             reap_tasks(&mut inner_join_set);
@@ -191,68 +198,67 @@ impl<L: DnsTcpListener> Transport for H2<L> {
     }
 }
 
-async fn h2_handler(
-    mut connection: H2Connection<impl DnsTcpStream>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    dns_hostname: Option<Arc<str>>,
-    http_endpoint: Arc<str>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) {
-    let src_addr = connection.src_addr();
-    let dns_hostname = dns_hostname.clone();
-    let http_endpoint = http_endpoint.clone();
-
-    // Accept all inbound HTTP/2.0 streams sent over the
-    // connection.
-    loop {
-        let future = cx
-            .shutdown
-            .run_until_cancelled(utils::optional_timeout(idle_timeout, connection.accept()));
-        let Some(timeout_result) = future.await else {
-            break; // A graceful shutdown was initiated.
-        };
-        let Ok(accept_option) = timeout_result else {
-            break; // Timeout elapsed while waiting for a request.
-        };
-        let Some(result) = accept_option else {
-            break; // The connection is closed.
-        };
-        let (request, respond) = match result {
-            Ok(pair) => pair,
-            Err(error) => {
-                warn!("error accepting request {}: {}", src_addr, error);
-                break;
-            }
-        };
-
-        debug!("Received request: {:#?}", request);
-        let cx = cx.clone();
+impl<L: DnsTcpListener> H2<L> {
+    async fn handle(
+        mut connection: H2Connection<impl DnsTcpStream>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
+        dns_hostname: Option<Arc<str>>,
+        http_endpoint: Arc<str>,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        let src_addr = connection.src_addr();
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
-        tokio::spawn(async move {
-            let message_future = message_from(dns_hostname, http_endpoint, request);
-            let Ok(result) = utils::optional_timeout(request_timeout, message_future).await else {
-                return; // Timeout while reading request.
-            };
-            let body = match result {
-                Ok(bytes) => bytes,
-                Err(err) => {
-                    warn!("error while handling request from {}: {}", src_addr, err);
-                    return;
-                }
-            };
 
-            cx.handle_request(
-                body.freeze(),
-                src_addr,
-                Protocol::Https,
-                H2ResponseHandle(respond),
-            )
-            .await
-        });
+        // Accept all inbound HTTP/2.0 streams sent over the
+        // connection.
+        loop {
+            let future = cx
+                .shutdown
+                .run_until_cancelled(utils::optional_timeout(idle_timeout, connection.accept()));
+            let Some(timeout_result) = future.await else {
+                break; // A graceful shutdown was initiated.
+            };
+            let Ok(accept_option) = timeout_result else {
+                break; // Timeout elapsed while waiting for a request.
+            };
+            let Some(result) = accept_option else {
+                break; // The connection is closed.
+            };
+            let (request, respond) = result?;
 
-        // we'll continue handling requests from here.
+            debug!("Received request: {:#?}", request);
+            let cx = cx.clone();
+            let dns_hostname = dns_hostname.clone();
+            let http_endpoint = http_endpoint.clone();
+            tokio::spawn(async move {
+                let message_future = message_from(dns_hostname, http_endpoint, request);
+                let Ok(result) = utils::optional_timeout(request_timeout, message_future).await
+                else {
+                    return; // Timeout while reading request.
+                };
+                let body = match result {
+                    Ok(bytes) => bytes,
+                    Err(err) => {
+                        warn!("error while handling request from {}: {}", src_addr, err);
+                        return;
+                    }
+                };
+
+                cx.handle_request(
+                    body.freeze(),
+                    src_addr,
+                    Protocol::Https,
+                    H2ResponseHandle(respond),
+                )
+                .await
+            });
+
+            // we'll continue handling requests from here.
+        }
+
+        Ok(())
     }
 }
 
