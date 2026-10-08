@@ -7,14 +7,17 @@
 
 use std::sync::Arc;
 
-use futures_util::StreamExt;
 use tokio::task::JoinSet;
-use tracing::{debug, warn};
+use tracing::warn;
 
 use super::Transport;
-use crate::net::sanitize_src_address;
 use crate::{
-    net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
+    net::{
+        BufDnsStreamHandle, NetError,
+        runtime::DnsUdpSocket,
+        udp::{UdpListener, UdpStream},
+        xfer::Protocol,
+    },
     server::{
         ServerContext,
         request_handler::RequestHandler,
@@ -27,7 +30,8 @@ use crate::{
 /// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
 #[derive(Debug)]
 pub struct Udp<S: DnsUdpSocket> {
-    socket: S,
+    listener: UdpListener<S>,
+    stream_handle: BufDnsStreamHandle,
 }
 
 impl<S: DnsUdpSocket> Udp<S> {
@@ -35,7 +39,13 @@ impl<S: DnsUdpSocket> Udp<S> {
     ///
     /// The `socket` must be already bound to the desired local address.
     pub fn new(socket: S) -> Self {
-        Self { socket }
+        // The placeholder remote address is replaced with each request's source address.
+        let (stream, stream_handle) =
+            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
+        Self {
+            listener: UdpListener::new(stream),
+            stream_handle,
+        }
     }
 }
 
@@ -44,22 +54,18 @@ where
     S: DnsUdpSocket + 'static,
 {
     async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        handle_udp(self.socket, cx).await
+        handle_udp(self.listener, self.stream_handle, cx).await
     }
 }
 
 async fn handle_udp<S: DnsUdpSocket>(
-    socket: S,
+    mut listener: UdpListener<S>,
+    stream_handle: BufDnsStreamHandle,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
-    // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-    //   the address used is acquired from the inbound queries
-    let (mut stream, stream_handle) =
-        UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
-
     let mut inner_join_set = JoinSet::new();
     loop {
-        let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
+        let Some(option) = cx.shutdown.run_until_cancelled(listener.receive()).await else {
             // Graceful shutdown
             break;
         };
@@ -80,18 +86,6 @@ async fn handle_udp<S: DnsUdpSocket>(
         };
 
         let src_addr = message.addr();
-        debug!("received udp request from: {}", src_addr);
-
-        // verify that the src address is safe for responses
-        if let Err(e) = sanitize_src_address(src_addr) {
-            warn!(
-                "address can not be responded to {src_addr}: {e}",
-                src_addr = src_addr,
-                e = e
-            );
-            continue;
-        }
-
         let cx = cx.clone();
         let stream_handle = stream_handle.with_remote_addr(src_addr);
         inner_join_set.spawn(async move {
