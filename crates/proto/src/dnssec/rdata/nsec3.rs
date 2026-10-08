@@ -19,7 +19,7 @@ use crate::{
     serialize::binary::*,
 };
 
-use super::DNSSECRData;
+use super::{DNSSECRData, NSEC3PARAM};
 
 /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3), NSEC3, March 2008
 ///
@@ -297,6 +297,16 @@ impl NSEC3 {
             flags |= 0b0000_0001
         };
         flags
+    }
+
+    /// Returns the parameters used to produce this NSEC3 record.
+    pub fn parameters(&self) -> NSEC3PARAM {
+        NSEC3PARAM::new(
+            self.hash_algorithm,
+            self.opt_out,
+            self.iterations,
+            self.salt.clone(),
+        )
     }
 }
 

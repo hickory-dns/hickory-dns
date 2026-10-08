@@ -94,12 +94,17 @@
  */
 
 use core::fmt::Display;
+use std::collections::HashSet;
+
+use data_encoding::BASE32_DNSSEC;
 
 use super::{Proof, proof_log_yield};
 use crate::proto::{
+    ProtoError,
     dnssec::{
         Nsec3HashAlgorithm,
-        rdata::{DNSSECRData, NSEC3},
+        crypto::Digest,
+        rdata::{DNSSECRData, NSEC3, NSEC3PARAM},
     },
     op::{Query, ResponseCode},
     rr::{Label, Name, RData, Record, RecordType},
@@ -694,7 +699,7 @@ impl<'a> Context<'a> {
             .as_ref()
             .to_vec();
 
-        let base32_encoded = data_encoding::BASE32_DNSSEC.encode(&hash);
+        let base32_encoded = BASE32_DNSSEC.encode(&hash);
         // Unwrap safety: The length of the hashed name is valid because it is the output of the above
         // hash function. The input is all alphanumeric ASCII characters by construction.
         let label = Label::from_ascii(&base32_encoded).unwrap();
@@ -891,6 +896,115 @@ impl<'a> Nsec3RecordInfo<'a> {
     /// available already, so we take both as separate arguments to avoid redundant work.
     fn matches(&self, name: &Name, base32_hashed_name: &Label) -> bool {
         self.zone_name.zone_of(name) && &self.base32_hashed_name == base32_hashed_name
+    }
+}
+
+/// All NSEC3 records in a response from one zone.
+///
+/// This includes a deduplicated set of parameters used to produce the hashes in the NSEC3 records.
+pub(super) struct ZoneNsec3Records {
+    zone: Name,
+    records: Vec<Nsec3Pair>,
+    params: HashSet<NSEC3PARAM>,
+}
+
+impl ZoneNsec3Records {
+    /// Construct a new container for a zone, initialized with no NSEC3 records.
+    pub(super) fn new(zone: Name) -> Self {
+        Self {
+            zone,
+            records: Vec::new(),
+            params: HashSet::new(),
+        }
+    }
+
+    /// Add an NSEC3 record.
+    pub(super) fn push(&mut self, label: Label, rdata: NSEC3) {
+        self.params.insert(rdata.parameters());
+        self.records.push(Nsec3Pair { label, rdata });
+    }
+
+    /// Computes hashes for a name using each NSEC3PARAM choice seen in the response.
+    pub(super) fn compute_all_nsec3_hashes<'a>(&'a self, name: &'a Name) -> Vec<HashedName<'a>> {
+        self.params
+            .iter()
+            .flat_map(|param| HashedName::new(name, param).ok())
+            .collect::<Vec<_>>()
+    }
+
+    /// Checks whether any NSEC3 record covers a hashed name.
+    pub(super) fn covers(&self, hashed_name: &HashedName<'_>) -> bool {
+        self.zone.zone_of(hashed_name.name)
+            && self.records.iter().any(|nsec3| nsec3.covers(hashed_name))
+    }
+}
+
+/// The hashed name and RDATA of an NSEC3 record.
+struct Nsec3Pair {
+    /// The leftmost label of the NSEC3 record's name.
+    ///
+    /// This is the base32 encoding of the hashed owner name.
+    label: Label,
+    /// The NSEC3 record's RDATA.
+    rdata: NSEC3,
+}
+
+impl Nsec3Pair {
+    /// Checks whether this NSEC3 record covers a hashed name.
+    fn covers(&self, hashed_name: &HashedName<'_>) -> bool {
+        if hashed_name.params.hash_algorithm() != self.rdata.hash_algorithm() {
+            return false;
+        }
+        if hashed_name.params.iterations() != self.rdata.iterations() {
+            return false;
+        }
+        if hashed_name.params.salt() != self.rdata.salt() {
+            return false;
+        }
+
+        let Some(record_next_hashed_owner_name_base32) = self.rdata.next_hashed_owner_name_base32()
+        else {
+            return false;
+        };
+
+        if &self.label < record_next_hashed_owner_name_base32 {
+            // Normal case: target must be between the hashed owner name and
+            // the next hashed owner name.
+            self.label < hashed_name.label
+                && hashed_name.digest.as_ref() < self.rdata.next_hashed_owner_name()
+        } else {
+            // Wraparound case: target must be greater than the hashed owner
+            // name or less than the next hashed owner name.
+            hashed_name.label > self.label
+                || hashed_name.digest.as_ref() < self.rdata.next_hashed_owner_name()
+        }
+    }
+}
+
+/// Hashed representation of a name, as seen in NSEC3 records.
+pub(super) struct HashedName<'a> {
+    name: &'a Name,
+    params: &'a NSEC3PARAM,
+    digest: Digest,
+    label: Label,
+}
+
+impl<'a> HashedName<'a> {
+    /// Hashes a name for use with NSEC3 records.
+    fn new(name: &'a Name, params: &'a NSEC3PARAM) -> Result<Self, ProtoError> {
+        let digest = params
+            .hash_algorithm()
+            .hash(params.salt(), name, params.iterations())?;
+        let encoded = BASE32_DNSSEC.encode(digest.as_ref());
+        Ok(Self {
+            name,
+            params,
+            digest,
+            // Unwrap safety: The length of the hashed name is valid because it is determined by the
+            // output length of the NSEC3 hash function. The input is all alphanumeric ASCII
+            // characters by construction.
+            label: Label::from_ascii(&encoded).unwrap(),
+        })
     }
 }
 

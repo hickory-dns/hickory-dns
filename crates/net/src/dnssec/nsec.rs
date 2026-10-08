@@ -9,7 +9,7 @@ use crate::proto::{
         rdata::{DNSSECRData, NSEC},
     },
     op::{Query, ResponseCode},
-    rr::{Name, RData, Record, RecordType},
+    rr::{LowerName, Name, RData, Record, RecordType},
 };
 
 /// Verifies NSEC records
@@ -281,6 +281,59 @@ fn find_nsec_covering_record<'a>(
             && (test_name < next_domain_name
                 || next_domain_name <= nsec_name && next_domain_name.zone_of(test_name))
     })
+}
+
+/// All NSEC records in a response from one zone.
+pub(super) struct ZoneNsecRecords {
+    zone: Name,
+    records: Vec<NsecPair>,
+}
+
+impl ZoneNsecRecords {
+    /// Construct a new container for a zone, initialized with no NSEC records.
+    pub(super) fn new(zone: Name) -> Self {
+        Self {
+            zone,
+            records: Vec::new(),
+        }
+    }
+
+    /// Add an NSEC record.
+    pub(super) fn push(&mut self, name: LowerName, rdata: NSEC) {
+        self.records.push(NsecPair { name, rdata })
+    }
+
+    /// Returns the NSEC record covering this name, if any.
+    pub(super) fn find_covering_record(&self, name: &LowerName) -> Option<&NsecPair> {
+        if !self.zone.zone_of(name) {
+            return None;
+        }
+        self.records.iter().find(|nsec| nsec.covers(name))
+    }
+}
+
+/// The name and RDATA of an NSEC record.
+pub(super) struct NsecPair {
+    /// The owner name of the NSEC record.
+    pub(super) name: LowerName,
+    /// The RDATA of the NSEC record.
+    pub(super) rdata: NSEC,
+}
+
+impl NsecPair {
+    /// Checks whether this NSEC record covers a name.
+    pub(super) fn covers(&self, name: &LowerName) -> bool {
+        // RFC 6840 §4.1: a parent-side NSEC at the cut MUST NOT be used to
+        // assume nonexistence of any name below the cut.
+        if self.rdata.is_ancestor_delegation() && self.name.zone_of(name) {
+            return false;
+        }
+
+        let next_domain_name = self.rdata.next_domain_name();
+        *name > self.name
+            && (&**name < next_domain_name
+                || next_domain_name <= &self.name && next_domain_name.zone_of(name))
+    }
 }
 
 #[cfg(test)]

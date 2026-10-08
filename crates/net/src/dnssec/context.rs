@@ -10,14 +10,20 @@ use std::{
 use tracing::{debug, warn};
 
 use crate::{
-    dnssec::{MAX_KEY_TAG_COLLISIONS, ProofError, ProofErrorKind, ValidationCacheKey},
+    dnssec::{
+        MAX_KEY_TAG_COLLISIONS, ProofError, ProofErrorKind, ValidationCacheKey,
+        nsec::ZoneNsecRecords, nsec3::ZoneNsec3Records,
+    },
     proto::{
         dnssec::{
             Proof, Verifier,
             rdata::{DNSKEY, DNSSECRData, RRSIG},
         },
         op::{DnsRequestOptions, DnsResponse, Query},
-        rr::{DNSClass, LowerName, RData, Record, RecordRef, RecordType, RrKey, SerialNumber},
+        rr::{
+            DNSClass, Label, LowerName, Name, RData, Record, RecordRef, RecordType, RrKey,
+            SerialNumber,
+        },
     },
 };
 
@@ -329,6 +335,165 @@ impl<'a> RrsetVerificationContext<'a> {
 /// A collection of RRsets that have had their signatures verified.
 #[derive(Default)]
 pub(super) struct VerifiedRrsetMap<'a>(pub(super) HashMap<RrKey, VerifiedRrset<'a>>);
+
+impl<'a> VerifiedRrsetMap<'a> {
+    /// Make a copy of all NSEC record sets, organized by zone.
+    pub(super) fn gather_nsec_records(&self) -> HashMap<Name, ZoneNsecRecords> {
+        let mut zones: HashMap<Name, ZoneNsecRecords> = HashMap::new();
+        for (key, rrset) in self.iter() {
+            if key.record_type != RecordType::NSEC {
+                continue;
+            }
+            let RrsigVerificationOutcome::Secure { rrsig } = &rrset.outcome else {
+                continue;
+            };
+            if !rrsig.input().signer_name.zone_of(&key.name) {
+                warn!(
+                    nsec_name = %key.name,
+                    signer_name = %rrsig.input().signer_name,
+                    "ignoring NSEC record outside of signer's zone"
+                );
+                continue;
+            }
+            if key.name.num_labels() != rrsig.input().num_labels {
+                warn!(
+                    nsec_name = %key.name,
+                    num_labels = rrsig.input().num_labels,
+                    "ignoring NSEC record with name expanded from wildcard"
+                );
+                continue;
+            }
+            let zone_name = rrsig.input().signer_name.clone();
+            let zone = zones
+                .entry(zone_name.clone())
+                .or_insert_with(|| ZoneNsecRecords::new(zone_name));
+            for record in rrset.records.iter() {
+                let RData::DNSSEC(DNSSECRData::NSEC(nsec)) = &record.data else {
+                    continue;
+                };
+                zone.push(key.name.clone(), nsec.clone());
+            }
+        }
+        zones
+    }
+
+    /// Make a copy of all NSEC3 record sets, organized by zone.
+    pub(super) fn gather_nsec3_records(&self) -> HashMap<Name, ZoneNsec3Records> {
+        let mut zones: HashMap<Name, ZoneNsec3Records> = HashMap::new();
+        for (key, rrset) in self.iter() {
+            if key.record_type != RecordType::NSEC3 {
+                continue;
+            }
+            let RrsigVerificationOutcome::Secure { rrsig } = &rrset.outcome else {
+                continue;
+            };
+            // Ignore NSEC3 records from outside the RRSIG signer's zone, and ignore NSEC3 records
+            // with names that have extra labels.
+            if !rrsig.input().signer_name.zone_of(&key.name)
+                || key.name.num_labels() != rrsig.input().signer_name.num_labels() + 1
+            {
+                warn!(
+                    nsec3_name = %key.name,
+                    signer_name = %rrsig.input().signer_name,
+                    "ignoring NSEC3 record with invalid name"
+                );
+                continue;
+            }
+            let zone_name = rrsig.input().signer_name.clone();
+            let zone = zones
+                .entry(zone_name.clone())
+                .or_insert_with(|| ZoneNsec3Records::new(zone_name));
+            for record in rrset.records.iter() {
+                let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &record.data else {
+                    continue;
+                };
+                let Some(first_label) = key.name.iter().next() else {
+                    continue;
+                };
+                // Unwrap safety: this label came from a `Name`, so it must be valid.
+                let label = Label::from_raw_bytes(first_label).unwrap();
+                zone.push(label, nsec3.clone());
+            }
+        }
+        zones
+    }
+
+    /// Check if wildcard expansion was performed correctly on each RRset.
+    ///
+    /// For each RRset that was expanded from an RRset with a wildcard name, this determines if the
+    /// correct wildcard was used to produce the response, by confirming that the next closer name
+    /// does not exist. If wildcard expansion cannot be validated, the RRset will be marked as
+    /// bogus.
+    ///
+    /// Returns true if all RRsets pass verification.
+    pub(super) fn verify_wildcard_expansion(
+        &mut self,
+        nsec_records: &HashMap<Name, ZoneNsecRecords>,
+        nsec3_records: &HashMap<Name, ZoneNsec3Records>,
+    ) -> bool {
+        let mut all_valid = true;
+        for (key, rrset) in self.iter_mut() {
+            let RrsigVerificationOutcome::Secure { rrsig } = &rrset.outcome else {
+                continue;
+            };
+            if rrsig.input().num_labels == key.name.num_labels() {
+                // No wildcard expansion performed.
+                continue;
+            }
+            if rrsig.input().num_labels > key.name.num_labels() {
+                return false;
+            }
+
+            // Check for a nonexistence proof of the next closer name. We are looking for a name
+            // that's a sibling to the wildcard name.
+            let num_labels = rrsig.input().num_labels as usize;
+            let next_closer = LowerName::from(key.name.trim_to(num_labels + 1));
+            let zone = &rrsig.input().signer_name;
+
+            let nsec_proof_valid = nsec_records
+                .get(zone)
+                .and_then(|nsec_records| nsec_records.find_covering_record(&next_closer))
+                .is_some_and(|covering_nsec| {
+                    if &*covering_nsec.name < covering_nsec.rdata.next_domain_name() {
+                        // Check if the next closer name is an empty non-terminal name.
+                        !next_closer
+                            .deref()
+                            .zone_of(covering_nsec.rdata.next_domain_name())
+                    } else {
+                        // This is a wraparound NSEC record, so the next closer name is definitely
+                        // not an empty non-terminal name.
+                        true
+                    }
+                });
+
+            let nsec3_proof_valid = nsec3_records.get(zone).is_some_and(|nsec3_records| {
+                nsec3_records
+                    .compute_all_nsec3_hashes(&next_closer)
+                    .iter()
+                    .any(|hashed_name| nsec3_records.covers(hashed_name))
+            });
+
+            if !nsec_proof_valid && !nsec3_proof_valid {
+                warn!(
+                    name = %key.name,
+                    wildcard_name = key
+                        .name
+                        .trim_to(num_labels)
+                        .prepend_label("*")
+                        .map(|name| name.to_string())
+                        .unwrap_or_else(|_| "could not construct wildcard name".to_string()),
+                    "no valid next closer name nonexistence proof accompanying wildcard record"
+                );
+                rrset.outcome = RrsigVerificationOutcome::Bogus;
+                for record in rrset.records.iter_mut() {
+                    record.proof = Proof::Bogus;
+                }
+                all_valid = false;
+            }
+        }
+        all_valid
+    }
+}
 
 impl<'a> Deref for VerifiedRrsetMap<'a> {
     type Target = HashMap<RrKey, VerifiedRrset<'a>>;

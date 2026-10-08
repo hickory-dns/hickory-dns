@@ -252,14 +252,34 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let authorities = RrsetMap::new(authorities);
         let additionals = RrsetMap::new(additionals);
 
-        let answers = self
+        // Verify signatures over each RRset.
+        let mut answers = self
             .verify_rrsets(&query, answers, options, current_time)
             .await;
-        let authorities = self
+        let mut authorities = self
             .verify_rrsets(&query, authorities, options, current_time)
             .await;
-        self.verify_rrsets(&query, additionals, options, current_time)
+        let mut additionals = self
+            .verify_rrsets(&query, additionals, options, current_time)
             .await;
+
+        // Make a copy of the NSEC and NSEC3 RRsets, so that we can refer to them while still
+        // holding a mutable reference to other RRsets.
+        let nsec_records = authorities.gather_nsec_records();
+        let nsec3_records = authorities.gather_nsec3_records();
+
+        // Verify that wildcard expansion was performed correctly on each RRset.
+        let wildcards_valid = answers.verify_wildcard_expansion(&nsec_records, &nsec3_records)
+            & authorities.verify_wildcard_expansion(&nsec_records, &nsec3_records)
+            & additionals.verify_wildcard_expansion(&nsec_records, &nsec3_records);
+
+        if !wildcards_valid {
+            return Err(NetError::from(DnsError::Nsec {
+                query: Box::new(query.clone()),
+                response: Box::new(message),
+                proof: Proof::Bogus,
+            }));
+        }
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
