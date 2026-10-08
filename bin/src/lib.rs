@@ -34,7 +34,10 @@ use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::default_tls_server_config;
 use hickory_server::{
-    server::{Server, transport::Udp},
+    server::{
+        Server,
+        transport::{Tcp, Udp},
+    },
     zone_handler::Catalog,
 };
 
@@ -589,10 +592,9 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            self.server.register_listener(
-                tcp_listener,
-                self.stream_timeout(),
-                self.tcp_socket_config.response_buffer_size,
+            self.server.register(
+                Tcp::new(tcp_listener, self.tcp_socket_config.response_buffer_size)
+                    .maybe_stream_timeout(self.stream_timeout()),
             );
         }
 

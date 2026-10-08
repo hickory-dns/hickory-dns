@@ -31,6 +31,7 @@ use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_server::Server;
+use hickory_server::server::transport::Tcp;
 use hickory_server::server::transport::Udp;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;
@@ -374,7 +375,7 @@ async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBoo
 async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
     let mut server = Server::new(catalog);
-    server.register_listener(tcp_listener, Some(Duration::from_secs(30)), 32);
+    server.register(Tcp::new(tcp_listener, 32).stream_timeout(Duration::from_secs(30)));
 
     while server_continue.load(Ordering::Relaxed) {
         tokio::time::sleep(Duration::from_millis(10)).await;
