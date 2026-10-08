@@ -1389,9 +1389,11 @@ mod test {
 
     use super::{
         DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
-        ValidationCache, context::Rrset,
+        ValidationCache,
+        context::{Rrset, RrsetMap, RrsigVerificationOutcome, VerifiedRrset, VerifiedRrsetMap},
     };
     use crate::proto::{
+        dnssec::rdata::DNSSECRData,
         op::Query,
         rr::{Name, RData, Record, RecordType::A, RrKey, rdata},
     };
@@ -1446,5 +1448,52 @@ mod test {
             lifetime <= Duration::from_secs(60 * 5),
             "Bogus validation cached for {lifetime:?}, must be <= 5m",
         );
+    }
+
+    pub(super) fn test_verify_wildcard_expansion(
+        answers: &[Record],
+        authorities: &[Record],
+    ) -> bool {
+        let mut answers = answers.to_vec();
+        let mut authorities = authorities.to_vec();
+
+        let answers = RrsetMap::new(&mut answers);
+        let authorities = RrsetMap::new(&mut authorities);
+
+        let mut answers = mock_verified_rrset_map(answers);
+        let authorities = mock_verified_rrset_map(authorities);
+
+        let nsec_records = authorities.gather_nsec_records();
+        let nsec3_records = authorities.gather_nsec3_records();
+
+        answers.verify_wildcard_expansion(&nsec_records, &nsec3_records)
+    }
+
+    /// Mock out signature verification and return a [`VerifiedRrsetMap`] containing the given
+    /// records.
+    pub(super) fn mock_verified_rrset_map<'a>(rrsets: RrsetMap<'a>) -> VerifiedRrsetMap<'a> {
+        let map = rrsets
+            .0
+            .into_iter()
+            .map(|(key, rrset)| {
+                let signatures = rrset
+                    .signatures
+                    .into_iter()
+                    .map(|r| &*r)
+                    .collect::<Vec<&Record>>();
+                let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &signatures[0].data else {
+                    panic!("wrong RDATA in signature record");
+                };
+                (
+                    key.clone(),
+                    VerifiedRrset {
+                        records: rrset.records,
+                        signatures,
+                        outcome: RrsigVerificationOutcome::Secure { rrsig },
+                    },
+                )
+            })
+            .collect();
+        VerifiedRrsetMap(map)
     }
 }
