@@ -34,3 +34,8 @@ pub use tcp::Tcp;
 mod tls;
 #[cfg(feature = "__tls")]
 pub use tls::Tls;
+
+#[cfg(feature = "__https")]
+mod h2;
+#[cfg(feature = "__https")]
+pub use h2::H2;
