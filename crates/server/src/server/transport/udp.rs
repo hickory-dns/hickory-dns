@@ -53,53 +53,49 @@ impl<S> Transport for Udp<S>
 where
     S: DnsUdpSocket + 'static,
 {
-    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        handle_udp(self.listener, self.stream_handle, cx).await
-    }
-}
+    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(option) = cx
+                .shutdown
+                .run_until_cancelled(self.listener.receive())
+                .await
+            else {
+                // Graceful shutdown
+                break;
+            };
+            let Some(message_res) = option else {
+                // End of stream
+                break;
+            };
 
-async fn handle_udp<S: DnsUdpSocket>(
-    mut listener: UdpListener<S>,
-    stream_handle: BufDnsStreamHandle,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(option) = cx.shutdown.run_until_cancelled(listener.receive()).await else {
-            // Graceful shutdown
-            break;
-        };
-        let Some(message_res) = option else {
-            // End of stream
-            break;
-        };
-
-        let message = match message_res {
-            Err(error) => {
-                warn!(%error, "error receiving message on udp_socket");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
+            let message = match message_res {
+                Err(error) => {
+                    warn!(%error, "error receiving message on udp_socket");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
                 }
-                continue;
-            }
-            Ok(message) => message,
-        };
+                Ok(message) => message,
+            };
 
-        let src_addr = message.addr();
-        let cx = cx.clone();
-        let stream_handle = stream_handle.with_remote_addr(src_addr);
-        inner_join_set.spawn(async move {
-            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
-                .await;
-        });
+            let src_addr = message.addr();
+            let cx = cx.clone();
+            let stream_handle = self.stream_handle.with_remote_addr(src_addr);
+            inner_join_set.spawn(async move {
+                cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+                    .await;
+            });
 
-        reap_tasks(&mut inner_join_set);
-    }
+            reap_tasks(&mut inner_join_set);
+        }
 
-    if cx.shutdown.is_cancelled() {
+        if !cx.shutdown.is_cancelled() {
+            // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+            return Err(NetError::from("unexpected close of UDP socket"));
+        }
+
         Ok(())
-    } else {
-        // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-        Err(NetError::from("unexpected close of UDP socket"))
     }
 }
