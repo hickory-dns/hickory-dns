@@ -10,13 +10,17 @@ use std::{sync::Arc, time::Duration};
 use futures_util::StreamExt;
 use rustls::{ServerConfig, server::ResolvesServerCert};
 use tokio::task::JoinSet;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use super::Transport;
 use crate::{
     net::{
-        BufDnsStreamHandle, NetError, runtime::DnsTcpListener, tcp::TcpStream, tls::TlsListener,
-        tls::tls_config, xfer::Protocol,
+        BufDnsStreamHandle, NetError,
+        runtime::{Accepted, DnsTcpListener},
+        tcp::TcpStream,
+        tls::tls_config,
+        tls::{TlsListener, TlsServerStream},
+        xfer::Protocol,
     },
     server::{
         ServerContext,
@@ -116,29 +120,12 @@ impl<L: DnsTcpListener> Transport for Tls<L> {
             let cx = cx.clone();
             inner_join_set.spawn(async move {
                 let src_addr = accepted.src_addr;
-                let (stream_handle, outbound_messages) = BufDnsStreamHandle::new(src_addr);
-                let buf_stream = TcpStream::from_stream_with_receiver(
-                    accepted.connection,
-                    src_addr,
-                    outbound_messages,
-                );
-                let mut timeout_stream = TimeoutStream::new(buf_stream, self.stream_timeout);
-                while let Some(message) = timeout_stream.next().await {
-                    let message = match message {
-                        Ok(message) => message,
-                        Err(error) => {
-                            debug!(
-                                %src_addr, %error,
-                                "error in TLS request stream",
-                            );
+                debug!(%src_addr, protocol = %Protocol::Tls, "starting request processing");
 
-                            // kill this connection
-                            return;
-                        }
-                    };
+                let result = Self::handle(accepted, self.stream_timeout, cx).await;
 
-                    cx.handle_raw_request(message, Protocol::Tls, stream_handle.clone())
-                        .await;
+                if let Err(error) = result {
+                    warn!(%src_addr, %error, protocol = %Protocol::Tls, "request processing failed");
                 }
             });
 
@@ -147,6 +134,26 @@ impl<L: DnsTcpListener> Transport for Tls<L> {
 
         if !cx.shutdown.is_cancelled() {
             return Err(NetError::from("unexpected close of socket"));
+        }
+
+        Ok(())
+    }
+}
+
+impl<L: DnsTcpListener> Tls<L> {
+    async fn handle(
+        accepted: Accepted<TlsServerStream<L::Stream>>,
+        stream_timeout: Option<Duration>,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        let src_addr = accepted.src_addr;
+        let (stream_handle, outbound_messages) = BufDnsStreamHandle::new(src_addr);
+        let buf_stream =
+            TcpStream::from_stream_with_receiver(accepted.connection, src_addr, outbound_messages);
+        let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
+        while let Some(message) = timeout_stream.next().await {
+            cx.handle_raw_request(message?, Protocol::Tls, stream_handle.clone())
+                .await;
         }
 
         Ok(())
