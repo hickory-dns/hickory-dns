@@ -256,3 +256,7 @@ pub type TlsStream<S> = TcpStream<S>;
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
+
+/// TLS configuration factories for server transports.
+#[path = "tls/tls_config.rs"]
+pub mod tls_config;
