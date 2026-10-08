@@ -5,36 +5,30 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use bytes::Bytes;
-use h2::server::{self, SendResponse};
+use h2::server::SendResponse;
 use rustls::{ServerConfig, server::ResolvesServerCert};
-use tokio::{
-    io::{AsyncRead, AsyncWrite},
-    task::JoinSet,
-};
-use tokio_rustls::TlsAcceptor;
+use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::Transport;
-use crate::net::sanitize_src_address;
-use crate::server::utils::is_unrecoverable_socket_error;
-use crate::server::utils::optional_timeout;
-use crate::server::utils::reap_tasks;
 use crate::{
     net::{
         NetError,
-        h2::message_from,
+        h2::{H2Connection, H2Listener, message_from},
         http::{self, Version},
-        runtime::{DnsTcpListener, iocompat::AsyncIoStdAsTokio},
+        runtime::{DnsTcpListener, DnsTcpStream},
         tls::tls_config,
         xfer::Protocol,
     },
     proto::rr::Record,
     server::{
-        ResponseInfo, ServerContext, request_handler::RequestHandler,
+        ResponseInfo, ServerContext,
+        request_handler::RequestHandler,
         response_handler::ResponseHandler,
+        utils::{self, is_unrecoverable_socket_error, reap_tasks},
     },
     zone_handler::MessageResponse,
 };
@@ -44,8 +38,7 @@ use crate::{
 /// Wraps an already-bound TCP listener and a TLS configuration to accept HTTP/2 DNS queries.
 #[derive(Debug)]
 pub struct H2<L: DnsTcpListener> {
-    listener: L,
-    tls_config: Arc<ServerConfig>,
+    listener: H2Listener<L>,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -60,8 +53,7 @@ impl<L: DnsTcpListener> H2<L> {
     /// Default HTTP endpoint is `/dns-query`, and timeouts are `None`.
     pub fn with_tls_config(listener: L, tls_config: Arc<ServerConfig>) -> Self {
         Self {
-            listener,
-            tls_config,
+            listener: H2Listener::new(listener, tls_config),
             handshake_timeout: None,
             idle_timeout: None,
             request_timeout: None,
@@ -155,7 +147,6 @@ impl<L: DnsTcpListener> Transport for H2<L> {
             self.handshake_timeout,
             self.idle_timeout,
             self.request_timeout,
-            TlsAcceptor::from(self.tls_config),
             self.dns_hostname,
             self.http_endpoint,
             cx,
@@ -164,31 +155,30 @@ impl<L: DnsTcpListener> Transport for H2<L> {
     }
 }
 
-/// handle h2 using a specific TlsAcceptor.
 #[allow(clippy::too_many_arguments)]
 async fn handle_h2_with_acceptor<L: DnsTcpListener>(
-    mut listener: L,
+    mut listener: H2Listener<L>,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    tls_acceptor: TlsAcceptor,
     dns_hostname: Option<String>,
     http_endpoint: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-
     let mut inner_join_set = JoinSet::new();
     loop {
         let shutdown = &cx.shutdown;
-        let accept = futures_util::future::poll_fn(|cx| listener.poll_accept(cx));
-        let Some(result) = shutdown.run_until_cancelled(accept).await else {
+        let Some(result) = shutdown
+            .run_until_cancelled(listener.accept(handshake_timeout))
+            .await
+        else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
-        let (tcp_stream, src_addr) = match result {
-            Ok(accepted) => (accepted.connection, accepted.src_addr),
+        let accepted = match result {
+            Ok(accepted) => accepted,
             Err(error) => {
                 debug!(%error, "error receiving HTTPS tcp_stream error");
                 if is_unrecoverable_socket_error(&error) {
@@ -198,41 +188,12 @@ async fn handle_h2_with_acceptor<L: DnsTcpListener>(
             }
         };
 
-        // verify that the src address is safe for responses
-        if let Err(error) = sanitize_src_address(src_addr) {
-            warn!(%error, %src_addr, "address can not be responded to");
-            continue;
-        }
-
         let cx = cx.clone();
-        let tls_acceptor = tls_acceptor.clone();
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
         inner_join_set.spawn(async move {
-            debug!("starting HTTPS request from: {src_addr}");
-
-            let Ok(tls_stream) = optional_timeout(
-                handshake_timeout,
-                tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
-            )
-            .await
-            else {
-                warn!("https timeout expired during handshake");
-                return;
-            };
-
-            let tls_stream = match tls_stream {
-                Ok(tls_stream) => tls_stream,
-                Err(e) => {
-                    debug!("https handshake src: {src_addr} error: {e}");
-                    return;
-                }
-            };
-            debug!("accepted HTTPS request from: {src_addr}");
-
             h2_handler(
-                tls_stream,
-                src_addr,
+                accepted,
                 idle_timeout,
                 request_timeout,
                 dns_hostname,
@@ -253,32 +214,23 @@ async fn handle_h2_with_acceptor<L: DnsTcpListener>(
 }
 
 async fn h2_handler(
-    io: impl AsyncRead + AsyncWrite + Unpin,
-    src_addr: SocketAddr,
+    mut connection: H2Connection<impl DnsTcpStream>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
     dns_hostname: Option<Arc<str>>,
     http_endpoint: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) {
+    let src_addr = connection.src_addr();
     let dns_hostname = dns_hostname.clone();
     let http_endpoint = http_endpoint.clone();
-
-    // Start the HTTP/2.0 connection handshake
-    let mut h2 = match server::handshake(io).await {
-        Ok(h2) => h2,
-        Err(err) => {
-            warn!("handshake error from {}: {}", src_addr, err);
-            return;
-        }
-    };
 
     // Accept all inbound HTTP/2.0 streams sent over the
     // connection.
     loop {
         let future = cx
             .shutdown
-            .run_until_cancelled(optional_timeout(idle_timeout, h2.accept()));
+            .run_until_cancelled(utils::optional_timeout(idle_timeout, connection.accept()));
         let Some(timeout_result) = future.await else {
             break; // A graceful shutdown was initiated.
         };
@@ -302,7 +254,7 @@ async fn h2_handler(
         let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
             let message_future = message_from(dns_hostname, http_endpoint, request);
-            let Ok(result) = optional_timeout(request_timeout, message_future).await else {
+            let Ok(result) = utils::optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };
             let body = match result {

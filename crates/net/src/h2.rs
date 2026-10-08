@@ -574,3 +574,8 @@ mod tests {
         }
     }
 }
+
+#[path = "h2/h2_listener.rs"]
+mod h2_listener;
+
+pub use h2_listener::{H2Connection, H2Listener};

@@ -1204,7 +1204,6 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
- "tokio-rustls",
  "tokio-util",
  "toml",
  "tracing",
