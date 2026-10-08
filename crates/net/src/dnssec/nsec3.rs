@@ -878,15 +878,7 @@ mod tests {
     use super::*;
     use crate::proto::{
         ProtoError,
-        dnssec::{
-            Algorithm,
-            rdata::{DNSSECRData, RRSIG as rdataRRSIG, SigInput},
-        },
-        rr::{
-            RData,
-            RecordType::{A, AAAA, DNAME, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
-            SerialNumber, rdata,
-        },
+        rr::RecordType::{A, AAAA, DNAME, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
     };
 
     use test_support::subscribe;
@@ -1265,106 +1257,6 @@ mod tests {
                     [A, RRSIG],
                 )
                 .as_ref(),],
-                200,
-                500,
-            ),
-            Proof::Bogus,
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    fn nsec3_wildcard_expansion_tests() -> Result<(), ProtoError> {
-        subscribe();
-
-        let input = SigInput {
-            type_covered: MX,
-            algorithm: Algorithm::ED25519,
-            num_labels: 2,
-            original_ttl: 0,
-            sig_expiration: SerialNumber::new(0),
-            sig_inception: SerialNumber::new(0),
-            key_tag: 0,
-            signer_name: Name::root(),
-        };
-
-        let rrsig = rdataRRSIG::from_sig(input, vec![]);
-        let rrsig_record = Record::from_rdata(
-            Name::from_ascii("a.z.w.example.")?,
-            3600,
-            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
-        );
-
-        let answers = [
-            Record::from_rdata(
-                Name::from_ascii("a.z.w.example.")?,
-                3600,
-                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
-            ),
-            rrsig_record,
-        ];
-
-        // Based on RFC 5155 B.4 - Wildcard Expansion
-        assert_eq!(
-            verify_nsec3(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // Covers the next-closer name
-                    Nsec3Pair::new(
-                        Name::from_ascii("example.")?
-                            .prepend_label(hash_with_base32("ns2.example"))?,
-                        hash("*.w.example."),
-                        [A, RRSIG],
-                    )
-                    .as_ref(),
-                ],
-                200,
-                500,
-            ),
-            Proof::Secure,
-        );
-
-        assert_eq!(
-            verify_nsec3(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // Fails to cover the next-closer name
-                    Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
-                        hash("a.example."),
-                        [A, RRSIG],
-                    )
-                    .as_ref(),
-                ],
-                200,
-                500,
-            ),
-            Proof::Bogus,
-        );
-
-        assert_eq!(
-            verify_nsec3(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // Matches the next-closer name.
-                    Nsec3Pair::new(
-                        Name::from_ascii("example.")?
-                            .prepend_label(hash_with_base32("z.w.example"))?,
-                        hash("a.example."),
-                        [A, RRSIG],
-                    )
-                    .as_ref(),
-                ],
                 200,
                 500,
             ),

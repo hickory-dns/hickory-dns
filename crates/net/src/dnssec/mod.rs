@@ -2585,30 +2585,32 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use super::{Rrset, RrsigValidity, find_nsec_covering_record, no_closer_matches, verify_nsec};
     use crate::{
         dnssec::{
-            DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
-            ValidationCache,
+            DnsRequestOptions, Proof, ProofError, ProofErrorKind, Rrset, RrsetMap,
+            RrsetVerificationContext, RrsigValidity, RrsigVerificationOutcome, ValidationCache,
+            VerifiedRrset, VerifiedRrsetMap, find_nsec_covering_record, no_closer_matches,
+            verify_nsec, verify_wildcard_expansion,
         },
         proto::{
             ProtoError,
             dnssec::{
-                Algorithm, PublicKeyBuf,
+                Algorithm, Nsec3HashAlgorithm, PublicKeyBuf,
                 rdata::{
-                    DNSKEY as rdataDNSKEY, DNSSECRData, NSEC as rdataNSEC, RRSIG as rdataRRSIG,
-                    SigInput,
+                    DNSKEY as rdataDNSKEY, DNSSECRData, NSEC as rdataNSEC, NSEC3 as rdataNSEC3,
+                    RRSIG as rdataRRSIG, SigInput,
                 },
             },
             op::{Query, ResponseCode},
             rr::{
                 Name, RData, Record,
-                RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC, RRSIG, SOA, TXT},
+                RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC, NSEC3, RRSIG, SOA, TXT},
                 RrKey, SerialNumber, rdata,
             },
         },
     };
 
+    use data_encoding::BASE32_DNSSEC;
     use test_support::subscribe;
 
     #[test]
@@ -3874,4 +3876,172 @@ mod test {
         record.proof = Proof::Secure;
         record
     }
+
+    /// Based on RFC 5155 B.4 - Wildcard Expansion
+    #[test]
+    fn nsec3_wildcard_expansion_tests() -> Result<(), ProtoError> {
+        subscribe();
+
+        let zone = Name::from_ascii("example.")?;
+
+        let wildcard_rrsig_record = Record::from_rdata(
+            Name::from_ascii("a.z.w.example.")?,
+            3600,
+            RData::DNSSEC(DNSSECRData::RRSIG(rdataRRSIG::from_sig(
+                SigInput {
+                    type_covered: MX,
+                    algorithm: Algorithm::ED25519,
+                    num_labels: 2,
+                    original_ttl: 0,
+                    sig_expiration: SerialNumber::new(0),
+                    sig_inception: SerialNumber::new(0),
+                    key_tag: 0,
+                    signer_name: zone.clone(),
+                },
+                vec![],
+            ))),
+        );
+
+        let answers = [
+            Record::from_rdata(
+                Name::from_ascii("a.z.w.example.")?,
+                3600,
+                RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
+            ),
+            wildcard_rrsig_record,
+        ];
+
+        let hash = |name: &Name| -> Vec<u8> {
+            Nsec3HashAlgorithm::SHA1
+                .hash(KNOWN_SALT, name, ITERATIONS)
+                .unwrap()
+                .as_ref()
+                .to_vec()
+        };
+        let make_nsec3 = |name, next_name, record_types| {
+            let name_hash = hash(&name);
+            let nsec3_label = BASE32_DNSSEC.encode(&name_hash);
+            let nsec3_name = zone.prepend_label(nsec3_label).unwrap();
+            let next_hashed_owner_name = hash(&next_name);
+            let nsec3_record = Record::from_rdata(
+                nsec3_name.clone(),
+                3600,
+                RData::DNSSEC(DNSSECRData::NSEC3(rdataNSEC3::new(
+                    Nsec3HashAlgorithm::SHA1,
+                    false,
+                    ITERATIONS,
+                    KNOWN_SALT.to_vec(),
+                    next_hashed_owner_name,
+                    record_types,
+                ))),
+            );
+            let rrsig_record = Record::from_rdata(
+                nsec3_name,
+                3600,
+                RData::DNSSEC(DNSSECRData::RRSIG(rdataRRSIG::from_sig(
+                    SigInput {
+                        type_covered: NSEC3,
+                        algorithm: Algorithm::ECDSAP256SHA256,
+                        num_labels: 2,
+                        original_ttl: 3600,
+                        sig_expiration: SerialNumber::new(0),
+                        sig_inception: SerialNumber::new(1),
+                        key_tag: 0,
+                        signer_name: zone.clone(),
+                    },
+                    Vec::new(),
+                ))),
+            );
+            [nsec3_record, rrsig_record]
+        };
+
+        assert!(test_verify_wildcard_expansion(
+            &answers,
+            // Covers the next-closer name
+            &make_nsec3(
+                Name::from_ascii("ns2.example")?,
+                Name::from_ascii("*.w.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
+
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // Fails to cover the next-closer name
+            &make_nsec3(
+                Name::from_ascii("example.")?,
+                Name::from_ascii("a.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
+
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // Matches the next-closer name.
+            &make_nsec3(
+                Name::from_ascii("z.w.example.")?,
+                Name::from_ascii("a.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
+
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // Fails to cover the next-closer name
+            &make_nsec3(
+                Name::from_ascii("ns2.example.")?,
+                Name::from_ascii("z.w.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
+
+        Ok(())
+    }
+
+    fn test_verify_wildcard_expansion(answers: &[Record], authorities: &[Record]) -> bool {
+        let mut answers = answers.to_vec();
+        let mut authorities = authorities.to_vec();
+
+        let answers = RrsetMap::new(&mut answers);
+        let authorities = RrsetMap::new(&mut authorities);
+
+        let mut answers = mock_verified_rrset_map(answers);
+        let authorities = mock_verified_rrset_map(authorities);
+
+        let nsec_records = authorities.gather_nsec_records();
+        let nsec3_records = authorities.gather_nsec3_records();
+
+        verify_wildcard_expansion(&mut answers, &nsec_records, &nsec3_records)
+    }
+
+    /// Mock out signature verification and return a [`VerifiedRrsetMap`] containing the given
+    /// records.
+    fn mock_verified_rrset_map<'a>(rrsets: RrsetMap<'a>) -> VerifiedRrsetMap<'a> {
+        let map = rrsets
+            .0
+            .into_iter()
+            .map(|(key, rrset)| {
+                let signatures = rrset
+                    .signatures
+                    .into_iter()
+                    .map(|r| &*r)
+                    .collect::<Vec<&Record>>();
+                let RData::DNSSEC(DNSSECRData::RRSIG(rrsig)) = &signatures[0].data else {
+                    panic!("wrong RDATA in signature record");
+                };
+                (
+                    key.clone(),
+                    VerifiedRrset {
+                        records: rrset.records,
+                        signatures,
+                        outcome: RrsigVerificationOutcome::Secure { rrsig },
+                    },
+                )
+            })
+            .collect();
+        VerifiedRrsetMap(map)
+    }
+
+    const KNOWN_SALT: &[u8] = &[0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
+    const ITERATIONS: u16 = 12;
 }
