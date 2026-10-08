@@ -15,7 +15,8 @@
 ))]
 use std::future::Future;
 use std::{
-    fmt, io,
+    fmt::{self, Debug},
+    io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
     time::Duration,
@@ -80,6 +81,17 @@ pub use response_handler::{ResponseHandle, ResponseHandler};
 mod timeout_stream;
 pub use timeout_stream::TimeoutStream;
 
+pub mod transport;
+
+/// Common interface for server transports.
+///
+/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
+/// a TCP listener) together with protocol-specific configurations.
+/// Transport implementations are sealed to keep the server's execution interface internal.
+#[expect(private_bounds)]
+pub trait Transport: transport::Transport {}
+impl<T> Transport for T where T: transport::Transport {}
+
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
 pub struct Server<T: RequestHandler> {
@@ -88,35 +100,40 @@ pub struct Server<T: RequestHandler> {
 }
 
 impl<T: RequestHandler> Server<T> {
-    /// Creates a new ServerFuture with the specified Handler.
+    /// Creates a new Server with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self::with_access(handler, [], [])
     }
 
-    /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
+    /// Creates a new Server with the specified Handler and denied/allowed networks.
     pub fn with_access(
         handler: T,
         denied_networks: impl IntoIterator<Item = IpNet>,
         allowed_networks: impl IntoIterator<Item = IpNet>,
     ) -> Self {
-        let mut access = AccessControl::default();
-        access.insert_deny(denied_networks);
-        access.insert_allow(allowed_networks);
-
         Self {
-            context: Arc::new(ServerContext {
+            context: Arc::new(ServerContext::new(
                 handler,
-                access,
-                shutdown: CancellationToken::new(),
-            }),
+                denied_networks,
+                allowed_networks,
+            )),
             join_set: JoinSet::new(),
         }
     }
 
+    /// Registers a transport on this server.
+    ///
+    /// The transport's constructor initializes its listener and reports initialization errors.
+    /// The transport is logged using its [`Debug`] implementation.
+    pub fn register(&mut self, transport: impl Transport + Debug) {
+        debug!(?transport, "registering transport");
+        self.join_set.spawn(transport.run(self.context.clone()));
+    }
+
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
-        self.join_set
-            .spawn(handle_udp(socket, self.context.clone()));
+        let task = handle_udp(socket, self.context.clone());
+        self.join_set.spawn(task);
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -138,12 +155,13 @@ impl<T: RequestHandler> Server<T> {
         stream_timeout: Option<Duration>,
         response_buffer_size: usize,
     ) {
-        self.join_set.spawn(handle_tcp(
+        let task = handle_tcp(
             listener,
             stream_timeout,
             response_buffer_size,
             self.context.clone(),
-        ));
+        );
+        self.join_set.spawn(task);
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -171,13 +189,14 @@ impl<T: RequestHandler> Server<T> {
         stream_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
     ) -> io::Result<()> {
-        self.join_set.spawn(handle_tls(
+        let task = handle_tls(
             listener,
             tls_config,
             handshake_timeout,
             stream_timeout,
             self.context.clone(),
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
@@ -238,7 +257,7 @@ impl<T: RequestHandler> Server<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2(
+        let task = h2_handler::handle_h2(
             listener,
             handshake_timeout,
             idle_timeout,
@@ -247,7 +266,8 @@ impl<T: RequestHandler> Server<T> {
             dns_hostname,
             http_endpoint,
             self.context.clone(),
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
@@ -281,7 +301,7 @@ impl<T: RequestHandler> Server<T> {
         dns_hostname: Option<String>,
         http_endpoint: String,
     ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
+        let task = h2_handler::handle_h2_with_acceptor(
             listener,
             handshake_timeout,
             idle_timeout,
@@ -290,7 +310,8 @@ impl<T: RequestHandler> Server<T> {
             dns_hostname,
             http_endpoint,
             self.context.clone(),
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
@@ -317,14 +338,15 @@ impl<T: RequestHandler> Server<T> {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
     ) -> io::Result<()> {
         let cx = self.context.clone();
-        self.join_set.spawn(quic_handler::handle_quic(
+        let task = quic_handler::handle_quic(
             socket,
             handshake_timeout,
             idle_timeout,
             request_timeout,
             server_cert_resolver,
             cx,
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
@@ -356,13 +378,14 @@ impl<T: RequestHandler> Server<T> {
     ) -> Result<(), NetError> {
         let cx = self.context.clone();
 
-        self.join_set.spawn(quic_handler::handle_quic_with_server(
+        let task = quic_handler::handle_quic_with_server(
             QuicServer::with_socket_and_tls_config(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
             cx,
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
@@ -388,7 +411,7 @@ impl<T: RequestHandler> Server<T> {
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
     ) -> io::Result<()> {
-        self.join_set.spawn(h3_handler::handle_h3(
+        let task = h3_handler::handle_h3(
             socket,
             handshake_timeout,
             idle_timeout,
@@ -396,7 +419,8 @@ impl<T: RequestHandler> Server<T> {
             server_cert_resolver,
             dns_hostname,
             self.context.clone(),
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
@@ -426,21 +450,25 @@ impl<T: RequestHandler> Server<T> {
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
     ) -> Result<(), NetError> {
-        self.join_set.spawn(h3_handler::handle_h3_with_server(
+        let task = h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
             dns_hostname,
             self.context.clone(),
-        ));
+        );
+        self.join_set.spawn(task);
         Ok(())
     }
 
-    /// Triggers a graceful shutdown the server. All background tasks will stop accepting
-    /// new connections and the returned future will complete once all tasks have terminated.
+    /// Triggers a shutdown and waits for the registered transport tasks to finish.
+    ///
+    /// Transports stop accepting new work. Their local task sets are dropped,
+    /// cancelling the owned tasks without waiting for cancellation to complete.
+    /// Independently spawned request tasks may continue running.
     pub async fn shutdown_gracefully(&mut self) -> Result<(), NetError> {
-        self.context.shutdown.cancel();
+        self.shutdown_token().cancel();
 
         // Wait for the server to complete.
         self.block_until_done().await
@@ -448,8 +476,8 @@ impl<T: RequestHandler> Server<T> {
 
     /// Returns a reference to the [`CancellationToken`] used to gracefully shut down the server.
     ///
-    /// Once cancellation is requested, all background tasks will stop accepting new connections,
-    /// and `block_until_done()` will complete once all tasks have terminated.
+    /// Once cancellation is requested, transports stop accepting new work.
+    /// `block_until_done()` waits for the registered transport tasks to finish.
     pub fn shutdown_token(&self) -> &CancellationToken {
         &self.context.shutdown
     }
@@ -722,10 +750,29 @@ pub fn default_tls_server_config(
     Ok(config)
 }
 
-struct ServerContext<T> {
+/// Shared request handling and shutdown state for registered transports.
+pub(super) struct ServerContext<T> {
     handler: T,
     access: AccessControl,
     shutdown: CancellationToken,
+}
+
+impl<T> ServerContext<T> {
+    fn new(
+        handler: T,
+        denied_networks: impl IntoIterator<Item = IpNet>,
+        allowed_networks: impl IntoIterator<Item = IpNet>,
+    ) -> Self {
+        let mut access = AccessControl::default();
+        access.insert_deny(denied_networks);
+        access.insert_allow(allowed_networks);
+
+        Self {
+            handler,
+            access,
+            shutdown: CancellationToken::new(),
+        }
+    }
 }
 
 impl<T: RequestHandler> ServerContext<T> {
@@ -742,6 +789,9 @@ impl<T: RequestHandler> ServerContext<T> {
             .await;
     }
 
+    /// Applies the shared DNS decoding, access control, and response reporting policy.
+    ///
+    /// The transport must validate that the source address is safe for responses.
     async fn handle_request(
         &self,
         message_bytes: Bytes,
