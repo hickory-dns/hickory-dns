@@ -7,46 +7,125 @@
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use bytes::Bytes;
-use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
-use tracing::{debug, warn};
-
-use super::{
-    ResponseInfo, ServerContext, reap_tasks, request_handler::RequestHandler,
-    response_handler::ResponseHandler, sanitize_src_address,
-};
+use super::Transport;
 use crate::{
     net::{
         NetError,
-        quic::{QuicServer, QuicStream, QuicStreams},
+        quic::{IntoQuicSocket, QuicServer, QuicStream, QuicStreams},
+        tls::tls_config,
         xfer::Protocol,
     },
     proto::rr::Record,
-    server::optional_timeout,
+    server::{
+        ResponseInfo, ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
+        response_handler::ResponseHandler, sanitize_src_address,
+    },
     zone_handler::MessageResponse,
 };
+use bytes::Bytes;
+use rustls::{ServerConfig, server::ResolvesServerCert};
+use tokio::task::JoinSet;
+use tracing::{debug, warn};
 
-pub(super) async fn handle_quic(
-    socket: net::UdpSocket,
+/// Builder and transport implementation for DNS-over-QUIC (DoQ).
+///
+/// Wraps an already-bound UDP socket and a TLS configuration to accept QUIC connections.
+#[derive(Debug)]
+pub struct Quic {
+    listener: QuicServer,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!(?socket, "registered quic");
-    handle_quic_with_server(
-        QuicServer::with_socket(socket, server_cert_resolver)?,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        cx,
-    )
-    .await
 }
 
-pub(super) async fn handle_quic_with_server(
+impl Quic {
+    /// Constructs a new QUIC transport with the provided [`ServerConfig`].
+    ///
+    /// The `socket` must be already bound to the desired local address, and the configuration
+    /// must enable the DoQ ALPN protocol. Default timeouts are `None`.
+    ///
+    /// Initializes the QUIC endpoint immediately and requires a Tokio runtime.
+    /// Returns errors from TLS configuration conversion, socket conversion, or endpoint creation.
+    pub fn with_tls_config(
+        socket: impl IntoQuicSocket,
+        tls_config: Arc<ServerConfig>,
+    ) -> Result<Self, NetError> {
+        Ok(Self {
+            listener: QuicServer::with_socket_and_tls_config(socket, tls_config)?,
+            handshake_timeout: None,
+            idle_timeout: None,
+            request_timeout: None,
+        })
+    }
+
+    /// Constructs a new QUIC transport with a certificate resolver.
+    ///
+    /// A default TLS 1.3 configuration with ALPN `doq` and the QUIC endpoint are constructed
+    /// immediately. Requires a Tokio runtime and returns listener initialization errors.
+    pub fn new(
+        socket: impl IntoQuicSocket,
+        server_cert_resolver: Arc<dyn ResolvesServerCert>,
+    ) -> Result<Self, NetError> {
+        Self::with_tls_config(
+            socket,
+            Arc::new(tls_config::server_quic(b"doq", server_cert_resolver)),
+        )
+    }
+
+    /// Sets the timeout duration for performing QUIC handshakes.
+    pub fn handshake_timeout(self, handshake_timeout: Duration) -> Self {
+        self.maybe_handshake_timeout(Some(handshake_timeout))
+    }
+
+    /// Sets the handshake timeout; pass `None` to disable it.
+    pub fn maybe_handshake_timeout(self, handshake_timeout: Option<Duration>) -> Self {
+        Self {
+            handshake_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the timeout before closing an idle QUIC connection.
+    pub fn idle_timeout(self, idle_timeout: Duration) -> Self {
+        self.maybe_idle_timeout(Some(idle_timeout))
+    }
+
+    /// Sets the idle timeout; pass `None` to disable it.
+    pub fn maybe_idle_timeout(self, idle_timeout: Option<Duration>) -> Self {
+        Self {
+            idle_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the timeout for receiving a complete request over a stream.
+    pub fn request_timeout(self, request_timeout: Duration) -> Self {
+        self.maybe_request_timeout(Some(request_timeout))
+    }
+
+    /// Sets the request timeout; pass `None` to disable it.
+    pub fn maybe_request_timeout(self, request_timeout: Option<Duration>) -> Self {
+        Self {
+            request_timeout,
+            ..self
+        }
+    }
+}
+
+impl Transport for Quic {
+    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        handle_quic_with_server(
+            self.listener,
+            self.handshake_timeout,
+            self.idle_timeout,
+            self.request_timeout,
+            cx,
+        )
+        .await
+    }
+}
+
+async fn handle_quic_with_server(
     mut server: QuicServer,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
@@ -121,7 +200,7 @@ pub(super) async fn handle_quic_with_server(
     Ok(())
 }
 
-pub(crate) async fn quic_handler(
+async fn quic_handler(
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,

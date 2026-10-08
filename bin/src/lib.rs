@@ -35,6 +35,8 @@ use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 use hickory_server::server::tls_config;
 #[cfg(feature = "__https")]
 use hickory_server::server::transport::H2;
+#[cfg(feature = "__quic")]
+use hickory_server::server::transport::Quic;
 #[cfg(feature = "__tls")]
 use hickory_server::server::transport::Tls;
 use hickory_server::{
@@ -724,15 +726,12 @@ impl ServerSetup<'_> {
                 tls_config.key_log = Arc::new(KeyLogFile::new());
             }
 
-            self.server
-                .register_quic_listener_and_tls_config(
-                    quic_listener,
-                    self.handshake_timeout,
-                    self.idle_timeout,
-                    self.request_timeout,
-                    Arc::new(tls_config),
-                )
-                .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
+            let quic = Quic::with_tls_config(quic_listener, Arc::new(tls_config))
+                .map_err(|err| format!("failed to initialize QUIC listener: {err}"))?
+                .maybe_handshake_timeout(self.handshake_timeout)
+                .maybe_idle_timeout(self.idle_timeout)
+                .maybe_request_timeout(self.request_timeout);
+            self.server.register(quic);
         }
         Ok(())
     }
