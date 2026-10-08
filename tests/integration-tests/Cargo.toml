@@ -56,7 +56,9 @@ quic-aws-lc-rs = [
 h3-aws-lc-rs = [
     "hickory-net/h3-aws-lc-rs",
     "hickory-resolver/h3-aws-lc-rs",
+    "hickory-server/h3-aws-lc-rs",
     "quic-aws-lc-rs",
+    "__h3",
 ]
 
 tls-ring = [
@@ -80,12 +82,15 @@ quic-ring = [
 h3-ring = [
     "hickory-net/h3-ring",
     "hickory-resolver/h3-ring",
+    "hickory-server/h3-ring",
     "quic-ring",
+    "__h3",
 ]
 
 __tls = ["dep:rustls"]
 __https = ["dep:rustls", "dep:webpki-roots"]
 __quic = []
+__h3 = []
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 metrics = ["hickory-server/metrics"]
