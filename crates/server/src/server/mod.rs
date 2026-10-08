@@ -951,7 +951,12 @@ async fn optional_timeout<T>(
 
 #[cfg(test)]
 mod tests {
-    use std::{net::SocketAddr, time::Duration};
+    use std::{
+        io,
+        net::SocketAddr,
+        task::{Context, Poll},
+        time::Duration,
+    };
 
     use futures_util::future;
     #[cfg(feature = "__tls")]
@@ -960,12 +965,13 @@ mod tests {
     use test_support::TestCertificates;
     use test_support::subscribe;
     use tokio::{
-        net::{TcpListener, UdpSocket},
+        net::{TcpListener, TcpStream, UdpSocket},
         time::timeout,
     };
 
     use super::*;
     use crate::{
+        net::runtime::{Accepted, DnsTcpListener, iocompat::AsyncIoTokioAsStd},
         server::transport::{Tcp, Udp},
         zone_handler::Catalog,
     };
@@ -1026,6 +1032,33 @@ mod tests {
         assert!(
             sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn test_custom_listener_permanent_close() {
+        let mut server = Server::new(Catalog::new());
+        server.register(Tcp::new(ClosedListener, 32));
+
+        let result = timeout(Duration::from_secs(1), server.block_until_done()).await;
+        assert!(result.is_ok(), "server accept loop timed out or hung");
+        assert!(result.unwrap().is_err());
+    }
+
+    #[derive(Debug)]
+    struct ClosedListener;
+
+    impl DnsTcpListener for ClosedListener {
+        type Stream = AsyncIoTokioAsStd<TcpStream>;
+
+        fn poll_accept(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<Accepted<Self::Stream>>> {
+            Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "listener closed permanently",
+            )))
+        }
     }
 
     #[derive(Clone)]
