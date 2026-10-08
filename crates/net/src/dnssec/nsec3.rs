@@ -1013,16 +1013,18 @@ mod tests {
     use core::{slice, str::FromStr};
 
     use super::*;
-    use crate::proto::{
-        ProtoError,
-        dnssec::{
-            Algorithm,
-            rdata::{DNSSECRData, RRSIG as rdataRRSIG, SigInput},
-        },
-        rr::{
-            RData,
-            RecordType::{A, AAAA, DNAME, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
-            SerialNumber, rdata,
+    use crate::{
+        dnssec::test::test_verify_wildcard_expansion,
+        proto::{
+            ProtoError,
+            dnssec::{
+                Algorithm,
+                rdata::{NSEC3, RRSIG as rdataRRSIG, SigInput},
+            },
+            rr::{
+                RecordType::{self, A, AAAA, DNAME, DNSKEY, DS, MX, NS, NSEC3PARAM, RRSIG, SOA},
+                SerialNumber, rdata,
+            },
         },
     };
 
@@ -1411,10 +1413,12 @@ mod tests {
         Ok(())
     }
 
+    /// Based on RFC 5155 B.4 - Wildcard Expansion
     #[test]
     fn nsec3_wildcard_expansion_tests() -> Result<(), ProtoError> {
         subscribe();
 
+        let zone = Name::from_ascii("example.")?;
         let input = SigInput {
             type_covered: MX,
             algorithm: Algorithm::ED25519,
@@ -1423,11 +1427,10 @@ mod tests {
             sig_expiration: SerialNumber::new(0),
             sig_inception: SerialNumber::new(0),
             key_tag: 0,
-            signer_name: Name::root(),
+            signer_name: zone.clone(),
         };
-
         let rrsig = rdataRRSIG::from_sig(input, vec![]);
-        let rrsig_record = Record::from_rdata(
+        let wildcard_rrsig_record = Record::from_rdata(
             Name::from_ascii("a.z.w.example.")?,
             3600,
             RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
@@ -1439,74 +1442,92 @@ mod tests {
                 3600,
                 RData::MX(rdata::MX::new(10, Name::from_ascii("a.z.w.example.")?)),
             ),
-            rrsig_record,
+            wildcard_rrsig_record,
         ];
 
-        // Based on RFC 5155 B.4 - Wildcard Expansion
-        assert_eq!(
-            verify_nsec3(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // Covers the next-closer name
-                    Nsec3Pair::new(
-                        Name::from_ascii("example.")?
-                            .prepend_label(hash_with_base32("ns2.example"))?,
-                        hash("*.w.example."),
-                        [A, RRSIG],
-                    )
-                    .as_ref(),
-                ],
-                200,
-                500,
-            ),
-            Proof::Secure,
-        );
+        let hash = |name: &Name| -> Vec<u8> {
+            Nsec3HashAlgorithm::SHA1
+                .hash(KNOWN_SALT, name, ITERATIONS)
+                .unwrap()
+                .as_ref()
+                .to_vec()
+        };
+        let make_nsec3 = |name, next_name, record_types| {
+            let name_hash = hash(&name);
+            let nsec3_label = BASE32_DNSSEC.encode(&name_hash);
+            let nsec3_name = zone.prepend_label(nsec3_label).unwrap();
+            let next_hashed_owner_name = hash(&next_name);
+            let nsec3_record = Record::from_rdata(
+                nsec3_name.clone(),
+                3600,
+                RData::DNSSEC(DNSSECRData::NSEC3(NSEC3::new(
+                    Nsec3HashAlgorithm::SHA1,
+                    false,
+                    ITERATIONS,
+                    KNOWN_SALT.to_vec(),
+                    next_hashed_owner_name,
+                    record_types,
+                ))),
+            );
+            let rrsig_record = Record::from_rdata(
+                nsec3_name,
+                3600,
+                RData::DNSSEC(DNSSECRData::RRSIG(rdataRRSIG::from_sig(
+                    SigInput {
+                        type_covered: RecordType::NSEC3,
+                        algorithm: Algorithm::ECDSAP256SHA256,
+                        num_labels: 2,
+                        original_ttl: 3600,
+                        sig_expiration: SerialNumber::new(0),
+                        sig_inception: SerialNumber::new(1),
+                        key_tag: 0,
+                        signer_name: zone.clone(),
+                    },
+                    Vec::new(),
+                ))),
+            );
+            [nsec3_record, rrsig_record]
+        };
 
-        assert_eq!(
-            verify_nsec3(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // Fails to cover the next-closer name
-                    Nsec3Pair::new(
-                        Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
-                        hash("a.example."),
-                        [A, RRSIG],
-                    )
-                    .as_ref(),
-                ],
-                200,
-                500,
-            ),
-            Proof::Bogus,
-        );
+        assert!(test_verify_wildcard_expansion(
+            &answers,
+            // Covers the next-closer name
+            &make_nsec3(
+                Name::from_ascii("ns2.example")?,
+                Name::from_ascii("*.w.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
 
-        assert_eq!(
-            verify_nsec3(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // Matches the next-closer name.
-                    Nsec3Pair::new(
-                        Name::from_ascii("example.")?
-                            .prepend_label(hash_with_base32("z.w.example"))?,
-                        hash("a.example."),
-                        [A, RRSIG],
-                    )
-                    .as_ref(),
-                ],
-                200,
-                500,
-            ),
-            Proof::Bogus,
-        );
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // Fails to cover the next-closer name
+            &make_nsec3(
+                Name::from_ascii("example.")?,
+                Name::from_ascii("a.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
+
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // Matches the next-closer name.
+            &make_nsec3(
+                Name::from_ascii("z.w.example.")?,
+                Name::from_ascii("a.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
+
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // Fails to cover the next-closer name
+            &make_nsec3(
+                Name::from_ascii("ns2.example.")?,
+                Name::from_ascii("z.w.example.")?,
+                vec![A, RRSIG],
+            )
+        ));
 
         Ok(())
     }
@@ -2061,4 +2082,5 @@ mod tests {
     }
 
     const KNOWN_SALT: &[u8] = &[0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
+    const ITERATIONS: u16 = 12;
 }
