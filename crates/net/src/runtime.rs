@@ -91,7 +91,7 @@ pub mod iocompat {
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
             Pin::new(&mut self.get_mut().0)
-                .poll_read(cx, buf.initialized_mut())
+                .poll_read(cx, buf.initialize_unfilled())
                 .map_ok(|len| buf.advance(len))
         }
     }
@@ -122,6 +122,78 @@ pub mod iocompat {
             cx: &mut Context<'_>,
         ) -> Poll<Result<(), io::Error>> {
             Pin::new(&mut self.get_mut().0).poll_close(cx)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use futures_util::task::noop_waker;
+
+        struct MockIo(Vec<u8>);
+
+        impl AsyncRead for MockIo {
+            fn poll_read(
+                mut self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+                buf: &mut [u8],
+            ) -> Poll<io::Result<usize>> {
+                let to_copy = self.0.len().min(buf.len());
+                buf[..to_copy].copy_from_slice(&self.0[..to_copy]);
+                self.0.drain(..to_copy);
+                Poll::Ready(Ok(to_copy))
+            }
+        }
+
+        impl AsyncWrite for MockIo {
+            fn poll_write(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+                buf: &[u8],
+            ) -> Poll<Result<usize, io::Error>> {
+                Poll::Ready(Ok(buf.len()))
+            }
+
+            fn poll_flush(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+            ) -> Poll<Result<(), io::Error>> {
+                Poll::Ready(Ok(()))
+            }
+
+            fn poll_close(
+                self: Pin<&mut Self>,
+                _cx: &mut Context<'_>,
+            ) -> Poll<Result<(), io::Error>> {
+                Poll::Ready(Ok(()))
+            }
+        }
+
+        #[test]
+        fn test_async_io_std_as_tokio_poll_read() {
+            let mock = MockIo(b"hello world".to_vec());
+            let mut adapter = AsyncIoStdAsTokio(mock);
+
+            let waker = noop_waker();
+            let mut cx = Context::from_waker(&waker);
+
+            // Test with uninitialized ReadBuf (unfilled buffer has no initialized bytes)
+            let mut buf = [std::mem::MaybeUninit::uninit(); 16];
+            let mut read_buf = ReadBuf::uninit(&mut buf);
+            let poll = Pin::new(&mut adapter).poll_read(&mut cx, &mut read_buf);
+            assert!(matches!(poll, Poll::Ready(Ok(()))));
+            assert_eq!(read_buf.filled(), b"hello world");
+
+            // Test with pre-filled ReadBuf (e.g. 5 bytes already filled)
+            let mock2 = MockIo(b"world".to_vec());
+            let mut adapter2 = AsyncIoStdAsTokio(mock2);
+            let mut buf2 = [0u8; 16];
+            buf2[..5].copy_from_slice(b"hello");
+            let mut read_buf2 = ReadBuf::new(&mut buf2);
+            read_buf2.advance(5);
+            let poll2 = Pin::new(&mut adapter2).poll_read(&mut cx, &mut read_buf2);
+            assert!(matches!(poll2, Poll::Ready(Ok(()))));
+            assert_eq!(read_buf2.filled(), b"helloworld");
         }
     }
 }
