@@ -9,15 +9,22 @@ use std::{sync::Arc, time::Duration};
 
 use futures_util::StreamExt;
 use tokio::task::JoinSet;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::Transport;
-use crate::net::sanitize_src_address;
-use crate::server::utils::is_unrecoverable_socket_error;
-use crate::server::utils::reap_tasks;
 use crate::{
-    net::{NetError, runtime::DnsTcpListener, tcp::TcpStream, xfer::Protocol},
-    server::{ServerContext, TimeoutStream, request_handler::RequestHandler},
+    net::{
+        NetError,
+        runtime::DnsTcpListener,
+        tcp::{TcpListener, TcpStream},
+        xfer::Protocol,
+    },
+    server::{
+        ServerContext,
+        request_handler::RequestHandler,
+        timeout_stream::TimeoutStream,
+        utils::{is_unrecoverable_socket_error, reap_tasks},
+    },
 };
 
 /// Builder and transport implementation for TCP.
@@ -25,7 +32,7 @@ use crate::{
 /// Wraps an already-bound TCP listener and handles incoming connections.
 #[derive(Debug)]
 pub struct Tcp<L: DnsTcpListener> {
-    listener: L,
+    listener: TcpListener<L>,
     stream_timeout: Option<Duration>,
     response_buffer_size: usize,
 }
@@ -37,7 +44,7 @@ impl<L: DnsTcpListener> Tcp<L> {
     /// Default `stream_timeout` is `None` (no timeout).
     pub fn new(listener: L, response_buffer_size: usize) -> Self {
         Self {
-            listener,
+            listener: TcpListener::new(listener),
             stream_timeout: None,
             response_buffer_size,
         }
@@ -72,20 +79,19 @@ impl<L: DnsTcpListener> Transport for Tcp<L> {
 }
 
 async fn handle_tcp<L: DnsTcpListener>(
-    mut listener: L,
+    mut listener: TcpListener<L>,
     stream_timeout: Option<Duration>,
     response_buffer_size: usize,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let mut inner_join_set = JoinSet::new();
     loop {
-        let accept = futures_util::future::poll_fn(|cx| listener.poll_accept(cx));
-        let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
+        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
-        let (tcp_stream, src_addr) = match result {
-            Ok(accepted) => (accepted.connection, accepted.src_addr),
+        let accepted = match result {
+            Ok(accepted) => accepted,
             Err(error) => {
                 debug!(%error, "error receiving TCP tcp_stream error");
                 if is_unrecoverable_socket_error(&error) {
@@ -95,22 +101,17 @@ async fn handle_tcp<L: DnsTcpListener>(
             }
         };
 
-        // verify that the src address is safe for responses
-        if let Err(error) = sanitize_src_address(src_addr) {
-            warn!(
-                %src_addr, %error,
-                "address can not be responded to (TCP)",
-            );
-            continue;
-        }
-
         // and spawn to the io_loop
         let cx = cx.clone();
         inner_join_set.spawn(async move {
+            let src_addr = accepted.src_addr;
             debug!(%src_addr, "accepted TCP request");
             // take the created stream...
-            let (buf_stream, stream_handle) =
-                TcpStream::from_stream_with_buffer_size(tcp_stream, src_addr, response_buffer_size);
+            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
+                accepted.connection,
+                src_addr,
+                response_buffer_size,
+            );
             let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
 
             while let Some(message) = timeout_stream.next().await {
