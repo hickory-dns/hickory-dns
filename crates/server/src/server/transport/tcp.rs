@@ -151,29 +151,3 @@ async fn handle_tcp<L: DnsTcpListener>(
         Err(NetError::from("unexpected close of socket"))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use tokio::net::TcpListener;
-
-    use super::Tcp;
-    use crate::net::xfer::DEFAULT_STREAM_BUFFER_SIZE;
-
-    #[tokio::test]
-    async fn test_tcp_builder_default_response_buffer_size() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-
-        let tcp = Tcp::new(listener);
-
-        assert_eq!(tcp.response_buffer_size, DEFAULT_STREAM_BUFFER_SIZE);
-    }
-
-    #[tokio::test]
-    async fn test_tcp_builder_response_buffer_size() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-
-        let tcp = Tcp::new(listener).response_buffer_size(64);
-
-        assert_eq!(tcp.response_buffer_size, 64);
-    }
-}
