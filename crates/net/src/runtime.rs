@@ -16,6 +16,8 @@ use std::{
 
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
+#[cfg(feature = "__quic")]
+use quinn::AsyncUdpSocket;
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "tokio"))]
@@ -202,11 +204,10 @@ pub mod iocompat {
 
 #[cfg(feature = "tokio")]
 mod tokio_runtime {
-    use std::sync::Arc;
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
 
     #[cfg(feature = "__quic")]
-    use quinn::Runtime;
+    use quinn::{Runtime, TokioRuntime};
     use tokio::net::{TcpListener, TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
     use tokio::time::timeout;
@@ -312,9 +313,9 @@ mod tokio_runtime {
             &self,
             local_addr: SocketAddr,
             _server_addr: SocketAddr,
-        ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error> {
+        ) -> io::Result<Arc<dyn AsyncUdpSocket>> {
             let socket = std::net::UdpSocket::bind(local_addr)?;
-            quinn::TokioRuntime.wrap_udp_socket(socket)
+            TokioRuntime.wrap_udp_socket(socket)
         }
     }
 
@@ -430,7 +431,7 @@ pub trait QuicSocketBinder {
         &self,
         _local_addr: SocketAddr,
         _server_addr: SocketAddr,
-    ) -> Result<Arc<dyn quinn::AsyncUdpSocket>, io::Error>;
+    ) -> io::Result<Arc<dyn AsyncUdpSocket>>;
 }
 
 /// Trait for TCP connection
