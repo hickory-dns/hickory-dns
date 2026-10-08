@@ -21,7 +21,7 @@ use hickory_proto::{
     rr::{
         DNSClass, RData, Record, RecordSet, RecordType,
         domain::Name,
-        rdata::{self, NS},
+        rdata::{self},
     },
 };
 use std::{
@@ -472,7 +472,7 @@ pub(crate) fn nsec3_apex_nodata_handler(
     let correct_name = origin_name.prepend_label("subdomain-0")?;
 
     let records = zone_file::parse_zone_file(Path::new(
-        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
+        &env::var("ZONE_FILE").unwrap_or_else(|_| "/etc/zones/main.zone".to_string()),
     ))
     .map_err(|e| {
         Error::msg(format!(
@@ -1076,7 +1076,7 @@ pub(crate) fn wrong_rrset_handler(request: Message, _transport: Transport) -> Re
     let child_name = Name::from_ascii("child.leaf.testing.").unwrap();
 
     let records = zone_file::parse_zone_file(Path::new(
-        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
+        &env::var("ZONE_FILE").unwrap_or_else(|_| "/etc/zones/main.zone".to_string()),
     ))
     .map_err(|e| {
         Error::msg(format!(
@@ -1361,7 +1361,7 @@ impl Handler for ForgedDelegationHandler {
                 Record::from_rdata(
                     self.zone.clone(),
                     3600,
-                    RData::NS(NS(self.nameserver.clone())),
+                    RData::NS(rdata::NS(self.nameserver.clone())),
                 ),
             );
             // BIND expects that if NS and SOA records are both present, they should have the same
@@ -1548,7 +1548,7 @@ pub(super) fn bogus_wildcard_expansion_nsec_same_name_condition_handler(
 /// there. Otherwise, `/etc/zones/main.zone` will be read by default.
 fn read_zone_file() -> Result<Vec<Record>> {
     zone_file::parse_zone_file(Path::new(
-        &env::var("ZONE_FILE").unwrap_or("/etc/zones/main.zone".to_string()),
+        &env::var("ZONE_FILE").unwrap_or_else(|_| "/etc/zones/main.zone".to_string()),
     ))
     .map_err(|message| anyhow!("unable to load zone file: {message}"))
 }
@@ -1603,9 +1603,7 @@ impl Handler for Nsec3WrongZoneHandler {
         // $ nsec3hash -r 1 0 1 - victim.testing.
         // victim.testing. NSEC3 1 0 1 - GTR6F74IERHONNKRCH3QDNUNNDVR2OF1
         let hash_base32 = "GTR6F74IERHONNKRCH3QDNUNNDVR2OF1";
-        let hash = data_encoding::BASE32_DNSSEC
-            .decode(hash_base32.as_bytes())
-            .unwrap();
+        let hash = BASE32_DNSSEC.decode(hash_base32.as_bytes()).unwrap();
         let crafted_nsec3_rdata = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
             false,
