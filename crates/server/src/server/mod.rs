@@ -44,8 +44,6 @@ use tracing::{debug, info, warn};
 use crate::metrics::ResponseHandlerMetrics;
 #[cfg(feature = "__h3")]
 use crate::net::h3::h3_server::H3Server;
-#[cfg(feature = "__quic")]
-use crate::net::quic::QuicServer;
 use crate::{
     access::AccessControl,
     net::{BufDnsStreamHandle, NetError, runtime::TokioTime, xfer::Protocol},
@@ -62,8 +60,6 @@ use crate::{
 
 #[cfg(feature = "__h3")]
 mod h3_handler;
-#[cfg(feature = "__quic")]
-mod quic_handler;
 #[cfg(feature = "__tls")]
 pub use crate::net::tls::tls_config;
 
@@ -121,80 +117,6 @@ impl<T: RequestHandler> Server<T> {
     pub fn register(&mut self, transport: impl Transport + Debug) {
         debug!(?transport, "registering transport");
         self.join_set.spawn(transport.run(self.context.clone()));
-    }
-
-    /// Register a UdpSocket to the Server for supporting DoQ (DNS-over-QUIC). The UdpSocket should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `socket` - a bound UDP socket
-    /// * `handshake_timeout` - timeout for performing QUIC handshakes
-    /// * `idle_timeout` - timeout before closing an idle connection
-    /// * `request_timeout` - timeout for receiving a complete request over a stream
-    /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
-    /// * `dns_hostname` - the DNS hostname of the DoQ server.
-    #[cfg(feature = "__quic")]
-    pub fn register_quic_listener(
-        &mut self,
-        socket: net::UdpSocket,
-        handshake_timeout: Option<Duration>,
-        idle_timeout: Option<Duration>,
-        request_timeout: Option<Duration>,
-        server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> io::Result<()> {
-        let cx = self.context.clone();
-        let task = quic_handler::handle_quic(
-            socket,
-            handshake_timeout,
-            idle_timeout,
-            request_timeout,
-            server_cert_resolver,
-            cx,
-        );
-        self.join_set.spawn(task);
-        Ok(())
-    }
-
-    /// Register a UdpSocket for supporting DoQ (DNS-over-QUIC) with the provided TLS config.
-    ///
-    /// The UdpSocket should already be bound to either an IPv6 or an IPv4 address.
-    ///
-    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoQ ALPN protocol
-    /// enabled.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `socket` - a bound UDP socket
-    /// * `handshake_timeout` - timeout for performing QUIC handshakes
-    /// * `idle_timeout` - timeout before closing an idle connection
-    /// * `request_timeout` - timeout for receiving a complete request over a stream
-    /// * `tls_config` - a customized ServerConfig to use for TLS.
-    /// * `dns_hostname` - the DNS hostname of the DoQ server.
-    #[cfg(feature = "__quic")]
-    pub fn register_quic_listener_and_tls_config(
-        &mut self,
-        socket: net::UdpSocket,
-        handshake_timeout: Option<Duration>,
-        idle_timeout: Option<Duration>,
-        request_timeout: Option<Duration>,
-        tls_config: Arc<ServerConfig>,
-    ) -> Result<(), NetError> {
-        let cx = self.context.clone();
-
-        let task = quic_handler::handle_quic_with_server(
-            QuicServer::with_socket_and_tls_config(socket, tls_config)?,
-            handshake_timeout,
-            idle_timeout,
-            request_timeout,
-            cx,
-        );
-        self.join_set.spawn(task);
-        Ok(())
     }
 
     /// Register a UdpSocket to the Server for supporting DoH3 (DNS-over-HTTP/3). The UdpSocket should already be bound to either an
@@ -707,6 +629,8 @@ mod tests {
     use super::*;
     #[cfg(feature = "__https")]
     use crate::server::transport::H2;
+    #[cfg(feature = "__quic")]
+    use crate::server::transport::Quic;
     #[cfg(feature = "__tls")]
     use crate::server::transport::Tls;
     use crate::{
@@ -876,15 +800,12 @@ mod tests {
             #[cfg(feature = "__quic")]
             {
                 let cert_key = rustls_cert_key();
-                server
-                    .register_quic_listener(
-                        UdpSocket::bind(self.quic_addr).await.unwrap(),
-                        Some(Duration::from_secs(1)),
-                        Some(Duration::from_secs(1)),
-                        Some(Duration::from_secs(1)),
-                        cert_key,
-                    )
-                    .unwrap();
+                let quic = Quic::new(UdpSocket::bind(self.quic_addr).await.unwrap(), cert_key)
+                    .unwrap()
+                    .handshake_timeout(Duration::from_secs(1))
+                    .idle_timeout(Duration::from_secs(1))
+                    .request_timeout(Duration::from_secs(1));
+                server.register(quic);
             }
 
             #[cfg(feature = "__h3")]
