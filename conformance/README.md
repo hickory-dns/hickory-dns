@@ -193,12 +193,17 @@ with the `bind` package installed, and on Ubuntu 26.04 with no additional
 packages.
 
 If this is an issue, check `dmesg` for operations that were denied by AppArmor,
-and update AppArmor profiles as needed to allow them. For example, to get packet
-captures working again with the Ubuntu 26.04 version of AppArmor's default
-profiles installed, create `/etc/apparmor.d/local/tshark` with the following
-contents.
+and update AppArmor profiles as needed to allow them. For example, to get tests
+working again with the Ubuntu 26.04 version of AppArmor's default profiles
+installed, create files with local overrides like the following.
 
 ```
+# /etc/apparmor.d/local/tshark
 file r /etc/wireshark/*,
 signal receive peer=runc,
+```
+
+```
+# /etc/apparmor.d/local/dig
+file r /tmp/**,
 ```
