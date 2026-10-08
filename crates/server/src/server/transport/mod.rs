@@ -39,3 +39,8 @@ pub use tls::Tls;
 mod h2;
 #[cfg(feature = "__https")]
 pub use h2::H2;
+
+#[cfg(feature = "__quic")]
+mod quic;
+#[cfg(feature = "__quic")]
+pub use quic::Quic;
