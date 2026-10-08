@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use tokio::task::JoinSet;
-use tracing::warn;
+use tracing::{debug, warn};
 
 use super::Transport;
 use crate::{
@@ -18,6 +18,7 @@ use crate::{
         udp::{UdpListener, UdpStream},
         xfer::Protocol,
     },
+    proto::op::SerialMessage,
     server::{
         ServerContext,
         request_handler::RequestHandler,
@@ -84,8 +85,9 @@ where
             let cx = cx.clone();
             let stream_handle = self.stream_handle.with_remote_addr(src_addr);
             inner_join_set.spawn(async move {
-                cx.handle_raw_request(message, Protocol::Udp, stream_handle)
-                    .await;
+                debug!(%src_addr, protocol = %Protocol::Udp, "starting request processing");
+
+                Self::handle(message, stream_handle, cx).await;
             });
 
             reap_tasks(&mut inner_join_set);
@@ -97,5 +99,16 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<S: DnsUdpSocket> Udp<S> {
+    async fn handle(
+        message: SerialMessage,
+        stream_handle: BufDnsStreamHandle,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) {
+        cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+            .await;
     }
 }
