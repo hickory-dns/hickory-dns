@@ -724,6 +724,40 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "__quic")]
+    #[tokio::test]
+    async fn test_quic_socket_conversion_failure() {
+        use std::io;
+
+        use crate::net::quic::{AsyncUdpSocket, IntoQuicSocket};
+
+        #[derive(Debug)]
+        struct FailingQuicSocket;
+        impl IntoQuicSocket for FailingQuicSocket {
+            fn into_quic_socket(self) -> io::Result<Arc<dyn AsyncUdpSocket>> {
+                Err(io::Error::other("simulated quic socket conversion failure"))
+            }
+        }
+
+        let mut server = Server::new(Catalog::new());
+        let cert_key = rustls_cert_key();
+        let Err(NetError::Io(error)) = Quic::new(FailingQuicSocket, cert_key.clone()) else {
+            panic!("expected socket conversion error from the constructor");
+        };
+        assert_eq!(
+            error.to_string(),
+            "simulated quic socket conversion failure"
+        );
+
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let quic = Quic::new(socket, cert_key).unwrap();
+        server.register(quic);
+        timeout(Duration::from_secs(2), server.shutdown_gracefully())
+            .await
+            .expect("timed out waiting for the replacement transport")
+            .unwrap();
+    }
+
     #[derive(Clone)]
     struct Endpoints {
         udp_addr: SocketAddr,
