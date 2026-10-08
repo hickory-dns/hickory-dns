@@ -41,6 +41,7 @@ pub mod iocompat {
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `futures_io::{AsyncRead, AsyncWrite}`
+    #[derive(Debug)]
     pub struct AsyncIoTokioAsStd<T: TokioAsyncRead + TokioAsyncWrite>(pub T);
 
     impl<T: TokioAsyncRead + TokioAsyncWrite + Unpin> Unpin for AsyncIoTokioAsStd<T> {}
@@ -81,6 +82,7 @@ pub mod iocompat {
     }
 
     /// Conversion from `futures_io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
+    #[derive(Debug)]
     pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
     impl<T: AsyncRead + AsyncWrite + Unpin> Unpin for AsyncIoStdAsTokio<T> {}
@@ -205,7 +207,7 @@ mod tokio_runtime {
 
     #[cfg(feature = "__quic")]
     use quinn::Runtime;
-    use tokio::net::{TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
+    use tokio::net::{TcpListener, TcpSocket, TcpStream, UdpSocket as TokioUdpSocket};
     use tokio::task::JoinSet;
     use tokio::time::timeout;
     use tracing::debug;
@@ -315,6 +317,22 @@ mod tokio_runtime {
             quinn::TokioRuntime.wrap_udp_socket(socket)
         }
     }
+
+    impl DnsTcpListener for TcpListener {
+        type Stream = AsyncIoTokioAsStd<TcpStream>;
+
+        fn poll_accept(
+            &mut self,
+            cx: &mut Context<'_>,
+        ) -> Poll<io::Result<Accepted<Self::Stream>>> {
+            Self::poll_accept(self, cx).map(|result| {
+                result.map(|(stream, addr)| Accepted {
+                    connection: AsyncIoTokioAsStd(stream),
+                    src_addr: addr,
+                })
+            })
+        }
+    }
 }
 
 #[cfg(feature = "tokio")]
@@ -419,6 +437,38 @@ pub trait QuicSocketBinder {
 pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
     /// Timer type to use with this TCP stream type
     type Time: Time;
+}
+
+/// An accepted connection together with its recorded metadata.
+///
+/// The connection can be a raw I/O stream or an initialized protocol connection.
+#[derive(Debug)]
+pub struct Accepted<C> {
+    /// The accepted connection.
+    pub connection: C,
+    /// The source address recorded when accepting the connection.
+    ///
+    /// Keeping a snapshot gives all requests on a connection consistent metadata, even if
+    /// a QUIC connection later migrates to a different remote address.
+    pub src_addr: SocketAddr,
+}
+
+/// Trait for an incoming TCP connection listener.
+pub trait DnsTcpListener: Send + Unpin + 'static {
+    /// The TCP stream type produced by this listener.
+    type Stream: DnsTcpStream;
+
+    /// Poll for an incoming connection.
+    ///
+    /// When `Poll::Pending` is returned, the current task's waker must be registered.
+    /// When cancelled and retried, unaccepted connections must not be lost.
+    ///
+    /// When the listener is permanently closed or shut down, implementations must return
+    /// an error with kind [`io::ErrorKind::NotConnected`]. Other errors are treated as
+    /// transient and will result in retrying `poll_accept`.
+    ///
+    /// Returns the accepted stream together with its recorded connection metadata.
+    fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<Accepted<Self::Stream>>>;
 }
 
 /// A type defines the Handle which can spawn future.
