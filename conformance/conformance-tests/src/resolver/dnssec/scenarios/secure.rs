@@ -376,7 +376,6 @@ fn nsec_wildcard_expanded_positive_response_four_labels() -> Result<(), Error> {
     )
 }
 
-#[ignore = "hickory wildcard validation is incorrect"]
 #[test]
 fn nsec_wildcard_expanded_positive_response_one_label() -> Result<(), Error> {
     nsec_wildcard_expanded_positive_response(FQDN::EXAMPLE_SUBDOMAIN.push_label("www"))
