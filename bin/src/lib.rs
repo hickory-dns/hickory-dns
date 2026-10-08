@@ -33,6 +33,8 @@ use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::tls_config;
+#[cfg(feature = "__https")]
+use hickory_server::server::transport::H2;
 #[cfg(feature = "__tls")]
 use hickory_server::server::transport::Tls;
 use hickory_server::{
@@ -683,17 +685,14 @@ impl ServerSetup<'_> {
                 tls_config.key_log = Arc::new(KeyLogFile::new());
             }
 
-            self.server
-                .register_https_listener_with_tls_config(
-                    https_listener,
-                    self.handshake_timeout,
-                    self.idle_timeout,
-                    self.request_timeout,
-                    Arc::new(tls_config),
-                    dns_hostname.map(|s| s.to_owned()),
-                    http_endpoint.to_owned(),
-                )
-                .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
+            self.server.register(
+                H2::with_tls_config(https_listener, Arc::new(tls_config))
+                    .maybe_handshake_timeout(self.handshake_timeout)
+                    .maybe_idle_timeout(self.idle_timeout)
+                    .maybe_request_timeout(self.request_timeout)
+                    .maybe_dns_hostname(dns_hostname.map(str::to_owned))
+                    .http_endpoint(http_endpoint.to_owned()),
+            );
         }
 
         Ok(())
