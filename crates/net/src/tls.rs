@@ -207,18 +207,6 @@ pub(super) async fn connect_tls_stream<S: DnsTcpStream>(
     ))
 }
 
-/// Initializes a TlsStream with an existing tokio_tls::TlsStream.
-///
-/// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: DnsTcpStream>(
-    stream: S,
-    peer_addr: SocketAddr,
-) -> (TlsStream<S>, BufDnsStreamHandle) {
-    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
-    let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
-    (stream, message_sender)
-}
-
 /// Make a new [`ClientConfig`] with the default settings
 pub fn client_config() -> Result<ClientConfig, rustls::Error> {
     let builder = ClientConfig::builder_with_provider(Arc::new(default_provider()))
@@ -251,12 +239,14 @@ pub fn default_provider() -> CryptoProvider {
     crypto::ring::default_provider()
 }
 
-/// Predefined type for abstracting the base I/O TlsStream with TokioTls
-pub type TlsStream<S> = TcpStream<S>;
-
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
 
 /// TLS configuration factories for server transports.
 #[path = "tls/tls_config.rs"]
 pub mod tls_config;
+
+#[path = "tls/tls_listener.rs"]
+mod tls_listener;
+
+pub use tls_listener::{TlsListener, TlsServerStream};

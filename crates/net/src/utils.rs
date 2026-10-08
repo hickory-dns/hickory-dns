@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::net::{IpAddr, SocketAddr};
+#[cfg(feature = "__tls")]
+use std::{future::Future, time::Duration};
 
 /// Checks if the IP address is safe for returning messages
 ///
@@ -31,6 +33,18 @@ pub fn sanitize_src_address(src_addr: SocketAddr) -> Result<(), String> {
             Err(format!("cannot respond to unspecified v6 addr: {ip}"))
         }
         _ => Ok(()),
+    }
+}
+
+/// Optionally applies a timeout to a future.
+#[cfg(feature = "__tls")]
+pub(super) async fn timeout<T>(
+    timeout: Option<Duration>,
+    future: impl Future<Output = T>,
+) -> Result<T, tokio::time::error::Elapsed> {
+    match timeout {
+        Some(duration) => tokio::time::timeout(duration, future).await,
+        None => Ok(future.await),
     }
 }
 

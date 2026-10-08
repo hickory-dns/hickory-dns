@@ -8,12 +8,7 @@
 //! Helpers shared by the server request pipeline and the transports.
 
 use std::io;
-#[cfg(any(
-    feature = "__tls",
-    feature = "__quic",
-    feature = "__https",
-    feature = "__h3"
-))]
+#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
 use std::{future::Future, time::Duration};
 
 use tokio::task::JoinSet;
@@ -29,12 +24,7 @@ pub(super) fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
 }
 
 /// With no deadline configured, preserve the operation's own timeout and cancellation behavior.
-#[cfg(any(
-    feature = "__tls",
-    feature = "__quic",
-    feature = "__https",
-    feature = "__h3"
-))]
+#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
 pub(super) async fn optional_timeout<T>(
     timeout: Option<Duration>,
     future: impl Future<Output = T>,
