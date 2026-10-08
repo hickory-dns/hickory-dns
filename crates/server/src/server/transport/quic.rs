@@ -139,13 +139,13 @@ impl Transport for Quic {
             let cx = cx.clone();
             inner_join_set.spawn(async move {
                 let src_addr = connection.src_addr;
-                debug!("starting quic stream request from: {src_addr}");
+                debug!(%src_addr, protocol = %Protocol::Quic, "starting request processing");
 
                 let result =
-                    quic_handler(connection, self.idle_timeout, self.request_timeout, cx).await;
+                    Self::handle(connection, self.idle_timeout, self.request_timeout, cx).await;
 
                 if let Err(error) = result {
-                    warn!(%error, %src_addr, "quic stream processing failed")
+                    warn!(%src_addr, %error, protocol = %Protocol::Quic, "request processing failed");
                 }
             });
 
@@ -156,74 +156,70 @@ impl Transport for Quic {
     }
 }
 
-async fn quic_handler(
-    mut accepted: Accepted<QuicConnection>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let src_addr = accepted.src_addr;
-    // TODO: we should make this configurable
-    let mut max_requests = 100u32;
+impl Quic {
+    async fn handle(
+        mut accepted: Accepted<QuicConnection>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        let src_addr = accepted.src_addr;
+        // TODO: we should make this configurable
+        let mut max_requests = 100u32;
 
-    // Accept all inbound quic streams sent over the connection.
-    loop {
-        let future = cx.shutdown.run_until_cancelled(utils::optional_timeout(
-            idle_timeout,
-            accepted.connection.accept(),
-        ));
-        let Some(timeout_result) = future.await else {
-            break; // A graceful shutdown was initiated.
-        };
-        let Ok(result) = timeout_result else {
-            break; // Timeout elapsed while waiting for a request.
-        };
-        let mut request_stream = match result {
-            Ok(next_request) => next_request,
-            Err(err) => {
-                warn!("error accepting request {}: {}", src_addr, err);
-                return Err(err);
+        // Accept all inbound quic streams sent over the connection.
+        loop {
+            let future = cx.shutdown.run_until_cancelled(utils::optional_timeout(
+                idle_timeout,
+                accepted.connection.accept(),
+            ));
+            let Some(timeout_result) = future.await else {
+                break; // A graceful shutdown was initiated.
+            };
+            let Ok(result) = timeout_result else {
+                break; // Timeout elapsed while waiting for a request.
+            };
+            let mut request_stream = result?;
+
+            let cx = cx.clone();
+            tokio::spawn(async move {
+                let Ok(request_res) =
+                    utils::optional_timeout(request_timeout, request_stream.receive_bytes()).await
+                else {
+                    return; // Timeout while reading body.
+                };
+                let request = match request_res {
+                    Ok(bytes_mut) => bytes_mut.freeze(),
+                    Err(error) => {
+                        warn!(%error, %src_addr, "reading quic request failed");
+                        return;
+                    }
+                };
+
+                debug!(
+                    "Received bytes {} from {src_addr} {request:?}",
+                    request.len()
+                );
+
+                cx.handle_request(
+                    request,
+                    src_addr,
+                    Protocol::Quic,
+                    QuicResponseHandle(request_stream),
+                )
+                .await;
+            });
+
+            max_requests -= 1;
+            if max_requests == 0 {
+                warn!("exceeded request count, shutting down quic conn: {src_addr}");
+                break;
             }
-        };
-
-        let cx = cx.clone();
-        tokio::spawn(async move {
-            let Ok(request_res) =
-                utils::optional_timeout(request_timeout, request_stream.receive_bytes()).await
-            else {
-                return; // Timeout while reading body.
-            };
-            let request = match request_res {
-                Ok(bytes_mut) => bytes_mut.freeze(),
-                Err(error) => {
-                    warn!(%error, %src_addr, "reading quic request failed");
-                    return;
-                }
-            };
-
-            debug!(
-                "Received bytes {} from {src_addr} {request:?}",
-                request.len()
-            );
-
-            cx.handle_request(
-                request,
-                src_addr,
-                Protocol::Quic,
-                QuicResponseHandle(request_stream),
-            )
-            .await;
-        });
-
-        max_requests -= 1;
-        if max_requests == 0 {
-            warn!("exceeded request count, shutting down quic conn: {src_addr}");
-            break;
+            // we'll continue handling requests from here.
         }
-        // we'll continue handling requests from here.
-    }
 
-    Ok(())
+        Ok(())
+    }
 }
 
 struct QuicResponseHandle(QuicStream);
