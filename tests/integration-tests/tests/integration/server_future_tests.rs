@@ -78,6 +78,133 @@ async fn test_server_www_tcp() {
     server.await.unwrap();
 }
 
+#[derive(Debug)]
+struct CustomUdpSocket(UdpSocket);
+
+#[async_trait::async_trait]
+impl hickory_net::runtime::DnsUdpSocket for CustomUdpSocket {
+    type Time = hickory_net::runtime::TokioTime;
+
+    fn poll_recv_from(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<(usize, SocketAddr)>> {
+        let mut read_buf = tokio::io::ReadBuf::new(buf);
+        match self.0.poll_recv_from(cx, &mut read_buf) {
+            std::task::Poll::Ready(Ok(addr)) => {
+                std::task::Poll::Ready(Ok((read_buf.filled().len(), addr)))
+            }
+            std::task::Poll::Ready(Err(e)) => std::task::Poll::Ready(Err(e)),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+
+    fn poll_send_to(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+        target: SocketAddr,
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        self.0.poll_send_to(cx, buf, target)
+    }
+}
+
+#[derive(Debug)]
+struct CustomTcpStream(hickory_net::runtime::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>);
+
+impl futures_io::AsyncRead for CustomTcpStream {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.0).poll_read(cx, buf)
+    }
+}
+
+impl futures_io::AsyncWrite for CustomTcpStream {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.0).poll_write(cx, buf)
+    }
+
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.0).poll_flush(cx)
+    }
+
+    fn poll_close(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.0).poll_close(cx)
+    }
+}
+
+impl hickory_net::runtime::DnsTcpStream for CustomTcpStream {
+    type Time = hickory_net::runtime::TokioTime;
+}
+
+#[derive(Debug)]
+struct CustomTcpListener(TcpListener);
+
+impl hickory_net::runtime::DnsTcpListener for CustomTcpListener {
+    type Stream = CustomTcpStream;
+
+    fn poll_accept(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<hickory_net::runtime::Accepted<CustomTcpStream>>> {
+        match self.0.poll_accept(cx) {
+            std::task::Poll::Ready(Ok((stream, addr))) => {
+                std::task::Poll::Ready(Ok(hickory_net::runtime::Accepted {
+                    connection: CustomTcpStream(hickory_net::runtime::iocompat::AsyncIoTokioAsStd(
+                        stream,
+                    )),
+                    src_addr: addr,
+                }))
+            }
+            std::task::Poll::Ready(Err(e)) => std::task::Poll::Ready(Err(e)),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_server_custom_sockets_and_newtypes() {
+    subscribe();
+
+    let raw_custom_udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let custom_udp_addr = raw_custom_udp.local_addr().unwrap();
+    let custom_udp = CustomUdpSocket(raw_custom_udp);
+
+    let raw_custom_tcp = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let custom_tcp_addr = raw_custom_tcp.local_addr().unwrap();
+    let custom_tcp = CustomTcpListener(raw_custom_tcp);
+
+    let standard_udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let standard_udp_addr = standard_udp.local_addr().unwrap();
+
+    let mut server = Server::new(new_catalog());
+    server.register(Udp::new(custom_udp));
+    server.register(Tcp::new(custom_tcp, 32).stream_timeout(Duration::from_secs(5)));
+    server.register(Udp::new(standard_udp));
+
+    client_thread_www(lazy_udp_client(custom_udp_addr)).await;
+
+    client_thread_www(lazy_tcp_client(custom_tcp_addr)).await;
+
+    client_thread_www(lazy_udp_client(standard_udp_addr)).await;
+
+    server.shutdown_gracefully().await.unwrap();
+}
+
 #[tokio::test]
 async fn test_server_unknown_type() {
     subscribe();
