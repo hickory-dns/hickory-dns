@@ -20,6 +20,7 @@ use hickory_proto::{
 };
 use hickory_server::{
     Server,
+    server::transport::Udp,
     store::in_memory::InMemoryZoneHandler,
     zone_handler::{AxfrPolicy, Catalog, ZoneType},
 };
@@ -384,7 +385,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register(Udp::new(udp_socket));
 
     // Client setup
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();

@@ -33,7 +33,10 @@ use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::default_tls_server_config;
-use hickory_server::{server::Server, zone_handler::Catalog};
+use hickory_server::{
+    server::{Server, transport::Udp},
+    zone_handler::Catalog,
+};
 
 mod config;
 use config::{Config, TcpSocketConfig, UdpSocketConfig};
@@ -555,15 +558,15 @@ impl ServerSetup<'_> {
             let bound_addr = first_socket
                 .local_addr()
                 .map_err(|err| format!("failed to lookup local address: {err}"))?;
-            self.server.register_socket(first_socket);
+            self.server.register(Udp::new(first_socket));
 
             // Afterward, bind any additional sockets.
             for _ in 1..num_sockets {
-                self.server.register_socket(
+                self.server.register(Udp::new(
                     build_udp_socket(*addr, port, self.udp_socket_config).map_err(|err| {
                         format!("failed to bind to UDP socket address {addr:?}: {err}")
                     })?,
-                );
+                ));
             }
 
             info!("listening for UDP on {bound_addr:?}");

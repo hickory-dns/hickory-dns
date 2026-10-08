@@ -32,6 +32,7 @@ use hickory_proto::{
 use hickory_resolver::config::{NameServerConfig, ResolverOpts};
 use hickory_server::{
     Server,
+    server::transport::Udp,
     store::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryZoneHandler,
@@ -214,7 +215,7 @@ async fn setup_authoritative_server(
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register(Udp::new(udp_socket));
 
     (local_addr, server, public_key)
 }
@@ -243,7 +244,7 @@ async fn setup_client_forwarder(
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register(Udp::new(udp_socket));
 
     // Client setup
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
