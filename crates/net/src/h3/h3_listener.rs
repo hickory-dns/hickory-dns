@@ -12,6 +12,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
+use super::h3_config;
 use crate::tls::tls_config;
 use crate::{
     error::NetError,
@@ -93,8 +94,12 @@ impl H3Listener {
         socket: impl IntoQuicSocket,
         tls_config: Arc<TlsServerConfig>,
     ) -> Result<Self, NetError> {
-        let endpoint =
-            QuicEndpoint::new(socket, tls_config, super::endpoint(), super::transport())?;
+        let endpoint = QuicEndpoint::new(
+            socket,
+            tls_config,
+            h3_config::endpoint(),
+            h3_config::transport(),
+        )?;
 
         Ok(Self { endpoint })
     }

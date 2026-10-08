@@ -19,12 +19,12 @@ use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::Request;
 use http::response::Parts;
-use quinn::{Endpoint, EndpointConfig, TransportConfig};
+use quinn::{Endpoint, TransportConfig};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
-use super::{ALPN_H3, BodyStream};
+use super::{ALPN_H3, BodyStream, h3_config};
 use crate::error::NetError;
 use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::ProtoError;
@@ -52,7 +52,7 @@ impl H3ClientStream {
     pub fn builder() -> H3ClientStreamBuilder {
         H3ClientStreamBuilder {
             crypto_config: None,
-            transport_config: Arc::new(super::transport()),
+            transport_config: Arc::new(h3_config::transport()),
             bind_addr: None,
             set_headers: None,
             disable_grease: false,
@@ -230,7 +230,7 @@ impl H3ClientStreamBuilder {
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
         let endpoint = Endpoint::new_with_abstract_socket(
-            EndpointConfig::default(),
+            h3_config::endpoint(),
             None,
             socket,
             Arc::new(quinn::TokioRuntime),
@@ -254,7 +254,7 @@ impl H3ClientStreamBuilder {
         let socket = connect.await?;
         let socket = socket.into_std()?;
         let endpoint = Endpoint::new(
-            EndpointConfig::default(),
+            h3_config::endpoint(),
             None,
             socket,
             Arc::new(quinn::TokioRuntime),
