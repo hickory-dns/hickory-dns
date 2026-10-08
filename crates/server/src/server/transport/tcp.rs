@@ -13,12 +13,11 @@ use tracing::{debug, warn};
 
 use super::Transport;
 use crate::net::sanitize_src_address;
+use crate::server::utils::is_unrecoverable_socket_error;
+use crate::server::utils::reap_tasks;
 use crate::{
     net::{NetError, runtime::DnsTcpListener, tcp::TcpStream, xfer::Protocol},
-    server::{
-        ServerContext, TimeoutStream, is_unrecoverable_socket_error, reap_tasks,
-        request_handler::RequestHandler,
-    },
+    server::{ServerContext, TimeoutStream, request_handler::RequestHandler},
 };
 
 /// Builder and transport implementation for TCP.

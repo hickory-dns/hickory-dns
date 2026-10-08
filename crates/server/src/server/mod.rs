@@ -7,18 +7,8 @@
 
 //! `Server` component for hosting domain name server operations.
 
-#[cfg(any(
-    feature = "__tls",
-    feature = "__quic",
-    feature = "__https",
-    feature = "__h3"
-))]
-use std::future::Future;
-#[cfg(feature = "__tls")]
-use std::time::Duration;
 use std::{
     fmt::{self, Debug},
-    io,
     net::SocketAddr,
     sync::Arc,
 };
@@ -26,13 +16,6 @@ use std::{
 use bytes::Bytes;
 use ipnet::IpNet;
 use tokio::task::JoinSet;
-#[cfg(any(
-    feature = "__tls",
-    feature = "__quic",
-    feature = "__https",
-    feature = "__h3"
-))]
-use tokio::time::{error::Elapsed, timeout};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
@@ -61,6 +44,7 @@ mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
 mod timeout_stream;
 pub use timeout_stream::TimeoutStream;
+mod utils;
 
 pub mod transport;
 
@@ -150,11 +134,6 @@ impl<T: RequestHandler> Server<T> {
 
         out
     }
-}
-
-/// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
-fn reap_tasks(join_set: &mut JoinSet<()>) {
-    while join_set.try_join_next().is_some() {}
 }
 
 /// Shared request handling and shutdown state for registered transports.
@@ -461,28 +440,6 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
     }
 }
 
-/// Returns `true` if an `accept()` error means the listener itself is no longer usable.
-fn is_unrecoverable_socket_error(err: &io::Error) -> bool {
-    matches!(err.kind(), io::ErrorKind::NotConnected)
-}
-
-/// Optionally applies a timeout to a future.
-#[cfg(any(
-    feature = "__tls",
-    feature = "__quic",
-    feature = "__https",
-    feature = "__h3"
-))]
-async fn optional_timeout<T>(
-    timeout_opt: Option<Duration>,
-    future: impl Future<Output = T>,
-) -> Result<T, Elapsed> {
-    match timeout_opt {
-        Some(timeout_duration) => timeout(timeout_duration, future).await,
-        None => Ok(future.await),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{
@@ -759,26 +716,5 @@ mod tests {
         Arc::new(SingleCertAndKey::from(
             TestCertificates::generate().certified_key(),
         ))
-    }
-
-    #[test]
-    fn task_reap_on_empty_joinset() {
-        let mut joinset = JoinSet::new();
-
-        // this should return immediately
-        reap_tasks(&mut joinset);
-    }
-
-    #[tokio::test]
-    async fn task_reap_on_nonempty_joinset() {
-        let mut joinset = JoinSet::new();
-        let t = joinset.spawn(tokio::time::sleep(Duration::from_secs(2)));
-
-        // this should return immediately since no task is ready
-        reap_tasks(&mut joinset);
-        t.abort();
-
-        // this should also return immediately since the task has been aborted
-        reap_tasks(&mut joinset);
     }
 }

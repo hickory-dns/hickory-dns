@@ -19,6 +19,9 @@ use tracing::{debug, warn};
 
 use super::Transport;
 use crate::net::sanitize_src_address;
+use crate::server::utils::is_unrecoverable_socket_error;
+use crate::server::utils::optional_timeout;
+use crate::server::utils::reap_tasks;
 use crate::{
     net::{
         NetError,
@@ -30,8 +33,8 @@ use crate::{
     },
     proto::rr::Record,
     server::{
-        ResponseInfo, ServerContext, is_unrecoverable_socket_error, optional_timeout, reap_tasks,
-        request_handler::RequestHandler, response_handler::ResponseHandler,
+        ResponseInfo, ServerContext, request_handler::RequestHandler,
+        response_handler::ResponseHandler,
     },
     zone_handler::MessageResponse,
 };

@@ -16,7 +16,9 @@ use crate::net::sanitize_src_address;
 use crate::{
     net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
     server::{
-        ServerContext, is_unrecoverable_socket_error, reap_tasks, request_handler::RequestHandler,
+        ServerContext,
+        request_handler::RequestHandler,
+        utils::{is_unrecoverable_socket_error, reap_tasks},
     },
 };
 

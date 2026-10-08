@@ -15,6 +15,9 @@ use tracing::{debug, warn};
 
 use super::Transport;
 use crate::net::sanitize_src_address;
+use crate::server::utils::is_unrecoverable_socket_error;
+use crate::server::utils::optional_timeout;
+use crate::server::utils::reap_tasks;
 use crate::{
     net::{
         NetError,
@@ -25,10 +28,7 @@ use crate::{
         tls::{tls_config, tls_from_stream},
         xfer::Protocol,
     },
-    server::{
-        ServerContext, TimeoutStream, is_unrecoverable_socket_error, optional_timeout, reap_tasks,
-        request_handler::RequestHandler,
-    },
+    server::{ServerContext, TimeoutStream, request_handler::RequestHandler},
 };
 
 /// Builder and transport implementation for DNS-over-TLS (DoT).
