@@ -97,19 +97,15 @@ use core::fmt::Display;
 
 use super::{Proof, proof_log_yield};
 use crate::proto::{
-    dnssec::{
-        Nsec3HashAlgorithm,
-        rdata::{DNSSECRData, NSEC3},
-    },
+    dnssec::{Nsec3HashAlgorithm, rdata::NSEC3},
     op::{Query, ResponseCode},
-    rr::{Label, Name, RData, Record, RecordType},
+    rr::{Label, Name, RecordType},
 };
 
 pub(super) fn verify_nsec3(
     query: &Query,
     soa: Option<&Name>,
     response_code: ResponseCode,
-    answers: &[Record],
     nsec3s: &[(&Name, &NSEC3)],
     nsec3_soft_iteration_limit: u16,
     nsec3_hard_iteration_limit: u16,
@@ -153,11 +149,10 @@ pub(super) fn verify_nsec3(
     }
 
     // Basic sanity checks are done.
-    // From here on 4 big situations are possible:
+    // From here on 3 big situations are possible:
     // 1. No such name, and no servicing wildcard
     // 2. Name exists but there's no record of this type
-    // 3. Name is serviced by wildcard that has a record of this type
-    // 4. Name is serviced by wildcard that doesn't have a record of this type
+    // 3. Name is serviced by wildcard that doesn't have a record of this type
 
     match response_code {
         // Case 1:
@@ -165,22 +160,7 @@ pub(super) fn verify_nsec3(
 
         // RFC 5155: NoData
         // Cases 2, 3, and 4:
-        ResponseCode::NoError => {
-            // Let's see if we received any answers.
-            // This would signal that we have a wildcard servicing our `query_name`.
-            // `num_labels` will show how many labels are there
-            // in the wildcard that services the `query_name`
-            let wildcard_num_labels = answers.iter().find_map(|record| match &record.data {
-                RData::DNSSEC(DNSSECRData::RRSIG(data)) => Some(data.input().num_labels),
-                _ => None,
-            });
-            validate_nodata_response(
-                query.query_type,
-                wildcard_num_labels,
-                answers.is_empty(),
-                &cx,
-            )
-        }
+        ResponseCode::NoError => validate_nodata_response(query.query_type, &cx),
         _ => cx.proof(
             Proof::Bogus,
             format_args!("unsupported response code ({response_code})"),
@@ -298,18 +278,11 @@ fn validate_nxdomain_response(cx: &Context<'_>) -> Proof {
 ///
 /// Case 2. Name exists but there's no record of this type
 /// Case 3. Opt-out proof for Name exists
-/// Case 4. Name is serviced by wildcard that has a record of this type
-/// Case 5. Name is serviced by wildcard that doesn't have a record of this type
-fn validate_nodata_response(
-    query_type: RecordType,
-    wildcard_encloser_num_labels: Option<u8>,
-    answers_is_empty: bool,
-    cx: &Context<'_>,
-) -> Proof {
+/// Case 4. Name is serviced by wildcard that doesn't have a record of this type
+fn validate_nodata_response(query_type: RecordType, cx: &Context<'_>) -> Proof {
     // 2. Name exists but there's no record of this type
     // 3. Opt-out proof for Name exists
-    // 4. Name is serviced by wildcard that has a record of this type
-    // 5. Name is serviced by wildcard that doesn't have a record of this type
+    // 4. Name is serviced by wildcard that doesn't have a record of this type
 
     let (hashed_query_name, base32_hashed_query_name) = cx.hash_and_label(&cx.query.name);
     let query_name_record =
@@ -364,12 +337,6 @@ fn validate_nodata_response(
             return cx.proof(
                 Proof::Bogus,
                 "direct match for DS query is an NSEC3 record from the child side of the zone cut",
-            );
-        } else if !answers_is_empty {
-            return cx.proof(
-                Proof::Bogus,
-                "query name exists, no records of matching type exist, \
-                and answer section is not empty",
             );
         } else {
             return cx.proof(
@@ -441,74 +408,31 @@ fn validate_nodata_response(
         );
     }
 
-    let (proof, reason) = match wildcard_encloser_num_labels {
-        // Case 4:
-        // Name is serviced by wildcard that has a record of this type
-        Some(wildcard_encloser_num_labels) => {
-            if cx.query.name.num_labels() <= wildcard_encloser_num_labels {
-                return cx.proof(
-                    Proof::Bogus,
-                    format_args!(
-                        "query labels ({}) <= wildcard encloser labels ({})",
-                        cx.query.name.num_labels(),
-                        wildcard_encloser_num_labels,
-                    ),
-                );
-            }
-            // There should be an NSEC3 record *covering* `next_closer`
-            let next_closer_labels = cx
-                .query
-                .name
-                .into_iter()
-                .rev()
-                .take(wildcard_encloser_num_labels as usize + 1)
-                .rev()
-                .collect::<Vec<_>>();
-            let next_closer_name = Name::from_labels(next_closer_labels)
-                .expect("next closer is `query_name` or its ancestor");
-            let next_closer_name_info = HashedNameInfo::new(next_closer_name, cx);
-            let next_closer_record = find_covering_record(
-                cx.nsec3s,
-                &next_closer_name_info.name,
-                &next_closer_name_info.hashed_name,
-                &next_closer_name_info.base32_hashed_name,
-            );
-            match next_closer_record {
-                Some(_) => (Proof::Secure, "covering next closer record"),
-                None => (Proof::Bogus, "no covering next closer record"),
-            }
+    // Case 4:
+    // Name is serviced by wildcard that doesn't have a record of this type
+    // Verify the wildcard type set does not match the query type (or CNAME) - RFC 5155 8.7.
+    let (
+        ClosestEncloserProofInfo {
+            closest_encloser,
+            next_closer,
+        },
+        closest_encloser_wildcard,
+    ) = cx.closest_encloser_proof_with_wildcard(true);
+    match (closest_encloser, next_closer, closest_encloser_wildcard) {
+        (Some(_), Some(_), Some((_, wildcard)))
+            if !wildcard.nsec3_data.type_set().contains(query_type)
+                && !wildcard.nsec3_data.type_set().contains(RecordType::CNAME) =>
+        {
+            cx.proof(
+                Proof::Secure,
+                "servicing wildcard with closest encloser proof",
+            )
         }
-
-        // Case 5:
-        // Name is serviced by wildcard that doesn't have a record of this type
-        // Verify the wildcard type set does not match the query type (or CNAME) - RFC 5155 8.7.
-        None => {
-            let (
-                ClosestEncloserProofInfo {
-                    closest_encloser,
-                    next_closer,
-                },
-                closest_encloser_wildcard,
-            ) = cx.closest_encloser_proof_with_wildcard(true);
-            match (closest_encloser, next_closer, closest_encloser_wildcard) {
-                (Some(_), Some(_), Some((_, wildcard)))
-                    if !wildcard.nsec3_data.type_set().contains(query_type)
-                        && !wildcard.nsec3_data.type_set().contains(RecordType::CNAME) =>
-                {
-                    (
-                        Proof::Secure,
-                        "servicing wildcard with closest encloser proof",
-                    )
-                }
-                (None, None, None) if Some(&cx.query.name) == cx.soa => {
-                    (Proof::Bogus, "apex NODATA with no NSEC3 matching H(QNAME)")
-                }
-                _ => (Proof::Bogus, "no valid servicing wildcard proof"),
-            }
+        (None, None, None) if Some(&cx.query.name) == cx.soa => {
+            cx.proof(Proof::Bogus, "apex NODATA with no NSEC3 matching H(QNAME)")
         }
-    };
-
-    cx.proof(proof, reason)
+        _ => cx.proof(Proof::Bogus, "no valid servicing wildcard proof"),
+    }
 }
 
 fn split_first_label(name: &Name) -> Option<(&[u8], Name)> {
@@ -1022,7 +946,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                &[],
                 &[
                     // Covers the next closer name (c.x.w.example.)
                     Nsec3Pair::new(
@@ -1060,7 +983,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                &[],
                 &[
                     // Covers the next closer name (c.x.w.example.)
                     Nsec3Pair::new(
@@ -1090,7 +1012,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NXDomain,
-                &[],
                 &[
                     // Matches the closest encloser (x.w.example.)
                     Nsec3Pair::new(
@@ -1121,7 +1042,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.c.x.w.example.")?, A),
                 Some(&Name::from_ascii("x.w.example.")?),
                 ResponseCode::NXDomain,
-                &[],
                 &[
                     // Covers the next closer name (c.x.w.example.)
                     Nsec3Pair::new(
@@ -1166,7 +1086,6 @@ mod tests {
                 &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the query name and proves the record type does not exist.
                     Nsec3Pair::new(
@@ -1189,7 +1108,6 @@ mod tests {
                 &Query::new(Name::from_ascii("y.w.example.")?, A),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the query name and proves the record type does not exist.
                     Nsec3Pair::new(
@@ -1212,7 +1130,6 @@ mod tests {
                 &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the query name and proves the record type does not exist.
                     Nsec3Pair::new(
@@ -1235,7 +1152,6 @@ mod tests {
                 &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[Nsec3Pair::new(
                     Name::from_ascii("example.")?.prepend_label(hash_with_base32("ns2.example"))?,
                     hash("x.y.w.example."),
@@ -1254,7 +1170,6 @@ mod tests {
                 &Query::new(Name::from_ascii("ns1.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[Nsec3Pair::new(
                     Name::from_ascii("example.")?.prepend_label(hash_with_base32("example"))?,
                     hash("a.example."),
@@ -1273,7 +1188,6 @@ mod tests {
                 &Query::new(Name::from_ascii("example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[Nsec3Pair::new(
                     Name::from_ascii("example.")?.prepend_label(hash_with_base32("ns1.example"))?,
                     hash("x.y.w.example."),
@@ -1299,7 +1213,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the closest encloser
                     Nsec3Pair::new(
@@ -1338,7 +1251,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Covers the next-closer name (z.w.example)
                     Nsec3Pair::new(
@@ -1369,7 +1281,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the closest encloser
                     Nsec3Pair::new(
@@ -1400,7 +1311,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the closest encloser
                     Nsec3Pair::new(
@@ -1431,7 +1341,6 @@ mod tests {
                 &Query::new(Name::from_ascii("a.z.w.example.")?, AAAA),
                 None,
                 ResponseCode::NoError,
-                &[],
                 &[
                     // Matches the closest encloser
                     Nsec3Pair::new(
@@ -1480,7 +1389,6 @@ mod tests {
                 &Query::new(Name::from_ascii("www.deleg.signed.")?, A),
                 Some(&Name::from_ascii("signed.")?),
                 ResponseCode::NXDomain,
-                &[],
                 &[
                     // Parent-side NSEC3 at the cut: matches H(deleg.signed.) and
                     // also covers the next-closer H(www.deleg.signed.) since its
@@ -1515,7 +1423,6 @@ mod tests {
                 &Query::new(Name::from_ascii("deleg.signed.")?, AAAA),
                 Some(&Name::from_ascii("signed.")?),
                 ResponseCode::NoError,
-                &[],
                 &[Nsec3Pair::new(
                     Name::from_ascii("signed.")?.prepend_label(hash_with_base32("deleg.signed"))?,
                     hash("*.signed."),
@@ -1537,7 +1444,6 @@ mod tests {
                 &Query::new(Name::from_ascii("deleg.signed.")?, DS),
                 Some(&Name::from_ascii("signed.")?),
                 ResponseCode::NoError,
-                &[],
                 &[Nsec3Pair::new(
                     Name::from_ascii("signed.")?.prepend_label(hash_with_base32("deleg.signed"))?,
                     hash("*.signed."),
@@ -1558,7 +1464,6 @@ mod tests {
                 &Query::new(Name::from_ascii("www.deleg.signed.")?, A),
                 Some(&Name::from_ascii("signed.")?),
                 ResponseCode::NXDomain,
-                &[],
                 &[
                     Nsec3Pair::new(
                         Name::from_ascii("signed.")?
@@ -1593,7 +1498,6 @@ mod tests {
                 &Query::new(Name::from_ascii("d.e.example.")?, DS),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[closest_encloser.as_ref(), next_closer.as_ref()],
                 200,
                 500,
@@ -1607,7 +1511,6 @@ mod tests {
                 &Query::new(Name::from_ascii("d.e.example.")?, MX),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[closest_encloser.as_ref(), next_closer.as_ref()],
                 200,
                 500,
@@ -1621,7 +1524,6 @@ mod tests {
                 &Query::new(Name::from_ascii("d.e.example.")?, DS),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[next_closer.as_ref()],
                 200,
                 500,
@@ -1636,7 +1538,6 @@ mod tests {
                 &Query::new(Name::from_ascii("d.e.example.")?, DS),
                 Some(&Name::from_ascii("example.")?),
                 ResponseCode::NoError,
-                &[],
                 &[closest_encloser.as_ref(), next_closer.as_ref()],
                 200,
                 500,
