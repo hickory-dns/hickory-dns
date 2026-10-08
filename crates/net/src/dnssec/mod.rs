@@ -2604,7 +2604,7 @@ mod test {
             op::{Query, ResponseCode},
             rr::{
                 Name, RData, Record,
-                RecordType::{A, AAAA, DNSKEY, DS, MX, NS, NSEC, NSEC3, RRSIG, SOA, TXT},
+                RecordType::{self, A, AAAA, DNSKEY, DS, MX, NS, NSEC, NSEC3, RRSIG, SOA, TXT},
                 RrKey, SerialNumber, rdata,
             },
         },
@@ -3057,7 +3057,7 @@ mod test {
         let input = SigInput {
             type_covered: TXT,
             algorithm: Algorithm::ED25519,
-            num_labels: 2,
+            num_labels: 1,
             original_ttl: 3600,
             sig_expiration: SerialNumber::new(0),
             sig_inception: SerialNumber::new(0),
@@ -3079,22 +3079,15 @@ mod test {
             ),
             rrsig_record,
         ];
-        assert_eq!(
-            verify_nsec(
-                &Query::new(Name::from_ascii("b.poc.")?, TXT),
-                Some(&Name::from_ascii("poc.")?),
-                ResponseCode::NoError,
-                &answers,
-                &[(
-                    &Name::from_ascii("poc.")?,
-                    &rdataNSEC::new(
-                        Name::from_ascii("a.b.poc.")?,
-                        [NS, SOA, TXT, RRSIG, NSEC, DNSKEY],
-                    ),
-                )],
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            &make_nsec_and_rrsig(
+                Name::from_ascii("poc.")?,
+                Name::from_ascii("a.b.poc.")?,
+                [NS, SOA, TXT, RRSIG, NSEC, DNSKEY],
+                Name::root(),
             ),
-            Proof::Bogus
-        );
+        ));
 
         // Wrap-around NSEC where next-domain is the SOA owner. The SOA is
         // an ancestor of every name in the zone, so this case must be
@@ -3245,7 +3238,7 @@ mod test {
             sig_expiration: SerialNumber::new(0),
             sig_inception: SerialNumber::new(0),
             key_tag: 0,
-            signer_name: Name::root(),
+            signer_name: Name::from_ascii("example.")?,
         };
 
         let rrsig = rdataRRSIG::from_sig(input, vec![]);
@@ -3266,49 +3259,41 @@ mod test {
         ];
 
         // Based on RFC 4035 B.6 - Wildcard Expansion
-        assert_eq!(
-            verify_nsec(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // This NSEC encloses the query name and proves that no closer wildcard match
-                    // exists in the zone.
-                    (
-                        &Name::from_ascii("x.y.w.example.")?,
-                        &rdataNSEC::new(Name::from_ascii("xx.example.")?, [MX, NSEC, RRSIG],),
-                    ),
-                ],
+        assert!(test_verify_wildcard_expansion(
+            &answers,
+            // This NSEC record encloses the query name and proves that no closer wildcard match
+            // exists in the zone.
+            &make_nsec_and_rrsig(
+                Name::from_ascii("x.y.w.example.")?,
+                Name::from_ascii("xx.example.")?,
+                [MX, NSEC, RRSIG],
+                Name::from_ascii("example.")?,
             ),
-            Proof::Secure
-        );
+        ));
 
-        // This response could not have been synthesized from the query name (z.example can't be expanded from *.w.example
-        assert_eq!(
-            verify_nsec(
-                &Query::new(Name::from_ascii("z.example.")?, MX),
-                Some(&Name::from_ascii("example.")?),
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // This NSEC encloses the query name and proves that z.example. does not exist.
-                    (
-                        &Name::from_ascii("y.example.")?,
-                        &rdataNSEC::new(Name::from_ascii("example.")?, [A, NSEC, RRSIG],),
-                    ),
-                    // This NSEC proves *.example. exists and contains an MX record.
-                    (
-                        &Name::from_ascii("example.")?,
-                        &rdataNSEC::new(
-                            Name::from_ascii("a.example.")?,
-                            [MX, NS, NSEC, RRSIG, SOA],
-                        ),
-                    ),
-                ],
-            ),
-            Proof::Bogus
-        );
+        // This response doesn't include an appropriate NSEC record.
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            &[
+                // This NSEC record is entirely after w.example.
+                make_nsec_and_rrsig(
+                    Name::from_ascii("y.example.")?,
+                    Name::from_ascii("example.")?,
+                    [A, NSEC, RRSIG],
+                    Name::from_ascii("example.")?,
+                )
+                .as_slice(),
+                // This NSEC record is entirely before w.example.
+                make_nsec_and_rrsig(
+                    Name::from_ascii("example.")?,
+                    Name::from_ascii("a.example.")?,
+                    [MX, NS, NSEC, RRSIG, SOA],
+                    Name::from_ascii("example.")?,
+                )
+                .as_slice(),
+            ]
+            .join([].as_slice()),
+        ));
 
         Ok(())
     }
@@ -3326,7 +3311,7 @@ mod test {
             sig_expiration: SerialNumber::new(0),
             sig_inception: SerialNumber::new(0),
             key_tag: 0,
-            signer_name: Name::root(),
+            signer_name: Name::from_ascii("example.")?,
         };
 
         let rrsig = rdataRRSIG::from_sig(input, vec![]);
@@ -3346,35 +3331,53 @@ mod test {
             rrsig_record,
         ];
 
-        assert_eq!(
-            verify_nsec(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[
-                    // This NSEC does not prove the non-existence of *.z.w.example.
-                    (
-                        &Name::from_ascii("x.y.w.example.")?,
-                        &rdataNSEC::new(Name::from_ascii("z.w.example.")?, [MX, NSEC, RRSIG],),
-                    ),
-                ],
+        assert!(!test_verify_wildcard_expansion(
+            &answers,
+            // This NSEC record does not prove the non-existence of z.w.example.
+            &make_nsec_and_rrsig(
+                Name::from_ascii("x.y.w.example.")?,
+                Name::from_ascii("z.w.example.")?,
+                [MX, NSEC, RRSIG],
+                Name::from_ascii("example.")?,
             ),
-            Proof::Bogus
-        );
+        ));
 
-        assert_eq!(
-            verify_nsec(
-                &Query::new(Name::from_ascii("a.z.w.example.")?, MX),
-                None,
-                ResponseCode::NoError,
-                &answers,
-                &[],
-            ),
-            Proof::Bogus
-        );
+        assert!(!test_verify_wildcard_expansion(&answers, &[]));
 
         Ok(())
+    }
+
+    /// Helper function to produce NSEC and RRSIG records.
+    fn make_nsec_and_rrsig(
+        name: Name,
+        next_name: Name,
+        record_types: impl IntoIterator<Item = RecordType>,
+        signer_name: Name,
+    ) -> [Record; 2] {
+        [
+            Record::from_rdata(
+                name.clone(),
+                3600,
+                RData::DNSSEC(DNSSECRData::NSEC(rdataNSEC::new(next_name, record_types))),
+            ),
+            Record::from_rdata(
+                name.clone(),
+                3600,
+                RData::DNSSEC(DNSSECRData::RRSIG(rdataRRSIG::from_sig(
+                    SigInput {
+                        type_covered: NSEC,
+                        algorithm: Algorithm::ED25519,
+                        num_labels: name.num_labels(),
+                        original_ttl: 3600,
+                        sig_expiration: SerialNumber::new(0),
+                        sig_inception: SerialNumber::new(0),
+                        key_tag: 0,
+                        signer_name,
+                    },
+                    Vec::new(),
+                ))),
+            ),
+        ]
     }
 
     #[test]
@@ -3826,7 +3829,6 @@ mod test {
         let parent_zone = Name::parse("com.", None)?;
         let child_zone = Name::parse("example.com.", None)?;
         let qname = Name::parse("www.example.com.", None)?;
-        let query = Query::new(qname.clone(), A);
         let answers = [
             mark_secure(Record::from_rdata(
                 qname.clone(),
@@ -3852,21 +3854,27 @@ mod test {
             )),
         ];
         // Both of these NSEC records are taken from the parent zone.
-        let nsecs = [
+        let authorities = [
             // Matching record for com.
-            (
-                &parent_zone,
-                &rdataNSEC::new(Name::parse("*.com.", None)?, [NS, SOA, RRSIG, NSEC]),
-            ),
+            make_nsec_and_rrsig(
+                parent_zone.clone(),
+                Name::parse("*.com.", None)?,
+                [NS, SOA, RRSIG, NSEC],
+                parent_zone.clone(),
+            )
+            .as_slice(),
             // Bogus proof of nonexistence of *.example.com.
-            (
-                &child_zone,
-                &rdataNSEC::new(Name::parse("foobar.com.", None)?, [NS, DS, RRSIG, NSEC]),
-            ),
-        ];
+            make_nsec_and_rrsig(
+                child_zone,
+                Name::parse("foobar.com.", None)?,
+                [NS, DS, RRSIG, NSEC],
+                parent_zone.clone(),
+            )
+            .as_slice(),
+        ]
+        .join([].as_slice());
 
-        let result = verify_nsec(&query, None, ResponseCode::NoError, &answers, &nsecs);
-        assert_eq!(result, Proof::Bogus);
+        assert!(!test_verify_wildcard_expansion(&answers, &authorities));
 
         Ok(())
     }
