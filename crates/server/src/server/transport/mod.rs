@@ -29,3 +29,8 @@ pub use udp::Udp;
 
 mod tcp;
 pub use tcp::Tcp;
+
+#[cfg(feature = "__tls")]
+mod tls;
+#[cfg(feature = "__tls")]
+pub use tls::Tls;
