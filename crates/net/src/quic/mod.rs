@@ -13,6 +13,7 @@ use quinn::Runtime;
 
 mod quic_client_stream;
 mod quic_config;
+pub(super) mod quic_endpoint;
 mod quic_server;
 mod quic_stream;
 
