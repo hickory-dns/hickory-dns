@@ -138,3 +138,22 @@ async fn handle_tcp<L: DnsTcpListener>(
         Err(NetError::from("unexpected close of socket"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use tokio::net::TcpListener;
+
+    use super::Tcp;
+
+    #[tokio::test]
+    async fn test_tcp_builder_configuration() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+
+        let tcp = Tcp::new(listener, 64).stream_timeout(Duration::from_secs(10));
+
+        assert_eq!(tcp.stream_timeout, Some(Duration::from_secs(10)));
+        assert_eq!(tcp.response_buffer_size, 64);
+    }
+}
