@@ -116,60 +116,44 @@ impl Quic {
 }
 
 impl Transport for Quic {
-    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        handle_quic_with_server(
-            self.listener,
-            self.handshake_timeout,
-            self.idle_timeout,
-            self.request_timeout,
-            cx,
-        )
-        .await
+    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let future = cx
+                .shutdown
+                .run_until_cancelled(self.listener.accept(self.handshake_timeout));
+            let Some(connection_opt) = future.await else {
+                break; // A graceful shutdown was initiated. Break out of the loop.
+            };
+            let Some(connection_result) = connection_opt else {
+                break; // Connection is closed.
+            };
+            let connection = match connection_result {
+                Ok(connection) => connection,
+                Err(error) => {
+                    debug!(%error, "error accepting incoming quic connection");
+                    continue;
+                }
+            };
+
+            let cx = cx.clone();
+            inner_join_set.spawn(async move {
+                let src_addr = connection.src_addr;
+                debug!("starting quic stream request from: {src_addr}");
+
+                let result =
+                    quic_handler(connection, self.idle_timeout, self.request_timeout, cx).await;
+
+                if let Err(error) = result {
+                    warn!(%error, %src_addr, "quic stream processing failed")
+                }
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        Ok(())
     }
-}
-
-async fn handle_quic_with_server(
-    mut server: QuicListener,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let future = cx
-            .shutdown
-            .run_until_cancelled(server.accept(handshake_timeout));
-        let Some(connection_opt) = future.await else {
-            break; // A graceful shutdown was initiated. Break out of the loop.
-        };
-        let Some(connection_result) = connection_opt else {
-            break; // Connection is closed.
-        };
-        let connection = match connection_result {
-            Ok(connection) => connection,
-            Err(error) => {
-                debug!(%error, "error accepting incoming quic connection");
-                continue;
-            }
-        };
-
-        let cx = cx.clone();
-        inner_join_set.spawn(async move {
-            let src_addr = connection.src_addr;
-            debug!("starting quic stream request from: {src_addr}");
-
-            let result = quic_handler(connection, idle_timeout, request_timeout, cx).await;
-
-            if let Err(error) = result {
-                warn!(%error, %src_addr, "quic stream processing failed")
-            }
-        });
-
-        reap_tasks(&mut inner_join_set);
-    }
-
-    Ok(())
 }
 
 async fn quic_handler(
