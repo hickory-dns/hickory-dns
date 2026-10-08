@@ -8,7 +8,7 @@ use futures_util::{Stream, ready};
 use tracing::{debug, warn};
 
 use crate::{
-    proto::op::SerialMessage, runtime::DnsUdpSocket, udp::UdpStream, utils::sanitize_src_address,
+    proto::op::SerialMessage, runtime::DnsUdpSocket, udp::UdpStream, utils::sanitize_src_addr,
 };
 
 /// Receives UDP messages whose source addresses are safe for responses.
@@ -46,7 +46,7 @@ impl<S: DnsUdpSocket> UdpListener<S> {
             };
             let src_addr = message.addr();
             debug!("received udp request from: {}", src_addr);
-            if let Err(e) = sanitize_src_address(src_addr) {
+            if let Err(e) = sanitize_src_addr(src_addr) {
                 warn!("address can not be responded to {src_addr}: {e}");
                 cx.waker().wake_by_ref();
                 return Poll::Pending;

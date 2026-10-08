@@ -483,9 +483,9 @@ mod tests {
 
         let endpoints2 = endpoints.clone();
         let (abortable, abort_handle) = future::abortable(async move {
-            let mut server_future = Server::new(Catalog::new());
-            endpoints2.register(&mut server_future).await;
-            server_future.block_until_done().await
+            let mut server = Server::new(Catalog::new());
+            endpoints2.register(&mut server).await;
+            server.block_until_done().await
         });
 
         abort_handle.abort();
@@ -497,11 +497,11 @@ mod tests {
     #[tokio::test]
     async fn graceful_shutdown() {
         subscribe();
-        let mut server_future = Server::new(Catalog::new());
+        let mut server = Server::new(Catalog::new());
         let endpoints = Endpoints::new().await;
-        endpoints.register(&mut server_future).await;
+        endpoints.register(&mut server).await;
 
-        timeout(Duration::from_secs(2), server_future.shutdown_gracefully())
+        timeout(Duration::from_secs(2), server.shutdown_gracefully())
             .await
             .expect("timed out waiting for the server to complete")
             .expect("error while awaiting tasks");
@@ -642,7 +642,7 @@ mod tests {
             }
         }
 
-        async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
+        async fn register<H: RequestHandler>(&self, server: &mut Server<H>) {
             server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
             server.register(
                 Tcp::new(TcpListener::bind(self.tcp_addr).await.unwrap(), 32)

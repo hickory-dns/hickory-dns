@@ -4,7 +4,7 @@ use tracing::warn;
 
 use crate::{
     runtime::{Accepted, DnsTcpListener},
-    utils::sanitize_src_address,
+    utils::sanitize_src_addr,
 };
 
 /// Accepts TCP connections whose peer addresses are safe for responses.
@@ -33,7 +33,7 @@ impl<L: DnsTcpListener> TcpListener<L> {
         poll_fn(|cx| {
             let accepted = core::task::ready!(self.listener.poll_accept(cx))?;
             let src_addr = accepted.src_addr;
-            if let Err(error) = sanitize_src_address(src_addr) {
+            if let Err(error) = sanitize_src_addr(src_addr) {
                 warn!(%src_addr, %error, "address can not be responded to");
                 cx.waker().wake_by_ref();
                 return Poll::Pending;

@@ -199,7 +199,7 @@ impl<L: DnsTcpListener> H2<L> {
         loop {
             let future = cx
                 .shutdown
-                .run_until_cancelled(utils::optional_timeout(idle_timeout, connection.accept()));
+                .run_until_cancelled(utils::timeout(idle_timeout, connection.accept()));
             let Some(timeout_result) = future.await else {
                 break; // A graceful shutdown was initiated.
             };
@@ -217,8 +217,7 @@ impl<L: DnsTcpListener> H2<L> {
             let http_endpoint = http_endpoint.clone();
             tokio::spawn(async move {
                 let message_future = message_from(dns_hostname, http_endpoint, request);
-                let Ok(result) = utils::optional_timeout(request_timeout, message_future).await
-                else {
+                let Ok(result) = utils::timeout(request_timeout, message_future).await else {
                     return; // Timeout while reading request.
                 };
                 let body = match result {

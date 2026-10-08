@@ -161,10 +161,9 @@ impl Quic {
 
         // Accept all inbound quic streams sent over the connection.
         loop {
-            let future = cx.shutdown.run_until_cancelled(utils::optional_timeout(
-                idle_timeout,
-                accepted.connection.accept(),
-            ));
+            let future = cx
+                .shutdown
+                .run_until_cancelled(utils::timeout(idle_timeout, accepted.connection.accept()));
             let Some(timeout_result) = future.await else {
                 break; // A graceful shutdown was initiated.
             };
@@ -176,7 +175,7 @@ impl Quic {
             let cx = cx.clone();
             tokio::spawn(async move {
                 let Ok(request_res) =
-                    utils::optional_timeout(request_timeout, request_stream.receive_bytes()).await
+                    utils::timeout(request_timeout, request_stream.receive_bytes()).await
                 else {
                     return; // Timeout while reading body.
                 };

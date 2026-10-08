@@ -16,7 +16,7 @@ use std::{future::Future, time::Duration};
 /// # Returns
 ///
 /// Error if the address should not be used for returned requests
-pub(super) fn sanitize_src_address(src_addr: SocketAddr) -> Result<(), String> {
+pub(super) fn sanitize_src_addr(src_addr: SocketAddr) -> Result<(), String> {
     if src_addr.port() == 0 {
         return Err(format!("cannot respond to src on port 0: {src_addr}"));
     }
@@ -52,29 +52,27 @@ pub(super) async fn timeout<T>(
 mod tests {
     use std::net::SocketAddr;
 
-    use super::sanitize_src_address;
+    use super::sanitize_src_addr;
 
     #[test]
     fn test_sanitize_src_addr() {
         // ipv4 tests
-        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4_096))).is_ok());
-        assert!(sanitize_src_address(SocketAddr::from(([127, 0, 0, 1], 53))).is_ok());
+        assert!(sanitize_src_addr(SocketAddr::from(([192, 168, 1, 1], 4_096))).is_ok());
+        assert!(sanitize_src_addr(SocketAddr::from(([127, 0, 0, 1], 53))).is_ok());
 
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4_096))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4_096))).is_err());
+        assert!(sanitize_src_addr(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
+        assert!(sanitize_src_addr(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
+        assert!(sanitize_src_addr(SocketAddr::from(([0, 0, 0, 0], 4_096))).is_err());
+        assert!(sanitize_src_addr(SocketAddr::from(([255, 255, 255, 255], 4_096))).is_err());
 
         // ipv6 tests
         assert!(
-            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4_096))).is_ok()
+            sanitize_src_addr(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4_096))).is_ok()
         );
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4_096))).is_ok());
+        assert!(sanitize_src_addr(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4_096))).is_ok());
 
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4_096))).is_err());
-        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
-        assert!(
-            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err()
-        );
+        assert!(sanitize_src_addr(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4_096))).is_err());
+        assert!(sanitize_src_addr(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
+        assert!(sanitize_src_addr(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err());
     }
 }
