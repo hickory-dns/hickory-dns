@@ -314,6 +314,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             return Ok(message);
         }
 
+        // Return Ok if this is a valid positive response.
+        if message
+            .answers
+            .iter()
+            .any(|record| query.matches_record(record))
+        {
+            return Ok(message);
+        }
+
         let nsec3s = message
             .authorities
             .iter()
@@ -375,16 +384,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 Proof::Bogus
             }
             (false, false, false) => {
-                // Return Ok if this is a valid positive response with no NSEC/NSEC3 records and no
-                // wildcard RRSIGs.
-                if message
-                    .answers
-                    .iter()
-                    .any(|record| query.matches_record(record))
-                {
-                    return Ok(message);
-                }
-
                 // Calling find_ds_records for a DS query will cause a validation loop if the zone being
                 // queried is insecure and its parent zone is insecure (no DS records will exist and no
                 // NSEC records will be available to prove that non-existence.)  Return ok/insecure:
