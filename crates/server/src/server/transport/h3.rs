@@ -143,13 +143,13 @@ impl Transport for H3 {
             let cx = cx.clone();
             inner_join_set.spawn(async move {
                 let src_addr = connection.src_addr;
-                debug!("starting h3 stream request from: {src_addr}");
+                debug!(%src_addr, protocol = %Protocol::H3, "starting request processing");
 
                 let result =
-                    h3_handler(connection, self.idle_timeout, self.request_timeout, cx).await;
+                    Self::handle(connection, self.idle_timeout, self.request_timeout, cx).await;
 
                 if let Err(error) = result {
-                    warn!(%error, %src_addr, "h3 stream processing failed")
+                    warn!(%src_addr, %error, protocol = %Protocol::H3, "request processing failed");
                 }
             });
 
@@ -160,86 +160,88 @@ impl Transport for H3 {
     }
 }
 
-async fn h3_handler(
-    mut accepted: Accepted<H3Connection>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let src_addr = accepted.src_addr;
-    // TODO: we should make this configurable
-    let mut max_requests = 100u32;
+impl H3 {
+    async fn handle(
+        mut accepted: Accepted<H3Connection>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        let src_addr = accepted.src_addr;
+        // TODO: we should make this configurable
+        let mut max_requests = 100u32;
 
-    // Accept all inbound requests sent over the connection.
-    loop {
-        let future = cx.shutdown.run_until_cancelled(utils::optional_timeout(
-            idle_timeout,
-            accepted.connection.accept(),
-        ));
-        let Some(timeout_result) = future.await else {
-            break; // A graceful shutdown was initiated.
-        };
-        let Ok(accept_result) = timeout_result else {
-            break; // Timeout elapsed while waiting for a request.
-        };
-        let request_resolver_opt = match accept_result {
-            Ok(request_resolver_opt) => request_resolver_opt,
-            Err(error) => {
-                warn!(%src_addr, %error, "error accepting request");
-                return Err(error);
+        // Accept all inbound requests sent over the connection.
+        loop {
+            let future = cx.shutdown.run_until_cancelled(utils::optional_timeout(
+                idle_timeout,
+                accepted.connection.accept(),
+            ));
+            let Some(timeout_result) = future.await else {
+                break; // A graceful shutdown was initiated.
+            };
+            let Ok(accept_result) = timeout_result else {
+                break; // Timeout elapsed while waiting for a request.
+            };
+            let request_resolver_opt = match accept_result {
+                Ok(request_resolver_opt) => request_resolver_opt,
+                Err(error) => {
+                    warn!(%src_addr, %error, "error accepting request");
+                    return Err(error);
+                }
+            };
+            let Some(request_resolver) = request_resolver_opt else {
+                break; // The connection is closed.
+            };
+
+            let cx = cx.clone();
+            tokio::spawn(async move {
+                let mut stream = match request_resolver.resolve_request().await {
+                    Ok((_request, stream)) => stream,
+                    Err(error) => {
+                        warn!(%error, "error receiving request headers");
+                        return;
+                    }
+                };
+
+                let fetch_future = fetch_body(
+                    BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
+                    None,
+                );
+                let Ok(request_res) = utils::optional_timeout(request_timeout, fetch_future).await
+                else {
+                    return; //Timeout while reading request.
+                };
+                let request = match request_res {
+                    Ok(bytes_mut) => bytes_mut.freeze(),
+                    Err(error) => {
+                        warn!(%error, "error receiving request body");
+                        return;
+                    }
+                };
+
+                debug!(
+                    %src_addr,
+                    bytes = request.remaining(),
+                    ?request,
+                    "Received request body"
+                );
+
+                cx.handle_request(request, src_addr, Protocol::H3, H3ResponseHandle(stream))
+                    .await
+            });
+
+            max_requests -= 1;
+            if max_requests == 0 {
+                warn!("exceeded request count, shutting down h3 conn: {src_addr}");
+                accepted.connection.shutdown().await?;
+                break;
             }
-        };
-        let Some(request_resolver) = request_resolver_opt else {
-            break; // The connection is closed.
-        };
-
-        let cx = cx.clone();
-        tokio::spawn(async move {
-            let mut stream = match request_resolver.resolve_request().await {
-                Ok((_request, stream)) => stream,
-                Err(error) => {
-                    warn!(%error, "error receiving request headers");
-                    return;
-                }
-            };
-
-            let fetch_future = fetch_body(
-                BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
-                None,
-            );
-            let Ok(request_res) = utils::optional_timeout(request_timeout, fetch_future).await
-            else {
-                return; //Timeout while reading request.
-            };
-            let request = match request_res {
-                Ok(bytes_mut) => bytes_mut.freeze(),
-                Err(error) => {
-                    warn!(%error, "error receiving request body");
-                    return;
-                }
-            };
-
-            debug!(
-                %src_addr,
-                bytes = request.remaining(),
-                ?request,
-                "Received request body"
-            );
-
-            cx.handle_request(request, src_addr, Protocol::H3, H3ResponseHandle(stream))
-                .await
-        });
-
-        max_requests -= 1;
-        if max_requests == 0 {
-            warn!("exceeded request count, shutting down h3 conn: {src_addr}");
-            accepted.connection.shutdown().await?;
-            break;
+            // we'll continue handling requests from here.
         }
-        // we'll continue handling requests from here.
-    }
 
-    Ok(())
+        Ok(())
+    }
 }
 
 struct H3ResponseHandle(RequestStream<BidiStream<Bytes>, Bytes>);
