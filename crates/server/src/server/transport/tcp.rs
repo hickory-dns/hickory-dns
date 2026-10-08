@@ -9,13 +9,13 @@ use std::{sync::Arc, time::Duration};
 
 use futures_util::StreamExt;
 use tokio::task::JoinSet;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use super::Transport;
 use crate::{
     net::{
         NetError,
-        runtime::DnsTcpListener,
+        runtime::{Accepted, DnsTcpListener},
         tcp::{TcpListener, TcpStream},
         xfer::Protocol,
     },
@@ -93,28 +93,18 @@ impl<L: DnsTcpListener> Transport for Tcp<L> {
             let cx = cx.clone();
             inner_join_set.spawn(async move {
                 let src_addr = accepted.src_addr;
-                debug!(%src_addr, "accepted TCP request");
-                // take the created stream...
-                let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                    accepted.connection,
-                    src_addr,
+                debug!(%src_addr, protocol = %Protocol::Tcp, "starting request processing");
+
+                let result = Self::handle(
+                    accepted,
+                    self.stream_timeout,
                     self.response_buffer_size,
-                );
-                let mut timeout_stream = TimeoutStream::new(buf_stream, self.stream_timeout);
+                    cx,
+                )
+                .await;
 
-                while let Some(message) = timeout_stream.next().await {
-                    let message = match message {
-                        Ok(message) => message,
-                        Err(error) => {
-                            debug!(%src_addr, %error, "error in TCP request stream");
-                            // we're going to bail on this connection...
-                            return;
-                        }
-                    };
-
-                    // we don't spawn here to limit clients from getting too many resources
-                    cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
-                        .await;
+                if let Err(error) = result {
+                    warn!(%src_addr, %error, protocol = %Protocol::Tcp, "request processing failed");
                 }
             });
 
@@ -123,6 +113,40 @@ impl<L: DnsTcpListener> Transport for Tcp<L> {
 
         if !cx.shutdown.is_cancelled() {
             return Err(NetError::from("unexpected close of socket"));
+        }
+
+        Ok(())
+    }
+}
+
+impl<L: DnsTcpListener> Tcp<L> {
+    async fn handle(
+        accepted: Accepted<L::Stream>,
+        stream_timeout: Option<Duration>,
+        response_buffer_size: usize,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        let src_addr = accepted.src_addr;
+        // take the created stream...
+        let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
+            accepted.connection,
+            src_addr,
+            response_buffer_size,
+        );
+        let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
+
+        while let Some(message) = timeout_stream.next().await {
+            let message = match message {
+                Ok(message) => message,
+                Err(error) => {
+                    // we're going to bail on this connection...
+                    return Err(error.into());
+                }
+            };
+
+            // we don't spawn here to limit clients from getting too many resources
+            cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                .await;
         }
 
         Ok(())
