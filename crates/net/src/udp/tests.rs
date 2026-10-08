@@ -88,7 +88,7 @@ pub(super) async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, pro
         .expect("could not create socket"); // some random address...
     println!("bound client socket");
 
-    let (mut stream, mut sender) = UdpStream::<P>::with_bound(socket, server_addr);
+    let (mut stream, mut sender) = UdpStream::with_bound(socket, server_addr);
 
     for _i in 0..send_recv_times {
         // test once
