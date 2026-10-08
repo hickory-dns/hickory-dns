@@ -20,25 +20,23 @@ use crate::{
         op::{Message, Query},
         rr::{Name, RecordType},
     },
-    quic::{QuicClientStreamBuilder, QuicStreams},
-    tls::default_provider,
+    quic::QuicClientStreamBuilder,
+    tls::tls_config,
     xfer::DnsRequestSender,
 };
 
-use super::quic_server::QuicServer;
+use super::quic_listener::QuicListener;
 
-async fn server_responder(mut server: QuicServer) {
-    while let Some(incoming) = server.next().await {
-        println!("received client request {}", incoming.remote_address());
-
-        let connecting = incoming
-            .accept()
-            .expect("failed to accept next quic connection");
-        let mut conn = QuicStreams::new(connecting)
-            .await
-            .expect("failed to establish next quic connection");
-        while let Some(stream) = conn.next().await {
-            let mut stream = stream.expect("new client stream failed");
+async fn server_responder(mut listener: QuicListener) {
+    if let Some(connection) = listener.accept(None).await {
+        let mut conn = connection.expect("failed to accept next quic connection");
+        println!("received client request {}", conn.src_addr);
+        loop {
+            let mut stream = conn
+                .connection
+                .accept()
+                .await
+                .expect("new client stream failed");
 
             let bytes = stream.receive_bytes().await.expect("failed to receive");
             let client_message = Message::from_vec(&bytes).expect("failed to parse message");
@@ -60,12 +58,12 @@ async fn test_quic_stream() {
     let certificate_and_key = SingleCertAndKey::from(certificates.certified_key());
 
     // All testing is only done on local addresses, construct the server
-    let quic_ns = QuicServer::new(
+    let quic_ns = QuicListener::new(
         SocketAddr::from(([127, 0, 0, 1], 0)),
         Arc::new(certificate_and_key),
     )
     .await
-    .expect("failed to initialize QuicServer");
+    .expect("failed to initialize QuicListener");
 
     // kick off the server
     let server_addr = quic_ns.local_addr().expect("no address");
@@ -77,11 +75,12 @@ async fn test_quic_stream() {
     let (_, ignored) = roots.add_parsable_certificates([certificates.ca.der().clone()]);
     assert_eq!(ignored, 0);
 
-    let mut client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
-        .with_safe_default_protocol_versions()
-        .unwrap()
-        .with_root_certificates(roots)
-        .with_no_client_auth();
+    let mut client_config =
+        ClientConfig::builder_with_provider(Arc::new(tls_config::default_provider()))
+            .with_safe_default_protocol_versions()
+            .unwrap()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
 
     client_config.key_log = Arc::new(KeyLogFile::new());
 

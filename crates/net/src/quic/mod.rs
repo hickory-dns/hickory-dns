@@ -14,13 +14,13 @@ use quinn::Runtime;
 mod quic_client_stream;
 mod quic_config;
 pub(super) mod quic_endpoint;
-mod quic_server;
+mod quic_listener;
 mod quic_stream;
 
 #[cfg(feature = "__h3")]
 pub(crate) use self::quic_client_stream::connect_quic;
 pub use self::quic_client_stream::{QuicClientStream, QuicClientStreamBuilder};
-pub use self::quic_server::{QuicServer, QuicStreams};
+pub use self::quic_listener::{QuicConnection, QuicListener};
 pub use self::quic_stream::{DoqErrorCode, QuicStream};
 pub use quinn::AsyncUdpSocket;
 
