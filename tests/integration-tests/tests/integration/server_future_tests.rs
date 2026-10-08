@@ -27,12 +27,11 @@ use hickory_net::tcp::TcpClientStream;
 use hickory_net::tls::{default_provider, tls_client_connect_with_bind_addr};
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
-use hickory_proto::op::{
-    DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, Message, OpCode, Query, ResponseCode,
-};
+use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_server::Server;
+use hickory_server::server::transport::Udp;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;
 
@@ -363,7 +362,7 @@ fn new_catalog() -> Catalog {
 async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
+    server.register(Udp::new(udp_socket));
 
     while server_continue.load(Ordering::Relaxed) {
         tokio::time::sleep(Duration::from_millis(10)).await;
