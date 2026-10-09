@@ -993,13 +993,11 @@ fn secure_cname_secure_positive_wildcard_expanded(
     Ok(())
 }
 
-#[ignore = "hickory fails DNSSEC validation due to the presence of NSEC records"]
 #[test]
 fn secure_cname_target_insecure_child_zone_nsec() -> Result<(), Error> {
     secure_cname_target_insecure_child_zone(SignSettings::default().nsec(Nsec::_1))
 }
 
-#[ignore = "hickory fails DNSSEC validation due to the presence of NSEC3 records"]
 #[test]
 fn secure_cname_target_insecure_child_zone_nsec3() -> Result<(), Error> {
     secure_cname_target_insecure_child_zone(SignSettings::default().nsec(Nsec::_3 {
@@ -1009,7 +1007,6 @@ fn secure_cname_target_insecure_child_zone_nsec3() -> Result<(), Error> {
     }))
 }
 
-#[ignore = "hickory fails DNSSEC validation due to the presence of NSEC3 records"]
 #[test]
 fn secure_cname_target_insecure_child_zone_nsec3_opt_out() -> Result<(), Error> {
     secure_cname_target_insecure_child_zone(SignSettings::default().nsec(Nsec::_3 {
