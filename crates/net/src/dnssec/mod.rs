@@ -268,9 +268,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // If we have any wildcard records, they must be validated with covering
         // NSEC/NSEC3 records.  RFC 4035 5.3.4, 5.4, and RFC 5155 7.2.6.
-        let must_validate_nsec = answers.iter().any(|(_, rrset)| match rrset.outcome {
-            RrsigVerificationOutcome::Secure { owner, rrsig } => {
-                rrsig.input().num_labels < owner.num_labels()
+        let must_validate_nsec = answers.iter().any(|(key, rrset)| match rrset.outcome {
+            RrsigVerificationOutcome::Secure { rrsig } => {
+                rrsig.input().num_labels < key.name.num_labels()
             }
             // If the zone is insecure, we don't need to finish validation of wildcard expansion. If
             // the RRset's signature is bogus, we likewise don't need to further check the wildcard
@@ -1791,11 +1791,10 @@ impl<'a> VerifiedRrset<'a> {
             (
                 Proof::Secure,
                 Some(Record {
-                    name,
                     data: RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
                     ..
                 }),
-            ) => RrsigVerificationOutcome::Secure { owner: name, rrsig },
+            ) => RrsigVerificationOutcome::Secure { rrsig },
             (Proof::Insecure, _) => RrsigVerificationOutcome::Insecure,
             (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, _) => {
                 RrsigVerificationOutcome::Bogus
@@ -1812,7 +1811,7 @@ impl<'a> VerifiedRrset<'a> {
 
 /// Signature verification result for an RRset.
 enum RrsigVerificationOutcome<'a> {
-    Secure { owner: &'a Name, rrsig: &'a RRSIG },
+    Secure { rrsig: &'a RRSIG },
     Insecure,
     Bogus,
 }
