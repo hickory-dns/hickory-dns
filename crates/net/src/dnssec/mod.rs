@@ -272,6 +272,51 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             .verify_rrsets(&query, additionals, options, current_time)
             .await;
 
+        // Check NSEC3 iteration count against limits.
+        //
+        // [RFC 9276 3.2](https://www.rfc-editor.org/rfc/rfc9276.html#name-recommendation-for-validati).
+        let max_iterations = authorities
+            .iter()
+            .filter(|(key, rrsets)| {
+                key.record_type == RecordType::NSEC3
+                    && matches!(rrsets.outcome, RrsigVerificationOutcome::Secure { .. })
+            })
+            .flat_map(|(_, rrsets)| rrsets.records.iter())
+            .flat_map(|record| {
+                let RData::DNSSEC(DNSSECRData::NSEC3(nsec3)) = &record.data else {
+                    return None;
+                };
+                Some(nsec3.iterations())
+            })
+            .max()
+            .unwrap_or_default();
+        if max_iterations > self.nsec3_hard_iteration_limit {
+            debug!(
+                %query,
+                iterations = max_iterations,
+                nsec3_hard_iteration_limit = self.nsec3_hard_iteration_limit,
+                "iteration count is over hard limit"
+            );
+            return Err(NetError::from(DnsError::Nsec {
+                query: Box::new(query.clone()),
+                response: Box::new(message),
+                proof: Proof::Bogus,
+            }));
+        }
+        if max_iterations > self.nsec3_soft_iteration_limit {
+            debug!(
+                %query,
+                iterations = max_iterations,
+                nsec3_soft_iteration_limit = self.nsec3_soft_iteration_limit,
+                "iteration count is over soft limit"
+            );
+            return Err(NetError::from(DnsError::Nsec {
+                query: Box::new(query.clone()),
+                response: Box::new(message),
+                proof: Proof::Insecure,
+            }));
+        }
+
         // Make a copy of the NSEC and NSEC3 RRsets, so that we can refer to them while still
         // holding a mutable reference to other RRsets.
         let nsec_records = authorities.gather_nsec_records();
@@ -350,8 +395,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 find_soa_name(&message),
                 message.response_code,
                 &nsec3s,
-                self.nsec3_soft_iteration_limit,
-                self.nsec3_hard_iteration_limit,
             ),
             (false, true) => verify_nsec(
                 &query,
