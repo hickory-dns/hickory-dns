@@ -17,9 +17,7 @@ use crate::{
             rdata::{DNSKEY, DNSSECRData, RRSIG},
         },
         op::{DnsRequestOptions, DnsResponse, Query},
-        rr::{
-            DNSClass, LowerName, Name, RData, Record, RecordRef, RecordType, RrKey, SerialNumber,
-        },
+        rr::{DNSClass, LowerName, RData, Record, RecordRef, RecordType, RrKey, SerialNumber},
     },
 };
 
@@ -465,11 +463,10 @@ impl<'a> Rrset<'a> {
             (
                 Proof::Secure,
                 Some(Record {
-                    name,
                     data: RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
                     ..
                 }),
-            ) => RrsigVerificationOutcome::Secure { owner: name, rrsig },
+            ) => RrsigVerificationOutcome::Secure { rrsig },
             (Proof::Insecure, _) => RrsigVerificationOutcome::Insecure,
             (Proof::Bogus, _) | (Proof::Indeterminate, _) | (Proof::Secure, _) => {
                 RrsigVerificationOutcome::Bogus
@@ -493,7 +490,7 @@ pub(super) struct VerifiedRrset<'a> {
 
 /// Signature verification result for an RRset.
 pub(super) enum RrsigVerificationOutcome<'a> {
-    Secure { owner: &'a Name, rrsig: &'a RRSIG },
+    Secure { rrsig: &'a RRSIG },
     Insecure,
     Bogus,
 }
