@@ -25,7 +25,7 @@ use hickory_proto::{
     },
 };
 use std::{
-    env,
+    env, mem,
     net::IpAddr,
     ops::{Deref, DerefMut},
     path::Path,
@@ -856,6 +856,55 @@ impl Handler for DropRrsetHandler {
                     }
                 }
                 true
+            });
+        }
+
+        Ok(Some(encode_response(&response, max_message_size)?))
+    }
+}
+
+/// This handler proxies requests to another server, and hides the NS RRset at the apex of the
+/// given zone, like a zone that is missing its apex NS records. An NS query for the zone apex gets
+/// a NODATA response with the zone's SOA record.
+pub(crate) struct NoApexNsHandler {
+    ip_address: IpAddr,
+    zone: Name,
+}
+
+impl NoApexNsHandler {
+    pub(crate) const fn new(ip_address: IpAddr, zone: Name) -> Self {
+        Self { ip_address, zone }
+    }
+}
+
+#[async_trait]
+impl Handler for NoApexNsHandler {
+    async fn handle(&self, bytes: &[u8], transport: Transport) -> Result<Option<Vec<u8>>> {
+        let mut query_message =
+            Message::from_vec(bytes).context("error parsing query into message")?;
+        let max_message_size = max_message_size(&query_message, transport);
+
+        let query = &mut query_message.queries[0];
+        let apex_ns_query = query.name == self.zone && query.query_type == RecordType::NS;
+        if apex_ns_query {
+            query.query_type = RecordType::SOA;
+        }
+
+        let mut response = proxy_query(self.ip_address, query_message).await?;
+        if apex_ns_query {
+            response.queries[0].query_type = RecordType::NS;
+            response.authorities = mem::take(&mut response.answers);
+        }
+
+        let Message {
+            answers,
+            authorities,
+            additionals,
+            ..
+        } = response.deref_mut();
+        for section in [answers, authorities, additionals] {
+            section.retain(|record| {
+                record.name != self.zone || record.record_type() != RecordType::NS
             });
         }
 

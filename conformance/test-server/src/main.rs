@@ -19,8 +19,8 @@ use tokio::net::{TcpListener, UdpSocket};
 mod handlers;
 use handlers::{
     BogusNoDataInsteadOfCname, BogusWildcardExpansionQnameExistsHandler, DropRrsetHandler,
-    ForgedDelegationHandler, Nsec3WrongZoneHandler, ServfailRrsetHandler, bad_case_handler,
-    bad_txid_handler, bailiwick_handler, base_handler,
+    ForgedDelegationHandler, NoApexNsHandler, Nsec3WrongZoneHandler, ServfailRrsetHandler,
+    bad_case_handler, bad_txid_handler, bailiwick_handler, base_handler,
     bogus_wildcard_expansion_nsec_same_name_condition_handler, cname_loop_handler,
     empty_response_handler, foreign_class_handler, nsec3_apex_nodata_handler,
     nsec3_nocover_handler, nxdomain_with_ns_authority_handler, packet_loss_handler,
@@ -120,6 +120,10 @@ enum HandlerArg {
         wildcard_name: Name,
         query_name: Name,
     },
+    NoApexNs {
+        ip_address: IpAddr,
+        zone: Name,
+    },
 }
 
 impl HandlerArg {
@@ -183,6 +187,9 @@ impl HandlerArg {
             } => BOGUS_WILDCARD_EXPANSION_QNAME_EXISTS.get_or_init(|| {
                 BogusWildcardExpansionQnameExistsHandler::new(ip_address, wildcard_name, query_name)
             }),
+            Self::NoApexNs { ip_address, zone } => {
+                NO_APEX_NS_HANDLER.get_or_init(|| NoApexNsHandler::new(ip_address, zone))
+            }
         }
     }
 }
@@ -194,6 +201,7 @@ static FORGED_DELEGATION_HANDLER: OnceLock<ForgedDelegationHandler> = OnceLock::
 static NSEC3_WRONG_ZONE_HANDLER: OnceLock<Nsec3WrongZoneHandler> = OnceLock::new();
 static BOGUS_WILDCARD_EXPANSION_QNAME_EXISTS: OnceLock<BogusWildcardExpansionQnameExistsHandler> =
     OnceLock::new();
+static NO_APEX_NS_HANDLER: OnceLock<NoApexNsHandler> = OnceLock::new();
 
 struct UdpServer {
     udp: UdpSocket,
