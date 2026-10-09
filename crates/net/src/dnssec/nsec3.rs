@@ -107,8 +107,6 @@ pub(super) fn verify_nsec3(
     soa: Option<&Name>,
     response_code: ResponseCode,
     nsec3s: &[(&Name, &NSEC3)],
-    nsec3_soft_iteration_limit: u16,
-    nsec3_hard_iteration_limit: u16,
 ) -> Proof {
     debug_assert!(!nsec3s.is_empty()); // checked in the caller
 
@@ -122,31 +120,6 @@ pub(super) fn verify_nsec3(
         Ok(cx) => cx,
         Err(proof) => return proof,
     };
-
-    // Protect against high iteration counts by returning Proof::Bogus (triggering a SERVFAIL
-    // response) if iterations > than the hard limit, or an insecure response if iterations > the
-    // soft limit.
-    //
-    // [RFC 9276 3.2](https://www.rfc-editor.org/rfc/rfc9276.html#name-recommendation-for-validati).
-    if cx.iterations > nsec3_hard_iteration_limit {
-        return nsec3_yield(
-            Proof::Bogus,
-            query,
-            format_args!(
-                "iteration count {iterations} is over {nsec3_hard_iteration_limit}",
-                iterations = cx.iterations
-            ),
-        );
-    } else if cx.iterations > nsec3_soft_iteration_limit {
-        return nsec3_yield(
-            Proof::Insecure,
-            query,
-            format_args!(
-                "iteration count {iterations} is over {nsec3_soft_iteration_limit}",
-                iterations = cx.iterations
-            ),
-        );
-    }
 
     // Basic sanity checks are done.
     // From here on 3 big situations are possible:
@@ -948,8 +921,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Secure,
         );
@@ -977,8 +948,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1007,8 +976,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1044,8 +1011,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1073,8 +1038,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Secure,
         );
@@ -1095,8 +1058,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Secure,
         );
@@ -1117,8 +1078,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1135,8 +1094,6 @@ mod tests {
                     [A, RRSIG],
                 )
                 .as_ref(),],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1153,8 +1110,6 @@ mod tests {
                     [A, SOA, DNSKEY, RRSIG],
                 )
                 .as_ref(),],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1171,8 +1126,6 @@ mod tests {
                     [A, RRSIG],
                 )
                 .as_ref(),],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1216,8 +1169,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Secure,
         );
@@ -1246,8 +1197,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1276,8 +1225,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1306,8 +1253,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1344,8 +1289,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus
         );
@@ -1387,8 +1330,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1406,8 +1347,6 @@ mod tests {
                     [NS, DS, RRSIG],
                 )
                 .as_ref(),],
-                200,
-                500,
             ),
             Proof::Bogus,
         );
@@ -1427,8 +1366,6 @@ mod tests {
                     [NS, RRSIG],
                 )
                 .as_ref(),],
-                200,
-                500,
             ),
             Proof::Secure,
         );
@@ -1456,8 +1393,6 @@ mod tests {
                     )
                     .as_ref(),
                 ],
-                200,
-                500,
             ),
             Proof::Bogus,
         );

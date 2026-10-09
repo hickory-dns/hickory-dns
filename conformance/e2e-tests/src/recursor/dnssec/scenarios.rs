@@ -26,7 +26,8 @@ fn soft_nsec3_iteration_failure() -> Result<(), Error> {
 
     assert!(output.status.is_nxdomain());
     assert!(!output.flags.authenticated_data);
-    assert!(logs.contains("iteration count 101 is over 100"));
+    assert!(logs.contains("iteration count is over soft limit"));
+    assert!(logs.contains("iterations=101 nsec3_soft_iteration_limit=100"));
 
     Ok(())
 }
@@ -48,7 +49,8 @@ fn hard_nsec3_iteration_failure() -> Result<(), Error> {
     dbg!(&output);
 
     assert!(output.status.is_servfail());
-    assert!(logs.contains("iteration count 501 is over 500"));
+    assert!(logs.contains("iteration count is over hard limit"));
+    assert!(logs.contains("iterations=501 nsec3_hard_iteration_limit=500"));
 
     Ok(())
 }
@@ -72,7 +74,8 @@ fn nsec3_custom_iteration_count() -> Result<(), Error> {
 
     assert!(output.status.is_nxdomain());
     assert!(!output.flags.authenticated_data);
-    assert!(logs.contains("iteration count 11 is over 10"));
+    assert!(logs.contains("iteration count is over soft limit"));
+    assert!(logs.contains("iterations=11 nsec3_soft_iteration_limit=10"));
 
     let (output, logs) = insecure_record_fixture(
         FQDN("noexist.insecure.testing.")?,
@@ -89,7 +92,8 @@ fn nsec3_custom_iteration_count() -> Result<(), Error> {
     dbg!(&output);
 
     assert!(output.status.is_servfail());
-    assert!(logs.contains("iteration count 21 is over 20"));
+    assert!(logs.contains("iteration count is over hard limit"));
+    assert!(logs.contains("iterations=21 nsec3_hard_iteration_limit=20"));
 
     Ok(())
 }
