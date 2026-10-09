@@ -14,7 +14,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 #[cfg(any(test, feature = "tokio"))]
 use tokio::runtime::Runtime;
@@ -283,7 +282,6 @@ pub trait RuntimeProvider: Clone + Send + Sync + Unpin + 'static {
 }
 
 /// Trait for DnsUdpSocket
-#[async_trait]
 pub trait DnsUdpSocket
 where
     Self: Send + Sync + Sized + Unpin,
@@ -301,8 +299,11 @@ where
 
     /// Receive data from the socket and returns the number of bytes read and the address from
     /// where the data came on success.
-    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        poll_fn(|cx| self.poll_recv_from(cx, buf)).await
+    fn recv_from(
+        &self,
+        buf: &mut [u8],
+    ) -> impl Future<Output = io::Result<(usize, SocketAddr)>> + Send {
+        poll_fn(move |cx| self.poll_recv_from(cx, buf))
     }
 
     /// Poll once to send data to the given address.
@@ -314,8 +315,12 @@ where
     ) -> Poll<io::Result<usize>>;
 
     /// Send data to the given address.
-    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
-        poll_fn(|cx| self.poll_send_to(cx, buf, target)).await
+    fn send_to(
+        &self,
+        buf: &[u8],
+        target: SocketAddr,
+    ) -> impl Future<Output = io::Result<usize>> + Send {
+        poll_fn(move |cx| self.poll_send_to(cx, buf, target))
     }
 }
 
@@ -349,17 +354,18 @@ pub trait Spawn {
 
 /// Generic Time for Delay and Timeout.
 // This trait is created to allow to use different types of time systems. It's used in Fuchsia OS, please be mindful when update it.
-#[async_trait]
 pub trait Time: Send + Sync + Unpin {
     /// Return a type that implements `Future` that will wait until the specified duration has
     /// elapsed.
-    async fn delay_for(duration: Duration);
+    fn delay_for(duration: Duration) -> impl Future<Output = ()> + Send;
 
     /// Return a type that implement `Future` to complete before the specified duration has elapsed.
-    async fn timeout<F: 'static + Future + Send>(
+    fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
-    ) -> Result<F::Output, io::Error>;
+    ) -> impl Future<Output = Result<F::Output, io::Error>> + Send
+    where
+        F::Output: Send;
 
     /// Get the current time as a Unix timestamp.
     ///
@@ -378,7 +384,6 @@ pub trait Time: Send + Sync + Unpin {
 pub struct TokioTime;
 
 #[cfg(any(test, feature = "tokio"))]
-#[async_trait]
 impl Time for TokioTime {
     async fn delay_for(duration: Duration) {
         tokio::time::sleep(duration).await
@@ -387,7 +392,10 @@ impl Time for TokioTime {
     async fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
-    ) -> Result<F::Output, io::Error> {
+    ) -> Result<F::Output, io::Error>
+    where
+        F::Output: Send,
+    {
         tokio::time::timeout(duration, future)
             .await
             .map_err(move |_| io::Error::new(io::ErrorKind::TimedOut, "future timed out"))

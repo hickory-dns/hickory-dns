@@ -7,6 +7,7 @@
 
 //! Request Handler for incoming requests
 
+use std::future::Future;
 use std::net::SocketAddr;
 
 use bytes::Bytes;
@@ -188,7 +189,6 @@ impl std::ops::Deref for ResponseInfo {
 }
 
 /// Trait for handling incoming requests, and providing a message response.
-#[async_trait::async_trait]
 pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
@@ -196,11 +196,11 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - handle to which a return message should be sent
-    async fn handle_request<R: ResponseHandler, T: Time>(
+    fn handle_request<R: ResponseHandler, T: Time>(
         &self,
         request: &Request,
         response_handle: R,
-    );
+    ) -> impl Future<Output = ()> + Send;
 }
 
 #[cfg(test)]
