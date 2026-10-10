@@ -80,7 +80,7 @@ h3-ring = [
     "__h3",
 ]
 
-__tls = ["dep:rustls", "dep:tokio-rustls"]
+__tls = ["dep:rustls"]
 __https = ["dep:h2", "dep:http", "__tls"]
 __quic = ["__tls"]
 __h3 = ["dep:h3", "dep:h3-quinn", "__quic"]
@@ -114,7 +114,6 @@ thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "sync"] }
-tokio-rustls = { workspace = true, optional = true }
 tokio-util.workspace = true
 hickory-proto = { workspace = true, features = ["serde"] }
 hickory-net = { workspace = true, features = ["tokio"] }

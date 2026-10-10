@@ -19,7 +19,7 @@ use test_support::subscribe;
 use crate::server_harness::{TestServer, query_a, tls::prepare_certificates};
 use hickory_net::client::Client;
 use hickory_net::runtime::TokioRuntimeProvider;
-use hickory_net::tls::{default_provider, tls_client_connect};
+use hickory_net::tls::{tls_client_connect, tls_config};
 use hickory_net::xfer::Protocol;
 
 #[tokio::test]
@@ -37,7 +37,7 @@ async fn test_example_tls_toml_startup() {
     let mut root_store = RootCertStore::empty();
     root_store.add(ca_cert.clone()).expect("bad certificate");
 
-    let config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+    let config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
         .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_store)

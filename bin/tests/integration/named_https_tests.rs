@@ -17,17 +17,15 @@ use rustls::{ClientConfig, RootCertStore};
 use crate::server_harness::tls::prepare_certificates;
 use crate::server_harness::{TestServer, query_a};
 use hickory_net::client::Client;
-use hickory_net::h2::HttpsClientStream;
+use hickory_net::h2::H2ClientStream;
 use hickory_net::runtime::TokioRuntimeProvider;
-use hickory_net::tls::default_provider;
+use hickory_net::tls::{alpn, tls_config};
 use hickory_net::xfer::Protocol;
 use test_support::subscribe;
 
 #[tokio::test]
 async fn test_example_https_toml_startup() {
     subscribe();
-
-    const ALPN_H2: &[u8] = b"h2";
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {server_path}");
@@ -45,16 +43,16 @@ async fn test_example_https_toml_startup() {
 
     root_store.add(ca_cert.clone()).unwrap();
 
-    let mut client_config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+    let mut client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
         .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_store)
         .with_no_client_auth();
-    client_config.alpn_protocols.push(ALPN_H2.to_vec());
+    client_config.alpn_protocols.push(alpn::H2.to_vec());
 
     let client_config = Arc::new(client_config);
     let provider = TokioRuntimeProvider::new();
-    let sender = HttpsClientStream::builder(client_config, provider)
+    let sender = H2ClientStream::builder(client_config, provider)
         .build(addr, Arc::from("ns.example.com"), Arc::from("/dns-query"))
         .await
         .unwrap();

@@ -1051,8 +1051,10 @@ name = "hickory-integration"
 version = "0.27.0-alpha.1"
 dependencies = [
  "async-trait",
+ "bytes",
  "data-encoding",
  "futures",
+ "futures-io",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",
@@ -1201,7 +1203,6 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
- "tokio-rustls",
  "tokio-util",
  "toml",
  "tracing",

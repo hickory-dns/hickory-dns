@@ -28,6 +28,7 @@ pub mod tcp;
 #[cfg(feature = "__tls")]
 pub mod tls;
 pub mod udp;
+mod utils;
 pub mod xfer;
 
 #[doc(hidden)]

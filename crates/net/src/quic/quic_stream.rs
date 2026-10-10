@@ -17,16 +17,6 @@ use crate::{
     },
 };
 
-/// ```text
-/// 4.1. Connection Establishment
-///
-/// DoQ connections are established as described in the QUIC transport
-/// specification [RFC9000].  During connection establishment, DoQ
-/// support is indicated by selecting the Application-Layer Protocol
-/// Negotiation (ALPN) token "doq" in the crypto handshake.
-/// ```
-pub(crate) const DOQ_ALPN: &[u8] = b"doq";
-
 /// [RFC 9250](https://www.rfc-editor.org/rfc/rfc9250.html#name-doq-error-codes)
 /// ```text
 /// 4.3.  DoQ Error Codes

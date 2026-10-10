@@ -49,12 +49,16 @@ https-aws-lc-rs = [
 quic-aws-lc-rs = [
     "hickory-net/quic-aws-lc-rs",
     "hickory-resolver/quic-aws-lc-rs",
+    "hickory-server/quic-aws-lc-rs",
     "tls-aws-lc-rs",
+    "__quic",
 ]
 h3-aws-lc-rs = [
     "hickory-net/h3-aws-lc-rs",
     "hickory-resolver/h3-aws-lc-rs",
+    "hickory-server/h3-aws-lc-rs",
     "quic-aws-lc-rs",
+    "__h3",
 ]
 
 tls-ring = [
@@ -71,16 +75,22 @@ https-ring = [
 quic-ring = [
     "hickory-net/quic-ring",
     "hickory-resolver/quic-ring",
+    "hickory-server/quic-ring",
     "tls-ring",
+    "__quic",
 ]
 h3-ring = [
     "hickory-net/h3-ring",
     "hickory-resolver/h3-ring",
+    "hickory-server/h3-ring",
     "quic-ring",
+    "__h3",
 ]
 
 __tls = ["dep:rustls"]
 __https = ["dep:rustls", "dep:webpki-roots"]
+__quic = []
+__h3 = []
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 metrics = ["hickory-server/metrics"]
@@ -102,8 +112,10 @@ hickory-server = { workspace = true, features = ["testing", "resolver"] }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
+bytes.workspace = true
 data-encoding.workspace = true
 futures = { workspace = true, features = ["thread-pool"] }
+futures-io.workspace = true
 pretty_assertions = "1"
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true

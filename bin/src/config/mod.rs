@@ -45,7 +45,7 @@ use crate::dnssec;
 #[cfg(feature = "__https")]
 use hickory_net::http::DEFAULT_DNS_QUERY_PATH;
 #[cfg(feature = "__tls")]
-use hickory_net::tls::default_provider;
+use hickory_net::tls::tls_config;
 use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
 #[cfg(feature = "recursor")]
 use hickory_resolver::recursor::RecursiveConfig;
@@ -771,7 +771,7 @@ impl TlsCertConfig {
             ));
         };
 
-        let certified_key = CertifiedKey::from_der(cert_chain, key, &default_provider())
+        let certified_key = CertifiedKey::from_der(cert_chain, key, &tls_config::provider())
             .map_err(|err| format!("failed to read certificate and keys: {err:?}"))?;
 
         Ok(Arc::new(SingleCertAndKey::from(certified_key)))

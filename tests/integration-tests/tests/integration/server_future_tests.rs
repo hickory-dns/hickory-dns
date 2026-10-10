@@ -24,13 +24,17 @@ use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
 #[cfg(feature = "__tls")]
-use hickory_net::tls::{default_provider, tls_client_connect_with_bind_addr};
+use hickory_net::tls::{tls_client_connect_with_bind_addr, tls_config};
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_server::Server;
+use hickory_server::server::transport::Tcp;
+#[cfg(feature = "__tls")]
+use hickory_server::server::transport::Tls;
+use hickory_server::server::transport::Udp;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;
 
@@ -74,6 +78,133 @@ async fn test_server_www_tcp() {
     assert!(client_result.is_ok(), "client failed: {client_result:?}");
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();
+}
+
+#[derive(Debug)]
+struct CustomUdpSocket(UdpSocket);
+
+#[async_trait::async_trait]
+impl hickory_net::runtime::DnsUdpSocket for CustomUdpSocket {
+    type Time = hickory_net::runtime::TokioTime;
+
+    fn poll_recv_from(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<(usize, SocketAddr)>> {
+        let mut read_buf = tokio::io::ReadBuf::new(buf);
+        match self.0.poll_recv_from(cx, &mut read_buf) {
+            std::task::Poll::Ready(Ok(addr)) => {
+                std::task::Poll::Ready(Ok((read_buf.filled().len(), addr)))
+            }
+            std::task::Poll::Ready(Err(e)) => std::task::Poll::Ready(Err(e)),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+
+    fn poll_send_to(
+        &self,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+        target: SocketAddr,
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        self.0.poll_send_to(cx, buf, target)
+    }
+}
+
+#[derive(Debug)]
+struct CustomTcpStream(hickory_net::runtime::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>);
+
+impl futures_io::AsyncRead for CustomTcpStream {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut [u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.0).poll_read(cx, buf)
+    }
+}
+
+impl futures_io::AsyncWrite for CustomTcpStream {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.0).poll_write(cx, buf)
+    }
+
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.0).poll_flush(cx)
+    }
+
+    fn poll_close(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.0).poll_close(cx)
+    }
+}
+
+impl hickory_net::runtime::DnsTcpStream for CustomTcpStream {
+    type Time = hickory_net::runtime::TokioTime;
+}
+
+#[derive(Debug)]
+struct CustomTcpListener(TcpListener);
+
+impl hickory_net::runtime::DnsTcpListener for CustomTcpListener {
+    type Stream = CustomTcpStream;
+
+    fn poll_accept(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<hickory_net::runtime::Accepted<CustomTcpStream>>> {
+        match self.0.poll_accept(cx) {
+            std::task::Poll::Ready(Ok((stream, addr))) => {
+                std::task::Poll::Ready(Ok(hickory_net::runtime::Accepted {
+                    connection: CustomTcpStream(hickory_net::runtime::iocompat::AsyncIoTokioAsStd(
+                        stream,
+                    )),
+                    src_addr: addr,
+                }))
+            }
+            std::task::Poll::Ready(Err(e)) => std::task::Poll::Ready(Err(e)),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
+    }
+}
+
+#[tokio::test]
+async fn test_server_custom_sockets_and_newtypes() {
+    subscribe();
+
+    let raw_custom_udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let custom_udp_addr = raw_custom_udp.local_addr().unwrap();
+    let custom_udp = CustomUdpSocket(raw_custom_udp);
+
+    let raw_custom_tcp = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let custom_tcp_addr = raw_custom_tcp.local_addr().unwrap();
+    let custom_tcp = CustomTcpListener(raw_custom_tcp);
+
+    let standard_udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let standard_udp_addr = standard_udp.local_addr().unwrap();
+
+    let mut server = Server::new(new_catalog());
+    server.register(Udp::new(custom_udp));
+    server.register(Tcp::new(custom_tcp, 32).stream_timeout(Duration::from_secs(5)));
+    server.register(Udp::new(standard_udp));
+
+    client_thread_www(lazy_udp_client(custom_udp_addr)).await;
+
+    client_thread_www(lazy_tcp_client(custom_tcp_addr)).await;
+
+    client_thread_www(lazy_udp_client(standard_udp_addr)).await;
+
+    server.shutdown_gracefully().await.unwrap();
 }
 
 #[tokio::test]
@@ -269,6 +400,118 @@ async fn test_server_www_tls() {
     server.await.unwrap();
 }
 
+#[cfg(feature = "__quic")]
+#[tokio::test]
+async fn test_server_www_quic() {
+    subscribe();
+
+    let certificates = TestCertificates::generate();
+    let server_cert_resolver = SingleCertAndKey::from(certificates.certified_key());
+
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let ipaddr = udp_socket.local_addr().unwrap();
+
+    let mut server = Server::new(new_catalog());
+    let quic =
+        hickory_server::server::transport::Quic::new(udp_socket, Arc::new(server_cert_resolver))
+            .unwrap()
+            .handshake_timeout(Duration::from_secs(5));
+    server.register(quic);
+
+    let mut roots = RootCertStore::empty();
+    let (_, ignored) = roots.add_parsable_certificates([certificates.ca.der().clone()]);
+    assert_eq!(ignored, 0);
+
+    let client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(
+        hickory_net::quic::QuicClientStream::builder()
+            .crypto_config(client_config)
+            .build(ipaddr, Arc::from("ns.example.com"))
+            .await
+            .expect("client failed to connect"),
+    );
+    tokio::spawn(bg);
+
+    let mut message = Message::query();
+    message.add_query(Query::new(
+        Name::from_str("www.example.com.").unwrap(),
+        RecordType::A,
+    ));
+    message.metadata.id = 0;
+
+    let mut client_result = client
+        .send(DnsRequest::from(message))
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("query failed");
+
+    assert_eq!(client_result.len(), 1);
+    let client_result = client_result.pop().unwrap();
+    assert_eq!(client_result.metadata.response_code, ResponseCode::NoError);
+
+    server.shutdown_gracefully().await.unwrap();
+}
+
+#[cfg(feature = "__h3")]
+#[tokio::test]
+async fn test_server_www_h3() {
+    subscribe();
+
+    let certificates = TestCertificates::generate();
+    let server_cert_resolver = SingleCertAndKey::from(certificates.certified_key());
+
+    let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let ipaddr = udp_socket.local_addr().unwrap();
+
+    let mut server = Server::new(new_catalog());
+    let h3 = hickory_server::server::transport::H3::new(udp_socket, Arc::new(server_cert_resolver))
+        .unwrap()
+        .handshake_timeout(Duration::from_secs(5));
+    server.register(h3);
+
+    let mut roots = RootCertStore::empty();
+    let (_, ignored) = roots.add_parsable_certificates([certificates.ca.der().clone()]);
+    assert_eq!(ignored, 0);
+
+    let client_config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
+        .with_safe_default_protocol_versions()
+        .unwrap()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(
+        hickory_net::h3::H3ClientStream::builder()
+            .crypto_config(client_config)
+            .build(ipaddr, Arc::from("ns.example.com"), Arc::from("/dns-query"))
+            .await
+            .expect("client failed to connect"),
+    );
+    tokio::spawn(bg);
+
+    let mut message = Message::query();
+    message.add_query(Query::new(
+        Name::from_str("www.example.com.").unwrap(),
+        RecordType::A,
+    ));
+
+    let mut client_result = client
+        .send(DnsRequest::from(message))
+        .try_collect::<Vec<_>>()
+        .await
+        .expect("query failed");
+
+    assert_eq!(client_result.len(), 1);
+    let client_result = client_result.pop().unwrap();
+    assert_eq!(client_result.metadata.response_code, ResponseCode::NoError);
+
+    server.shutdown_gracefully().await.unwrap();
+}
+
 async fn lazy_udp_client(addr: SocketAddr) -> Client<TokioRuntimeProvider> {
     let conn = UdpClientStream::builder(addr, TokioRuntimeProvider::default()).build();
     let (client, driver) = Client::from_sender(conn);
@@ -295,7 +538,7 @@ async fn lazy_tls_client(
     let (_, ignored) = root_store.add_parsable_certificates(cert_chain);
     assert_eq!(ignored, 0, "bad certificate!");
 
-    let config = ClientConfig::builder_with_provider(Arc::new(default_provider()))
+    let config = ClientConfig::builder_with_provider(Arc::new(tls_config::provider()))
         .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_store)
@@ -361,7 +604,7 @@ fn new_catalog() -> Catalog {
 async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register(Udp::new(udp_socket));
 
     while server_continue.load(Ordering::Relaxed) {
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -373,7 +616,7 @@ async fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBoo
 async fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
     let mut server = Server::new(catalog);
-    server.register_listener(tcp_listener, Some(Duration::from_secs(30)), 32);
+    server.register(Tcp::new(tcp_listener, 32).stream_timeout(Duration::from_secs(30)));
 
     while server_continue.load(Ordering::Relaxed) {
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -397,14 +640,11 @@ async fn server_thread_tls(
     //     .expect("Pkcs12::from_der");
     // let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
 
-    server
-        .register_tls_listener(
-            tls_listener,
-            Some(Duration::from_secs(30)),
-            Some(Duration::from_secs(30)),
-            cert_chain,
-        )
-        .expect("failed to register TLS");
+    let tls = Tls::new(tls_listener, cert_chain)
+        .expect("failed to build TLS configuration")
+        .handshake_timeout(Duration::from_secs(30))
+        .stream_timeout(Duration::from_secs(30));
+    server.register(tls);
 
     while server_continue.load(Ordering::Relaxed) {
         tokio::time::sleep(Duration::from_millis(10)).await;

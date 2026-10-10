@@ -15,7 +15,7 @@ use bytes::Buf;
 use futures_util::{AsyncRead, AsyncWrite};
 use hickory_net::{
     runtime::{DnsTcpStream, DnsUdpSocket, RuntimeProvider, TokioHandle, TokioTime},
-    tls::default_provider,
+    tls::tls_config,
     xfer::Protocol,
 };
 use hickory_proto::{
@@ -699,6 +699,6 @@ impl TestCertificates {
     pub fn certified_key(&self) -> CertifiedKey {
         let cert_chain = Vec::from([self.leaf.der().to_owned(), self.ca.der().to_owned()]);
         let private_key_der = PrivatePkcs8KeyDer::from(self.key.serialize_der());
-        CertifiedKey::from_der(cert_chain, private_key_der.into(), &default_provider()).unwrap()
+        CertifiedKey::from_der(cert_chain, private_key_der.into(), &tls_config::provider()).unwrap()
     }
 }

@@ -14,8 +14,6 @@ use std::pin::Pin;
 #[cfg(any(feature = "__tls", feature = "__https"))]
 use std::sync::Arc;
 
-#[cfg(feature = "__https")]
-use hickory_net::h2::HttpsClientStream;
 #[cfg(feature = "__tls")]
 use rustls::DigitallySignedStruct;
 #[cfg(feature = "__tls")]
@@ -27,12 +25,14 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 #[cfg(not(feature = "__tls"))]
 use tracing::warn;
 
+#[cfg(feature = "__https")]
+use crate::net::h2::H2ClientStream;
 #[cfg(feature = "__h3")]
 use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicClientStream;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{client_config, default_provider, tls_exchange};
+use crate::net::tls::{tls_config, tls_exchange};
 use crate::{
     config::{ConnectionConfig, ProtocolConfig},
     name_server_pool::PoolContext,
@@ -128,9 +128,8 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
-                let mut builder =
-                    HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
-                        .connect_timeout(cx.options.connect_timeout);
+                let mut builder = H2ClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
+                    .connect_timeout(cx.options.connect_timeout);
                 if let Some(bind_addr) = config.bind_addr {
                     builder.bind_addr(bind_addr);
                 }
@@ -216,7 +215,7 @@ impl TlsConfig {
     pub fn new() -> Result<Self, NetError> {
         Ok(Self {
             #[cfg(feature = "__tls")]
-            config: client_config()?,
+            config: tls_config::client()?,
         })
     }
 
@@ -252,7 +251,7 @@ struct NoCertificateVerification(CryptoProvider);
 #[cfg(feature = "__tls")]
 impl Default for NoCertificateVerification {
     fn default() -> Self {
-        Self(default_provider())
+        Self(tls_config::provider())
     }
 }
 
@@ -336,7 +335,7 @@ mod tests {
     use crate::config::ServerOrderingStrategy;
     use crate::net::runtime::TokioRuntimeProvider;
     #[cfg(feature = "__quic")]
-    use crate::net::tls::client_config;
+    use crate::net::tls::tls_config;
 
     #[cfg(feature = "__h3")]
     #[tokio::test]
@@ -375,7 +374,7 @@ mod tests {
         subscribe();
 
         // AdGuard requires SNI.
-        let config = client_config().unwrap();
+        let config = tls_config::client().unwrap();
 
         let group = ServerGroup {
             ips: &[

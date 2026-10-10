@@ -166,7 +166,7 @@ pub type StreamReceiver = Peekable<Fuse<mpsc::Receiver<SerialMessage>>>;
 /// Used to queue messages for sending over a DNS connection. On the client/resolver side,
 /// this buffers outbound queries to nameservers. On the server side, this buffers outbound
 /// responses to clients.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct BufDnsStreamHandle {
     remote_addr: SocketAddr,
     sender: mpsc::Sender<SerialMessage>,

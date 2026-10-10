@@ -19,19 +19,19 @@ use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
 use http::Request;
 use http::response::Parts;
-use quinn::{Endpoint, EndpointConfig, TransportConfig};
+use quinn::{Endpoint, TransportConfig};
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
-use super::{ALPN_H3, BodyStream};
+use super::{BodyStream, h3_config};
 use crate::error::NetError;
 use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
 use crate::proto::ProtoError;
 use crate::proto::op::DnsRequest;
 use crate::quic::connect_quic;
 use crate::runtime::{RuntimeProvider, Spawn};
-use crate::tls::client_config;
+use crate::tls::{alpn, tls_config};
 use crate::udp::UdpSocket;
 use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStream};
 
@@ -52,7 +52,7 @@ impl H3ClientStream {
     pub fn builder() -> H3ClientStreamBuilder {
         H3ClientStreamBuilder {
             crypto_config: None,
-            transport_config: Arc::new(super::transport()),
+            transport_config: Arc::new(h3_config::transport()),
             bind_addr: None,
             set_headers: None,
             disable_grease: false,
@@ -230,7 +230,7 @@ impl H3ClientStreamBuilder {
         path: Arc<str>,
     ) -> Result<H3ClientStream, NetError> {
         let endpoint = Endpoint::new_with_abstract_socket(
-            EndpointConfig::default(),
+            h3_config::endpoint(),
             None,
             socket,
             Arc::new(quinn::TokioRuntime),
@@ -254,7 +254,7 @@ impl H3ClientStreamBuilder {
         let socket = connect.await?;
         let socket = socket.into_std()?;
         let endpoint = Endpoint::new(
-            EndpointConfig::default(),
+            h3_config::endpoint(),
             None,
             socket,
             Arc::new(quinn::TokioRuntime),
@@ -275,10 +275,10 @@ impl H3ClientStreamBuilder {
             connect_quic(
                 name_server,
                 server_name.clone(),
-                ALPN_H3,
+                alpn::H3,
                 match self.crypto_config {
                     Some(crypto_config) => crypto_config,
-                    None => client_config()?,
+                    None => tls_config::client()?,
                 },
                 self.transport_config,
                 endpoint,
@@ -366,7 +366,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -434,7 +434,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -506,7 +506,7 @@ mod tests {
 
         let request = DnsRequest::new(request, DnsRequestOptions::default());
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let mut h3 = H3ClientStream::builder()
@@ -572,7 +572,7 @@ mod tests {
         // use google
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
 
-        let mut client_config = client_config().unwrap();
+        let mut client_config = tls_config::client().unwrap();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let h3 = H3ClientStream::builder()
