@@ -22,7 +22,7 @@ use rustls::{
 };
 
 #[cfg(feature = "__https")]
-use hickory_net::h2::HttpsClientStream;
+use hickory_net::h2::H2ClientStream;
 #[cfg(feature = "__h3")]
 use hickory_net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
@@ -537,7 +537,7 @@ async fn https<P: RuntimeProvider>(
     config.alpn_protocols.push(alpn);
     let config = Arc::new(config);
 
-    let sender = HttpsClientStream::builder(config, provider)
+    let sender = H2ClientStream::builder(config, provider)
         .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
         .await?;
     let (client, bg) = Client::<P>::from_sender(sender);

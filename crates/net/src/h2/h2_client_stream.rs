@@ -35,19 +35,19 @@ use crate::xfer::{CONNECT_TIMEOUT, DnsExchange, DnsRequestSender, DnsResponseStr
 /// A DNS client connection for DNS-over-HTTPS
 #[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
-pub struct HttpsClientStream {
+pub struct H2ClientStream {
     context: Arc<RequestContext>,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
 }
 
-impl HttpsClientStream {
-    /// Constructs a new HttpsClientStreamBuilder with the associated ClientConfig
+impl H2ClientStream {
+    /// Constructs a new H2ClientStreamBuilder with the associated ClientConfig
     pub fn builder<P: RuntimeProvider>(
         client_config: Arc<ClientConfig>,
         provider: P,
-    ) -> HttpsClientStreamBuilder<P> {
-        HttpsClientStreamBuilder {
+    ) -> H2ClientStreamBuilder<P> {
+        H2ClientStreamBuilder {
             provider,
             client_config,
             bind_addr: None,
@@ -57,7 +57,7 @@ impl HttpsClientStream {
     }
 }
 
-impl DnsRequestSender for HttpsClientStream {
+impl DnsRequestSender for H2ClientStream {
     /// See `crate::http::send_message`
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         crate::http::send_message(self, self.is_shutdown, request)
@@ -72,7 +72,7 @@ impl DnsRequestSender for HttpsClientStream {
     }
 }
 
-impl Stream for HttpsClientStream {
+impl Stream for H2ClientStream {
     type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -93,7 +93,7 @@ impl Stream for HttpsClientStream {
 
 /// A HTTPS connection builder for DNS-over-HTTPS
 #[derive(Clone)]
-pub struct HttpsClientStreamBuilder<P> {
+pub struct H2ClientStreamBuilder<P> {
     provider: P,
     client_config: Arc<ClientConfig>,
     bind_addr: Option<SocketAddr>,
@@ -101,7 +101,7 @@ pub struct HttpsClientStreamBuilder<P> {
     connect_timeout: Duration,
 }
 
-impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
+impl<P: RuntimeProvider> H2ClientStreamBuilder<P> {
     /// Sets the address to connect from.
     pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
         self.bind_addr = Some(bind_addr);
@@ -120,7 +120,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         self
     }
 
-    /// Creates a new [`DnsExchange`] wrapping the [`HttpsClientStream`] from this builder
+    /// Creates a new [`DnsExchange`] wrapping the [`H2ClientStream`] from this builder
     pub async fn exchange(
         self,
         name_server: SocketAddr,
@@ -146,7 +146,7 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         name_server: SocketAddr,
         server_name: Arc<str>,
         path: Arc<str>,
-    ) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
+    ) -> impl Future<Output = Result<H2ClientStream, NetError>> + Send + 'static {
         connect(
             self.provider.connect_tcp(name_server, self.bind_addr, None),
             self.client_config,
@@ -168,7 +168,7 @@ pub fn connect(
     query_path: Arc<str>,
     set_headers: Option<Arc<dyn SetHeaders>>,
     connect_timeout: Duration,
-) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
+) -> impl Future<Output = Result<H2ClientStream, NetError>> + Send + 'static {
     // ensure the ALPN protocol is set correctly
     if client_config.alpn_protocols.is_empty() {
         let mut client_cfg = (*client_config).clone();
@@ -216,7 +216,7 @@ pub fn connect(
             }
         });
 
-        Ok(HttpsClientStream {
+        Ok(H2ClientStream {
             h2,
             context,
             is_shutdown: false,
@@ -224,7 +224,7 @@ pub fn connect(
     }
 }
 
-impl HttpSender for HttpsClientStream {
+impl HttpSender for H2ClientStream {
     async fn send_http_request(
         &mut self,
         request: Request<()>,

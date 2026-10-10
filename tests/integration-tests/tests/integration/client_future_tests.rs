@@ -111,7 +111,7 @@ async fn test_query_tcp_ipv6() {
 #[cfg(feature = "__https")]
 async fn test_query_https() {
     use hickory_integration::CLOUDFLARE_V4_TLS;
-    use hickory_net::h2::HttpsClientStream;
+    use hickory_net::h2::H2ClientStream;
     use hickory_net::tls::{alpn, tls_config};
     use rustls::{ClientConfig, RootCertStore};
 
@@ -128,7 +128,7 @@ async fn test_query_https() {
         .with_no_client_auth();
     client_config.alpn_protocols.push(alpn::H2.to_vec());
 
-    let sender = HttpsClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new())
+    let sender = H2ClientStream::builder(Arc::new(client_config), TokioRuntimeProvider::new())
         .build(
             CLOUDFLARE_V4_TLS,
             Arc::from("cloudflare-dns.com"),

@@ -14,8 +14,6 @@ use std::pin::Pin;
 #[cfg(any(feature = "__tls", feature = "__https"))]
 use std::sync::Arc;
 
-#[cfg(feature = "__https")]
-use hickory_net::h2::HttpsClientStream;
 #[cfg(feature = "__tls")]
 use rustls::DigitallySignedStruct;
 #[cfg(feature = "__tls")]
@@ -27,6 +25,8 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 #[cfg(not(feature = "__tls"))]
 use tracing::warn;
 
+#[cfg(feature = "__https")]
+use crate::net::h2::H2ClientStream;
 #[cfg(feature = "__h3")]
 use crate::net::h3::H3ClientStream;
 #[cfg(feature = "__quic")]
@@ -128,9 +128,8 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             }
             #[cfg(feature = "__https")]
             (ProtocolConfig::Https { server_name, path }, _) => {
-                let mut builder =
-                    HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
-                        .connect_timeout(cx.options.connect_timeout);
+                let mut builder = H2ClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
+                    .connect_timeout(cx.options.connect_timeout);
                 if let Some(bind_addr) = config.bind_addr {
                     builder.bind_addr(bind_addr);
                 }

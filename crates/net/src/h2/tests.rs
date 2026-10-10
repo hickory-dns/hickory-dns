@@ -50,7 +50,7 @@ async fn test_https_google() {
     client_config.key_log = Arc::new(KeyLogFile::new());
 
     let provider = TokioRuntimeProvider::new();
-    let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
+    let https_builder = H2ClientStream::builder(Arc::new(client_config), provider);
     let connect = https_builder.build(google, Arc::from("dns.google"), Arc::from("/dns-query"));
 
     let mut https = connect.await.expect("https connect failed");
@@ -119,7 +119,7 @@ async fn test_https_google_with_pure_ip_address_server() {
     client_config.key_log = Arc::new(KeyLogFile::new());
 
     let provider = TokioRuntimeProvider::new();
-    let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
+    let https_builder = H2ClientStream::builder(Arc::new(client_config), provider);
     let connect = https_builder.build(
         google,
         Arc::from(google.ip().to_string()),
@@ -191,7 +191,7 @@ async fn test_https_cloudflare() {
 
     let client_config = client_config_h2();
     let provider = TokioRuntimeProvider::new();
-    let https_builder = HttpsClientStream::builder(Arc::new(client_config), provider);
+    let https_builder = H2ClientStream::builder(Arc::new(client_config), provider);
     let connect = https_builder.build(
         cloudflare,
         Arc::from("cloudflare-dns.com"),
