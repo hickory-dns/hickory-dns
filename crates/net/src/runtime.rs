@@ -105,6 +105,14 @@ pub mod iocompat {
             Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
         }
 
+        fn poll_write_vectored(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bufs: &[IoSlice<'_>],
+        ) -> Poll<Result<usize, io::Error>> {
+            Pin::new(&mut self.get_mut().0).poll_write_vectored(cx, bufs)
+        }
+
         fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
             Pin::new(&mut self.get_mut().0).poll_flush(cx)
         }
