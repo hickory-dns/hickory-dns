@@ -20,6 +20,8 @@ use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 #[cfg(feature = "__dnssec")]
+use core::fmt;
+#[cfg(feature = "__dnssec")]
 use core::ops::Range;
 
 #[cfg(feature = "__dnssec")]
@@ -37,14 +39,17 @@ use super::rdata::tsig::{
 use crate::error::{ProtoError, ProtoResult};
 #[cfg(feature = "__dnssec")]
 use crate::op::DnsResponse;
+#[cfg(feature = "__dnssec")]
+use crate::op::Header;
 use crate::op::{Message, OpCode};
 #[cfg(feature = "__dnssec")]
 use crate::rr::Record;
 use crate::rr::{Name, RecordType};
 #[cfg(feature = "__dnssec")]
-use crate::serialize::binary::{BinEncodable, BinEncoder};
+use crate::serialize::binary::{BinEncodable, BinEncoder, EncodedSize};
 
 /// Context for a TSIG response, used to construct a TSIG response signer
+#[derive(Clone, Debug)]
 pub struct TSigResponseContext {
     #[cfg(feature = "__dnssec")]
     request_id: u16,
@@ -160,10 +165,44 @@ impl TSigResponseContext {
             }
         }
     }
+
+    /// Signs the message already encoded in `bytes`, and appends the TSIG record for it.
+    ///
+    /// Returns `None` if the record does not fit within `max_size`, leaving `bytes` as it was.
+    ///
+    /// The MAC covers the message as it stands before the record is appended, so the additional
+    /// count in the header has to be corrected afterwards. A verifier makes the same adjustment in
+    /// reverse: RFC 8945 section 5.4.2 has it strip the TSIG record and decrement the count before
+    /// checking.
+    pub fn sign_and_append(
+        self,
+        bytes: &mut Vec<u8>,
+        max_size: u16,
+        mut header: Header,
+    ) -> Result<Option<Header>, ProtoError> {
+        let signature = self.sign(bytes)?;
+
+        let offset = bytes.len() as u32;
+        let mut encoder = BinEncoder::with_offset(bytes, offset);
+        encoder.set_max_size(max_size);
+        match encoder.emit_iter([signature.as_ref()]) {
+            Ok(_) => {}
+            Err(ProtoError::NotAllRecordsWritten { .. }) => return Ok(None),
+            Err(error) => return Err(error),
+        }
+
+        header.counts.additionals += 1;
+        let mut corrected = Vec::with_capacity(Header::LEN);
+        header.emit(&mut BinEncoder::new(&mut corrected))?;
+        bytes[..Header::LEN].copy_from_slice(&corrected);
+
+        Ok(Some(header))
+    }
 }
 
 /// An enum describing the kind of response we may generate a response TSIG record for.
 #[cfg(feature = "__dnssec")]
+#[derive(Clone)]
 enum TsigResponseKind {
     /// A TSIG response that has a populated MAC produced by the `signer`.
     Signed {
@@ -175,6 +214,14 @@ enum TsigResponseKind {
     BadSignature { signer: TSigner },
     /// An unsigned TSIG response where we were unable to find a `TSigner` with `key_name`.
     UnknownKey { key_name: Name },
+}
+
+#[cfg(feature = "__dnssec")]
+impl fmt::Debug for TsigResponseKind {
+    /// Formats without any of the contents, which include key material.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TsigResponseKind").finish_non_exhaustive()
+    }
 }
 
 /// Struct to pass to a client for it to authenticate requests using TSIG.
