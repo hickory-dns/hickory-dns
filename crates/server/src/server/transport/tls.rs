@@ -23,10 +23,8 @@ use crate::{
         xfer::Protocol,
     },
     server::{
-        ServerContext,
-        request_handler::RequestHandler,
-        timeout_stream::TimeoutStream,
-        utils::{is_unrecoverable_socket_error, reap_tasks},
+        ServerContext, request_handler::RequestHandler, timeout_stream::TimeoutStream,
+        utils::is_unrecoverable_socket_error,
     },
 };
 
@@ -95,48 +93,32 @@ impl<L: DnsTcpListener> Tls<L> {
 }
 
 impl<L: DnsTcpListener> Transport for Tls<L> {
-    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        let mut inner_join_set = JoinSet::new();
-        loop {
-            let Some(result) = cx
-                .shutdown
-                .run_until_cancelled(self.listener.accept(self.handshake_timeout))
-                .await
-            else {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            };
-            let accepted = match result {
-                Ok(accepted) => accepted,
-                Err(error) => {
-                    debug!(%error, "error receiving TLS tcp_stream error");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
-                    }
-                    continue;
-                }
-            };
+    async fn accept<H: RequestHandler>(
+        &mut self,
+        cx: Arc<ServerContext<H>>,
+        tasks: &mut JoinSet<()>,
+    ) -> Result<bool, NetError> {
+        let accepted = match self.listener.accept(self.handshake_timeout).await {
+            Ok(accepted) => accepted,
+            Err(error) => {
+                debug!(%error, protocol = %Protocol::Tls, "error receiving transport input");
+                return Ok(!is_unrecoverable_socket_error(&error));
+            }
+        };
 
-            let cx = cx.clone();
-            inner_join_set.spawn(async move {
-                let src_addr = accepted.src_addr;
-                debug!(%src_addr, protocol = %Protocol::Tls, "starting request processing");
+        let stream_timeout = self.stream_timeout;
+        tasks.spawn(async move {
+            let src_addr = accepted.src_addr;
+            debug!(%src_addr, protocol = %Protocol::Tls, "starting request processing");
 
-                let result = Self::handle(accepted, self.stream_timeout, cx).await;
+            let result = Self::handle(accepted, stream_timeout, cx).await;
 
-                if let Err(error) = result {
-                    warn!(%src_addr, %error, protocol = %Protocol::Tls, "request processing failed");
-                }
-            });
+            if let Err(error) = result {
+                warn!(%src_addr, %error, protocol = %Protocol::Tls, "request processing failed");
+            }
+        });
 
-            reap_tasks(&mut inner_join_set);
-        }
-
-        if !cx.shutdown.is_cancelled() {
-            return Err(NetError::from("unexpected close of socket"));
-        }
-
-        Ok(())
+        Ok(true)
     }
 }
 

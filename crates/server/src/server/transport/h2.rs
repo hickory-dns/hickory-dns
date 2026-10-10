@@ -28,7 +28,7 @@ use crate::{
         ResponseInfo, ServerContext,
         request_handler::RequestHandler,
         response_handler::ResponseHandler,
-        utils::{self, is_unrecoverable_socket_error, reap_tasks},
+        utils::{self, is_unrecoverable_socket_error},
     },
     zone_handler::MessageResponse,
 };
@@ -42,8 +42,8 @@ pub struct H2<L: DnsTcpListener> {
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    dns_hostname: Option<String>,
-    http_endpoint: String,
+    dns_hostname: Option<Arc<str>>,
+    http_endpoint: Arc<str>,
 }
 
 impl<L: DnsTcpListener> H2<L> {
@@ -58,7 +58,7 @@ impl<L: DnsTcpListener> H2<L> {
             idle_timeout: None,
             request_timeout: None,
             dns_hostname: None,
-            http_endpoint: http::DEFAULT_DNS_QUERY_PATH.to_string(),
+            http_endpoint: Arc::from(http::DEFAULT_DNS_QUERY_PATH),
         }
     }
 
@@ -118,7 +118,7 @@ impl<L: DnsTcpListener> H2<L> {
     /// Sets the DNS hostname for this HTTPS server.
     pub fn dns_hostname(self, dns_hostname: String) -> Self {
         Self {
-            dns_hostname: Some(dns_hostname),
+            dns_hostname: Some(dns_hostname.into()),
             ..self
         }
     }
@@ -126,7 +126,7 @@ impl<L: DnsTcpListener> H2<L> {
     /// Optionally sets the DNS hostname for this HTTPS server.
     pub fn maybe_dns_hostname(self, dns_hostname: Option<String>) -> Self {
         Self {
-            dns_hostname,
+            dns_hostname: dns_hostname.map(Arc::from),
             ..self
         }
     }
@@ -134,67 +134,50 @@ impl<L: DnsTcpListener> H2<L> {
     /// Sets the HTTP query endpoint path (defaults to `/dns-query`).
     pub fn http_endpoint(self, http_endpoint: String) -> Self {
         Self {
-            http_endpoint,
+            http_endpoint: http_endpoint.into(),
             ..self
         }
     }
 }
 
 impl<L: DnsTcpListener> Transport for H2<L> {
-    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        let dns_hostname: Option<Arc<str>> = self.dns_hostname.map(|n| n.into());
-        let http_endpoint: Arc<str> = Arc::from(self.http_endpoint);
-        let mut inner_join_set = JoinSet::new();
-        loop {
-            let Some(result) = cx
-                .shutdown
-                .run_until_cancelled(self.listener.accept(self.handshake_timeout))
-                .await
-            else {
-                // A graceful shutdown was initiated. Break out of the loop.
-                break;
-            };
-            let accepted = match result {
-                Ok(accepted) => accepted,
-                Err(error) => {
-                    debug!(%error, "error receiving HTTPS tcp_stream error");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
-                    }
-                    continue;
-                }
-            };
+    async fn accept<H: RequestHandler>(
+        &mut self,
+        cx: Arc<ServerContext<H>>,
+        tasks: &mut JoinSet<()>,
+    ) -> Result<bool, NetError> {
+        let accepted = match self.listener.accept(self.handshake_timeout).await {
+            Ok(accepted) => accepted,
+            Err(error) => {
+                debug!(%error, protocol = %Protocol::Https, "error receiving transport input");
+                return Ok(!is_unrecoverable_socket_error(&error));
+            }
+        };
 
-            let cx = cx.clone();
-            let dns_hostname = dns_hostname.clone();
-            let http_endpoint = http_endpoint.clone();
-            inner_join_set.spawn(async move {
-                let src_addr = accepted.src_addr();
-                debug!(%src_addr, protocol = %Protocol::Https, "starting request processing");
+        let dns_hostname = self.dns_hostname.clone();
+        let http_endpoint = self.http_endpoint.clone();
+        let idle_timeout = self.idle_timeout;
+        let request_timeout = self.request_timeout;
+        tasks.spawn(async move {
+            let src_addr = accepted.src_addr();
+            debug!(%src_addr, protocol = %Protocol::Https, "starting request processing");
 
-                let result = Self::handle(
-                    accepted,
-                    self.idle_timeout,
-                    self.request_timeout,
-                    dns_hostname,
-                    http_endpoint,
-                    cx,
-                )
-                .await;
+            let result = Self::handle(
+                accepted,
+                idle_timeout,
+                request_timeout,
+                dns_hostname,
+                http_endpoint,
+                cx,
+            )
+            .await;
 
-                if let Err(error) = result {
-                    warn!(%src_addr, %error, protocol = %Protocol::Https, "request processing failed");
-                }
-            });
+            if let Err(error) = result {
+                warn!(%src_addr, %error, protocol = %Protocol::Https, "request processing failed");
+            }
+        });
 
-            reap_tasks(&mut inner_join_set);
-        }
-
-        if !cx.shutdown.is_cancelled() {
-            return Err(NetError::from("unexpected close of socket"));
-        }
-
-        Ok(())
+        Ok(true)
     }
 }
 

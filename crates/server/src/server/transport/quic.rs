@@ -18,10 +18,8 @@ use crate::{
     },
     proto::rr::Record,
     server::{
-        ResponseInfo, ServerContext,
-        request_handler::RequestHandler,
-        response_handler::ResponseHandler,
-        utils::{self, reap_tasks},
+        ResponseInfo, ServerContext, request_handler::RequestHandler,
+        response_handler::ResponseHandler, utils,
     },
     zone_handler::MessageResponse,
 };
@@ -116,47 +114,37 @@ impl Quic {
 }
 
 impl Transport for Quic {
-    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        let mut inner_join_set = JoinSet::new();
-        loop {
-            let future = cx
-                .shutdown
-                .run_until_cancelled(self.listener.accept(self.handshake_timeout));
-            let Some(connection_opt) = future.await else {
-                break; // A graceful shutdown was initiated. Break out of the loop.
-            };
-            let Some(connection_result) = connection_opt else {
-                break; // Connection is closed.
-            };
-            let connection = match connection_result {
-                Ok(connection) => connection,
-                Err(error) => {
-                    debug!(%error, "error accepting incoming quic connection");
-                    continue;
-                }
-            };
+    async fn accept<H: RequestHandler>(
+        &mut self,
+        cx: Arc<ServerContext<H>>,
+        tasks: &mut JoinSet<()>,
+    ) -> Result<bool, NetError> {
+        let connection = match self.listener.accept(self.handshake_timeout).await {
+            Some(Ok(connection)) => connection,
+            Some(Err(error)) => {
+                debug!(%error, protocol = %Protocol::Quic, "error receiving transport input");
+                return Ok(true);
+            }
+            None => {
+                // Connection is closed.
+                return Ok(false);
+            }
+        };
 
-            let cx = cx.clone();
-            inner_join_set.spawn(async move {
-                let src_addr = connection.src_addr;
-                debug!(%src_addr, protocol = %Protocol::Quic, "starting request processing");
+        let idle_timeout = self.idle_timeout;
+        let request_timeout = self.request_timeout;
+        tasks.spawn(async move {
+            let src_addr = connection.src_addr;
+            debug!(%src_addr, protocol = %Protocol::Quic, "starting request processing");
 
-                let result =
-                    Self::handle(connection, self.idle_timeout, self.request_timeout, cx).await;
+            let result = Self::handle(connection, idle_timeout, request_timeout, cx).await;
 
-                if let Err(error) = result {
-                    warn!(%src_addr, %error, protocol = %Protocol::Quic, "request processing failed");
-                }
-            });
+            if let Err(error) = result {
+                warn!(%src_addr, %error, protocol = %Protocol::Quic, "request processing failed");
+            }
+        });
 
-            reap_tasks(&mut inner_join_set);
-        }
-
-        if !cx.shutdown.is_cancelled() {
-            return Err(NetError::from("unexpected close of socket"));
-        }
-
-        Ok(())
+        Ok(true)
     }
 }
 

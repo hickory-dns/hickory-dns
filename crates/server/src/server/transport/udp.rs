@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use tokio::task::JoinSet;
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::Transport;
 use crate::{
@@ -20,9 +20,7 @@ use crate::{
     },
     proto::op::SerialMessage,
     server::{
-        ServerContext,
-        request_handler::RequestHandler,
-        utils::{is_unrecoverable_socket_error, reap_tasks},
+        ServerContext, request_handler::RequestHandler, utils::is_unrecoverable_socket_error,
     },
 };
 
@@ -54,51 +52,33 @@ impl<S> Transport for Udp<S>
 where
     S: DnsUdpSocket + 'static,
 {
-    async fn run<H: RequestHandler>(mut self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-        let mut inner_join_set = JoinSet::new();
-        loop {
-            let Some(option) = cx
-                .shutdown
-                .run_until_cancelled(self.listener.receive())
-                .await
-            else {
-                // Graceful shutdown
-                break;
-            };
-            let Some(message_res) = option else {
+    async fn accept<H: RequestHandler>(
+        &mut self,
+        cx: Arc<ServerContext<H>>,
+        tasks: &mut JoinSet<()>,
+    ) -> Result<bool, NetError> {
+        let message = match self.listener.receive().await {
+            Some(Ok(message)) => message,
+            Some(Err(error)) => {
+                debug!(%error, protocol = %Protocol::Udp, "error receiving transport input");
+                return Ok(!is_unrecoverable_socket_error(&error));
+            }
+            None => {
                 // End of stream
-                break;
-            };
+                // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+                return Ok(false);
+            }
+        };
 
-            let message = match message_res {
-                Err(error) => {
-                    warn!(%error, "error receiving message on udp_socket");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
-                    }
-                    continue;
-                }
-                Ok(message) => message,
-            };
+        let src_addr = message.addr();
+        let stream_handle = self.stream_handle.with_remote_addr(src_addr);
+        tasks.spawn(async move {
+            debug!(%src_addr, protocol = %Protocol::Udp, "starting request processing");
 
-            let src_addr = message.addr();
-            let cx = cx.clone();
-            let stream_handle = self.stream_handle.with_remote_addr(src_addr);
-            inner_join_set.spawn(async move {
-                debug!(%src_addr, protocol = %Protocol::Udp, "starting request processing");
+            Self::handle(message, stream_handle, cx).await;
+        });
 
-                Self::handle(message, stream_handle, cx).await;
-            });
-
-            reap_tasks(&mut inner_join_set);
-        }
-
-        if !cx.shutdown.is_cancelled() {
-            // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-            return Err(NetError::from("unexpected close of UDP socket"));
-        }
-
-        Ok(())
+        Ok(true)
     }
 }
 
