@@ -119,8 +119,8 @@ impl Transport for Quic {
         cx: Arc<ServerContext<H>>,
         tasks: &mut JoinSet<()>,
     ) -> Result<bool, NetError> {
-        let connection = match self.listener.accept(self.handshake_timeout).await {
-            Some(Ok(connection)) => connection,
+        let accepted = match self.listener.accept(self.handshake_timeout).await {
+            Some(Ok(accepted)) => accepted,
             Some(Err(error)) => {
                 debug!(%error, protocol = %Protocol::Quic, "error receiving transport input");
                 return Ok(true);
@@ -134,10 +134,10 @@ impl Transport for Quic {
         let idle_timeout = self.idle_timeout;
         let request_timeout = self.request_timeout;
         tasks.spawn(async move {
-            let src_addr = connection.src_addr;
+            let src_addr = accepted.src_addr;
             debug!(%src_addr, protocol = %Protocol::Quic, "starting request processing");
 
-            let result = Self::handle(connection, idle_timeout, request_timeout, cx).await;
+            let result = Self::handle(accepted, idle_timeout, request_timeout, cx).await;
 
             if let Err(error) = result {
                 warn!(%src_addr, %error, protocol = %Protocol::Quic, "request processing failed");
