@@ -13,14 +13,15 @@ use std::sync::Arc;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures_util::{Stream, StreamExt};
-use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
+use http::header::{ACCEPT, CACHE_CONTROL, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{
-    HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, response::Parts, uri,
+    HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri, header, response::Parts,
+    uri,
 };
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::proto::op::{DnsRequest, DnsResponse};
+use crate::proto::op::{DnsRequest, DnsResponse, OpCode};
 use crate::xfer::DnsResponseStream;
 
 pub(crate) struct RequestContext {
@@ -31,7 +32,10 @@ pub(crate) struct RequestContext {
 }
 
 impl RequestContext {
-    /// Create a new Request for an http dns-message request
+    /// Build the request for `method`, along with the body to send with it, if any.
+    ///
+    /// `GET` carries the message in the `dns` query parameter and has no body; `POST` carries
+    /// it as the body, announced by the content headers.
     ///
     /// ```text
     /// RFC 8484              DNS Queries over HTTPS (DoH)          October 2018
@@ -42,29 +46,49 @@ impl RequestContext {
     /// request (as described in Section 6), encoded with base64url
     /// [RFC4648].
     /// ```
-    pub(crate) fn build(&self, message_len: usize) -> Result<Request<()>, NetError> {
+    pub(crate) fn build(
+        &self,
+        method: &Method,
+        message: &Bytes,
+    ) -> Result<(Request<()>, Option<Bytes>), NetError> {
+        let (path_and_query, body) = match method {
+            &Method::GET => (
+                format!(
+                    "{}?dns={}",
+                    self.query_path,
+                    data_encoding::BASE64URL_NOPAD.encode(message)
+                ),
+                None,
+            ),
+            &Method::POST => (self.query_path.to_string(), Some(message.clone())),
+            other => return Err(format!("unsupported method: {other}").into()),
+        };
+
         let mut parts = uri::Parts::default();
-        parts.path_and_query = Some(
-            uri::PathAndQuery::try_from(&*self.query_path)
-                .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
-        );
         parts.scheme = Some(uri::Scheme::HTTPS);
         parts.authority = Some(
             uri::Authority::from_str(&self.server_name)
                 .map_err(|e| NetError::from(format!("invalid authority: {e}")))?,
         );
-
-        let url =
+        parts.path_and_query = Some(
+            uri::PathAndQuery::from_str(&path_and_query)
+                .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
+        );
+        let uri =
             Uri::from_parts(parts).map_err(|e| NetError::from(format!("uri parse error: {e}")))?;
 
         // TODO: add user agent to TypedHeaders
         let mut request = Request::builder()
-            .method("POST")
-            .uri(url)
+            .method(method)
+            .uri(uri)
             .version(self.version.to_http())
-            .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
-            .header(ACCEPT, MIME_APPLICATION_DNS)
-            .header(CONTENT_LENGTH, message_len);
+            .header(ACCEPT, MIME_APPLICATION_DNS);
+
+        if let Some(body) = &body {
+            request = request
+                .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
+                .header(CONTENT_LENGTH, body.len());
+        }
 
         if let Some(headers) = &self.set_headers {
             if let Some(map) = request.headers_mut() {
@@ -72,9 +96,11 @@ impl RequestContext {
             }
         }
 
-        request
+        let request = request
             .body(())
-            .map_err(|e| NetError::from(format!("http stream errored: {e}")))
+            .map_err(|e| NetError::from(format!("invalid DoH request: {e}")))?;
+
+        Ok((request, body))
     }
 }
 
@@ -87,13 +113,15 @@ impl RequestContext {
 pub(crate) trait HttpSender: Clone + Send + 'static {
     /// Send `message`, and return the response head in `Parts` along with the complete response body
     ///
+    /// `body` is `None` for GET requests, which carry the message in the URI instead.
+    ///
     /// Collects the body Bytes rather than handing back a stream. An HTTP/3 connection
     /// shares the same stream for send and recv, so this avoids having to split it there
     /// and simplifies the type signature of this method.
     fn send_http_request(
         &mut self,
         request: Request<()>,
-        message: Bytes,
+        body: Option<Bytes>,
     ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
 
     /// The context describing the DoH server this client is connected to
@@ -167,38 +195,86 @@ pub(crate) fn send_message<T: HttpSender>(
 
     // per the RFC, a zero id allows for the HTTP packet to be cached better
     request.metadata.id = 0;
+    let op_code = request.op_code;
 
     let bytes = match request.to_vec() {
         Ok(bytes) => bytes,
         Err(err) => return NetError::from(err).into(),
     };
 
-    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes))).into()
+    let mut method = Method::POST;
+    if op_code == OpCode::Query {
+        let total_len = data_encoding::BASE64URL_NOPAD.encode_len(bytes.len())
+            + sender.context().query_path.len()
+            + sender.context().server_name.len()
+            + CLIENT_GET_URI_LEN_PADDING;
+        if total_len <= MAX_CLIENT_GET_URI_LEN {
+            method = Method::GET;
+        }
+    };
+
+    Box::pin(send_and_parse(sender.clone(), Bytes::from(bytes), method)).into()
 }
 
-/// Send `message` as a DoH request, and validate and parse the response
+// RFC 7230 section 3.1.1's recommended 8000-octet minimum, halved for headroom
+// against stricter intermediaries (any HTTP proxy or CDN in between client
+// and server)
+const MAX_CLIENT_GET_URI_LEN: usize = 4000;
+const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len()
+
+/// Send `message` as a DoH request using `method`, and validate and parse the response
 pub(crate) async fn send_and_parse<T: HttpSender>(
     mut sender: T,
     message: Bytes,
+    method: Method,
 ) -> Result<DnsResponse, NetError> {
-    // build up the http request
-    let request = sender.context().build(message.remaining())?;
+    let mut try_method = method;
+    let (parts, response_bytes) = loop {
+        // build up the http request
+        let (request, body) = sender.context().build(&try_method, &message)?;
 
-    debug!(
-        method = %request.method(),
-        uri = %request.uri(),
-        headers = ?request.headers(),
-        "sending request"
-    );
+        debug!(
+            method = %request.method(),
+            uri = %request.uri(),
+            headers = ?request.headers(),
+            "sending request"
+        );
 
-    let (parts, response_bytes) = sender.send_http_request(request, message).await?;
+        let (parts, response_bytes) = sender.send_http_request(request, body).await?;
 
-    debug!(status = %parts.status, headers = ?parts.headers, "got response");
+        debug!(status = %parts.status, headers = ?parts.headers, "got response");
+
+        let Some(next_method) = retry_method(&try_method, parts.status) else {
+            break (parts, response_bytes);
+        };
+
+        warn!(
+            method = %try_method,
+            status = %parts.status,
+            retry_method = %next_method,
+            "rejected"
+        );
+        try_method = next_method;
+    };
 
     verify_response(&parts, response_bytes.as_ref())?;
 
     // and finally convert the bytes into a DNS message
     DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+}
+
+/// Returns the method to retry the request with based on the StatusCode received
+///
+/// Returns `None` if the `StatusCode` is not retryable
+///
+/// Currently only `URI_TOO_LONG` is retried, because it is possible that a server or proxy
+/// enforces a shorter uri length than the one we send. It is retried as POST because
+/// any GET query can fit in a POST message
+pub(crate) fn retry_method(method: &Method, status: StatusCode) -> Option<Method> {
+    match (method, status) {
+        (&Method::GET, StatusCode::URI_TOO_LONG) => Some(Method::POST),
+        _ => None,
+    }
 }
 
 /// Verifies that a DoH response carries a DNS message this client can decode
@@ -236,6 +312,85 @@ fn verify_response(parts: &Parts, body: &[u8]) -> Result<(), NetError> {
     Ok(())
 }
 
+/// Given an HTTP request, return a future that will result in the next sequence of bytes.
+///
+/// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
+///   perform a conversion to a Message, only collects all the bytes.
+pub async fn message_from<R, E, B>(
+    http_version: Version,
+    this_server_name: Option<Arc<str>>,
+    this_server_endpoint: Arc<str>,
+    request: Request<R>,
+) -> Result<BytesMut, NetError>
+where
+    R: Stream<Item = Result<B, E>> + 'static + Send + Unpin,
+    E: Into<NetError>,
+    B: Buf,
+{
+    let this_server_name = this_server_name.as_deref();
+    match verify(
+        http_version,
+        this_server_name,
+        &this_server_endpoint,
+        &request,
+    ) {
+        Ok(_) => {
+            debug!(
+                agent = request
+                    .headers()
+                    .get(header::USER_AGENT)
+                    .map(|h| h.to_str().unwrap_or("bad user agent"))
+                    .unwrap_or("unknown user agent"),
+                "verified request"
+            );
+        }
+        Err(err) => return Err(err),
+    }
+
+    match *request.method() {
+        Method::GET => {
+            // Fetch the dns query from the request Uri
+            let query_str = request
+                .uri()
+                .query()
+                .ok_or_else(|| -> NetError { "no query string".into() })?;
+            let mut query = form_urlencoded::parse(query_str.as_bytes());
+            // find() iterates over items until it finds a "dns" key (if any)
+            // it leaves the iterator positioned after the first occurrence
+            let (_, v) = query
+                .by_ref()
+                .find(|(k, _)| k == "dns")
+                .ok_or_else(|| -> NetError { "missing required dns parameter".into() })?;
+
+            // resume the iterator and test if there is any item with the "dns" key
+            if query.any(|(k, _)| k == "dns") {
+                return Err("only one dns parameter is allowed in the query string".into());
+            }
+
+            match data_encoding::BASE64URL_NOPAD.decode(v.as_bytes()) {
+                Ok(decoded_value) => {
+                    if decoded_value.len() > MAX_REQUEST_SIZE {
+                        return Err(NetError::RequestTooLarge);
+                    }
+                    Ok(BytesMut::from(decoded_value.as_slice()))
+                }
+                Err(e) => Err(format!("Error decoding dns parameter: {}", e).into()),
+            }
+        }
+        Method::POST => {
+            // attempt to get the content length
+            let mut content_length = None;
+            if let Some(length) = request.headers().get(CONTENT_LENGTH) {
+                let length = usize::from_str(length.to_str()?)?;
+                debug!(length, "got message length");
+                content_length = Some(length);
+            }
+            fetch_body(request.into_body(), content_length).await
+        }
+        _ => Err(format!("bad method: {}", request.method()).into()),
+    }
+}
+
 /// Verifies the request is well-formed for the name-server and supported protocols
 pub fn verify<T>(
     version: Version,
@@ -268,12 +423,6 @@ pub fn verify<T>(
     }
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => {}
-        _ => return Err("unsupported content type".into()),
-    };
-
-    // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(ACCEPT).map(|v| v.to_str()) {
         Some(Ok(ctype)) => {
             let mut found = false;
@@ -285,6 +434,10 @@ pub fn verify<T>(
                         break;
                     }
                     Some(mime) if mime.trim() == "application/*" => {
+                        found = true;
+                        break;
+                    }
+                    Some(mime) if mime.trim() == "*/*" => {
                         found = true;
                         break;
                     }
@@ -310,16 +463,17 @@ pub fn verify<T>(
         return Err(message.into());
     }
 
-    debug!(
-        "verified request from: {}",
-        request
-            .headers()
-            .get(header::USER_AGENT)
-            .map(|h| h.to_str().unwrap_or("bad user agent"))
-            .unwrap_or("unknown user agent")
-    );
-
-    Ok(())
+    match *request.method() {
+        Method::POST => {
+            // TODO: switch to mime::APPLICATION_DNS when that stabilizes
+            match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
+                Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => Ok(()),
+                _ => Err("unsupported content type".into()),
+            }
+        }
+        Method::GET => Ok(()),
+        _ => Err(format!("unsupported method: {}", request.method()).into()),
+    }
 }
 
 /// Fetch the body of the request from the stream
@@ -385,12 +539,23 @@ pub(crate) fn content_length(headers: &HeaderMap) -> Result<Option<usize>, NetEr
 /// client (HTTP status code 406; see Section 6.5.6 of [RFC7231]), and so
 /// on.
 /// ```
-pub fn response(version: Version, message_len: usize) -> Result<Response<()>, NetError> {
+pub fn response(
+    version: Version,
+    message_len: usize,
+    cache_max_age: Option<u32>,
+) -> Result<Response<()>, NetError> {
     Response::builder()
         .status(StatusCode::OK)
         .version(version.to_http())
         .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
+        .header(
+            CACHE_CONTROL,
+            match cache_max_age {
+                None => "no-store".into(),
+                Some(n) => format!("max-age={n}"),
+            },
+        )
         .body(())
         .map_err(|e| NetError::from(format!("invalid response: {e}")))
 }
@@ -433,6 +598,9 @@ pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
 
 #[cfg(test)]
 mod tests {
+    use core::pin::Pin;
+    use core::task::{Context, Poll};
+
     use bytes::Bytes;
     use futures_util::stream;
     use http::{
@@ -441,6 +609,8 @@ mod tests {
     };
 
     use super::*;
+    use crate::proto::op::Message;
+    use test_support::subscribe;
 
     #[test]
     #[cfg(feature = "__https")]
@@ -452,7 +622,9 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let (request, _) = cx
+            .build(&Method::POST, &query_bytes())
+            .expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -477,7 +649,9 @@ mod tests {
             )]) as Arc<dyn SetHeaders>),
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let (request, _) = cx
+            .build(&Method::POST, &query_bytes())
+            .expect("error converting to http");
         assert!(
             verify(
                 Version::Http2,
@@ -507,7 +681,9 @@ mod tests {
             set_headers: None,
         };
 
-        let request = cx.build(512).expect("error converting to http");
+        let (request, _) = cx
+            .build(&Method::POST, &query_bytes())
+            .expect("error converting to http");
         assert!(
             verify(
                 Version::Http3,
@@ -517,6 +693,106 @@ mod tests {
             )
             .is_ok()
         );
+    }
+
+    #[test]
+    fn retry_method_test() {
+        subscribe();
+        assert_eq!(
+            retry_method(&Method::GET, StatusCode::URI_TOO_LONG),
+            Some(Method::POST)
+        );
+        assert_eq!(retry_method(&Method::POST, StatusCode::URI_TOO_LONG), None);
+        assert_eq!(retry_method(&Method::GET, StatusCode::OK), None);
+        assert_eq!(
+            retry_method(&Method::GET, StatusCode::PAYLOAD_TOO_LARGE),
+            None
+        );
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__https")]
+    async fn test_from_get_h2() {
+        test_from_request(Version::Http2, Method::GET).await
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__h3")]
+    async fn test_from_get_h3() {
+        test_from_request(Version::Http3, Method::GET).await
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__https")]
+    async fn test_from_post_h2() {
+        test_from_request(Version::Http2, Method::POST).await
+    }
+
+    #[tokio::test]
+    #[cfg(feature = "__h3")]
+    async fn test_from_post_h3() {
+        test_from_request(Version::Http3, Method::POST).await
+    }
+
+    async fn test_from_request(version: Version, method: Method) {
+        subscribe();
+        let message = Message::query();
+        let msg_bytes = message.to_vec().unwrap();
+        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes.clone()))]);
+        let cx = RequestContext {
+            version,
+            server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            set_headers: None,
+        };
+        let (request, body) = cx.build(&method, &Bytes::from(msg_bytes)).unwrap();
+        let request = match method {
+            Method::POST => {
+                assert!(body.is_some());
+                request.map(|()| stream)
+            }
+            // the message body should be ignored with GET
+            Method::GET => {
+                assert!(body.is_none());
+                request.map(|()| TestBytesStream(vec![Ok(Bytes::from("bad message"))]))
+            }
+            _ => panic!("unexpected method"),
+        };
+
+        let bytes = message_from(
+            version,
+            Some(Arc::from("ns.example.com")),
+            "/dns-query".into(),
+            request,
+        )
+        .await
+        .unwrap();
+
+        let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
+        assert_eq!(message, msg_from_post);
+    }
+
+    /// A serialized DNS query, for tests that only need a well-formed message to build from
+    fn query_bytes() -> Bytes {
+        let message = Message::query()
+            .to_vec()
+            .expect("failed to serialize query");
+        Bytes::from(message)
+    }
+
+    #[derive(Debug)]
+    struct TestBytesStream(Vec<Result<Bytes, NetError>>);
+
+    impl Stream for TestBytesStream {
+        type Item = Result<Bytes, NetError>;
+
+        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            match self.0.pop() {
+                Some(Ok(bytes)) => Poll::Ready(Some(Ok(bytes))),
+                Some(Err(err)) => Poll::Ready(Some(Err(err))),
+                None => Poll::Ready(None),
+            }
+        }
     }
 
     impl SetHeaders for Vec<(HeaderName, HeaderValue)> {
