@@ -156,6 +156,10 @@ impl Transport for H3 {
             reap_tasks(&mut inner_join_set);
         }
 
+        if !cx.shutdown.is_cancelled() {
+            return Err(NetError::from("unexpected close of socket"));
+        }
+
         Ok(())
     }
 }
