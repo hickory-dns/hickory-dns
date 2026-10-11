@@ -194,19 +194,11 @@ fn no_ds_record_nsec3_opt_out_with_chaff() -> Result<(), Error> {
     Ok(())
 }
 
-/// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3985
-///
-/// `ent.testing.` is an empty non-terminal that only exists because of the insecure delegation to
-/// `no-ds.ent.testing.`, so the opt-out signer does not give it an NSEC3 record (RFC 5155 section
-/// 7.1). The DS NODATA response is then a closest encloser proof for `testing.` with an opt-out
-/// NSEC3 record covering the next closer name, `ent.testing.`. With these names, the chaff puts
-/// `ent.testing.` and `no-ds.ent.testing.` in different spans of the NSEC3 chain, so no record in
-/// the response matches or covers `no-ds.ent.testing.`.
+/// Regression test for https://github.com/hickory-dns/hickory-dns/issues/3985: the opt-out NSEC3
+/// record covers the empty non-terminal `ent.testing.`, not `no-ds.ent.testing.`.
 #[test]
 fn no_ds_record_nsec3_opt_out_below_empty_non_terminal() -> Result<(), Error> {
-    // BIND's insecurity proof also queries `ent.testing. DS`. NSD answers that with only the apex
-    // NSEC3 record, leaving out the opt-out NSEC3 record covering `ent.testing.` that RFC 5155
-    // section 7.2.4 requires, so BIND fails validation when NSD is the peer.
+    // NSD omits the opt-out NSEC3 record from the `ent.testing. DS` response (RFC 5155 § 7.2.4)
     if dns_test::SUBJECT.is_bind() && dns_test::PEER.is_unbound() {
         return Ok(());
     }
