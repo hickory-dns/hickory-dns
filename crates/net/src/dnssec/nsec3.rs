@@ -200,12 +200,13 @@ pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &N
         return false;
     };
 
-    // There is no SOA record to bound the closest encloser proof, so use the parent zone that the
-    // NSEC3 records belong to, as long as they all agree on it.
-    let parent = records
-        .first()
-        .map(|record| &record.zone_name)
-        .filter(|parent| records.iter().all(|record| &record.zone_name == *parent));
+    // No SOA here, so bound the closest encloser proof by the zone of the NSEC3 records.
+    let parent = records.first().and_then(|first| {
+        records
+            .iter()
+            .all(|record| record.zone_name == first.zone_name)
+            .then_some(&first.zone_name)
+    });
 
     let Ok(cx) = Context::new(&query, parent, &records) else {
         return false;
@@ -227,7 +228,6 @@ pub(super) fn verify_nsec3_insecure_delegation(zone: &Name, nsec3s: &[(&Name, &N
         return info.nsec3_data.opt_out();
     }
 
-    // Check for a closest encloser proof with an opt-out record covering the next closer name.
     cx.next_closer_opt_out_proof()
 }
 
@@ -433,16 +433,7 @@ fn validate_nodata_response(
         return cx.proof(Proof::Secure, "DS query covered by opt-out proof");
     }
 
-    // The check above only suffices when the query name is the next closer name. When there is an
-    // empty non-terminal between the closest encloser and the query name, the opt-out NSEC3 record
-    // covers the empty non-terminal instead, and the query name may be neither matched nor covered.
-    //
-    // RFC 5155 § 8.6
-    //
-    //   If there is no such NSEC3 RR, then the validator MUST verify that a
-    //   closest provable encloser proof for QNAME is present in the response,
-    //   and that the NSEC3 RR that covers the "next closer" name has the Opt-
-    //   Out bit set.
+    // RFC 5155 § 8.6: the next closer name may be an empty non-terminal above the query name.
     if query_type == RecordType::DS && cx.next_closer_opt_out_proof() {
         return cx.proof(
             Proof::Secure,
@@ -684,13 +675,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    /// Checks for a closest encloser proof (RFC 5155 7.2.1) where the NSEC3 record covering the
-    /// next closer name has the opt-out flag set.
-    ///
-    /// Per RFC 5155 8.6, this proves there is no DS RRset at the query name when no NSEC3 record
-    /// matches it. The next closer name is an ancestor of the query name, rather than the query
-    /// name itself, when the query name is an insecure delegation below an empty non-terminal that
-    /// has no NSEC3 record of its own, as permitted by RFC 5155 7.1.
+    /// Checks for a closest encloser proof whose next closer name is covered by an opt-out record.
     fn next_closer_opt_out_proof(&'a self) -> bool {
         self.closest_encloser_proof()
             .next_closer
@@ -1706,10 +1691,6 @@ mod tests {
         Ok(())
     }
 
-    // RFC 5155 §8.6: when no NSEC3 matches QNAME, the absence of DS is proven by a closest encloser
-    // proof whose next closer name is covered by an opt-out NSEC3. The next closer name is an
-    // ancestor of QNAME when QNAME is an insecure delegation below an empty non-terminal that has
-    // no NSEC3 of its own, which RFC 5155 §7.1 allows.
     #[test]
     fn nsec3_ds_no_data_opt_out_next_closer() -> Result<(), ProtoError> {
         subscribe();
@@ -1728,7 +1709,7 @@ mod tests {
             Proof::Secure,
         );
 
-        // The opt-out proof only denies the existence of DS records.
+        // Not a DS query
         assert_eq!(
             verify_nsec3(
                 &Query::new(Name::from_ascii("d.e.example.")?, MX),
@@ -1742,7 +1723,7 @@ mod tests {
             Proof::Bogus,
         );
 
-        // Missing an NSEC3 matching the closest encloser.
+        // No closest encloser match
         assert_eq!(
             verify_nsec3(
                 &Query::new(Name::from_ascii("d.e.example.")?, DS),
@@ -1756,7 +1737,7 @@ mod tests {
             Proof::Bogus,
         );
 
-        // The NSEC3 covering the next closer name does not have the opt-out flag set.
+        // Next closer not covered by opt-out
         let [closest_encloser, next_closer] = opt_out_empty_non_terminal_nsec3s(false);
         assert_eq!(
             verify_nsec3(
@@ -1784,23 +1765,21 @@ mod tests {
             &[closest_encloser.as_ref(), next_closer.as_ref()],
         ));
 
-        // For a delegation one label below the apex, the next closer name is the delegation
-        // itself, which the opt-out NSEC3 covers directly.
+        // Delegation covered directly
         assert!(verify_nsec3_insecure_delegation(
             &Name::from_ascii("e.example.")?,
             &[next_closer.as_ref()],
         ));
 
-        // Missing an NSEC3 matching the closest encloser.
+        // No closest encloser match
         assert!(!verify_nsec3_insecure_delegation(
             &Name::from_ascii("d.e.example.")?,
             &[next_closer.as_ref()],
         ));
 
-        // The NSEC3 records do not agree on the zone they belong to.
+        // NSEC3 records from different zones
         let other_zone = Nsec3Pair(
-            Name::from_ascii("e.example.")?
-                .prepend_label(hash_with_base32("2t7b4g4vsa5smi47k61mv5bv1a22bojr.example"))?,
+            Name::from_ascii("nu74sith5gkbvmv0sco6aqfocnegg16t.e.example.")?,
             next_closer.1.clone(),
         );
         assert!(!verify_nsec3_insecure_delegation(
@@ -1808,7 +1787,7 @@ mod tests {
             &[closest_encloser.as_ref(), other_zone.as_ref()],
         ));
 
-        // The NSEC3 covering the next closer name does not have the opt-out flag set.
+        // Next closer not covered by opt-out
         let [closest_encloser, next_closer] = opt_out_empty_non_terminal_nsec3s(false);
         assert!(!verify_nsec3_insecure_delegation(
             &Name::from_ascii("d.e.example.")?,
@@ -1818,33 +1797,36 @@ mod tests {
         Ok(())
     }
 
-    /// Based on RFC 5155 Appendix A, with an insecure delegation at `d.e.example.`. Opt-out leaves
-    /// both the delegation and the empty non-terminal `e.example.` out of the NSEC3 chain, so a DS
-    /// query for `d.e.example.` is answered with these records. H(d.e.example.) is covered by the
-    /// NSEC3 record at H(a.example.), which is not part of the response.
-    ///
-    /// `next_closer_opt_out` sets the opt-out flag on the record covering the next closer name.
+    /// Closest encloser proof for `d.e.example.`, below the empty non-terminal `e.example.`.
     fn opt_out_empty_non_terminal_nsec3s(next_closer_opt_out: bool) -> [Nsec3Pair; 2] {
+        let nsec3 = |owner: &str, next: &str, opt_out, types: &[RecordType]| {
+            Nsec3Pair(
+                Name::from_ascii(owner).unwrap(),
+                NSEC3::new(
+                    Nsec3HashAlgorithm::SHA1,
+                    opt_out,
+                    12,
+                    KNOWN_SALT.to_vec(),
+                    BASE32_DNSSEC.decode(next.as_bytes()).unwrap(),
+                    types.iter().copied(),
+                ),
+            )
+        };
+
         [
-            // Matches the closest encloser (example.)
-            Nsec3Pair::with_opt_out(
-                Name::from_ascii("example.")
-                    .unwrap()
-                    .prepend_label(hash_with_base32("example"))
-                    .unwrap(),
-                hash("ns1.example."),
-                [MX, DNSKEY, NS, SOA, NSEC3PARAM, RRSIG],
+            // H(example.)
+            nsec3(
+                "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom.example.",
+                "0p9mhaveqvm6t7vbl5lop2u3t2rp3ton",
                 true,
+                &[MX, DNSKEY, NS, SOA, NSEC3PARAM, RRSIG],
             ),
-            // Covers the next closer name (e.example.)
-            Nsec3Pair::with_opt_out(
-                Name::from_ascii("example.")
-                    .unwrap()
-                    .prepend_label(hash_with_base32("2t7b4g4vsa5smi47k61mv5bv1a22bojr.example"))
-                    .unwrap(),
-                hash("ns2.example."),
-                [A, RRSIG],
+            // Covers H(e.example.)
+            nsec3(
+                "nu74sith5gkbvmv0sco6aqfocnegg16t.example.",
+                "nu74sith5gkbvmv0sco6aqfocnegg16v",
                 next_closer_opt_out,
+                &[],
             ),
         ]
     }
@@ -1929,20 +1911,11 @@ mod tests {
             next_name: Vec<u8>,
             rrset: impl IntoIterator<Item = RecordType>,
         ) -> Self {
-            Self::with_opt_out(rr_name, next_name, rrset, false)
-        }
-
-        fn with_opt_out(
-            rr_name: Name,
-            next_name: Vec<u8>,
-            rrset: impl IntoIterator<Item = RecordType>,
-            opt_out: bool,
-        ) -> Self {
             Self(
                 rr_name,
                 NSEC3::new(
                     Nsec3HashAlgorithm::SHA1,
-                    opt_out,
+                    false,
                     12,
                     KNOWN_SALT.to_vec(),
                     next_name,
