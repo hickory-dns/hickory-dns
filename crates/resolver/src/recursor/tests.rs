@@ -599,6 +599,83 @@ async fn cache_negative_responses() -> Result<(), NetError> {
 }
 
 #[tokio::test]
+async fn cached_ns_pool_bailiwick_filtering() -> Result<(), NetError> {
+    subscribe();
+
+    let first_query_name = Name::from_ascii("host.hickory-dns.testing.")?;
+    let second_query_name = Name::from_ascii("sub.hickory-dns.testing.")?;
+    let victim_name = Name::from_ascii("victim.testing.")?;
+    let forged_ip = Ipv4Addr::new(192, 168, 1, 66);
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("testing.testing.")?;
+    let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
+    let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
+
+    let responses = vec![
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
+        MockResponse::new(LEAF_IP, &first_query_name, RecordType::A).a(&first_query_name, LEAF_IP),
+        // The leaf zone's server answers the NS probe for `sub.hickory-dns.testing.` with an
+        // in-zone delegation plus a record it has no authority over.
+        MockResponse::new(LEAF_IP, &second_query_name, RecordType::NS)
+            .ns_answer(&second_query_name, &leaf_ns)
+            .a(&victim_name, forged_ip)
+            .a_glue(&leaf_ns, LEAF_IP),
+    ];
+
+    let provider = MockProvider::new(MockNetworkHandler::new(responses));
+    let recursor = Recursor::with_options(
+        &[ROOT_IP.into()],
+        RecursorOptions {
+            deny_server: Vec::new(), // We use addresses in the default deny filters.
+            ..RecursorOptions::default()
+        },
+        provider.clone(),
+    )?;
+
+    // Populate the name server pool cache for `testing.` and `hickory-dns.testing.`.
+    let response = recursor
+        .resolve(
+            Query::new(first_query_name.clone(), RecordType::A),
+            Instant::now(),
+            false,
+        )
+        .await?;
+    assert_eq!(response.response_code, ResponseCode::NoError);
+
+    // The NS probe for `sub.hickory-dns.testing.` now runs over cached name server pools, and
+    // must still filter the probe response against the `hickory-dns.testing.` bailiwick.
+    let response = recursor
+        .resolve(
+            Query::new(second_query_name.clone(), RecordType::NS),
+            Instant::now(),
+            false,
+        )
+        .await?;
+    assert_eq!(response.response_code, ResponseCode::NoError);
+    assert!(
+        response
+            .all_sections()
+            .all(|record| record.name != victim_name),
+        "out of bailiwick record returned to client: {response:?}"
+    );
+    assert!(
+        response.answers.iter().any(
+            |record| record.record_type() == RecordType::NS && record.name == second_query_name
+        )
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
     subscribe();
 
