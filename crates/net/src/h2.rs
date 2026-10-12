@@ -61,10 +61,38 @@ impl HttpsClientStream {
     }
 }
 
+impl HttpSender for HttpsClientStream {
+    async fn send_http_request(
+        &mut self,
+        request: Request<()>,
+        message: Bytes,
+    ) -> Result<(Parts, BytesMut), NetError> {
+        poll_fn(|cx| self.h2.poll_ready(cx)).await?;
+
+        // Send the request
+        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
+        send_stream.send_data(message, true)?;
+
+        let (parts, body) = response_future.await?.into_parts();
+
+        // get the length of packet
+        let content_length = content_length(&parts.headers)?;
+
+        // read the response body
+        Ok((parts, fetch_body(body, content_length).await?))
+    }
+
+    fn context(&self) -> &RequestContext {
+        &self.context
+    }
+}
+
 impl DnsRequestSender for HttpsClientStream {
-    /// See `crate::http::send_message`
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
-        crate::http::send_message(self, self.is_shutdown, request)
+        if self.is_shutdown {
+            panic!("can not send messages after stream is shutdown")
+        }
+        self.send_request(request)
     }
 
     fn shutdown(&mut self) {
@@ -225,32 +253,6 @@ pub fn connect(
             context,
             is_shutdown: false,
         })
-    }
-}
-
-impl HttpSender for HttpsClientStream {
-    async fn send_http_request(
-        &mut self,
-        request: Request<()>,
-        message: Bytes,
-    ) -> Result<(Parts, BytesMut), NetError> {
-        poll_fn(|cx| self.h2.poll_ready(cx)).await?;
-
-        // Send the request
-        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
-        send_stream.send_data(message, true)?;
-
-        let (parts, body) = response_future.await?.into_parts();
-
-        // get the length of packet
-        let content_length = content_length(&parts.headers)?;
-
-        // read the response body
-        Ok((parts, fetch_body(body, content_length).await?))
-    }
-
-    fn context(&self) -> &RequestContext {
-        &self.context
     }
 }
 

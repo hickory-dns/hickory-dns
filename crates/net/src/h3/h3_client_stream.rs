@@ -93,9 +93,11 @@ impl HttpSender for H3ClientStream {
 }
 
 impl DnsRequestSender for H3ClientStream {
-    /// See `crate::http::send_message`
     fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
-        crate::http::send_message(self, self.is_shutdown, request)
+        if self.is_shutdown {
+            panic!("can not send messages after stream is shutdown")
+        }
+        self.send_request(request)
     }
 
     fn shutdown(&mut self) {
