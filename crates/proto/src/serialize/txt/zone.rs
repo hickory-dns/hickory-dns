@@ -521,4 +521,20 @@ mod tests {
         assert_eq!(rrset.name(), &Name::from_str("www.example.com.").unwrap());
         assert_eq!(rrset.record_type(), RecordType::A);
     }
+
+    #[test]
+    fn empty_txt_record_is_rejected() {
+        let domain = Name::from_str("example.com.").unwrap();
+
+        let zone_data = r#"$ORIGIN example.com.
+empty 300 IN TXT
+"#;
+
+        let result = Parser::new(zone_data, None, Some(domain)).parse();
+
+        assert!(
+            result.is_err(),
+            "an empty TXT record should be rejected: {result:#?}"
+        );
+    }
 }
