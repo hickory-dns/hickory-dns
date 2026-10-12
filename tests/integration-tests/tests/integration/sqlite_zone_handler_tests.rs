@@ -24,7 +24,7 @@ use hickory_proto::rr::rdata::tsig::{TsigAlgorithm, TsigError};
 use hickory_proto::rr::rdata::{A, AAAA, NS, TXT};
 use hickory_proto::rr::{DNSClass, LowerName, Name, RData, Record, RecordType};
 #[cfg(feature = "__dnssec")]
-use hickory_proto::serialize::binary::{BinEncodable, BinEncoder};
+use hickory_proto::serialize::binary::BinEncodable;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::server::Request;
@@ -860,25 +860,10 @@ async fn test_update_tsig_valid() {
         Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
     response_header.response_code = ResponseCode::NoError;
     let mut response = response.build_no_records(response_header);
+    response.set_signer(resp_signer);
 
-    // Serialize the unsigned response to get the TBS bytes to sign with the signer.
-    let mut tbs_response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-    let mut response_header =
-        Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
-    response_header.response_code = ResponseCode::NoError;
-    let tbs_response = MessageResponseBuilder::new(&request.queries, Some(&edns))
-        .build_no_records(response_header);
-    tbs_response.destructive_emit(&mut encoder).unwrap();
-
-    // Update the response with the produced signature.
-    let resp_sig = resp_signer.sign(&tbs_response_buf).unwrap();
-    response.set_signature(resp_sig.clone());
-
-    // Serialize the now-signed response.
-    let mut response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::new(&mut response_buf);
-    response.destructive_emit(&mut encoder).unwrap();
+    // Serialize the response, which signs it.
+    let (_, response_buf) = response.encode(Protocol::Tcp).unwrap();
 
     // We should be able to verify the signature and confirm the signing time is within the
     // validity range based on the fudge factor.
@@ -1058,26 +1043,16 @@ async fn test_update_tsig_invalid_stale_sig() {
         Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
     response_header.response_code = ResponseCode::NotAuth;
     let mut response = response.build_no_records(response_header);
+    response.set_signer(resp_signer);
 
-    // Serialize the unsigned response to get the TBS bytes to sign with the signer.
-    let mut tbs_response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-    let mut response_header =
-        Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
-    response_header.response_code = ResponseCode::NotAuth;
-    let tbs_response =
-        MessageResponseBuilder::new(&request.queries, None).build_no_records(response_header);
-    tbs_response.destructive_emit(&mut encoder).unwrap();
-
-    // Update the response with the produced signature.
-    let resp_sig = resp_signer.sign(&tbs_response_buf).unwrap();
-    let error = resp_sig.data.error;
-    response.set_signature(resp_sig);
-
-    // Serialize the now-signed response.
-    let mut response_buf = Vec::with_capacity(512);
-    let mut encoder = BinEncoder::new(&mut response_buf);
-    response.destructive_emit(&mut encoder).unwrap();
+    // Serialize the response, which signs it.
+    let (_, response_buf) = response.encode(Protocol::Tcp).unwrap();
+    let error = Message::from_vec(&response_buf)
+        .unwrap()
+        .signature
+        .expect("missing TSIG record")
+        .data
+        .error;
 
     // We should be able to verify the signature and confirm the signing time is within the
     // validity range based on the fudge factor.
