@@ -9,7 +9,7 @@ use std::{net::SocketAddr, sync::Arc, task::Context, time::Duration};
 
 use bytes::{Buf, Bytes};
 use h3::server::RequestStream;
-use h3_quinn::BidiStream;
+use h3_quinn::SendStream;
 use rustls::server::ResolvesServerCert;
 use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
@@ -25,7 +25,7 @@ use crate::{
             BodyStream,
             h3_server::{H3Connection, H3Server},
         },
-        http::{self, Version, fetch_body},
+        http::{self, Version},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -33,6 +33,7 @@ use crate::{
     zone_handler::MessageResponse,
 };
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn handle_h3(
     socket: net::UdpSocket,
     handshake_timeout: Option<Duration>,
@@ -40,6 +41,7 @@ pub(super) async fn handle_h3(
     request_timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
+    http_endpoint: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registered h3: {:?}", socket);
@@ -49,6 +51,7 @@ pub(super) async fn handle_h3(
         idle_timeout,
         request_timeout,
         dns_hostname,
+        http_endpoint,
         cx,
     )
     .await
@@ -60,9 +63,11 @@ pub(super) async fn handle_h3_with_server(
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
     dns_hostname: Option<String>,
+    http_endpoint: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let dns_hostname = dns_hostname.map(|n| n.into());
+    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
 
     let mut inner_join_set = JoinSet::new();
     loop {
@@ -103,6 +108,7 @@ pub(super) async fn handle_h3_with_server(
 
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
+        let http_endpoint = http_endpoint.clone();
         inner_join_set.spawn(async move {
             let handshake_future = H3Connection::new(connecting);
             let Ok(connection_result) = optional_timeout(handshake_timeout, handshake_future).await
@@ -126,6 +132,7 @@ pub(super) async fn handle_h3_with_server(
                 idle_timeout,
                 request_timeout,
                 dns_hostname,
+                http_endpoint,
                 cx,
             )
             .await;
@@ -146,7 +153,8 @@ pub(crate) async fn h3_handler(
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    _dns_hostname: Option<Arc<str>>,
+    dns_hostname: Option<Arc<str>>,
+    http_endpoint: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     // TODO: we should make this configurable
@@ -175,39 +183,50 @@ pub(crate) async fn h3_handler(
         };
 
         let cx = cx.clone();
+        let dns_hostname = dns_hostname.clone();
+        let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
-            let mut stream = match request_resolver.resolve_request().await {
-                Ok((_request, stream)) => stream,
+            let (request, stream) = match request_resolver.resolve_request().await {
+                Ok((request, stream)) => (request, stream),
                 Err(error) => {
                     warn!(%error, "error receiving request headers");
                     return;
                 }
             };
 
-            let fetch_future = fetch_body(
-                BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
-                None,
-            );
-            let Ok(request_res) = optional_timeout(request_timeout, fetch_future).await else {
-                return; //Timeout while reading request.
+            debug!("Received request: {:#?}", request);
+
+            let (send, mut recv) = stream.split();
+
+            let body_stream = BodyStream::from(move |cx: &mut Context<'_>| recv.poll_recv_data(cx));
+            let request = request.map(|()| body_stream);
+            let message_future =
+                http::message_from(Version::Http3, dns_hostname, http_endpoint, request);
+            let Ok(result) = optional_timeout(request_timeout, message_future).await else {
+                return; // Timeout while reading request.
             };
-            let request = match request_res {
-                Ok(bytes_mut) => bytes_mut.freeze(),
+            let body = match result {
+                Ok(bytes) => bytes,
                 Err(error) => {
-                    warn!(%error, "error receiving request body");
+                    warn!(%error, %src_addr, "error while handling request");
                     return;
                 }
             };
 
             debug!(
                 %src_addr,
-                bytes = request.remaining(),
-                ?request,
+                bytes = body.remaining(),
+                ?body,
                 "Received request body"
             );
 
-            cx.handle_request(request, src_addr, Protocol::H3, H3ResponseHandle(stream))
-                .await
+            cx.handle_request(
+                body.freeze(),
+                src_addr,
+                Protocol::H3,
+                H3ResponseHandle(send),
+            )
+            .await
         });
 
         max_requests -= 1;
@@ -222,7 +241,7 @@ pub(crate) async fn h3_handler(
     Ok(())
 }
 
-struct H3ResponseHandle(RequestStream<BidiStream<Bytes>, Bytes>);
+struct H3ResponseHandle(RequestStream<SendStream<Bytes>, Bytes>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for H3ResponseHandle {
@@ -239,7 +258,12 @@ impl ResponseHandler for H3ResponseHandle {
     ) -> Result<ResponseInfo, NetError> {
         let (info, bytes) = response.encode(Protocol::H3)?;
         let bytes = Bytes::from(bytes);
-        let response = http::response(Version::Http3, bytes.len())?;
+
+        let cache_max_age = crate::proto::op::Message::from_vec(&bytes)
+            .ok()
+            .and_then(|m| m.cache_ttl());
+
+        let response = http::response(Version::Http3, bytes.len(), cache_max_age)?;
 
         debug!("sending response: {:#?}", response);
         let stream = &mut self.0;

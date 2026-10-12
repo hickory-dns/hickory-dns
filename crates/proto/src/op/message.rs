@@ -528,6 +528,32 @@ impl Message {
 
         Ok(verifier)
     }
+
+    /// Returns the TTL this message may be cached for, if it is cacheable.
+    ///
+    /// The TTL is derived according to DoH RFC 8484 section 5.1 and RFC 2308 section 5
+    /// `None` means the message is non cacheable, because it is a non-query opcode,
+    /// a rcode that is neither NoError nor NXDomain, or is a negative answer with no SOA.
+    pub fn cache_ttl(&self) -> Option<u32> {
+        let OpCode::Query = self.op_code else {
+            return None;
+        };
+        if self.response_code == ResponseCode::NoError {
+            self.answers.iter().map(|r| r.ttl).min().or_else(|| {
+                self.authorities.iter().find_map(|r| match &r.data {
+                    RData::SOA(soa) => Some(r.ttl.min(soa.minimum)),
+                    _ => None,
+                })
+            })
+        } else if self.response_code == ResponseCode::NXDomain {
+            self.authorities.iter().find_map(|r| match &r.data {
+                RData::SOA(soa) => Some(r.ttl.min(soa.minimum)),
+                _ => None,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 impl Deref for Message {
@@ -788,11 +814,11 @@ impl fmt::Display for Message {
 mod tests {
     use super::*;
 
-    use crate::rr::rdata::A;
     #[cfg(feature = "std")]
     use crate::rr::rdata::OPT;
     #[cfg(feature = "std")]
     use crate::rr::rdata::opt::{ClientSubnet, EdnsCode, EdnsOption};
+    use crate::rr::rdata::{A, SOA};
     #[cfg(feature = "__dnssec")]
     use crate::rr::rdata::{TSIG, tsig::TsigAlgorithm};
     use crate::rr::{Name, RData};
@@ -1294,5 +1320,93 @@ mod tests {
             None,
             vec![],
         ))
+    }
+
+    #[test]
+    fn cache_ttl_positive_takes_smallest_answer_ttl() {
+        let mut message = response(ResponseCode::NoError);
+        // The smallest value sits in the middle, so this distinguishes a true minimum
+        // from simply taking the first or last answer.
+        message.answers = vec![answer(300), answer(100), answer(200)];
+
+        assert_eq!(message.cache_ttl(), Some(100));
+    }
+
+    #[test]
+    fn cache_ttl_nodata_falls_back_to_soa_record_ttl() {
+        // NODATA: NoError with an empty answer section. Here the SOA's own TTL is the
+        // lesser of the two values.
+        let mut message = response(ResponseCode::NoError);
+        message.authorities = vec![soa(200, 500)];
+
+        assert_eq!(message.cache_ttl(), Some(200));
+    }
+
+    #[test]
+    fn cache_ttl_nodata_falls_back_to_soa_minimum() {
+        // Same as above with the two SOA values swapped, pinning down that the rule is a
+        // minimum of both fields rather than either one alone.
+        let mut message = response(ResponseCode::NoError);
+        message.authorities = vec![soa(500, 200)];
+
+        assert_eq!(message.cache_ttl(), Some(200));
+    }
+
+    #[test]
+    fn cache_ttl_nxdomain_ignores_answers_and_uses_soa() {
+        // A Name Error may still carry answers: the CNAMEs followed before reaching the
+        // name that does not exist. The response code must win over their TTLs.
+        let mut message = response(ResponseCode::NXDomain);
+        message.answers = vec![answer(900)];
+        message.authorities = vec![soa(300, 600)];
+
+        assert_eq!(message.cache_ttl(), Some(300));
+    }
+
+    #[test]
+    fn cache_ttl_negative_without_soa_is_uncacheable() {
+        let message = response(ResponseCode::NoError);
+
+        assert_eq!(message.cache_ttl(), None);
+    }
+
+    #[test]
+    fn cache_ttl_error_response_is_uncacheable() {
+        // An SOA is present, so this fails if the response code is not checked.
+        let mut message = response(ResponseCode::ServFail);
+        message.authorities = vec![soa(300, 600)];
+
+        assert_eq!(message.cache_ttl(), None);
+    }
+
+    #[test]
+    fn cache_ttl_non_query_opcode_is_uncacheable() {
+        // Answers are present, so this fails if the opcode is not checked. An UPDATE is
+        // neither safe nor idempotent and must never be cached.
+        let mut message = Message::response(0, OpCode::Update);
+        message.answers = vec![answer(100)];
+
+        assert_eq!(message.cache_ttl(), None);
+    }
+
+    /// An answer-section record with the given TTL. The name and address are irrelevant.
+    fn answer(ttl: u32) -> Record {
+        Record::from_rdata(Name::root(), ttl, RData::A(A::new(127, 0, 0, 1)))
+    }
+
+    /// An authority-section SOA whose record TTL and MINIMUM field are set independently,
+    /// so tests can tell which of the two RFC 2308 section 5 takes the minimum of.
+    fn soa(record_ttl: u32, minimum: u32) -> Record {
+        Record::from_rdata(
+            Name::root(),
+            record_ttl,
+            RData::SOA(SOA::new(Name::root(), Name::root(), 1, 0, 0, 0, minimum)),
+        )
+    }
+
+    fn response(response_code: ResponseCode) -> Message {
+        let mut message = Message::response(0, OpCode::Query);
+        message.metadata.response_code = response_code;
+        message
     }
 }

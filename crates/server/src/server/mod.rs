@@ -379,6 +379,7 @@ impl<T: RequestHandler> Server<T> {
     /// * `request_timeout` - timeout for receiving a complete request over a stream
     /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
     #[cfg(feature = "__h3")]
+    #[allow(clippy::too_many_arguments)]
     pub fn register_h3_listener(
         &mut self,
         socket: net::UdpSocket,
@@ -387,6 +388,7 @@ impl<T: RequestHandler> Server<T> {
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
+        http_endpoint: String,
     ) -> io::Result<()> {
         self.join_set.spawn(h3_handler::handle_h3(
             socket,
@@ -395,6 +397,7 @@ impl<T: RequestHandler> Server<T> {
             request_timeout,
             server_cert_resolver,
             dns_hostname,
+            http_endpoint,
             self.context.clone(),
         ));
         Ok(())
@@ -417,6 +420,7 @@ impl<T: RequestHandler> Server<T> {
     /// * `request_timeout` - timeout for receiving a complete request over a stream
     /// * `tls_config` - a customized ServerConfig to use for TLS.
     #[cfg(feature = "__h3")]
+    #[allow(clippy::too_many_arguments)]
     pub fn register_h3_listener_with_tls_config(
         &mut self,
         socket: net::UdpSocket,
@@ -425,6 +429,7 @@ impl<T: RequestHandler> Server<T> {
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
+        http_endpoint: String,
     ) -> Result<(), NetError> {
         self.join_set.spawn(h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
@@ -432,6 +437,7 @@ impl<T: RequestHandler> Server<T> {
             idle_timeout,
             request_timeout,
             dns_hostname,
+            http_endpoint,
             self.context.clone(),
         ));
         Ok(())
@@ -1243,6 +1249,7 @@ mod tests {
                         Some(Duration::from_secs(1)),
                         cert_key,
                         None,
+                        "/dns-query".into(),
                     )
                     .unwrap();
             }
