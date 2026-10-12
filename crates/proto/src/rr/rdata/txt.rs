@@ -63,6 +63,12 @@ impl TXT {
     }
 
     fn new_inner(txt_data: Box<[Box<[u8]>]>) -> Result<Self, ParseError> {
+        if txt_data.is_empty() {
+            return Err(ParseError::Message(
+                "TXT record must contain at least one character-string".into(),
+            ));
+        }
+
         let mut total = 0;
         for part in txt_data.iter() {
             // Each character-string is encoded with a one-octet length prefix.
@@ -189,6 +195,20 @@ mod tests {
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = TXT::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn empty_txt_is_rejected() {
+        assert!(TXT::new(Vec::<Vec<u8>>::new().into_iter()).is_err());
+    }
+
+    #[test]
+    fn empty_character_string_is_allowed() {
+        let txt = TXT::new([Vec::<u8>::new()].into_iter())
+            .expect("one empty character-string should be valid");
+
+        assert_eq!(txt.txt_data.len(), 1);
+        assert!(txt.txt_data[0].is_empty());
     }
 
     #[test]
