@@ -91,6 +91,13 @@ impl TXT {
         tokens: I,
     ) -> Result<Self, ParseError> {
         let txt_data = tokens.map(ToString::to_string).collect::<Vec<_>>();
+
+        if txt_data.is_empty() {
+            return Err(ParseError::Message(
+                "TXT record must contain at least one character-string",
+            ));
+        }
+
         Ok(Self::new(txt_data))
     }
 }
@@ -220,5 +227,18 @@ mod tests {
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = TXT::read_data(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn empty_txt_is_rejected() {
+        assert!(TXT::from_tokens([].into_iter()).is_err());
+    }
+
+    #[test]
+    fn empty_character_string_is_allowed() {
+        let txt = TXT::new(vec![String::new()]);
+
+        assert_eq!(txt.txt_data.len(), 1);
+        assert!(txt.txt_data[0].is_empty());
     }
 }
