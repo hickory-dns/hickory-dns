@@ -21,8 +21,7 @@ fn edns_support() -> Result<(), Error> {
     // BIND replies with NOERROR
     // assert!(_ans.status.is_servfail());
 
-    tshark.wait_for_capture()?;
-
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     let ns_addr = ns.ipv4_addr();

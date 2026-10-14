@@ -326,7 +326,9 @@ fn parse_alpn(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one ALPN code"))?;
 
     let alpns = parse_list::<String>(value)?;
-    Ok(SvcParamValue::Alpn(Alpn(alpns)))
+    Ok(SvcParamValue::Alpn(Alpn(
+        alpns.into_iter().map(|alpn| alpn.into_bytes()).collect(),
+    )))
 }
 
 /// [RFC 9460 SVCB and HTTPS Resource Records, Nov 2023](https://datatracker.ietf.org/doc/html/rfc9460#section-7.1.1)
@@ -373,6 +375,9 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one ipv4 hint"))?;
 
     let hints = parse_list::<A>(value)?;
+    if hints.is_empty() {
+        return Err(DecodeError::SvcParamMissingValue.into());
+    }
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
@@ -388,6 +393,9 @@ fn parse_ipv6_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one ipv6 hint"))?;
 
     let hints = parse_list::<AAAA>(value)?;
+    if hints.is_empty() {
+        return Err(DecodeError::SvcParamMissingValue.into());
+    }
     Ok(SvcParamValue::Ipv6Hint(IpHint(hints)))
 }
 
@@ -1093,7 +1101,7 @@ impl fmt::Display for Mandatory {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct Alpn(pub Vec<String>);
+pub struct Alpn(pub Vec<Vec<u8>>);
 
 impl<'r> BinDecodable<'r> for Alpn {
     /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
@@ -1110,8 +1118,13 @@ impl<'r> BinDecodable<'r> for Alpn {
         let mut alpns = Vec::with_capacity(1);
 
         while decoder.peek().is_some() {
-            let alpn = decoder.read_character_data()?.unverified(/*will rely on string parser*/);
-            let alpn = String::from_utf8(alpn.to_vec())?;
+            let alpn = decoder
+                .read_character_data()?
+                .verify_unwrap(|id| !id.is_empty() && id.len() <= 255)
+                .map_err(|_| {
+                    DecodeError::SvcParamValueInvalid("length of alpn-id is out of bounds")
+                })?;
+            let alpn = alpn.to_vec();
             alpns.push(alpn);
         }
 
@@ -1146,9 +1159,11 @@ impl fmt::Display for Alpn {
     ///   The presentation value SHALL be a comma-separated list
     ///   (Appendix A.1) of one or more "alpn-id"s.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        for alpn in self.0.iter() {
-            // TODO: confirm in the RFC that trailing commas are ok
-            write!(f, "{alpn},")?;
+        for (i, alpn) in self.0.iter().enumerate() {
+            if i > 0 {
+                write!(f, ",")?;
+            }
+            write!(f, "{}", String::from_utf8_lossy(alpn))?;
         }
 
         Ok(())
@@ -1291,6 +1306,10 @@ where
 
         while decoder.peek().is_some() {
             ips.push(T::read(decoder)?)
+        }
+
+        if ips.is_empty() {
+            return Err(DecodeError::SvcParamMissingValue);
         }
 
         Ok(Self(ips))
@@ -1504,7 +1523,7 @@ impl fmt::Display for SVCB {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{borrow::ToOwned, string::ToString};
+    use alloc::string::ToString;
 
     use crate::{rr::rdata::HTTPS, serialize::txt::Parser};
 
@@ -1564,7 +1583,7 @@ mod tests {
             Name::from_utf8(".").unwrap(),
             vec![(
                 SvcParamKey::Alpn,
-                SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec()])),
             )],
         ));
         test_encode_decode(SVCB::new(
@@ -1577,7 +1596,7 @@ mod tests {
                 ),
                 (
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                    SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec()])),
                 ),
             ],
         ));
@@ -1592,7 +1611,7 @@ mod tests {
             vec![
                 (
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                    SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec()])),
                 ),
                 (
                     SvcParamKey::Mandatory,
@@ -1676,7 +1695,7 @@ mod tests {
         let SvcParamValue::Alpn(value) = &param.1 else {
             panic!("expected alpn");
         };
-        assert_eq!(value.0, &["http/1.1", "h2"]);
+        assert_eq!(value.0, &[b"http/1.1".as_slice(), b"h2".as_slice()]);
 
         // ipv4 hint
         let param = params.next().expect("ipv4hint");
@@ -1859,7 +1878,7 @@ mod tests {
                 params: vec![
                     (
                         SvcParamKey::Alpn,
-                        SvcParamValue::Alpn(Alpn(vec!["h2".to_owned(), "h3-19".to_owned()])),
+                        SvcParamValue::Alpn(Alpn(vec![b"h2".to_vec(), b"h3-19".to_vec()])),
                     ),
                     (
                         SvcParamKey::Mandatory,
@@ -1882,7 +1901,7 @@ mod tests {
                 priority: 16,
                 params: vec![(
                     SvcParamKey::Alpn,
-                    SvcParamValue::Alpn(Alpn(vec![r#"f\\oo,bar"#.to_owned(), "h2".to_owned()])),
+                    SvcParamValue::Alpn(Alpn(vec![br#"f\\oo,bar"#.to_vec(), b"h2".to_vec()])),
                 )],
             },
             /*
@@ -1921,6 +1940,24 @@ mod tests {
         let data = [0x00, 0x50, 0x00];
         let mut decoder = BinDecoder::new(&data);
         SvcParamValue::read(SvcParamKey::Port, &mut decoder).unwrap_err();
+    }
+
+    #[test]
+    fn test_ipv4hint_empty() {
+        let err = SvcParamValue::read(
+            SvcParamKey::Ipv4Hint,
+            &mut BinDecoder::new(&0u16.to_be_bytes()),
+        )
+        .unwrap_err();
+        assert!(matches!(err, DecodeError::SvcParamMissingValue));
+
+        let err = Parser::new(". 86400 IN SVCB 1 . ipv4hint=", None, Some(Name::root()))
+            .parse()
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            ParseError::Proto(ProtoError::Decode(DecodeError::SvcParamMissingValue))
+        ));
     }
 
     const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";

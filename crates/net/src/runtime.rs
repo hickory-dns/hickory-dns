@@ -40,7 +40,7 @@ pub mod iocompat {
     use futures_io::{AsyncRead, AsyncWrite};
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
-    /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
+    /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `futures_io::{AsyncRead, AsyncWrite}`
     pub struct AsyncIoTokioAsStd<T: TokioAsyncRead + TokioAsyncWrite>(pub T);
 
     impl<T: TokioAsyncRead + TokioAsyncWrite + Unpin> Unpin for AsyncIoTokioAsStd<T> {}
@@ -80,7 +80,7 @@ pub mod iocompat {
         }
     }
 
-    /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
+    /// Conversion from `futures_io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
     pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
     impl<T: AsyncRead + AsyncWrite + Unpin> Unpin for AsyncIoStdAsTokio<T> {}
@@ -91,7 +91,7 @@ pub mod iocompat {
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
             Pin::new(&mut self.get_mut().0)
-                .poll_read(cx, buf.initialized_mut())
+                .poll_read(cx, buf.initialize_unfilled())
                 .map_ok(|len| buf.advance(len))
         }
     }
@@ -103,6 +103,14 @@ pub mod iocompat {
             buf: &[u8],
         ) -> Poll<Result<usize, io::Error>> {
             Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
+        }
+
+        fn poll_write_vectored(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            bufs: &[IoSlice<'_>],
+        ) -> Poll<Result<usize, io::Error>> {
+            Pin::new(&mut self.get_mut().0).poll_write_vectored(cx, bufs)
         }
 
         fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {

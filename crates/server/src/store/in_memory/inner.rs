@@ -324,13 +324,16 @@ impl InnerInMemory {
     ///
     /// Returns the chain of CNAME record sets followed during the chase.
     /// The terminal (non-CNAME) record, if found, is the last element.
+    /// Also returns the name at which the chase stopped for lack of a
+    /// matching record set; the caller decides whether it is out-of-zone
+    /// or non-existent.
     pub(super) fn chase_cnames(
         &self,
         name: &LowerName,
         first_cname: Arc<RecordSet>,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Vec<Arc<RecordSet>> {
+    ) -> (Vec<Arc<RecordSet>>, Option<LowerName>) {
         /// Safety bound on chain depth to prevent excessive work on
         /// pathological zones.  Cycle detection also terminates loops.
         const MAX_CNAME_DEPTH: usize = 8;
@@ -338,6 +341,7 @@ impl InnerInMemory {
         let mut chain = vec![first_cname];
         let mut seen = HashSet::new();
         seen.insert(name.clone());
+        let mut unresolved = None;
 
         loop {
             if chain.len() >= MAX_CNAME_DEPTH {
@@ -367,12 +371,62 @@ impl InnerInMemory {
                     chain.push(rr_set);
                     break;
                 }
-                // Target not in this zone.
-                None => break,
+                // No record set found; the caller decides what this means.
+                None => {
+                    unresolved = Some(next_name);
+                    break;
+                }
             }
         }
 
-        chain
+        (chain, unresolved)
+    }
+
+    /// Collects the glue records for a delegation's name servers.
+    ///
+    /// Returns `None` if `delegation` is not the NS RRset of a delegation point, either because
+    /// it is not NS records at all or because it is this zone's own apex NS RRset, which has a
+    /// SOA alongside it. A delegation with no glue in the zone gives an empty set.
+    ///
+    /// [RFC 9471 section 3.1](https://www.rfc-editor.org/rfc/rfc9471.html#section-3.1) requires a
+    /// referral to carry all available glue for in-domain name servers, or else set TC. Section
+    /// 3.2 only makes that a MAY for sibling domain name servers, so in-domain glue is collected
+    /// first: if the response has to shed records, the sibling glue is what goes.
+    pub(super) fn glue_search(&self, delegation: &RecordSet) -> Option<Vec<Arc<RecordSet>>> {
+        let delegated = LowerName::from(delegation.name());
+        if delegation.record_type() != RecordType::NS
+            || self
+                .records
+                .contains_key(&RrKey::new(delegated.clone(), RecordType::SOA))
+        {
+            return None;
+        }
+
+        let mut in_domain = vec![];
+        let mut sibling = vec![];
+
+        for record in delegation.records_without_rrsigs() {
+            let RData::NS(ns) = &record.data else {
+                continue;
+            };
+
+            let ns_name = LowerName::from(&ns.0);
+            let glue = match delegated.zone_of(&ns_name) {
+                true => &mut in_domain,
+                false => &mut sibling,
+            };
+
+            // Glue for an in-domain name server sits below the delegation point, so
+            // inner_lookup() would find the delegation again instead of the address records.
+            for record_type in [RecordType::A, RecordType::AAAA] {
+                if let Some(rrset) = self.records.get(&RrKey::new(ns_name.clone(), record_type)) {
+                    glue.push(rrset.clone());
+                }
+            }
+        }
+
+        in_domain.append(&mut sibling);
+        Some(in_domain)
     }
 
     /// Search for additional records to include in the response

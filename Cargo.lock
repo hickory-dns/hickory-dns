@@ -1041,6 +1041,7 @@ dependencies = [
  "tower",
  "tower-http 0.7.1",
  "tracing",
+ "tracing-journald",
  "tracing-subscriber",
  "webpki-roots",
 ]
@@ -1088,7 +1089,6 @@ dependencies = [
  "h3-quinn",
  "hickory-proto",
  "http",
- "idna",
  "ipnet",
  "lru-cache",
  "parking_lot",
@@ -1108,7 +1108,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
- "url",
  "webpki-roots",
 ]
 
@@ -1134,7 +1133,6 @@ dependencies = [
  "time",
  "tinyvec",
  "tracing",
- "url",
  "wasm-bindgen",
 ]
 
@@ -1606,9 +1604,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.189"
+version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
+checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
 name = "libloading"
@@ -3196,6 +3194,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-journald"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d3a81ed245bfb62592b1e2bc153e77656d94ee6a0497683a65a12ccaf2438d0"
+dependencies = [
+ "libc",
+ "tracing-core",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "tracing-log"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3264,7 +3273,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
- "serde_derive",
 ]
 
 [[package]]

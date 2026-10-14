@@ -28,7 +28,6 @@ std = [
     "ring?/std",
     "thiserror/std",
     "tracing/std",
-    "url/std",
 ]
 
 dnssec-aws-lc-rs = ["dep:aws-lc-rs", "aws-lc-rs/aws-lc-sys", "aws-lc-rs/ring-io", "__dnssec"]
@@ -38,7 +37,7 @@ testing = ["std"]
 
 default = ["std"]
 
-serde = ["dep:serde", "std", "url/serde"]
+serde = ["dep:serde", "std"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = []
@@ -68,7 +67,6 @@ thiserror.workspace = true
 time = { workspace = true, optional = true }
 tinyvec = { workspace = true, features = ["alloc", "latest_stable_rust"] }
 tracing = { workspace = true, default-features = false }
-url = { workspace = true }
 wasm-bindgen-crate = { workspace = true, optional = true }
 
 [dev-dependencies]

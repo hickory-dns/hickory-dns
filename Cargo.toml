@@ -37,6 +37,7 @@ test-support.path = "tests/test-support"
 # logging
 tracing = { version = "0.1.30", default-features = false }
 tracing-subscriber = { version = "0.3.10", default-features = false }
+tracing-journald = "0.3.2"
 thiserror = { version = "2", default-features = false }
 
 # metrics
@@ -110,7 +111,6 @@ libc = "0.2"
 lru-cache = "0.1.2"
 moka = "0.12"
 ndk-context = "0.1.1"
-once_cell = { version = "1.20.0", default-features = false }
 prefix-trie = "0.10"
 rand = { version = "0.10.0", default-features = false, features = ["alloc"] }
 rcgen = { version = "0.14", default-features = false, features = ["aws_lc_rs", "pem"] }
@@ -128,7 +128,6 @@ tinyvec = "1.9"
 toml = "1.0.1"
 tower = { version = "0.5", default-features = false }
 tower-http = { version = "0.7", default-features = false }
-url = { version = "2.5.4", default-features = false }
 wasm-bindgen-crate = { version = "0.2.107", package = "wasm-bindgen" }
 
 [patch.crates-io]

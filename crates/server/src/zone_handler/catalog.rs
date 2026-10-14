@@ -835,6 +835,10 @@ async fn build_authoritative_response(
     // NS records, which indicate an authoritative response.
     //
     // On Errors, the transition depends on the type of error.
+    //
+    // `cname_chain_answers` holds CNAMEs to send in the answer section of an
+    // NXDOMAIN response.
+    let mut cname_chain_answers: Option<LookupRecords> = None;
     let answers = match response {
         Ok(records) => {
             response_meta.response_code = ResponseCode::NoError;
@@ -847,6 +851,11 @@ async fn build_authoritative_response(
             response_meta.response_code = rcode;
             message.metadata = response_meta;
             return message;
+        }
+        Err(LookupError::NxDomainWithAnswers(chain)) => {
+            response_meta.response_code = ResponseCode::NXDomain;
+            cname_chain_answers = Some(chain);
+            None
         }
         Err(e) => {
             response_meta.response_code = if e.is_nx_domain() {
@@ -1020,6 +1029,10 @@ async fn build_authoritative_response(
         } else {
             message.answers.extend(lookup_records.iter().cloned());
         }
+    }
+
+    if let Some(cname_chain) = cname_chain_answers {
+        message.answers.extend(cname_chain.iter().cloned());
     }
 
     if let Some(ns_records) = ns {
@@ -1284,7 +1297,7 @@ mod tests {
         op::{MessageType, OpCode, Query},
         rr::{
             Name, RData, Record, RecordSet, RecordType,
-            rdata::{A, SOA},
+            rdata::{A, CNAME, SOA},
         },
     };
     use crate::resolver::lookup::Lookup;
@@ -1404,5 +1417,87 @@ mod tests {
         assert!(message.answers.is_empty());
         assert!(!message.authorities.is_empty());
         assert_eq!(message.authorities[0].record_type(), RecordType::NS);
+    }
+
+    /// Regression test for https://github.com/hickory-dns/hickory-dns/issues/2099
+    ///
+    /// A CNAME chain ending at a non-existent in-zone name must give NXDOMAIN
+    /// (RFC 6604 §3) while keeping the CNAMEs in the answer section.
+    #[tokio::test]
+    async fn test_build_authoritative_response_cname_chain_to_nxdomain() {
+        let origin = Name::from_str("test.").unwrap();
+        let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
+            origin.clone(),
+            ZoneType::Primary,
+            AxfrPolicy::Deny,
+            #[cfg(feature = "__dnssec")]
+            None,
+        );
+
+        handler.upsert_mut(
+            Record::from_rdata(
+                origin.clone(),
+                3600,
+                RData::SOA(SOA::new(
+                    Name::from_str("ns1.outside.edu.").unwrap(),
+                    Name::from_str("root.campus.edu.").unwrap(),
+                    1,
+                    3600,
+                    3600,
+                    3600,
+                    3600,
+                )),
+            ),
+            1,
+        );
+
+        let b_name = Name::from_str("b.test.").unwrap();
+        let e_name = Name::from_str("e.test.").unwrap();
+        let f_name = Name::from_str("f.test.").unwrap();
+
+        // b.test. CNAME e.test.
+        handler.upsert_mut(
+            Record::from_rdata(b_name.clone(), 500, RData::CNAME(CNAME(e_name.clone()))),
+            1,
+        );
+        // e.test. CNAME f.test. -- f.test. does not exist anywhere in the zone.
+        handler.upsert_mut(
+            Record::from_rdata(e_name, 500, RData::CNAME(CNAME(f_name))),
+            1,
+        );
+
+        let metadata = Metadata::new(0, MessageType::Query, OpCode::Query);
+        let query = LowerQuery::from(Query::new(b_name, RecordType::A));
+
+        let response = handler
+            .lookup(query.name(), RecordType::A, None, LookupOptions::default())
+            .await
+            .map_result()
+            .expect("lookup should not be skipped");
+
+        let message = build_authoritative_response(
+            response,
+            &handler,
+            &metadata,
+            LookupOptions::default(),
+            0,
+            &query,
+        )
+        .await;
+
+        assert_eq!(message.metadata.response_code, ResponseCode::NXDomain);
+        assert_eq!(message.answers.len(), 2);
+        assert!(
+            message
+                .answers
+                .iter()
+                .all(|r| r.record_type() == RecordType::CNAME)
+        );
+        assert!(
+            message
+                .authorities
+                .iter()
+                .any(|r| r.record_type() == RecordType::SOA)
+        );
     }
 }

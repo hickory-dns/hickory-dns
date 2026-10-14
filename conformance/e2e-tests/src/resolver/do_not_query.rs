@@ -107,7 +107,7 @@ fn run_test(
     dbg!(&res);
     let ans = res?;
 
-    tshark.wait_for_capture()?;
+    tshark.wait_for_outgoing_packet(client.ipv4_addr())?;
     let captures = tshark.terminate()?;
 
     dbg!(captures.len());

@@ -27,7 +27,7 @@ default = ["sqlite", "resolver", "rustls-platform-verifier"]
 # if enabled, the hickory-dns binary will print ascii-art on start, disable to reduce the binary size
 ascii-art = []
 
-systemd = ["dep:sd-notify"]
+systemd = ["dep:sd-notify", "dep:tracing-journald"]
 blocklist = ["hickory-server/blocklist"]
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
@@ -86,6 +86,7 @@ thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-journald = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["time", "rt", "signal"] }
 tokio-util = { workspace = true, optional = true }
 toml.workspace = true

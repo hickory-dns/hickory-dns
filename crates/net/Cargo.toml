@@ -44,7 +44,7 @@ __dnssec = ["dep:bitflags", "dep:rustls-pki-types", "dep:time", "dep:lru-cache",
 tokio = ["dep:tokio", "tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["tokio"]
 
-serde = ["dep:serde", "url/serde"]
+serde = ["dep:serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/all"]
@@ -68,7 +68,6 @@ h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
 hickory-proto.workspace = true
 http = { workspace = true, optional = true }
-idna.workspace = true
 ipnet.workspace = true
 lru-cache = { workspace = true, optional = true }
 parking_lot = { workspace = true, optional = true }
@@ -87,7 +86,6 @@ tinyvec = { workspace = true, features = ["alloc"] }
 tracing = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["io-util", "macros"], optional = true }
 tokio-rustls = { workspace = true, optional = true, features = ["early-data"] }
-url = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]

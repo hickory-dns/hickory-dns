@@ -16,6 +16,10 @@
 //!       --workers <WORKERS>  Number of runtime workers, defaults to the number of CPU cores
 //!       -q, --quiet              Disable INFO messages, WARN and ERROR will remain
 //!       -d, --debug              Turn on `DEBUG` messages (default is only `INFO`)
+//!           --logging <LOGGING>  Explicitly set target for logging
+//!                                Possible values:
+//!                                  - stdout:  Print formatted logs to standard output
+//!                                  - journal: Send structured logs to systemd journal (requires the `systemd` feature)
 //!       -c, --config <NAME>      Path to configuration file of named server [default: /etc/named.toml]
 //!       -z, --zonedir <DIR>      Path to the root directory for all zone files, see also config toml
 //!       -p, --port <PORT>        Listening port for DNS queries, overrides any value in config file
@@ -28,13 +32,17 @@
 //! ```
 
 use clap::Parser;
+#[cfg(feature = "systemd")]
+use std::{env, io, io::IsTerminal as _};
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
 use tikv_jemallocator::Jemalloc;
 use tokio::runtime;
 use tracing::{Level, info};
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 use hickory_dns::DnsServer;
+#[cfg(feature = "systemd")]
+use hickory_dns::Logging;
 
 /// Main method for running the named server.
 fn main() -> Result<(), String> {
@@ -58,9 +66,23 @@ fn run() -> Result<(), String> {
         _ => Level::INFO,
     };
 
+    #[cfg(feature = "systemd")]
+    let output_layer = match args.logging {
+        Some(Logging::Journal) => journal_layer()?.boxed(),
+        None if env::var_os("JOURNAL_STREAM").is_some_and(|it| !it.is_empty())
+            && !io::stdin().is_terminal() =>
+        {
+            journal_layer()?.boxed()
+        }
+        Some(Logging::Stdout) | None => tracing_subscriber::fmt::layer().boxed(),
+    };
+
+    #[cfg(not(feature = "systemd"))]
+    let output_layer = tracing_subscriber::fmt::layer().boxed();
+
     // Setup tracing for logging based on input
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+        .with(output_layer)
         .with(
             EnvFilter::builder()
                 .with_default_directive(level.into())
@@ -83,6 +105,12 @@ fn run() -> Result<(), String> {
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
     runtime.block_on(args.run())
+}
+
+#[cfg(feature = "systemd")]
+fn journal_layer() -> Result<tracing_journald::Layer, String> {
+    tracing_journald::layer()
+        .map_err(|err| format!("failed to initialize systemd journal logging: {err}"))
 }
 
 #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]

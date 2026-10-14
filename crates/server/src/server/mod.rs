@@ -5,7 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! `Server` component for hosting a domain name servers operations.
+//! `Server` component for hosting domain name server operations.
 
 #[cfg(any(
     feature = "__tls",

@@ -22,12 +22,15 @@
 #![allow(clippy::use_self)]
 
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
-use core::{fmt, str};
+use core::{
+    fmt,
+    net::Ipv6Addr,
+    str::{self, FromStr},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-use url::Url;
 
 use crate::{
     error::ProtoResult,
@@ -105,9 +108,9 @@ impl CAA {
     /// # Arguments
     ///
     /// * `issuer_critical` - indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
-    /// * `url` - Url where issuer errors should be reported
-    pub fn new_iodef(issuer_critical: bool, url: Url) -> Self {
-        let value = url.as_str().as_bytes().to_vec();
+    /// * `url` - URL where issuer errors should be reported
+    pub fn new_iodef(issuer_critical: bool, url: &str) -> Self {
+        let value = url.as_bytes().to_vec();
         Self {
             issuer_critical,
             reserved_flags: 0,
@@ -197,11 +200,11 @@ impl CAA {
     /// Set the value associated with an `iodef` tag.
     ///
     /// This returns an error if the tag is not `iodef`.
-    pub fn set_iodef_value(&mut self, url: &Url) -> ProtoResult<()> {
+    pub fn set_iodef_value(&mut self, url: &str) -> ProtoResult<()> {
         if !self.tag.eq_ignore_ascii_case("iodef") {
             return Err("CAA property tag is not 'iodef'".into());
         }
-        self.value = url.as_str().as_bytes().to_vec();
+        self.value = url.as_bytes().to_vec();
         Ok(())
     }
 
@@ -218,8 +221,9 @@ impl CAA {
 
     /// Get the value of an `iodef` CAA record.
     ///
-    /// This returns an error if the record's tag is not `iodef`, or if the value is an invalid URL.
-    pub fn value_as_iodef(&self) -> ProtoResult<Url> {
+    /// This returns an error if the record's tag is not `iodef`, or if the value is not a valid
+    /// `mailto`, `http` or `https` URL. See [`read_iodef`] for details.
+    pub fn value_as_iodef(&self) -> ProtoResult<String> {
         if !self.tag.eq_ignore_ascii_case("iodef") {
             return Err("CAA property tag is not 'iodef'".into());
         }
@@ -524,11 +528,88 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 ///    report.example.com         CAA 0 iodef "mailto:security@example.com"
 ///    report.example.com         CAA 0 iodef "https://iodef.example.com/"
 /// ```
-pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
+pub fn read_iodef(url: &[u8]) -> ProtoResult<String> {
     let url = str::from_utf8(url)?;
-    let url = Url::parse(url)?;
-    Ok(url)
+    if !url
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || URL_CHARS.contains(&c))
+    {
+        return Err(format!("CAA iodef URL contains disallowed characters: {url}").into());
+    }
+
+    let Some((scheme, rest)) = url.split_once(':') else {
+        return Err("CAA iodef URL is missing a scheme".into());
+    };
+
+    if scheme.eq_ignore_ascii_case("mailto") {
+        for address in rest.split(',') {
+            let Some((local, domain)) = address.rsplit_once('@') else {
+                return Err(format!("invalid address in CAA iodef mailto URL: {address}").into());
+            };
+            if local.is_empty() || domain.is_empty() {
+                return Err(format!("invalid address in CAA iodef mailto URL: {address}").into());
+            }
+        }
+    } else if scheme.eq_ignore_ascii_case("http") || scheme.eq_ignore_ascii_case("https") {
+        let Some(rest) = rest.strip_prefix("//") else {
+            return Err(format!("CAA iodef HTTP URL is missing authority: {rest}").into());
+        };
+
+        let authority = match rest.split_once(['/', '?', '#']) {
+            Some((authority, _)) => authority,
+            None => rest,
+        };
+
+        let host_port = match authority.rsplit_once('@') {
+            Some((_, host_port)) => host_port,
+            None => authority,
+        };
+
+        let (host, port) = match host_port.strip_prefix('[') {
+            Some(literal) => {
+                let Some((address, port)) = literal.split_once(']') else {
+                    return Err("unterminated IPv6 literal in CAA iodef URL".into());
+                };
+                if Ipv6Addr::from_str(address).is_err() {
+                    return Err(format!("invalid IPv6 literal in CAA iodef URL: {address}").into());
+                }
+                match port.strip_prefix(':') {
+                    Some(port) => (address, port),
+                    None => return Err(format!("invalid port in CAA iodef URL: {port}").into()),
+                }
+            }
+            None => {
+                if host_port.contains(['[', ']']) {
+                    return Err(format!("invalid host in CAA iodef URL: {host_port}").into());
+                }
+                match host_port.split_once(':') {
+                    Some((host, port)) => (host, port),
+                    None => (host_port, ""),
+                }
+            }
+        };
+
+        if host.is_empty() {
+            return Err(format!("CAA iodef HTTP URL is missing a host: {url}").into());
+        }
+
+        if !port.is_empty() {
+            for ch in port.chars() {
+                if !ch.is_ascii_digit() {
+                    return Err(format!("invalid port in CAA iodef URL: {port}").into());
+                }
+            }
+        }
+    } else {
+        return Err(format!("unsupported CAA iodef URL scheme: {scheme}").into());
+    }
+
+    Ok(url.to_owned())
 }
+
+const URL_CHARS: &[char] = &[
+    '/', ':', '.', '?', '#', '@', '-', '_', '%', ',', '=', '[', ']',
+];
 
 /// Issuer parameter key-value pairs.
 ///
@@ -851,14 +932,47 @@ mod tests {
 
     #[test]
     fn test_read_iodef() {
-        assert_eq!(
-            read_iodef(b"mailto:security@example.com").unwrap(),
-            Url::parse("mailto:security@example.com").unwrap()
-        );
-        assert_eq!(
-            read_iodef(b"https://iodef.example.com/").unwrap(),
-            Url::parse("https://iodef.example.com/").unwrap()
-        );
+        for valid in [
+            "mailto:security@example.com",
+            "mailto:a@example.com,b@example.org?subject=CAA%20report",
+            "MAILTO:security@example.com",
+            "https://iodef.example.com/",
+            "http://iodef.example.com",
+            "HTTPS://user:pass@iodef.example.com:8443/report?id=1#top",
+            "https://192.0.2.1/",
+            "https://[2001:db8::1]:443/",
+            "https://iodef.example.com:/",
+        ] {
+            assert_eq!(read_iodef(valid.as_bytes()).unwrap(), valid);
+        }
+
+        for invalid in [
+            b"".as_slice(),
+            b"iodef.example.com",
+            b"ftp://iodef.example.com/",
+            b"tel:+1-201-555-0123",
+            b"https:iodef.example.com",
+            b"https://",
+            b"https:///report",
+            b"https://user@:443/",
+            b"https://iodef.example.com:44a/",
+            b"https://[2001:db8::1/",
+            b"https://[not-an-address]/",
+            b"https://[2001:db8::1]x/",
+            b"https://iodef.example]com/",
+            b"https://iodef.example.com/a b",
+            b"https://iodef.example.com/\"",
+            b"https://iodef.ex\xc3\xa4mple.com/",
+            b"https://iodef.example.com/\xff",
+            b"mailto:",
+            b"mailto:?subject=report",
+            b"mailto:security",
+            b"mailto:@example.com",
+            b"mailto:security@",
+            b"mailto:a@example.com,,b@example.org",
+        ] {
+            read_iodef(invalid).unwrap_err();
+        }
     }
 
     fn test_encode_decode(rdata: CAA) {
@@ -917,14 +1031,8 @@ mod tests {
 
     #[test]
     fn test_encode_decode_iodef() {
-        test_encode_decode(CAA::new_iodef(
-            true,
-            Url::parse("https://www.example.com").unwrap(),
-        ));
-        test_encode_decode(CAA::new_iodef(
-            false,
-            Url::parse("mailto:root@example.com").unwrap(),
-        ));
+        test_encode_decode(CAA::new_iodef(true, "https://www.example.com"));
+        test_encode_decode(CAA::new_iodef(false, "mailto:root@example.com"));
         // invalid UTF-8
         test_encode_decode(CAA {
             issuer_critical: false,
@@ -1050,11 +1158,11 @@ mod tests {
             "0 issue \"ca.example.net; policy=ev\""
         );
         assert_eq!(
-            CAA::new_iodef(false, Url::parse("mailto:security@example.com").unwrap()).to_string(),
+            CAA::new_iodef(false, "mailto:security@example.com").to_string(),
             "0 iodef \"mailto:security@example.com\""
         );
         assert_eq!(
-            CAA::new_iodef(false, Url::parse("https://iodef.example.com/").unwrap()).to_string(),
+            CAA::new_iodef(false, "https://iodef.example.com/").to_string(),
             "0 iodef \"https://iodef.example.com/\""
         );
         let unknown = CAA {
