@@ -6,7 +6,6 @@ updates:
     interval: weekly
     time: "13:00"
   open-pull-requests-limit: 10
-  versioning-strategy: increase-if-necessary
   ignore:
   - dependency-name: async-trait
     versions:
