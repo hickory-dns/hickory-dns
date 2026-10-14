@@ -11,7 +11,6 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
-use core::hash::{Hash, Hasher};
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::str::FromStr;
 
@@ -169,11 +168,16 @@ use crate::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Default, Debug, Clone, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[non_exhaustive]
 pub struct OPT {
-    /// List of code and record type tuples
-    pub options: Vec<(EdnsCode, EdnsOption)>,
+    /// List of code and record type tuples, kept sorted.
+    ///
+    /// RFC 6891 section 6.1.2 gives an option's position no significance, so a canonical order
+    /// lets the derived `PartialEq`, `Hash` and `Ord` implementations compare records without
+    /// regard to the order the options were supplied in. The field is private so that the
+    /// ordering cannot be broken from outside this module.
+    options: Vec<(EdnsCode, EdnsOption)>,
 }
 
 impl OPT {
@@ -186,11 +190,19 @@ impl OPT {
     /// # Return value
     ///
     /// The newly created OPT data
-    pub fn new(options: Vec<(EdnsCode, EdnsOption)>) -> Self {
+    pub fn new(mut options: Vec<(EdnsCode, EdnsOption)>) -> Self {
+        options.sort_unstable();
         Self { options }
     }
 
+    /// Returns the options, in canonical order
+    pub fn options(&self) -> &[(EdnsCode, EdnsOption)] {
+        &self.options
+    }
+
     /// Get a single option based on the code
+    ///
+    /// When several options share a code, the one that sorts first is returned.
     pub fn get(&self, code: EdnsCode) -> Option<&EdnsOption> {
         self.options
             .iter()
@@ -207,40 +219,14 @@ impl OPT {
 
     /// Insert a new option, the key is derived from the `EdnsOption`
     pub fn insert(&mut self, option: EdnsOption) {
-        self.options.push(((&option).into(), option));
+        let entry = ((&option).into(), option);
+        let index = self.options.partition_point(|existing| *existing < entry);
+        self.options.insert(index, entry);
     }
 
     /// Removes all options based on the code
     pub fn remove(&mut self, option: EdnsCode) {
         self.options.retain(|(c, _)| *c != option)
-    }
-}
-
-impl PartialEq for OPT {
-    fn eq(&self, other: &Self) -> bool {
-        let matching_elements_count = self
-            .options
-            .iter()
-            .filter(|entry| other.options.contains(entry))
-            .count();
-        matching_elements_count == self.options.len()
-            && matching_elements_count == other.options.len()
-    }
-}
-
-impl Eq for OPT {}
-
-impl Hash for OPT {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut sorted = self.options.clone();
-        sorted.sort();
-        sorted.hash(state);
-    }
-}
-
-impl AsMut<Vec<(EdnsCode, EdnsOption)>> for OPT {
-    fn as_mut(&mut self) -> &mut Vec<(EdnsCode, EdnsOption)> {
-        &mut self.options
     }
 }
 
@@ -1213,5 +1199,78 @@ mod tests {
 
         assert!(options_1 != options_3);
         assert!(hash_1 != hash_3);
+    }
+
+    #[test]
+    fn test_eq_with_duplicate_options() {
+        let repeated = EdnsOption::Unknown(15u16, vec![0x00, 0x06]);
+        let distinct = EdnsOption::Unknown(16u16, vec![0x00, 0x09]);
+
+        // The same option twice.
+        let options_1 = OPT::new(vec![
+            (EdnsCode::Unknown(15u16), repeated.clone()),
+            (EdnsCode::Unknown(15u16), repeated.clone()),
+        ]);
+
+        // That option once, plus a different one. Both lists have two entries, and every entry of
+        // options_1 appears somewhere in options_2, so a membership test reports them as equal.
+        let options_2 = OPT::new(vec![
+            (EdnsCode::Unknown(15u16), repeated),
+            (EdnsCode::Unknown(16u16), distinct),
+        ]);
+
+        assert!(options_1 != options_2);
+        assert!(options_2 != options_1);
+
+        let mut hasher_1 = DefaultHasher::new();
+        options_1.hash(&mut hasher_1);
+        let hash_1 = hasher_1.finish();
+
+        let mut hasher_2 = DefaultHasher::new();
+        options_2.hash(&mut hasher_2);
+        let hash_2 = hasher_2.finish();
+
+        assert!(hash_1 != hash_2);
+    }
+
+    #[test]
+    fn test_ord_agrees_with_eq() {
+        let first = EdnsOption::Unknown(15u16, vec![0x00, 0x06]);
+        let second = EdnsOption::Unknown(16u16, vec![0x00, 0x09]);
+
+        // The same two options, supplied in opposite orders.
+        let forward = OPT::new(vec![
+            (EdnsCode::Unknown(15u16), first.clone()),
+            (EdnsCode::Unknown(16u16), second.clone()),
+        ]);
+        let reverse = OPT::new(vec![
+            (EdnsCode::Unknown(16u16), second),
+            (EdnsCode::Unknown(15u16), first),
+        ]);
+
+        assert_eq!(forward, reverse);
+        assert_eq!(forward.cmp(&reverse), core::cmp::Ordering::Equal);
+
+        let mut hasher_forward = DefaultHasher::new();
+        forward.hash(&mut hasher_forward);
+
+        let mut hasher_reverse = DefaultHasher::new();
+        reverse.hash(&mut hasher_reverse);
+
+        assert_eq!(hasher_forward.finish(), hasher_reverse.finish());
+    }
+
+    #[test]
+    fn test_insert_keeps_options_sorted() {
+        let repeated = EdnsOption::Unknown(15u16, vec![0x00, 0x06]);
+
+        let mut opt = OPT::default();
+        opt.insert(EdnsOption::Unknown(16u16, vec![0x00, 0x09]));
+        opt.insert(repeated.clone());
+        opt.insert(repeated);
+
+        let options: &[(EdnsCode, EdnsOption)] = opt.as_ref();
+        assert_eq!(options.len(), 3);
+        assert!(options.windows(2).all(|pair| pair[0] <= pair[1]));
     }
 }
