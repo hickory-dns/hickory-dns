@@ -1154,9 +1154,12 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
     async fn nsec_records(
         &self,
         name: &LowerName,
+        has_wildcard_match: bool,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
-        self.in_memory.nsec_records(name, lookup_options).await
+        self.in_memory
+            .nsec_records(name, has_wildcard_match, lookup_options)
+            .await
     }
 
     #[cfg(feature = "__dnssec")]
