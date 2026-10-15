@@ -16,7 +16,7 @@ use time::OffsetDateTime;
 
 use super::DnssecDnsHandle;
 use crate::{
-    error::NetError,
+    error::{DnsError, NetError},
     proto::{
         dnssec::{
             DigestType, DnssecSigner, Proof, PublicKeyBuf, SigningKey, TrustAnchors,
@@ -118,6 +118,62 @@ async fn bogus_delegation_with_empty_ds_response() {
 
     let response = lookup_child_a(&handle).await.unwrap();
     assert_eq!(response.answers[0].proof, Proof::Bogus);
+}
+
+/// A failed NS query for the host must not prevent proving an insecure delegation further up.
+#[tokio::test]
+async fn insecure_delegation_with_servfail_for_host_ns() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let www = Name::from_ascii("www.child.example.com.").unwrap();
+    fixture.fail(&www, RecordType::NS, ResponseCode::ServFail);
+    fixture.respond(&child, RecordType::DS, [], []);
+    let (handle, _) = fixture.build();
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Insecure);
+}
+
+/// A failed NS query for the host must still find the secure delegation above it.
+#[tokio::test]
+async fn bogus_delegation_with_servfail_for_host_ns() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Secure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let www = Name::from_ascii("www.child.example.com.").unwrap();
+    fixture.fail(&www, RecordType::NS, ResponseCode::ServFail);
+    fixture.respond(&child, RecordType::DS, [], []);
+    let (handle, queries) = fixture.build();
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Bogus);
+    assert!(queries.count(&child, RecordType::DS) > 0);
+}
+
+/// Failed NS queries up to a signed zone's apex must not hide its secure delegation.
+#[tokio::test]
+async fn bogus_delegation_with_servfail_for_signed_zone_ns() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Secure);
+    for name in [
+        "www.child.example.com.",
+        "child.example.com.",
+        "example.com.",
+    ] {
+        let name = Name::from_ascii(name).unwrap();
+        fixture.fail(&name, RecordType::NS, ResponseCode::ServFail);
+    }
+    let com = Name::from_ascii("com.").unwrap();
+    fixture.respond(&com, RecordType::NS, [ns(&com)], []);
+    let (handle, queries) = fixture.build();
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Bogus);
+    assert!(queries.count(&com, RecordType::DS) > 0);
 }
 
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
@@ -251,6 +307,13 @@ impl MockHandleBuilder {
         message.metadata.response_code = ResponseCode::NoError;
         message.add_answers(answers);
         message.add_authorities(authorities);
+        self.responses
+            .insert((LowerName::from(name), record_type), message);
+    }
+
+    fn fail(&mut self, name: &Name, record_type: RecordType, response_code: ResponseCode) {
+        let mut message = Message::query();
+        message.metadata.response_code = response_code;
         self.responses
             .insert((LowerName::from(name), record_type), message);
     }
@@ -389,6 +452,12 @@ impl DnsHandle for MockHandle {
                 "no canned response for {query}"
             )))));
         };
+
+        if message.metadata.response_code != ResponseCode::NoError {
+            return Box::pin(stream::once(future::err(NetError::from(
+                DnsError::ResponseCode(message.metadata.response_code),
+            ))));
+        }
 
         let mut message = message.clone();
         message.metadata.id = request.metadata.id;
