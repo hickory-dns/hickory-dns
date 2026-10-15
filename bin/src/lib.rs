@@ -317,6 +317,9 @@ impl DnsServer {
 
         let mut catalog = Catalog::new();
         catalog.set_nsid(nsid);
+        if let Some(max_payload) = udp_socket_config.max_payload {
+            catalog.set_max_udp_payload(max_payload);
+        }
 
         if nsid_hostname {
             let hostname =

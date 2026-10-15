@@ -31,7 +31,10 @@ use crate::{
 use crate::{
     net::runtime::Time,
     proto::{
-        op::{Edns, LowerQuery, Message, MessageType, Metadata, OpCode, ResponseCode},
+        op::{
+            DEFAULT_MAX_PAYLOAD_LEN, Edns, LowerQuery, Message, MessageType, Metadata, OpCode,
+            ResponseCode,
+        },
         rr::{
             LowerName, Record, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
@@ -45,9 +48,9 @@ use crate::{
 };
 
 /// Set of zones and zone handlers available to this server.
-#[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
+    max_udp_payload: u16,
     handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
@@ -79,7 +82,7 @@ impl RequestHandler for Catalog {
             let our_version = 0;
             #[cfg(feature = "__dnssec")]
             resp_edns.set_dnssec_ok(req_edns.flags().dnssec_ok);
-            resp_edns.set_max_payload(req_edns.max_payload().max(512));
+            resp_edns.set_max_payload(req_edns.max_payload().min(self.max_udp_payload).max(512));
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
@@ -169,12 +172,19 @@ impl RequestHandler for Catalog {
     }
 }
 
+impl Default for Catalog {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
             nsid_payload: None,
+            max_udp_payload: DEFAULT_MAX_PAYLOAD_LEN,
             #[cfg(feature = "metrics")]
             metrics: CatalogMetrics::default(),
         }
@@ -217,6 +227,24 @@ impl Catalog {
     /// See `set_nsid()` for more information.
     pub fn nsid(&self) -> Option<&NSIDPayload> {
         self.nsid_payload.as_ref()
+    }
+
+    /// Set the maximum size of a UDP response, in bytes
+    ///
+    /// Requestors advertise the largest UDP payload they accept in EDNS. UDP responses are
+    /// limited to the smaller of that value and this one; larger answers are truncated so the
+    /// requestor retries over TCP. Values below 512 are treated as 512.
+    ///
+    /// Defaults to [`DEFAULT_MAX_PAYLOAD_LEN`] (1232), per the 2020 DNS flag day.
+    pub fn set_max_udp_payload(&mut self, max_payload: u16) {
+        self.max_udp_payload = max_payload;
+    }
+
+    /// Return the maximum size of a UDP response, in bytes
+    ///
+    /// See `set_max_udp_payload()` for more information.
+    pub fn max_udp_payload(&self) -> u16 {
+        self.max_udp_payload
     }
 
     /// Update the zone given the Update request.

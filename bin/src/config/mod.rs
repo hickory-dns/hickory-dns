@@ -221,6 +221,13 @@ pub(crate) struct UdpSocketConfig {
     /// Defaults to 1.
     #[cfg(unix)]
     pub(crate) sockets: Option<usize>,
+    /// Maximum size of a UDP response in bytes.
+    ///
+    /// Responses are limited to the smaller of this value and the payload size the requestor
+    /// advertises in EDNS. Larger answers are truncated and the requestor retries over TCP.
+    ///
+    /// Defaults to 1232, per the 2020 DNS flag day.
+    pub(crate) max_payload: Option<u16>,
 }
 
 /// Configuration options for TCP sockets.
