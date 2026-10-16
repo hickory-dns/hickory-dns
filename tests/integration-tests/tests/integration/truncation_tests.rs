@@ -3,7 +3,7 @@ use hickory_net::client::Client;
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::FirstAnswer;
-use hickory_proto::op::{DnsRequest, Edns, Message, Query};
+use hickory_proto::op::{DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_server::Server;
@@ -30,7 +30,7 @@ async fn test_truncation() {
 
     // Create and start the server.
     let mut server = Server::new(new_large_catalog(128));
-    server.register_socket(udp_socket);
+    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
 
     // Create the UDP client.
     let stream = UdpClientStream::builder(nameserver, TokioRuntimeProvider::new()).build();

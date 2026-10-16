@@ -23,7 +23,7 @@ use hickory_proto::{
         DnssecSigner, PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey,
         rdata::DNSKEY,
     },
-    op::{DnsResponse, ResponseCode},
+    op::{DEFAULT_MAX_PAYLOAD_LEN, DnsResponse, ResponseCode},
     rr::{
         DNSClass, Name, RData, Record, RecordType,
         rdata::{A, SOA},
@@ -214,7 +214,7 @@ async fn setup_authoritative_server(
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
 
     (local_addr, server, public_key)
 }
@@ -243,7 +243,7 @@ async fn setup_client_forwarder(
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
 
     // Client setup
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();
