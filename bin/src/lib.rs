@@ -327,6 +327,9 @@ impl DnsServer {
             catalog.set_nsid(Some(payload));
         }
 
+        if udp_receive_buffer_size < 512 {
+            return Err("udp_receive_buffer_size is smaller than 512 bytes".to_owned());
+        }
         catalog.set_responder_payload_size(udp_receive_buffer_size);
 
         // configure our server based on the config_path
