@@ -307,6 +307,7 @@ impl DnsServer {
             http_endpoint,
             deny_networks,
             allow_networks,
+            max_udp_response_payload_size,
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
         } = config;
@@ -317,8 +318,8 @@ impl DnsServer {
 
         let mut catalog = Catalog::new();
         catalog.set_nsid(nsid);
-        if let Some(max_payload) = udp_socket_config.max_payload {
-            catalog.set_max_udp_payload(max_payload);
+        if let Some(max_payload) = max_udp_response_payload_size {
+            catalog.set_max_udp_response_payload_size(max_payload);
         }
 
         if nsid_hostname {

@@ -79,7 +79,7 @@ async fn test_udp_response_bounded_by_configured_max_payload() {
     subscribe();
 
     let mut catalog = new_large_catalog(128);
-    catalog.set_max_udp_payload(4096);
+    catalog.set_max_udp_response_payload_size(4096);
 
     // The full answer fits within the configured limit, so it isn't truncated.
     let result = large_query(catalog, u16::MAX).await;

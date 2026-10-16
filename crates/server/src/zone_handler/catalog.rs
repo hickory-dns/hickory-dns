@@ -50,7 +50,7 @@ use crate::{
 /// Set of zones and zone handlers available to this server.
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
-    max_udp_payload: u16,
+    max_udp_response_payload_size: u16,
     handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
@@ -82,7 +82,12 @@ impl RequestHandler for Catalog {
             let our_version = 0;
             #[cfg(feature = "__dnssec")]
             resp_edns.set_dnssec_ok(req_edns.flags().dnssec_ok);
-            resp_edns.set_max_payload(req_edns.max_payload().min(self.max_udp_payload).max(512));
+            resp_edns.set_max_payload(
+                req_edns
+                    .max_payload()
+                    .min(self.max_udp_response_payload_size)
+                    .max(512),
+            );
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
@@ -184,7 +189,7 @@ impl Catalog {
         Self {
             handlers: HashMap::new(),
             nsid_payload: None,
-            max_udp_payload: DEFAULT_MAX_PAYLOAD_LEN,
+            max_udp_response_payload_size: DEFAULT_MAX_PAYLOAD_LEN,
             #[cfg(feature = "metrics")]
             metrics: CatalogMetrics::default(),
         }
@@ -236,15 +241,15 @@ impl Catalog {
     /// requestor retries over TCP. Values below 512 are treated as 512.
     ///
     /// Defaults to [`DEFAULT_MAX_PAYLOAD_LEN`] (1232), per the 2020 DNS flag day.
-    pub fn set_max_udp_payload(&mut self, max_payload: u16) {
-        self.max_udp_payload = max_payload;
+    pub fn set_max_udp_response_payload_size(&mut self, max_payload: u16) {
+        self.max_udp_response_payload_size = max_payload;
     }
 
     /// Return the maximum size of a UDP response, in bytes
     ///
-    /// See `set_max_udp_payload()` for more information.
-    pub fn max_udp_payload(&self) -> u16 {
-        self.max_udp_payload
+    /// See `set_max_udp_response_payload_size()` for more information.
+    pub fn max_udp_response_payload_size(&self) -> u16 {
+        self.max_udp_response_payload_size
     }
 
     /// Update the zone given the Update request.
