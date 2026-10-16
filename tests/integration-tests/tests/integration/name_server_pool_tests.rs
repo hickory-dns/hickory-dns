@@ -663,7 +663,7 @@ fn test_user_provided_server_order() {
 }
 
 #[test]
-fn test_return_error_from_highest_priority_nameserver() {
+fn test_return_first_terminal_error_after_servfail() {
     subscribe();
 
     let query = Query::new(Name::from_str("www.example.").unwrap(), RecordType::A);
@@ -692,18 +692,19 @@ fn test_return_error_from_highest_priority_nameserver() {
 
     let mut opts = ResolverOpts::default();
     opts.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    opts.num_concurrent_reqs = 1;
     let pool = mock_nameserver_pool(name_servers, None, opts);
 
     let future = pool.send(build_request(query)).first_answer();
     let error = block_on(future).expect_err(
         "DNS query should result in a `ResolveError` since all name servers return error responses",
     );
-    let expected_response_code = ERROR_RESPONSE_CODES.first().unwrap();
+    let expected_response_code = ResponseCode::Refused;
     eprintln!("error is: {error}");
 
     match error {
         NetError::Dns(DnsError::ResponseCode(response_code))
-            if response_code == *expected_response_code => {}
+            if response_code == expected_response_code => {}
         error => {
             panic!("expected error with response code `{expected_response_code:?}`, got {error:#?}")
         }
