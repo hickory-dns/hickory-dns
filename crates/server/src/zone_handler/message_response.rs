@@ -41,6 +41,7 @@ where
     additionals: Additionals,
     signature: Option<Box<Record<TSIG>>>,
     edns: Option<&'q Edns>,
+    requestor_payload_size: Option<u16>,
 }
 
 impl<'q, 'a, A, N, S, D> MessageResponse<'q, 'a, A, N, S, D>
@@ -87,12 +88,9 @@ where
         let mut bytes = Vec::with_capacity(512);
         let mut encoder = BinEncoder::new(&mut bytes);
         encoder.set_max_size(match protocol {
-            Protocol::Udp => match &self.edns {
-                Some(edns) => edns.max_payload(),
-                // No EDNS, so the requestor advertised no buffer and RFC 1035 section 4.2.1
-                // restricts the message to 512 bytes
-                None => 512,
-            },
+            // If the request did not include EDNS, RFC 1035 section 4.2.1 restricts the message to
+            // 512 bytes
+            Protocol::Udp => self.requestor_payload_size.unwrap_or(512),
             _ => u16::MAX,
         });
 
@@ -148,6 +146,7 @@ pub struct MessageResponseBuilder<'q> {
     queries: Option<&'q Queries>,
     signature: Option<Box<Record<TSIG>>>,
     edns: Option<&'q Edns>,
+    requestor_payload_size: Option<u16>,
 }
 
 impl<'q> MessageResponseBuilder<'q> {
@@ -179,7 +178,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// }
     /// ```
     pub fn from_message_request(message: &'q MessageRequest) -> Self {
-        Self::new(&message.queries, None)
+        Self::new(&message.queries, None, Some(message.max_payload()))
     }
 
     /// Constructs a new response builder
@@ -188,11 +187,17 @@ impl<'q> MessageResponseBuilder<'q> {
     ///
     /// * `queries` - queries (from the Request) to associate with the Response
     /// * `edns` - Optional Edns data to associate with the Response
-    pub fn new(queries: &'q Queries, edns: Option<&'q Edns>) -> Self {
+    /// * `requestor_payload_size` - UDP payload size from the request's EDNS pseudo-record
+    pub fn new(
+        queries: &'q Queries,
+        edns: Option<&'q Edns>,
+        requestor_payload_size: Option<u16>,
+    ) -> Self {
         MessageResponseBuilder {
             queries: Some(queries),
             signature: None,
             edns,
+            requestor_payload_size,
         }
     }
 
@@ -206,6 +211,7 @@ impl<'q> MessageResponseBuilder<'q> {
             queries: None,
             signature: None,
             edns,
+            requestor_payload_size: None,
         }
     }
 
@@ -243,6 +249,7 @@ impl<'q> MessageResponseBuilder<'q> {
             additionals: additionals.into_iter(),
             signature: self.signature,
             edns: self.edns,
+            requestor_payload_size: self.requestor_payload_size,
         }
     }
 
@@ -267,6 +274,7 @@ impl<'q> MessageResponseBuilder<'q> {
             additionals: Box::new(None.into_iter()),
             signature: self.signature,
             edns: self.edns,
+            requestor_payload_size: self.requestor_payload_size,
         }
     }
 
@@ -295,6 +303,7 @@ impl<'q> MessageResponseBuilder<'q> {
             additionals: Box::new(None.into_iter()),
             signature: self.signature,
             edns: self.edns,
+            requestor_payload_size: None,
         }
     }
 }
@@ -504,7 +513,7 @@ mod tests {
 
         eprintln!("query: {:?}", *msg.queries);
 
-        MessageResponseBuilder::new(&msg.queries, None)
+        MessageResponseBuilder::new(&msg.queries, None, None)
             .build_no_records(Metadata::response_from_request(&msg.metadata))
             .destructive_emit(&mut encoder)
             .unwrap();
