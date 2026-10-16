@@ -26,7 +26,7 @@ use crate::{
         op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, Query, ResponseCode},
         rr::{
             DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType,
-            rdata::{A, NS, SOA},
+            rdata::{A, CNAME, NS, SOA},
         },
     },
     runtime::TokioRuntimeProvider,
@@ -118,6 +118,63 @@ async fn bogus_delegation_with_empty_ds_response() {
 
     let response = lookup_child_a(&handle).await.unwrap();
     assert_eq!(response.answers[0].proof, Proof::Bogus);
+}
+
+/// Validation must keep the order of the answer section. The recursor orders a CNAME chain so
+/// that it unrolls from the query name (#4013), and clients such as glibc fail the lookup if the
+/// address record comes first.
+///
+/// Regression test for <https://github.com/hickory-dns/hickory-dns/issues/4040>.
+#[tokio::test]
+async fn cname_chain_order_survives_validation() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let parent = Name::from_ascii("example.com.").unwrap();
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let alias = Name::from_ascii("alias.child.example.com.").unwrap();
+    let intermediate = Name::from_ascii("intermediate.child.example.com.").unwrap();
+    let www = Name::from_ascii("www.child.example.com.").unwrap();
+    fixture.respond(&child, RecordType::DS, [], [unsigned_soa(&parent)]);
+    fixture.respond(&alias, RecordType::NS, [], []);
+    fixture.respond(&intermediate, RecordType::NS, [], []);
+    fixture.respond(
+        &alias,
+        RecordType::A,
+        [
+            cname(&alias, &intermediate),
+            cname(&intermediate, &www),
+            a(&www),
+        ],
+        [],
+    );
+    let (handle, _) = fixture.build();
+
+    // Three RRsets, so a hash order keeps the chain by chance one time in six: ask repeatedly.
+    for _ in 0..20 {
+        let response = handle
+            .lookup(
+                Query::query(alias.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            )
+            .first_answer()
+            .await
+            .unwrap();
+
+        let chain = response
+            .answers
+            .iter()
+            .map(|record| (record.name.clone(), record.record_type()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            chain,
+            vec![
+                (alias.clone(), RecordType::CNAME),
+                (intermediate.clone(), RecordType::CNAME),
+                (www.clone(), RecordType::A),
+            ]
+        );
+    }
 }
 
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
@@ -346,6 +403,10 @@ fn ns(name: &Name) -> Record {
             .append_domain(name)
             .unwrap())),
     )
+}
+
+fn cname(name: &Name, target: &Name) -> Record {
+    Record::from_rdata(name.clone(), TTL, RData::CNAME(CNAME(target.clone())))
 }
 
 fn a(name: &Name) -> Record {
