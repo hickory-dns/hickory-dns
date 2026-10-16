@@ -12,7 +12,7 @@ use hickory_net::{
     udp::UdpClientStream,
 };
 use hickory_proto::{
-    op::ResponseCode,
+    op::{DEFAULT_MAX_PAYLOAD_LEN, ResponseCode},
     rr::{
         DNSClass, Name, RData, Record, RecordType,
         rdata::{A, MX, NS, SOA, SRV, TXT},
@@ -384,7 +384,7 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
+    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
 
     // Client setup
     let stream = UdpClientStream::builder(local_addr, TokioRuntimeProvider::new()).build();

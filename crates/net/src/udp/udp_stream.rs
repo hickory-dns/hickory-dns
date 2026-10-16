@@ -23,7 +23,6 @@ use tracing::{debug, trace, warn};
 use crate::error::NetError;
 use crate::proto::op::SerialMessage;
 use crate::runtime::{DnsUdpSocket, RuntimeProvider};
-use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// Trait for UdpSocket
@@ -44,6 +43,7 @@ pub trait UdpSocket: DnsUdpSocket {
 pub struct UdpStream<S: DnsUdpSocket> {
     socket: S,
     outbound_messages: StreamReceiver,
+    receive_buffer: Vec<u8>,
 }
 
 impl<S: DnsUdpSocket> UdpStream<S> {
@@ -68,6 +68,7 @@ impl<S: DnsUdpSocket> UdpStream<S> {
     ///   allow a Hickory-specified port to be used, and setting this option
     ///   will prevent those prompts from being displayed. If os_port_selection
     ///   is true, avoid_local_udp_ports will be ignored.
+    /// * `receive_buffer_size` - size of the receive buffer in bytes
     /// * `provider` - async runtime provider, for I/O and timers
     ///
     /// # Return
@@ -79,6 +80,7 @@ impl<S: DnsUdpSocket> UdpStream<S> {
         bind_addr: Option<SocketAddr>,
         avoid_local_ports: Option<Arc<HashSet<u16>>>,
         os_port_selection: bool,
+        receive_buffer_size: u16,
         provider: impl RuntimeProvider<Udp = S>,
     ) -> (
         BoxFuture<'static, Result<Self, NetError>>,
@@ -97,10 +99,11 @@ impl<S: DnsUdpSocket> UdpStream<S> {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream = Box::pin(async {
+        let stream = Box::pin(async move {
             Ok(Self {
                 socket: next_socket.await?,
                 outbound_messages,
+                receive_buffer: vec![0; usize::from(receive_buffer_size)],
             })
         });
 
@@ -118,33 +121,38 @@ impl<S: DnsUdpSocket> UdpStream<S> {
     ///
     /// * `socket` - an already bound UDP socket
     /// * `remote_addr` - remote side of this connection
+    /// * `receive_buffer_size` - size of the receive buffer in bytes
     ///
     /// # Return
     ///
     /// A tuple of a Stream which will handle sending and receiving messages, and a handle which can
     ///  be used to send messages into the stream.
-    pub fn with_bound(socket: S, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
+    pub fn with_bound(
+        socket: S,
+        remote_addr: SocketAddr,
+        receive_buffer_size: u16,
+    ) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
         let stream = Self {
             socket,
             outbound_messages,
+            receive_buffer: vec![0; usize::from(receive_buffer_size)],
         };
 
         (stream, message_sender)
     }
 
     #[cfg(all(feature = "tokio", feature = "mdns"))]
-    pub(crate) fn from_parts(socket: S, outbound_messages: StreamReceiver) -> Self {
+    pub(crate) fn from_parts(
+        socket: S,
+        outbound_messages: StreamReceiver,
+        receive_buffer_size: u16,
+    ) -> Self {
         Self {
             socket,
             outbound_messages,
+            receive_buffer: vec![0; usize::from(receive_buffer_size)],
         }
-    }
-}
-
-impl<S: DnsUdpSocket> UdpStream<S> {
-    fn pollable_split(&mut self) -> (&mut S, &mut StreamReceiver) {
-        (&mut self.socket, &mut self.outbound_messages)
     }
 }
 
@@ -152,7 +160,11 @@ impl<S: DnsUdpSocket> Stream for UdpStream<S> {
     type Item = Result<SerialMessage, io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let (socket, outbound_messages) = self.pollable_split();
+        let Self {
+            socket,
+            outbound_messages,
+            receive_buffer,
+        } = &mut *self;
         let socket = Pin::new(socket);
         let mut outbound_messages = Pin::new(outbound_messages);
 
@@ -181,11 +193,9 @@ impl<S: DnsUdpSocket> Stream for UdpStream<S> {
         // For QoS, this will only accept one message and output that
         // receive all inbound messages
 
-        // TODO: this should match edns settings
-        let mut buf = [0u8; MAX_RECEIVE_BUFFER_SIZE];
-        let (len, src) = ready!(socket.poll_recv_from(cx, &mut buf))?;
+        let (len, src) = ready!(socket.poll_recv_from(cx, receive_buffer))?;
 
-        let serial_message = SerialMessage::new(buf.iter().take(len).cloned().collect(), src);
+        let serial_message = SerialMessage::new(receive_buffer[..len].to_vec(), src);
         Poll::Ready(Some(Ok(serial_message)))
     }
 }

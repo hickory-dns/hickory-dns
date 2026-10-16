@@ -114,9 +114,12 @@ impl<T: RequestHandler> Server<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket) {
-        self.join_set
-            .spawn(handle_udp(socket, self.context.clone()));
+    pub fn register_socket(&mut self, socket: net::UdpSocket, receive_buffer_size: u16) {
+        self.join_set.spawn(handle_udp(
+            socket,
+            receive_buffer_size,
+            self.context.clone(),
+        ));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -477,14 +480,18 @@ impl<T: RequestHandler> Server<T> {
 
 async fn handle_udp(
     socket: net::UdpSocket,
+    receive_buffer_size: u16,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registering udp: {:?}", socket);
 
     // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
     //   the address used is acquired from the inbound queries
-    let (mut stream, stream_handle) =
-        UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
+    let (mut stream, stream_handle) = UdpStream::with_bound(
+        socket,
+        ([127, 255, 255, 254], 0).into(),
+        receive_buffer_size,
+    );
 
     let mut inner_join_set = JoinSet::new();
     loop {
@@ -1071,6 +1078,7 @@ async fn optional_timeout<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
     use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
@@ -1182,7 +1190,10 @@ mod tests {
         }
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
-            server.register_socket(UdpSocket::bind(self.udp_addr).await.unwrap());
+            server.register_socket(
+                UdpSocket::bind(self.udp_addr).await.unwrap(),
+                DEFAULT_MAX_PAYLOAD_LEN,
+            );
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Some(Duration::from_secs(1)),
