@@ -82,6 +82,7 @@ impl Request {
             protocol: self.protocol,
             metadata: &self.message.metadata,
             query: &self.message.queries,
+            requestor_payload_size: self.edns.as_ref().map(|edns| edns.max_payload()),
         }
     }
 
@@ -122,6 +123,11 @@ pub struct RequestInfo<'a> {
     pub metadata: &'a Metadata,
     /// The query from the request
     pub query: &'a LowerQuery,
+    /// The requestor's UDP payload size
+    ///
+    /// This limits the allowable size of UDP responses. It is determined by the EDNS OPT
+    /// pseudo-record in the request, if present.
+    pub requestor_payload_size: Option<u16>,
 }
 
 impl<'a> RequestInfo<'a> {
@@ -133,17 +139,20 @@ impl<'a> RequestInfo<'a> {
     /// * `protocol` - The protocol used for the request
     /// * `header` - The header from the original request
     /// * `query` - The query from the request, LowerQuery is intended to reduce complexity for lookups in zone handlers
+    /// * `requestor_payload_size` - UDP payload size from the request's EDNS pseudo-record
     pub fn new(
         src: SocketAddr,
         protocol: Protocol,
         metadata: &'a Metadata,
         query: &'a LowerQuery,
+        requestor_payload_size: Option<u16>,
     ) -> Self {
         Self {
             src,
             protocol,
             metadata,
             query,
+            requestor_payload_size,
         }
     }
 }
@@ -218,6 +227,7 @@ mod tests {
             Protocol::Udp,
             &header,
             &lower_query,
+            Some(1232),
         );
         let cloned = origin.clone();
         assert_eq!(origin.metadata, cloned.metadata);

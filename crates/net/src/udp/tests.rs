@@ -10,7 +10,10 @@ use futures_util::stream::StreamExt;
 use tracing::debug;
 
 use crate::NetError;
-use crate::proto::op::{DnsRequest, DnsRequestOptions, DnsResponse, Message, Query, SerialMessage};
+use crate::proto::op::{
+    DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, DnsRequestOptions, DnsResponse, Message, Query,
+    SerialMessage,
+};
 use crate::proto::rr::rdata::NULL;
 use crate::proto::rr::{Name, RData, Record, RecordType};
 use crate::runtime::RuntimeProvider;
@@ -25,6 +28,7 @@ pub(super) async fn next_random_socket_test(provider: impl RuntimeProvider) {
         None,
         None,
         false,
+        DEFAULT_MAX_PAYLOAD_LEN,
         provider,
     );
     drop(stream.await.expect("failed to get next socket address"));
@@ -88,7 +92,8 @@ pub(super) async fn udp_stream_test<P: RuntimeProvider>(server_addr: IpAddr, pro
         .expect("could not create socket"); // some random address...
     println!("bound client socket");
 
-    let (mut stream, mut sender) = UdpStream::with_bound(socket, server_addr);
+    let (mut stream, mut sender) =
+        UdpStream::with_bound(socket, server_addr, DEFAULT_MAX_PAYLOAD_LEN);
 
     for _i in 0..send_recv_times {
         // test once
