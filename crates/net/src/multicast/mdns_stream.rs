@@ -25,7 +25,6 @@ use tracing::{debug, trace};
 use crate::BufDnsStreamHandle;
 use crate::multicast::MdnsQueryType;
 use crate::proto::op::SerialMessage;
-use crate::runtime::TokioRuntimeProvider;
 use crate::udp::UdpStream;
 
 pub(crate) const MDNS_PORT: u16 = 5353;
@@ -46,7 +45,7 @@ pub struct MdnsStream {
     /// Multicast address used for mDNS queries
     multicast_addr: SocketAddr,
     /// This is used for sending and (directly) receiving messages
-    datagram: Option<UdpStream<TokioRuntimeProvider>>,
+    datagram: Option<UdpStream<UdpSocket>>,
     // FIXME: like UdpStream, this Arc is unnecessary, only needed for temp async/await capture below
     /// In one-shot multicast, this will not join the multicast group
     multicast: Option<Arc<UdpSocket>>,
