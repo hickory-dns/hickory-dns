@@ -57,7 +57,8 @@ async fn test_truncation() {
         .expect("query failed");
 
     assert!(result.metadata.truncation);
-    assert_eq!(max_payload, result.max_payload());
+    assert!(result.as_buffer().len() <= max_payload as usize);
+    assert_eq!(result.max_payload(), DEFAULT_MAX_PAYLOAD_LEN);
 
     server.shutdown_gracefully().await.unwrap();
 }

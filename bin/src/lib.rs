@@ -327,6 +327,8 @@ impl DnsServer {
             catalog.set_nsid(Some(payload));
         }
 
+        catalog.set_max_payload_size(DEFAULT_MAX_PAYLOAD_LEN);
+
         // configure our server based on the config_path
         let zone_dir = zonedir.unwrap_or(directory);
         for zone in zones {
