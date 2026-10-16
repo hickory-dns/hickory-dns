@@ -30,7 +30,6 @@ use tracing::warn;
 use tracing::{error, info};
 
 use hickory_server::proto::ProtoError;
-use hickory_server::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::default_tls_server_config;
@@ -310,6 +309,7 @@ impl DnsServer {
             allow_networks,
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
+            udp_receive_buffer_size,
         } = config;
 
         #[cfg(unix)]
@@ -327,7 +327,7 @@ impl DnsServer {
             catalog.set_nsid(Some(payload));
         }
 
-        catalog.set_responder_payload_size(DEFAULT_MAX_PAYLOAD_LEN);
+        catalog.set_responder_payload_size(udp_receive_buffer_size);
 
         // configure our server based on the config_path
         let zone_dir = zonedir.unwrap_or(directory);
@@ -393,7 +393,7 @@ impl DnsServer {
         let listen_port = port.unwrap_or(listen_port);
         match disable_udp {
             true => info!("UDP protocol is disabled"),
-            false => setup.udp(listen_port, DEFAULT_MAX_PAYLOAD_LEN)?,
+            false => setup.udp(listen_port, udp_receive_buffer_size)?,
         }
 
         match disable_tcp {

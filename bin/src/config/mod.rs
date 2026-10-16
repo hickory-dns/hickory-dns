@@ -46,7 +46,9 @@ use crate::dnssec;
 use hickory_net::http::DEFAULT_DNS_QUERY_PATH;
 #[cfg(feature = "__tls")]
 use hickory_net::tls::default_provider;
-use hickory_proto::{ProtoError, rr::Name, serialize::txt::ParseError};
+use hickory_proto::{
+    ProtoError, op::DEFAULT_MAX_PAYLOAD_LEN, rr::Name, serialize::txt::ParseError,
+};
 #[cfg(feature = "recursor")]
 use hickory_resolver::recursor::RecursiveConfig;
 #[cfg(feature = "__dnssec")]
@@ -186,6 +188,9 @@ pub(crate) struct Config {
     /// TCP socket configuration options.
     #[serde(default)]
     pub(crate) tcp_socket: TcpSocketConfig,
+    /// UDP receive buffer size.
+    #[serde(default = "default_udp_receive_buffer_size")]
+    pub(crate) udp_receive_buffer_size: u16,
 }
 
 /// Configuration options for UDP sockets.
@@ -853,4 +858,8 @@ fn default_tls_port() -> u16 {
 #[cfg(feature = "__https")]
 fn default_https_port() -> u16 {
     443
+}
+
+fn default_udp_receive_buffer_size() -> u16 {
+    DEFAULT_MAX_PAYLOAD_LEN
 }
