@@ -922,7 +922,7 @@ async fn error_response_handler(
     };
 
     let response = match queries.as_ref() {
-        Some(queries) => MessageResponseBuilder::new(queries, None),
+        Some(queries) => MessageResponseBuilder::new(queries, None, None),
         None => MessageResponseBuilder::no_queries(None),
     };
 
