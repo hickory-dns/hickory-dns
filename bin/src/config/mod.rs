@@ -180,6 +180,13 @@ pub(crate) struct Config {
     /// Networks allowed to access the server
     #[serde(default)]
     pub(crate) allow_networks: Vec<IpNet>,
+    /// Maximum size of a UDP response payload in bytes.
+    ///
+    /// Responses are limited to the smaller of this value and the payload size the requestor
+    /// advertises in EDNS. Larger answers are truncated and the requestor retries over TCP.
+    ///
+    /// Defaults to 1232, per the 2020 DNS flag day.
+    pub(crate) max_udp_response_payload_size: Option<u16>,
     /// UDP socket configuration options.
     #[serde(default)]
     pub(crate) udp_socket: UdpSocketConfig,
