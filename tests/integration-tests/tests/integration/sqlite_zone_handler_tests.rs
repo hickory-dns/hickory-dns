@@ -855,7 +855,8 @@ async fn test_update_tsig_valid() {
     edns.options_mut().insert(EdnsOption::NSID(
         NSIDPayload::new([0xC0, 0xFF, 0xEE]).unwrap(),
     ));
-    let response = MessageResponseBuilder::new(&request.queries, Some(&edns));
+    let response =
+        MessageResponseBuilder::new(&request.queries, Some(&edns), Some(request.max_payload()));
     let mut response_header =
         Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
     response_header.response_code = ResponseCode::NoError;
@@ -867,8 +868,9 @@ async fn test_update_tsig_valid() {
     let mut response_header =
         Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
     response_header.response_code = ResponseCode::NoError;
-    let tbs_response = MessageResponseBuilder::new(&request.queries, Some(&edns))
-        .build_no_records(response_header);
+    let tbs_response =
+        MessageResponseBuilder::new(&request.queries, Some(&edns), Some(request.max_payload()))
+            .build_no_records(response_header);
     tbs_response.destructive_emit(&mut encoder).unwrap();
 
     // Update the response with the produced signature.
@@ -1053,7 +1055,7 @@ async fn test_update_tsig_invalid_stale_sig() {
     // Build an initial unsigned response for the update.
     // The catalog handles this in normal operation, but we're testing at the level of the
     // SqliteZoneHandler and so have to do this ourselves.
-    let response = MessageResponseBuilder::new(&request.queries, None);
+    let response = MessageResponseBuilder::new(&request.queries, None, Some(request.max_payload()));
     let mut response_header =
         Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
     response_header.response_code = ResponseCode::NotAuth;
@@ -1066,7 +1068,8 @@ async fn test_update_tsig_invalid_stale_sig() {
         Metadata::new(request.metadata.id, MessageType::Response, OpCode::Update);
     response_header.response_code = ResponseCode::NotAuth;
     let tbs_response =
-        MessageResponseBuilder::new(&request.queries, None).build_no_records(response_header);
+        MessageResponseBuilder::new(&request.queries, None, Some(request.max_payload()))
+            .build_no_records(response_header);
     tbs_response.destructive_emit(&mut encoder).unwrap();
 
     // Update the response with the produced signature.
