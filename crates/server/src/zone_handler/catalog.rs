@@ -31,7 +31,10 @@ use crate::{
 use crate::{
     net::runtime::Time,
     proto::{
-        op::{Edns, LowerQuery, Message, MessageType, Metadata, OpCode, ResponseCode},
+        op::{
+            DEFAULT_MAX_PAYLOAD_LEN, Edns, LowerQuery, Message, MessageType, Metadata, OpCode,
+            ResponseCode,
+        },
         rr::{
             LowerName, Record, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
@@ -48,6 +51,11 @@ use crate::{
 #[derive(Default)]
 pub struct Catalog {
     nsid_payload: Option<NSIDPayload>,
+    /// The server's UDP payload size.
+    ///
+    /// This should match the server's receive buffer size. This value will be used in outgoing EDNS
+    /// pseudo-records.
+    max_payload_size: u16,
     handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
@@ -79,7 +87,7 @@ impl RequestHandler for Catalog {
             let our_version = 0;
             #[cfg(feature = "__dnssec")]
             resp_edns.set_dnssec_ok(req_edns.flags().dnssec_ok);
-            resp_edns.set_max_payload(req_edns.max_payload().max(512));
+            resp_edns.set_max_payload(self.max_payload_size);
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
@@ -175,6 +183,7 @@ impl Catalog {
         Self {
             handlers: HashMap::new(),
             nsid_payload: None,
+            max_payload_size: DEFAULT_MAX_PAYLOAD_LEN,
             #[cfg(feature = "metrics")]
             metrics: CatalogMetrics::default(),
         }
@@ -217,6 +226,13 @@ impl Catalog {
     /// See `set_nsid()` for more information.
     pub fn nsid(&self) -> Option<&NSIDPayload> {
         self.nsid_payload.as_ref()
+    }
+
+    /// Sets the server's UDP payload size in outgoing EDNS pseudo-records.
+    ///
+    /// This should match the server's receive buffer size.
+    pub fn set_max_payload_size(&mut self, max_payload_size: u16) {
+        self.max_payload_size = max_payload_size;
     }
 
     /// Update the zone given the Update request.
