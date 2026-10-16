@@ -25,7 +25,7 @@ use tracing::{debug, trace};
 use crate::BufDnsStreamHandle;
 use crate::multicast::MdnsQueryType;
 use crate::proto::op::SerialMessage;
-use crate::udp::UdpStream;
+use crate::udp::{MAX_RECEIVE_BUFFER_SIZE, UdpStream};
 
 pub(crate) const MDNS_PORT: u16 = 5353;
 /// mDNS ipv4 address, see [multicast-addresses](https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml)
@@ -144,6 +144,7 @@ impl MdnsStream {
                 Some(UdpStream::from_parts(
                     UdpSocket::from_std(socket)?,
                     outbound_messages,
+                    MAX_RECEIVE_BUFFER_SIZE as u16,
                 ))
             } else {
                 None
