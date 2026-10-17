@@ -8,7 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use async_recursion::async_recursion;
 use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
@@ -182,16 +181,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                         .set(self.response_cache.entry_count() as f64);
                 }
 
-                let response = self
-                    .resolve_cnames(
-                        response,
-                        query.clone(),
-                        request_time,
-                        query_has_dnssec_ok,
-                        depth,
-                        limits,
-                    )
-                    .await?;
+                let response = Box::pin(self.resolve_cnames(
+                    response,
+                    query.clone(),
+                    request_time,
+                    query_has_dnssec_ok,
+                    depth,
+                    limits,
+                ))
+                .await?;
 
                 let result = response.maybe_strip_dnssec_records(query_has_dnssec_ok);
                 #[cfg(feature = "metrics")]
@@ -242,9 +240,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             _ => query.name().clone(),
         };
 
-        let (depth, ns) = match self
-            .ns_pool_for_name(zone.clone(), request_time, depth, limits)
-            .await
+        let (depth, ns) = match Box::pin(self.ns_pool_for_name(
+            zone.clone(),
+            request_time,
+            depth,
+            limits,
+        ))
+        .await
         {
             Ok((depth, ns)) => (depth, ns),
             // Handle the short circuit case for when we receive NXDOMAIN on a parent name, per RFC
@@ -274,16 +276,15 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             }
         };
 
-        let response = self
-            .resolve_cnames(
-                response,
-                query.clone(),
-                request_time,
-                query_has_dnssec_ok,
-                depth,
-                limits,
-            )
-            .await?;
+        let response = Box::pin(self.resolve_cnames(
+            response,
+            query.clone(),
+            request_time,
+            query_has_dnssec_ok,
+            depth,
+            limits,
+        ))
+        .await?;
 
         // RFC 4035 section 3.2.1 if DO bit not set, strip DNSSEC records unless
         // explicitly requested
@@ -305,8 +306,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     /// Handle CNAME expansion for the current query
-    #[expect(clippy::double_must_use)] // https://github.com/dcchut/async-recursion/issues/49
-    #[async_recursion]
     async fn resolve_cnames(
         &self,
         mut response: Message,
@@ -577,8 +576,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     }
 
     /// Identify the correct NameServerPool to use to answer queries for a given name.
-    #[expect(clippy::double_must_use)] // https://github.com/dcchut/async-recursion/issues/49
-    #[async_recursion]
     pub(crate) async fn ns_pool_for_name(
         &self,
         query_name: Name,
@@ -867,9 +864,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             // To avoid incrementing the depth counter for each nameserver, we'll use the passed in
             // depth as a fixed base for the nameserver lookups
             let nameserver_pool = if !is_subzone(zone, &record_name) {
-                match self
-                    .ns_pool_for_name(record_name.clone(), request_time, depth, limits)
-                    .await
+                match Box::pin(self.ns_pool_for_name(
+                    record_name.clone(),
+                    request_time,
+                    depth,
+                    limits,
+                ))
+                .await
                 {
                     Ok((_, pool)) => pool.with_zone(zone.clone()),
                     // The NS hostname could not be resolved. This doesn't mean the
