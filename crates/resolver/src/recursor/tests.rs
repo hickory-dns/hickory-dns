@@ -1574,6 +1574,60 @@ async fn cname_chain_answer_order_for_cname_query() -> Result<(), NetError> {
     Ok(())
 }
 
+#[tokio::test]
+async fn cname_not_followed_for_ds_query() -> Result<(), NetError> {
+    subscribe();
+
+    let alias = Name::from_ascii("alias.hickory-dns.testing.")?;
+    let target = Name::from_ascii("target.hickory-dns.testing.")?;
+    let other = Name::from_ascii("other.hickory-dns.testing.")?;
+
+    // A DS record belongs to the parent side of a delegation, so a CNAME answer to a DS query
+    // must be returned as is (RFC 4035 section 3.2.2, RFC 6840 section 4.3).
+    let mut responses = chain_delegation()?;
+    responses.extend([
+        MockRecord::cname(LEAF_IP, &alias, &target)
+            .with_query_name(&alias)
+            .with_query_type(RecordType::DS),
+        MockRecord::cname(LEAF_IP, &target, &other)
+            .with_query_name(&target)
+            .with_query_type(RecordType::DS),
+    ]);
+
+    let provider = MockProvider::new(MockNetworkHandler::new(responses));
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ..RecursorOptions::default()
+        },
+        provider.clone(),
+    )?;
+
+    let response = recursor
+        .resolve(
+            Query::new(alias.clone(), RecordType::DS),
+            Instant::now(),
+            false,
+        )
+        .await?;
+
+    let answers = response
+        .answers
+        .iter()
+        .map(|record| (record.name.clone(), record.record_type()))
+        .collect::<Vec<_>>();
+    assert_eq!(answers, vec![(alias, RecordType::CNAME)]);
+    assert!(
+        !provider
+            .queries(&LEAF_IP)
+            .iter()
+            .any(|query| query.name == target && query.query_type == RecordType::DS)
+    );
+
+    Ok(())
+}
+
 mod ghost_domain;
 
 const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
