@@ -20,7 +20,7 @@ metrics.workspace = true
 metrics-util = { workspace = true, features = ["debugging"] }
 rcgen.workspace = true
 rustls.workspace = true
-tokio = { workspace = true, features = ["net"] }
+tokio = { workspace = true, features = ["io-util", "net"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
 
