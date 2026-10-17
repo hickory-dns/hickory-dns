@@ -35,6 +35,8 @@ use rcgen::{
 use rustls::{pki_types::PrivatePkcs8KeyDer, sign::CertifiedKey};
 use tracing::{error, info};
 
+pub mod framestream;
+
 /// Registers a global default tracing subscriber when called for the first time. This is intended
 /// for use in tests.
 pub fn subscribe() {
