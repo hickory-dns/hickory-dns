@@ -8,7 +8,7 @@
 use alloc::borrow::Cow;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::{char, iter::Peekable};
+use core::{char, iter::Peekable, str};
 
 use crate::serialize::txt::errors::{LexerError, LexerResult};
 
@@ -35,6 +35,8 @@ impl<'a> Lexer<'a> {
     pub(crate) fn next_token(&mut self) -> LexerResult<Option<Token>> {
         let mut char_data_vec: Option<Vec<String>> = None;
         let mut char_data: Option<String> = None;
+        // octets from `\DDD` escapes in a quoted string, which are decoded as UTF-8 together
+        let mut octets: Vec<u8> = Vec::new();
 
         loop {
             // This is to get around mutability rules such that we can peek at the iter without moving next...
@@ -119,17 +121,23 @@ impl<'a> Lexer<'a> {
                     match ch {
                         // end and gobble the '"'
                         Some('"') => {
+                            Self::push_octets(&mut char_data, &mut octets)?;
                             self.state = State::RestOfLine;
                             self.txt.next();
                             return Ok(Some(Token::CharData(
                                 char_data.take().unwrap_or_else(|| "".into()),
                             )));
                         }
-                        Some('\\') => {
-                            Self::push_to_str(&mut char_data, self.escape_seq()?)?;
-                        }
+                        Some('\\') => match self.escape_seq()? {
+                            Escape::Char(ch) => {
+                                Self::push_octets(&mut char_data, &mut octets)?;
+                                Self::push_to_str(&mut char_data, ch)?;
+                            }
+                            Escape::Octet(octet) => octets.push(octet),
+                        },
                         Some(ch) => {
                             self.txt.next();
+                            Self::push_octets(&mut char_data, &mut octets)?;
                             Self::push_to_str(&mut char_data, ch)?;
                         }
                         None => return Err(LexerError::UnclosedQuotedString),
@@ -266,14 +274,30 @@ impl<'a> Lexer<'a> {
         Ok(())
     }
 
-    fn escape_seq(&mut self) -> LexerResult<char> {
+    fn push_octets(collect: &mut Option<String>, octets: &mut Vec<u8>) -> LexerResult<()> {
+        if octets.is_empty() {
+            return Ok(());
+        }
+
+        let Some(s) = collect.as_mut() else {
+            return Err(LexerError::IllegalState("collect is None"));
+        };
+
+        let decoded = str::from_utf8(octets)
+            .map_err(|_| LexerError::Message("escaped octets are not valid UTF-8"))?;
+        s.push_str(decoded);
+        octets.clear();
+        Ok(())
+    }
+
+    fn escape_seq(&mut self) -> LexerResult<Escape> {
         // escaped character, let's decode it.
         self.txt.next(); // consume the escape
         let ch = self.peek().ok_or(LexerError::EOF)?;
 
         if !ch.is_control() {
             if ch.is_numeric() {
-                // in this case it's an escaped octal: \DDD
+                // in this case it's an escaped decimal octet: \DDD
                 let d1: u32 = self
                     .txt
                     .next()
@@ -290,14 +314,14 @@ impl<'a> Lexer<'a> {
                     .ok_or(LexerError::EOF)
                     .map(|c| c.to_digit(10).ok_or(LexerError::IllegalCharacter(c)))??; // gobble
 
-                let val: u32 = (d1 << 16) + (d2 << 8) + d3;
-                let ch: char = char::from_u32(val).ok_or(LexerError::UnrecognizedOctet(val))?;
+                let val: u32 = d1 * 100 + d2 * 10 + d3;
+                let octet = u8::try_from(val).map_err(|_| LexerError::UnrecognizedOctet(val))?;
 
-                Ok(ch)
+                Ok(Escape::Octet(octet))
             } else {
                 // this is an escaped char: \X
                 self.txt.next(); // gobble the char
-                Ok(ch)
+                Ok(Escape::Char(ch))
             }
         } else {
             Err(LexerError::IllegalCharacter(ch))
@@ -307,6 +331,14 @@ impl<'a> Lexer<'a> {
     fn peek(&mut self) -> Option<char> {
         self.txt.peek().copied()
     }
+}
+
+/// A decoded escape sequence
+enum Escape {
+    /// `\X`, the character X
+    Char(char),
+    /// `\DDD`, the octet with the decimal value DDD
+    Octet(u8),
 }
 
 struct CowChars<'a> {
@@ -481,8 +513,26 @@ mod lex_test {
         );
         assert_eq!(
             Lexer::new("\"a\\077\"").next_token().unwrap().unwrap(),
-            Token::CharData("a\u{707}".to_string())
+            Token::CharData("aM".to_string())
         );
+        assert_eq!(
+            Lexer::new("\"\\065\\000\\127\"")
+                .next_token()
+                .unwrap()
+                .unwrap(),
+            Token::CharData("A\0\u{7f}".to_string())
+        );
+        // escaped octets that form UTF-8 are decoded as such
+        assert_eq!(
+            Lexer::new("\"caf\\195\\169 \\226\\130\\172\"")
+                .next_token()
+                .unwrap()
+                .unwrap(),
+            Token::CharData("caf\u{e9} \u{20ac}".to_string())
+        );
+        assert!(Lexer::new("\"a\\256\"").next_token().is_err());
+        assert!(Lexer::new("\"a\\255\"").next_token().is_err());
+        assert!(Lexer::new("\"a\\195\"").next_token().is_err());
 
         assert!(Lexer::new("\"a\\\"").next_token().is_err());
         assert!(Lexer::new("\"a\\0\"").next_token().is_err());
