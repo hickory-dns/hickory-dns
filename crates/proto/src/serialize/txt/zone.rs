@@ -126,7 +126,9 @@ use crate::{
 ///                 the line is ignored.
 /// ```
 pub struct Parser<'a> {
-    lexers: Vec<(Lexer<'a>, Option<PathBuf>)>,
+    /// The lexers of the files being read, with the path of each file and the origin of the
+    /// including file, which is restored once the included file has been read.
+    lexers: Vec<(Lexer<'a>, Option<PathBuf>, Option<Name>)>,
     origin: Option<Name>,
 }
 
@@ -144,7 +146,7 @@ impl<'a> Parser<'a> {
             origin.set_fqdn(true);
         }
         Self {
-            lexers: vec![(Lexer::new(input), path)],
+            lexers: vec![(Lexer::new(input), path, None)],
             origin,
         }
     }
@@ -159,7 +161,7 @@ impl<'a> Parser<'a> {
         let mut state = State::StartLine;
         let mut stack = self.lexers.len();
 
-        'outer: while let Some((lexer, path)) = self.lexers.last_mut() {
+        'outer: while let Some((lexer, path, _)) = self.lexers.last_mut() {
             while let Some(t) = lexer.next_token()? {
                 state = match state {
                     State::StartLine => {
@@ -168,7 +170,7 @@ impl<'a> Parser<'a> {
 
                         match t {
                             // if Dollar, then $INCLUDE or $ORIGIN
-                            Token::Include => State::Include(None),
+                            Token::Include => State::Include(None, None),
                             Token::Origin => State::Origin,
                             Token::Ttl => State::Ttl,
 
@@ -207,9 +209,14 @@ impl<'a> Parser<'a> {
                             _ => return Err(ParseError::UnexpectedToken(t)),
                         }
                     }
-                    State::Include(include_path) => match (t, include_path) {
-                        (Token::CharData(data), None) => State::Include(Some(data)),
-                        (Token::EOL, Some(include_path)) => {
+                    State::Include(file, name) => match (t, file, name) {
+                        (Token::CharData(data), None, None) => State::Include(Some(data), None),
+                        // the optional domain name sets the origin of the included file only
+                        (Token::CharData(data), Some(include_path), None) => State::Include(
+                            Some(include_path),
+                            Some(Name::parse(&data, cx.origin.as_ref())?),
+                        ),
+                        (Token::EOL, Some(include_path), include_origin) => {
                             // RFC1035 (section 5) does not specify how filename for $INCLUDE
                             // should be resolved into file path. The underlying code implements the
                             // following:
@@ -242,17 +249,16 @@ impl<'a> Parser<'a> {
 
                             let input = fs::read_to_string(&include)?;
                             let lexer = Lexer::new(input);
-                            self.lexers.push((lexer, Some(include)));
+                            let parent_origin = match include_origin {
+                                Some(include_origin) => cx.origin.replace(include_origin),
+                                None => cx.origin.clone(),
+                            };
+                            self.lexers.push((lexer, Some(include), parent_origin));
                             stack += 1;
                             state = State::StartLine;
                             continue 'outer;
                         }
-                        (Token::CharData(_), Some(_)) => {
-                            return Err(ParseError::from(
-                                "Domain name for $INCLUDE is not supported",
-                            ));
-                        }
-                        (t, _) => {
+                        (t, _, _) => {
                             return Err(ParseError::UnexpectedToken(t));
                         }
                     },
@@ -325,7 +331,12 @@ impl<'a> Parser<'a> {
             }
 
             stack -= 1;
-            self.lexers.pop();
+            if let Some((_, _, parent_origin)) = self.lexers.pop() {
+                // a $INCLUDE never changes the origin of the including file
+                if !self.lexers.is_empty() {
+                    cx.origin = parent_origin;
+                }
+            }
         }
 
         //
@@ -443,7 +454,7 @@ enum State {
     TtlClassType { rr_started: bool },
     Ttl, // $TTL <time>
     Record(Vec<String>),
-    Include(Option<String>), // $INCLUDE <filename>
+    Include(Option<String>, Option<Name>), // $INCLUDE <file-name> [<domain-name>]
     Origin,
 }
 
@@ -520,6 +531,68 @@ mod tests {
         let rrset = records.values().next().unwrap();
         assert_eq!(rrset.name(), &Name::from_str("www.example.com.").unwrap());
         assert_eq!(rrset.record_type(), RecordType::A);
+    }
+
+    fn parse_with_include(zone_data: &str) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
+        // `$INCLUDE` paths are resolved against the parent directory of the including file.
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/test-data/parent.zone");
+        Parser::new(zone_data, Some(path), None).parse()
+    }
+
+    fn owners(records: &BTreeMap<RrKey, RecordSet>) -> Vec<String> {
+        let mut owners = records
+            .values()
+            .map(|rrset| rrset.name().to_string())
+            .collect::<Vec<_>>();
+        owners.sort();
+        owners
+    }
+
+    #[test]
+    fn test_include_with_origin() {
+        // https://github.com/hickory-dns/hickory-dns/issues/3950
+        for (include_origin, expected) in [
+            ("sub.example.com.", "www.sub.example.com."),
+            ("sub", "www.sub.example.com."),
+            ("sub ; comment", "www.sub.example.com."),
+        ] {
+            let zone_data = format!(
+                "$ORIGIN example.com.\n$TTL 3600\n$INCLUDE include-origin.zone {include_origin}\nafter IN A 192.0.2.3\n"
+            );
+            let (origin, records) = parse_with_include(&zone_data)
+                .unwrap_or_else(|e| panic!("failed for {include_origin:?}: {e}"));
+            assert_eq!(origin, Name::from_str("example.com.").unwrap());
+            let owners = owners(&records);
+            assert!(
+                owners.iter().any(|name| name == expected),
+                "{expected} not in {owners:?} for {include_origin:?}"
+            );
+            assert!(owners.iter().any(|name| name == "mail.other.example.net."));
+            assert!(owners.iter().any(|name| name == "after.example.com."));
+        }
+    }
+
+    #[test]
+    fn test_include_does_not_change_parent_origin() {
+        // https://github.com/hickory-dns/hickory-dns/issues/3950
+        let zone_data =
+            "$ORIGIN example.com.\n$TTL 3600\n$INCLUDE include-origin.zone\nafter IN A 192.0.2.3\n";
+        let (origin, records) = parse_with_include(zone_data).unwrap();
+        assert_eq!(origin, Name::from_str("example.com.").unwrap());
+        assert_eq!(
+            owners(&records),
+            [
+                "after.example.com.",
+                "mail.other.example.net.",
+                "www.example.com."
+            ]
+        );
+    }
+
+    #[test]
+    fn test_include_rejects_extra_arguments() {
+        let zone_data = "$ORIGIN example.com.\n$TTL 3600\n$INCLUDE include-origin.zone sub extra\n";
+        assert!(parse_with_include(zone_data).is_err());
     }
 
     #[test]
