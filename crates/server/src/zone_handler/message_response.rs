@@ -15,7 +15,7 @@ use crate::{
             Edns, Header, HeaderCounts, MessageRequest, MessageType, Metadata, OpCode, Queries,
             QueriesEmitAndCount, ResponseCode, emit_message_parts,
         },
-        rr::{Record, rdata::TSIG},
+        rr::{RData, Record, rdata::TSIG},
         serialize::binary::{BinEncodable, BinEncoder},
     },
     server::ResponseInfo,
@@ -122,8 +122,25 @@ where
         mut self,
         encoder: &mut BinEncoder<'_>,
     ) -> Result<ResponseInfo, ProtoError> {
+        // Note down the TTLs for the Cache-Control header as we iterate over records
+        let mut min_answer_ttl = None;
+        let mut soa_ttl = None;
+
+        let mut answers = self.answers.inspect(|record| {
+            min_answer_ttl = Some(match min_answer_ttl {
+                Some(ttl) => record.ttl.min(ttl),
+                None => record.ttl,
+            });
+        });
+
         // soa records are part of the authority section
-        let mut authorities = self.authorities.chain(self.soa);
+        let mut authorities = self.authorities.chain(self.soa).inspect(|record| {
+            if soa_ttl.is_none() {
+                if let RData::SOA(soa) = &record.data {
+                    soa_ttl = Some(record.ttl.min(soa.minimum));
+                }
+            }
+        });
 
         let header = emit_message_parts(
             &self.metadata,
@@ -131,7 +148,7 @@ where
                 Some(queries) => queries.as_emit_and_count(),
                 None => QueriesEmitAndCount::None,
             },
-            &mut self.answers,
+            &mut answers,
             &mut authorities,
             &mut self.additionals,
             self.edns,
@@ -139,7 +156,34 @@ where
             encoder,
         )?;
 
-        Ok(ResponseInfo::from(header))
+        // the TTLs are ours to read again once the two closures above are gone
+        drop((answers, authorities));
+
+        Ok(ResponseInfo::new(
+            header,
+            cache_ttl(&header.metadata, min_answer_ttl, soa_ttl),
+        ))
+    }
+}
+
+/// Returns the TTL this response may be cached for, if it is cacheable.
+///
+/// The TTL is derived according to DoH RFC 8484 section 5.1 and RFC 2308 section 5
+/// `None` means the response is non cacheable, because it is a non-query opcode,
+/// a rcode that is neither NoError nor NXDomain, or is a negative answer with no SOA.
+fn cache_ttl(
+    metadata: &Metadata,
+    min_answer_ttl: Option<u32>,
+    soa_ttl: Option<u32>,
+) -> Option<u32> {
+    let OpCode::Query = metadata.op_code else {
+        return None;
+    };
+
+    match metadata.response_code {
+        ResponseCode::NoError => min_answer_ttl.or(soa_ttl),
+        ResponseCode::NXDomain => soa_ttl,
+        _ => None,
     }
 }
 
