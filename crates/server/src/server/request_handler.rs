@@ -159,10 +159,16 @@ impl<'a> RequestInfo<'a> {
 
 /// Information about the response sent for a request
 #[derive(Clone, Copy, Debug)]
-#[repr(transparent)]
-pub struct ResponseInfo(Header);
+pub struct ResponseInfo {
+    header: Header,
+    cache_ttl: Option<u32>,
+}
 
 impl ResponseInfo {
+    pub(crate) fn new(header: Header, cache_ttl: Option<u32>) -> Self {
+        Self { header, cache_ttl }
+    }
+
     pub(crate) fn serve_failed(request: &Request) -> Self {
         let mut metadata = Metadata::new(
             request.metadata.id,
@@ -170,7 +176,7 @@ impl ResponseInfo {
             request.metadata.op_code,
         );
         metadata.response_code = ResponseCode::ServFail;
-        Self(Header {
+        Self::from(Header {
             metadata,
             counts: HeaderCounts::default(),
         })
@@ -178,13 +184,21 @@ impl ResponseInfo {
 
     /// Header counts for the response
     pub fn counts(&self) -> HeaderCounts {
-        self.0.counts
+        self.header.counts
+    }
+
+    /// Returns the TTL this response may be cached for, if it is cacheable.
+    ///
+    /// `None` means the response is non cacheable. The TTL is derived while the response is
+    /// encoded, so a `ResponseInfo` from any other source reports `None`.
+    pub fn cache_ttl(&self) -> Option<u32> {
+        self.cache_ttl
     }
 }
 
 impl From<Header> for ResponseInfo {
     fn from(value: Header) -> Self {
-        Self(value)
+        Self::new(value, None)
     }
 }
 
@@ -192,7 +206,7 @@ impl std::ops::Deref for ResponseInfo {
     type Target = Metadata;
 
     fn deref(&self) -> &Self::Target {
-        &self.0.metadata
+        &self.header.metadata
     }
 }
 
