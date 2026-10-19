@@ -239,7 +239,7 @@ impl ResponseHandler for HttpsResponseHandle {
     ) -> Result<ResponseInfo, NetError> {
         let (info, bytes) = response.encode(Protocol::Https)?;
         let bytes = Bytes::from(bytes);
-        let response = http::response(Version::Http2, bytes.len())?;
+        let response = http::response(Version::Http2, bytes.len(), info.cache_ttl())?;
 
         debug!("sending response: {:#?}", response);
         let mut stream = self.0.send_response(response, false)?;
