@@ -7,11 +7,9 @@
 
 //! TLS protocol related components for DNS over HTTPS (DoH)
 
-use core::fmt::Debug;
 use core::future::{Future, poll_fn};
 use core::net::SocketAddr;
 use core::pin::Pin;
-use core::str::FromStr;
 use core::task::{Context, Poll};
 use std::io;
 use std::sync::Arc;
@@ -20,9 +18,8 @@ use std::time::Duration;
 use bytes::{Bytes, BytesMut};
 use futures_util::stream::Stream;
 use h2::client::SendRequest;
-use http::header::CONTENT_LENGTH;
+use http::Request;
 use http::response::Parts;
-use http::{Method, Request};
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
 use tokio::time::timeout;
@@ -232,13 +229,15 @@ impl HttpSender for HttpsClientStream {
     async fn send_http_request(
         &mut self,
         request: Request<()>,
-        message: Bytes,
+        body: Option<Bytes>,
     ) -> Result<(Parts, BytesMut), NetError> {
         poll_fn(|cx| self.h2.poll_ready(cx)).await?;
 
         // Send the request
-        let (response_future, mut send_stream) = self.h2.send_request(request, false)?;
-        send_stream.send_data(message, true)?;
+        let (response_future, mut send_stream) = self.h2.send_request(request, body.is_none())?;
+        if let Some(body) = body {
+            send_stream.send_data(body, true)?;
+        }
 
         let (parts, body) = response_future.await?.into_parts();
 
@@ -254,51 +253,12 @@ impl HttpSender for HttpsClientStream {
     }
 }
 
-/// Given an HTTP request, return a future that will result in the next sequence of bytes.
-///
-/// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
-///   perform a conversion to a Message, only collects all the bytes.
-pub async fn message_from<R>(
-    this_server_name: Option<Arc<str>>,
-    this_server_endpoint: Arc<str>,
-    request: Request<R>,
-) -> Result<BytesMut, NetError>
-where
-    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
-{
-    debug!("Received request: {:#?}", request);
-
-    let this_server_name = this_server_name.as_deref();
-    match crate::http::verify(
-        Version::Http2,
-        this_server_name,
-        &this_server_endpoint,
-        &request,
-    ) {
-        Ok(_) => (),
-        Err(err) => return Err(err),
-    }
-
-    // attempt to get the content length
-    let mut content_length = None;
-    if let Some(length) = request.headers().get(CONTENT_LENGTH) {
-        let length = usize::from_str(length.to_str()?)?;
-        debug!("got message length: {}", length);
-        content_length = Some(length);
-    }
-
-    match *request.method() {
-        Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),
-        Method::POST => fetch_body(request.into_body(), content_length).await,
-        _ => Err(format!("bad method: {}", request.method()).into()),
-    }
-}
-
 const ALPN_H2: &[u8] = b"h2";
 
 #[cfg(test)]
 mod tests {
     use core::net::SocketAddr;
+    use core::str::FromStr;
 
     use rustls::KeyLogFile;
     use test_support::subscribe;
@@ -528,49 +488,5 @@ mod tests {
         let mut config = client_config().unwrap();
         config.alpn_protocols = vec![ALPN_H2.to_vec()];
         config
-    }
-
-    #[tokio::test]
-    async fn test_from_post() {
-        subscribe();
-        let message = Message::query();
-        let msg_bytes = message.to_vec().unwrap();
-        let len = msg_bytes.len();
-        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
-        let cx = RequestContext {
-            version: Version::Http2,
-            server_name: Arc::from("ns.example.com"),
-            query_path: Arc::from("/dns-query"),
-            set_headers: None,
-        };
-
-        let request = cx.build(len).unwrap();
-        let request = request.map(|()| stream);
-
-        let bytes = message_from(
-            Some(Arc::from("ns.example.com")),
-            "/dns-query".into(),
-            request,
-        )
-        .await
-        .unwrap();
-
-        let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
-        assert_eq!(message, msg_from_post);
-    }
-
-    #[derive(Debug)]
-    struct TestBytesStream(Vec<Result<Bytes, h2::Error>>);
-
-    impl Stream for TestBytesStream {
-        type Item = Result<Bytes, h2::Error>;
-
-        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-            match self.0.pop() {
-                Some(Ok(bytes)) => Poll::Ready(Some(Ok(bytes))),
-                Some(Err(err)) => Poll::Ready(Some(Err(err))),
-                None => Poll::Ready(None),
-            }
-        }
     }
 }
