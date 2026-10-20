@@ -11,7 +11,7 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
-use core::hash::{Hash, Hasher};
+use core::hash::Hash;
 use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use core::str::FromStr;
 
@@ -169,7 +169,7 @@ use crate::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[derive(Default, Debug, Clone, Ord, PartialOrd)]
+#[derive(Default, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub struct OPT {
     /// List of code and record type tuples
@@ -213,28 +213,6 @@ impl OPT {
     /// Removes all options based on the code
     pub fn remove(&mut self, option: EdnsCode) {
         self.options.retain(|(c, _)| *c != option)
-    }
-}
-
-impl PartialEq for OPT {
-    fn eq(&self, other: &Self) -> bool {
-        let matching_elements_count = self
-            .options
-            .iter()
-            .filter(|entry| other.options.contains(entry))
-            .count();
-        matching_elements_count == self.options.len()
-            && matching_elements_count == other.options.len()
-    }
-}
-
-impl Eq for OPT {}
-
-impl Hash for OPT {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut sorted = self.options.clone();
-        sorted.sort();
-        sorted.hash(state);
     }
 }
 
@@ -990,12 +968,12 @@ mod tests {
         let opt = read_rdata.unwrap();
         let options = vec![
             (
-                EdnsCode::Subnet,
-                EdnsOption::Subnet("0.0.0.0/0".parse().unwrap()),
-            ),
-            (
                 EdnsCode::Cookie,
                 EdnsOption::Unknown(10, vec![0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f]),
+            ),
+            (
+                EdnsCode::Subnet,
+                EdnsOption::Subnet("0.0.0.0/0".parse().unwrap()),
             ),
             (EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![])),
         ];
@@ -1208,10 +1186,10 @@ mod tests {
         options_3.hash(&mut hasher_3);
         let hash_3 = hasher_3.finish();
 
-        assert_eq!(options_1, options_2);
-        assert_eq!(hash_1, hash_2);
+        assert_ne!(options_1, options_2);
+        assert_ne!(hash_1, hash_2);
 
-        assert!(options_1 != options_3);
-        assert!(hash_1 != hash_3);
+        assert_ne!(options_1, options_3);
+        assert_ne!(hash_1, hash_3);
     }
 }
