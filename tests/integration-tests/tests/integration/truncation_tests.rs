@@ -3,7 +3,7 @@ use hickory_net::client::Client;
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::udp::UdpClientStream;
 use hickory_net::xfer::FirstAnswer;
-use hickory_proto::op::{DnsRequest, Edns, Message, Query};
+use hickory_proto::op::{DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, DnsResponse, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_server::Server;
@@ -60,6 +60,63 @@ async fn test_truncation() {
     assert_eq!(max_payload, result.max_payload());
 
     server.shutdown_gracefully().await.unwrap();
+}
+
+#[tokio::test]
+async fn test_udp_response_bounded_by_default_max_payload() {
+    subscribe();
+
+    // The requestor advertises the largest possible payload, but the response is still bounded
+    // by the catalog's default limit.
+    let result = large_query(new_large_catalog(128), u16::MAX).await;
+    assert!(result.metadata.truncation);
+    assert_eq!(result.max_payload(), DEFAULT_MAX_PAYLOAD_LEN);
+    assert!(result.as_buffer().len() <= DEFAULT_MAX_PAYLOAD_LEN as usize);
+}
+
+#[tokio::test]
+async fn test_udp_response_bounded_by_configured_max_payload() {
+    subscribe();
+
+    let mut catalog = new_large_catalog(128);
+    catalog.set_max_udp_response_payload_size(4096);
+
+    // The full answer fits within the configured limit, so it isn't truncated.
+    let result = large_query(catalog, u16::MAX).await;
+    assert!(!result.metadata.truncation);
+    assert_eq!(result.max_payload(), 4096);
+    assert_eq!(result.answers.len(), 128);
+}
+
+/// Send an A query for the large name over UDP, advertising `max_payload`.
+async fn large_query(catalog: Catalog, max_payload: u16) -> DnsResponse {
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
+    let udp_socket = UdpSocket::bind(&addr).await.unwrap();
+    let nameserver = udp_socket.local_addr().unwrap();
+
+    let mut server = Server::new(catalog);
+    server.register_socket(udp_socket);
+
+    let stream = UdpClientStream::builder(nameserver, TokioRuntimeProvider::new()).build();
+    let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(stream);
+    tokio::spawn(bg);
+
+    let mut msg = Message::query();
+    msg.add_query(Query::new(large_name(), RecordType::A));
+    msg.edns = Some({
+        let mut edns = Edns::new();
+        edns.set_max_payload(max_payload).set_version(0);
+        edns
+    });
+
+    let result = client
+        .send(DnsRequest::from(msg))
+        .first_answer()
+        .await
+        .expect("query failed");
+
+    server.shutdown_gracefully().await.unwrap();
+    result
 }
 
 fn new_large_catalog(num_records: u32) -> Catalog {

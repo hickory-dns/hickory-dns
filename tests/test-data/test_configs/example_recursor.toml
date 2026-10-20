@@ -1,3 +1,8 @@
+## Maximum UDP response payload size
+## Caps the size of UDP responses; larger answers are truncated so the
+## requestor retries over TCP. Defaults to 1232.
+# max_udp_response_payload_size = 1232
+
 ## UDP socket buffer configuration
 ## Under high query load, increasing buffer sizes and the count of bound UDP
 ## sockets can help prevent packet loss.
