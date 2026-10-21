@@ -112,21 +112,26 @@ mod tests {
     async fn test_no_timeout() {
         subscribe();
 
-        let sequence = iter(vec![Ok(1), Err(io::Error::other("error")), Ok(2)]);
+        // Try with both a very long timeout and no timeout.
+        let timeouts = [Duration::from_secs(360), Duration::from_secs(0)];
 
-        let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360));
+        for timeout in timeouts {
+            let sequence = iter(vec![Ok(1), Err(io::Error::other("error")), Ok(2)]);
 
-        let (val, timeout_stream) = timeout_stream.into_future().await;
-        assert_eq!(val.expect("nothing in stream").ok(), Some(1));
+            let timeout_stream = TimeoutStream::new(sequence, timeout);
 
-        let (error, timeout_stream) = timeout_stream.into_future().await;
-        assert!(error.expect("nothing in stream").is_err());
+            let (val, timeout_stream) = timeout_stream.into_future().await;
+            assert_eq!(val.expect("nothing in stream").ok(), Some(1));
 
-        let (val, timeout_stream) = timeout_stream.into_future().await;
-        assert_eq!(val.expect("nothing in stream").ok(), Some(2));
+            let (error, timeout_stream) = timeout_stream.into_future().await;
+            assert!(error.expect("nothing in stream").is_err());
 
-        let (val, _) = timeout_stream.into_future().await;
-        assert!(val.is_none())
+            let (val, timeout_stream) = timeout_stream.into_future().await;
+            assert_eq!(val.expect("nothing in stream").ok(), Some(2));
+
+            let (val, _) = timeout_stream.into_future().await;
+            assert!(val.is_none());
+        }
     }
 
     struct NeverStream {}
