@@ -174,7 +174,15 @@ impl<'a> Parser<'a> {
 
                             // if CharData, then Name then ttl_class_type
                             Token::CharData(data) => {
-                                cx.current_name = Some(Name::parse(&data, cx.origin.as_ref())?);
+                                let name = Name::parse(&data, cx.origin.as_ref())?;
+                                // A relative name is an error when no origin is available
+                                // (RFC 1035 section 5.1); a later $ORIGIN does not apply to it.
+                                if cx.origin.is_none() && !name.is_fqdn() {
+                                    return Err(ParseError::from(format!(
+                                        "relative name {data:?} used but no origin is set"
+                                    )));
+                                }
+                                cx.current_name = Some(name);
                                 State::TtlClassType { rr_started: true }
                             }
 
@@ -499,6 +507,32 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_relative_owner_without_origin() {
+        // https://github.com/hickory-dns/hickory-dns/issues/3954
+        let zone_data = "www 60 IN A 192.0.2.1
+$ORIGIN example.com.
+";
+        let result = Parser::new(zone_data, None, None).parse();
+        assert!(
+            result
+                .as_ref()
+                .is_err_and(|e| e.to_string().contains("no origin")),
+            "unexpected result: {result:#?}"
+        );
+
+        // Fully qualified owners and an origin given to the parser are fine.
+        let zone_data = "www.example.com. 60 IN A 192.0.2.1
+$ORIGIN example.com.
+";
+        Parser::new(zone_data, None, None).parse().unwrap();
+
+        let zone_data = "www 60 IN A 192.0.2.1
+";
+        let origin = Name::from_str("example.com.").unwrap();
+        Parser::new(zone_data, None, Some(origin)).parse().unwrap();
     }
 
     #[test]
