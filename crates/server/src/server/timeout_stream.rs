@@ -99,31 +99,29 @@ where
 
 #[cfg(test)]
 mod tests {
-    use futures_util::stream::{TryStreamExt, iter};
+    use futures_util::stream::iter;
     use test_support::subscribe;
-    use tokio::runtime::Runtime;
 
     use super::*;
 
-    #[test]
-    fn test_no_timeout() {
+    #[tokio::test]
+    async fn test_no_timeout() {
         subscribe();
 
-        let sequence = iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(io::Error::other);
-        let core = Runtime::new().expect("could not get core");
+        let sequence = iter(vec![Ok(1), Err(io::Error::other("error")), Ok(2)]);
 
         let timeout_stream = TimeoutStream::new(sequence, Some(Duration::from_secs(360)));
 
-        let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
+        let (val, timeout_stream) = timeout_stream.into_future().await;
         assert_eq!(val.expect("nothing in stream").ok(), Some(1));
 
-        let (error, timeout_stream) = core.block_on(timeout_stream.into_future());
+        let (error, timeout_stream) = timeout_stream.into_future().await;
         assert!(error.expect("nothing in stream").is_err());
 
-        let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
+        let (val, timeout_stream) = timeout_stream.into_future().await;
         assert_eq!(val.expect("nothing in stream").ok(), Some(2));
 
-        let (val, _) = core.block_on(timeout_stream.into_future());
+        let (val, _) = timeout_stream.into_future().await;
         assert!(val.is_none())
     }
 
@@ -132,21 +130,21 @@ mod tests {
     impl Stream for NeverStream {
         type Item = Result<(), io::Error>;
 
-        // somehow insert a timeout here...
         fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             Poll::Pending
         }
     }
 
-    #[test]
-    fn test_timeout() {
+    #[tokio::test]
+    async fn test_timeout() {
         subscribe();
 
-        let core = Runtime::new().expect("could not get core");
         let timeout_stream = TimeoutStream::new(NeverStream {}, Some(Duration::from_millis(1)));
 
         assert!(
-            core.block_on(timeout_stream.into_future())
+            timeout_stream
+                .into_future()
+                .await
                 .0
                 .expect("nothing in stream")
                 .is_err()
