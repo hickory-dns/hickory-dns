@@ -185,6 +185,81 @@ impl NetError {
         matches!(self, Self::Dns(DnsError::NoRecordsFound { .. }))
     }
 
+    /// Returns true if the error indicates a failure at the transport layer.
+    ///
+    /// The match is exhaustive so a new variant cannot silently change how a
+    /// name server is penalized. Errors from the query, the response contents,
+    /// or local state are not transport errors.
+    pub fn is_transport_error(&self) -> bool {
+        match self {
+            // Internal resource pressure, not a server property.
+            Self::Busy => false,
+
+            // A response header that does not decode as a string.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Decode(_) => false,
+
+            // A response from the server, whatever its contents.
+            Self::Dns(_) => false,
+            Self::ForeignClassRecord { .. } => false,
+            Self::QueryCaseMismatch => false,
+            Self::Truncated => false,
+
+            // An HTTP/2 or HTTP/3 connection or stream failure.
+            #[cfg(feature = "__https")]
+            Self::H2(_) => true,
+            #[cfg(feature = "__h3")]
+            Self::H3(_) => true,
+
+            Self::Io(_) => true,
+
+            // Local failures that no server choice can avoid.
+            #[cfg(target_os = "android")]
+            Self::Jni(_) => false,
+            Self::Message(_) => false,
+            Self::NoConnections => false,
+
+            // A response header value that does not parse as a number.
+            Self::ParseInt(_) => false,
+
+            // Usually RDATA our code cannot transform, so the zone contents decide
+            // the failure rather than the server or protocol.
+            Self::Proto(_) => false,
+
+            // A DoQ protocol violation by the server.
+            #[cfg(feature = "__quic")]
+            Self::QuicMessageIdNot0(_) => true,
+
+            // A QUIC configuration or connection failure.
+            #[cfg(feature = "__quic")]
+            Self::QuinnConfigError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnect(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnection(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnReadError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnStreamError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnTlsConfigError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnUnknownStreamError => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnWriteError(_) => true,
+
+            // The server responded; only the body exceeded our size limit.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::RequestTooLarge => false,
+
+            // A TLS handshake failure.
+            #[cfg(feature = "__tls")]
+            Self::RustlsError(_) => true,
+
+            Self::Timeout => true,
+        }
+    }
+
     /// Returns true for a transport-level connection error: the connection was
     /// closed, reset, or refused, as opposed to a timeout or a server-side (DNS)
     /// error.
@@ -596,6 +671,65 @@ mod tests {
         assert!(
             !NetError::from(h2::Error::from(h2::Reason::INTERNAL_ERROR)).is_connection_closed()
         );
+    }
+
+    #[test]
+    fn is_transport_error() {
+        // Errors about the query, the response, or local state, not the transport.
+        assert!(
+            !NetError::from(DnsError::ResponseCode(ResponseCode::ServFail)).is_transport_error()
+        );
+        assert!(
+            !NetError::ForeignClassRecord {
+                record_name: Name::from_ascii("example.com.").unwrap(),
+                record_class: DNSClass::CH,
+                record_type: RecordType::A,
+            }
+            .is_transport_error()
+        );
+        assert!(!NetError::Truncated.is_transport_error());
+        assert!(!NetError::QueryCaseMismatch.is_transport_error());
+        #[cfg(any(feature = "__https", feature = "__h3"))]
+        assert!(!NetError::RequestTooLarge.is_transport_error());
+        assert!(!NetError::from("configuration error").is_transport_error());
+        assert!(!NetError::NoConnections.is_transport_error());
+        assert!(!NetError::Busy.is_transport_error());
+        // Determined by the zone contents, not by the chosen server.
+        assert!(!NetError::Proto(ProtoError::from("bad rdata")).is_transport_error());
+        // A malformed response header, not a transport failure.
+        assert!(!NetError::from("not a number".parse::<u16>().unwrap_err()).is_transport_error());
+
+        assert!(NetError::Timeout.is_transport_error());
+        assert!(
+            NetError::from(io::Error::new(
+                io::ErrorKind::NetworkUnreachable,
+                "no route"
+            ))
+            .is_transport_error()
+        );
+        assert!(
+            NetError::from(io::Error::new(io::ErrorKind::ConnectionRefused, "refused"))
+                .is_transport_error()
+        );
+    }
+
+    #[cfg(feature = "__https")]
+    #[test]
+    fn is_transport_error_h2() {
+        assert!(NetError::from(h2::Error::from(h2::Reason::INTERNAL_ERROR)).is_transport_error());
+    }
+
+    #[cfg(feature = "__quic")]
+    #[test]
+    fn is_transport_error_quic() {
+        assert!(NetError::QuinnConnect(quinn::ConnectError::EndpointStopping).is_transport_error());
+        assert!(NetError::QuinnConfigError(quinn::ConfigError::OutOfBounds).is_transport_error());
+    }
+
+    #[cfg(feature = "__tls")]
+    #[test]
+    fn is_transport_error_tls() {
+        assert!(NetError::RustlsError(rustls::Error::NoCertificatesPresented).is_transport_error());
     }
 
     #[cfg(feature = "__quic")]

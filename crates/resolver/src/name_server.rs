@@ -266,29 +266,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                         continue;
                     }
 
-                    // record the failure on both the per-connection and server-level SRTTs.
-                    // updating server_srtt ensures the server is deprioritized in pool
-                    // ordering (decayed_srtt) so other servers get a chance to be tried.
-                    match &error {
-                        NetError::Busy | NetError::Io(_) | NetError::Timeout => {
-                            meta.srtt.record_failure();
-                            self.server_srtt.record_failure();
-                        }
-                        #[cfg(feature = "__quic")]
-                        NetError::QuinnConfigError(_)
-                        | NetError::QuinnConnect(_)
-                        | NetError::QuinnConnection(_)
-                        | NetError::QuinnTlsConfigError(_) => {
-                            meta.srtt.record_failure();
-                            self.server_srtt.record_failure();
-                        }
-                        #[cfg(feature = "__tls")]
-                        NetError::RustlsError(_) => {
-                            meta.srtt.record_failure();
-                            self.server_srtt.record_failure();
-                        }
-                        _ => {}
-                    }
+                    self.record_connection_failure(protocol, &error);
 
                     if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
                         cx.transport_state()
@@ -357,19 +335,16 @@ impl<P: ConnectionProvider> NameServer<P> {
             self.consider_probe_encrypted_transport(&policy, cx).await;
         }
 
-        // Establish connection
         let meta = self.meta(protocol);
+        let handle_failure = |error| {
+            self.record_connection_failure(protocol, &error);
+            (error, Some(protocol))
+        };
         let handle_fut = self
             .connection_provider
             .new_connection(self.config.ip, config, cx)
-            .map_err(|e| {
-                meta.srtt.record_failure();
-                (e, Some(protocol))
-            })?;
-
-        let handle = Box::pin(handle_fut)
-            .await
-            .map_err(|e| (e, Some(protocol)))?;
+            .map_err(handle_failure)?;
+        let handle = Box::pin(handle_fut).await.map_err(handle_failure)?;
 
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
             cx.transport_state()
@@ -386,6 +361,18 @@ impl<P: ConnectionProvider> NameServer<P> {
             protocol,
             reuse: ConnectionReuse::Fresh,
         })
+    }
+
+    /// Penalizes this server's SRTT for a failure to establish a connection,
+    /// which never reaches the response-handling arm of `send_inner`.
+    fn record_connection_failure(&self, protocol: Protocol, error: &NetError) {
+        if error.is_transport_error() {
+            // This server's per-protocol connection metadata; its SRTT is
+            // compared when selecting among this server's existing connections.
+            self.meta(protocol).srtt.record_failure();
+            // The server-wide SRTT, used as the pool's server ordering key.
+            self.server_srtt.record_failure();
+        }
     }
 
     pub(super) fn protocols(&self) -> impl Iterator<Item = Protocol> + '_ {
