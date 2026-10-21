@@ -1090,6 +1090,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "data-encoding",
+ "futures-channel",
  "futures-executor",
  "futures-util",
  "h2",
