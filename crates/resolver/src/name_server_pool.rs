@@ -33,7 +33,10 @@ use tracing::{debug, error};
 #[cfg(any(feature = "__tls", feature = "__quic"))]
 use crate::config::OpportunisticEncryptionConfig;
 use crate::{
-    config::{NameServerConfig, OpportunisticEncryption, ResolverOpts, ServerOrderingStrategy},
+    config::{
+        DomainRoute, NameServerConfig, OpportunisticEncryption, ResolverOpts,
+        ServerOrderingStrategy,
+    },
     connection_provider::{ConnectionProvider, TlsConfig},
     name_server::{ConnectionPolicy, NameServer},
     net::{
@@ -61,6 +64,7 @@ pub struct NameServerPool<P: ConnectionProvider> {
     active_requests: Arc<Mutex<HashMap<Arc<CacheKey>, SharedLookup>>>,
     ttl: Option<TtlInstant>,
     zone: Option<Name>,
+    domain_routes: Arc<Vec<(Name, u32, Self)>>,
 }
 
 impl<P: ConnectionProvider> NameServerPool<P> {
@@ -97,7 +101,40 @@ impl<P: ConnectionProvider> NameServerPool<P> {
             active_requests: Arc::new(Mutex::new(HashMap::new())),
             ttl: None,
             zone: None,
+            domain_routes: Arc::new(Vec::new()),
         }
+    }
+
+    /// Add domain-specific pools without changing the default servers.
+    ///
+    /// The longest matching suffix wins. Configurations with the same suffix are
+    /// attempted by search order. A failed routed query never uses the default pool.
+    pub fn with_domain_routes(mut self, routes: Vec<DomainRoute>, provider: P) -> Self {
+        let mut routes = routes
+            .into_iter()
+            .map(|route| {
+                let pool =
+                    Self::from_config(route.name_servers, self.state.cx.clone(), provider.clone());
+                (route.domain, route.search_order, pool)
+            })
+            .collect::<Vec<_>>();
+        routes.sort_by_key(|(domain, order, _)| (std::cmp::Reverse(domain.num_labels()), *order));
+        self.domain_routes = Arc::new(routes);
+        self
+    }
+
+    fn matching_routes(&self, name: &Name) -> Vec<Self> {
+        let mut label_count = None;
+        self.domain_routes
+            .iter()
+            .filter_map(|(domain, _, pool)| {
+                if !domain.zone_of(name) {
+                    return None;
+                }
+                let count = *label_count.get_or_insert_with(|| domain.num_labels());
+                (domain.num_labels() == count).then(|| pool.clone())
+            })
+            .collect()
     }
 
     /// Set a TTL on the NameServerPool
@@ -148,6 +185,40 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
     }
 
     fn send(&self, request: DnsRequest) -> Self::Response {
+        if let Some(query) = request.queries.first() {
+            let routes = self.matching_routes(&query.name);
+            if !routes.is_empty() {
+                let timeout = self.state.cx.options.timeout;
+                return Box::pin(once(async move {
+                    // Bound the whole route search, rather than granting each route a new timeout.
+                    let lookup = async move {
+                        // Leave a share of the deadline for later configurations when an
+                        // earlier DNS service is unreachable.
+                        let route_timeout =
+                            timeout / u32::try_from(routes.len()).unwrap_or(u32::MAX);
+                        let mut last_error = NetError::NoConnections;
+                        for pool in routes {
+                            let mut response = pool.send(request.clone());
+                            match <P::RuntimeProvider as RuntimeProvider>::Timer::timeout(
+                                route_timeout,
+                                async move { response.next().await },
+                            )
+                            .await
+                            {
+                                Ok(Some(Ok(response))) => return Ok(response),
+                                Ok(Some(Err(error))) => last_error = error,
+                                Ok(None) => last_error = NetError::NoConnections,
+                                Err(_) => last_error = NetError::Timeout,
+                            }
+                        }
+                        Err(last_error)
+                    };
+                    <P::RuntimeProvider as RuntimeProvider>::Timer::timeout(timeout, lookup)
+                        .await
+                        .map_err(|_| NetError::Timeout)?
+                }));
+            }
+        }
         let state = self.state.clone();
         let acs = self.state.cx.answer_address_filter.clone();
         let active_requests = self.active_requests.clone();
