@@ -6,6 +6,7 @@ on:
       - published
 
 env:
+  JUST_VERSION: "1.59.0"
   CARGO_WS_VERSION: "0.4.2"
 
 jobs:
@@ -17,7 +18,9 @@ jobs:
 
     - uses: dtolnay/rust-toolchain@stable
 
-    - uses: extractions/setup-just@v4
+    - uses: taiki-e/install-action@v2
+      with:
+        tool: just@${{ env.JUST_VERSION }}
 
     - uses: taiki-e/install-action@v2
       with:

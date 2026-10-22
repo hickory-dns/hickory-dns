@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  JUST_VERSION: "1.59.0"
+
 jobs:
   everything:
     strategy:
@@ -38,7 +41,9 @@ jobs:
         with:
           toolchain: stable
           components: clippy, rustfmt
-      - uses: extractions/setup-just@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just@${{ env.JUST_VERSION }}
       # Install the `docker-container` build driver. The GitHub Actions cache
       # backend is supported with this driver, but not the default `docker`
       # driver. Additionally, make `docker build` an alias to
