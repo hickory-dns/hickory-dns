@@ -69,6 +69,7 @@ impl ResponseCache {
         let (ttl, result) = match result {
             Ok(mut message) => {
                 let ttl = self.clamp_positive_ttls(query.query_type(), &mut message);
+                message.edns = None;
                 (ttl, Ok(message))
             }
             Err(NetError::Dns(DnsError::NoRecordsFound(no_records))) => {
