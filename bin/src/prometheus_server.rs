@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 use http::header::CONTENT_TYPE;
 use hyper::{Request, Response, body::Incoming};
 use hyper_util::{
-    rt::{TokioExecutor, TokioIo},
+    rt::{TokioExecutor, TokioIo, TokioTimer},
     server::{conn::auto::Builder, graceful::GracefulShutdown},
     service::TowerToHyperService,
 };
@@ -47,7 +47,9 @@ impl PrometheusServer {
         let token_clone = cancellation_token.clone();
         let shutdown = GracefulShutdown::new();
         let join_handle = tokio::spawn(async move {
-            let builder = Builder::new(TokioExecutor::new());
+            let mut builder = Builder::new(TokioExecutor::new());
+            builder.http1().timer(TokioTimer::new());
+            builder.http2().timer(TokioTimer::new());
             loop {
                 let Some(result) = cancellation_token
                     .run_until_cancelled(listener.accept())
