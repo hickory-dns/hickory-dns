@@ -45,7 +45,7 @@ pub type TlsClientStream<S> =
 /// * `remote_addr` - Address of the remote nameserver
 /// * `bind_addr` - Local address to bind the outgoing TCP socket to. When `None`, the OS picks.
 /// * `server_name` - TLS server name for certificate validation
-/// * `config` - TLS client configuration
+/// * `config` - TLS client configuration. SNI is sent unless `config.enable_sni` is `false`.
 /// * `timeout` - Timeout for requests
 /// * `connect_timeout` - Timeout for the TCP connect step
 /// * `max_active_requests` - Optional limit on concurrent in-flight requests.
@@ -56,15 +56,12 @@ pub async fn tls_exchange<P: RuntimeProvider<Tcp = S>, S: DnsTcpStream>(
     remote_addr: SocketAddr,
     bind_addr: Option<SocketAddr>,
     server_name: ServerName<'static>,
-    mut config: ClientConfig,
+    config: ClientConfig,
     timeout: Duration,
     connect_timeout: Duration,
     max_active_requests: Option<usize>,
     provider: P,
 ) -> Result<DnsExchange<P>, NetError> {
-    // The port (853) of DOT is for dns dedicated, SNI is unnecessary. (ISP block by the SNI name)
-    config.enable_sni = false;
-
     let stream = provider
         .connect_tcp(remote_addr, bind_addr, Some(connect_timeout))
         .await?;
@@ -256,3 +253,47 @@ pub type TlsStream<S> = TcpStream<S>;
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
+
+#[cfg(test)]
+mod tests {
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    use rustls::server::Acceptor;
+    use tokio::net::TcpListener;
+    use tokio_rustls::LazyConfigAcceptor;
+
+    use super::*;
+    use crate::runtime::TokioRuntimeProvider;
+
+    #[tokio::test]
+    async fn tls_exchange_sends_sni() {
+        let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .unwrap();
+        let remote_addr = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let start = LazyConfigAcceptor::new(Acceptor::default(), stream)
+                .await
+                .unwrap();
+            start.client_hello().server_name().map(str::to_owned)
+        });
+
+        // The server never completes the handshake, so the exchange itself fails.
+        let _ = tls_exchange(
+            remote_addr,
+            None,
+            ServerName::try_from("dns.example.com").unwrap(),
+            client_config().unwrap(),
+            Duration::from_secs(5),
+            Duration::from_secs(5),
+            None,
+            TokioRuntimeProvider::default(),
+        )
+        .await;
+
+        let sni = server.await.unwrap();
+        assert_eq!(sni.as_deref(), Some("dns.example.com"));
+    }
+}
