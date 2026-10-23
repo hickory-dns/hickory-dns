@@ -46,6 +46,7 @@ use crate::dnssec;
 use hickory_net::http::DEFAULT_DNS_QUERY_PATH;
 #[cfg(feature = "__tls")]
 use hickory_net::tls::default_provider;
+use hickory_net::xfer::DEFAULT_STREAM_BUFFER_SIZE;
 use hickory_proto::{
     ProtoError, op::DEFAULT_MAX_PAYLOAD_LEN, rr::Name, serialize::txt::ParseError,
 };
@@ -276,7 +277,7 @@ fn default_tcp_listen_backlog() -> i32 {
 }
 
 fn default_tcp_response_buffer_size() -> usize {
-    32
+    DEFAULT_STREAM_BUFFER_SIZE
 }
 
 impl Config {
