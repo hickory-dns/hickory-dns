@@ -36,11 +36,13 @@ pub(super) async fn handle_quic(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!(?socket, "registered quic");
+    let server_addr = socket.local_addr().ok();
     handle_quic_with_server(
         QuicServer::with_socket(socket, server_cert_resolver)?,
         handshake_timeout,
         idle_timeout,
         request_timeout,
+        server_addr,
         cx,
     )
     .await
@@ -51,6 +53,7 @@ pub(super) async fn handle_quic_with_server(
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
+    server_addr: Option<SocketAddr>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let mut inner_join_set = JoinSet::new();
@@ -108,7 +111,15 @@ pub(super) async fn handle_quic_with_server(
 
             debug!("starting quic stream request from: {src_addr}");
 
-            let result = quic_handler(streams, src_addr, idle_timeout, request_timeout, cx).await;
+            let result = quic_handler(
+                streams,
+                src_addr,
+                idle_timeout,
+                request_timeout,
+                server_addr,
+                cx,
+            )
+            .await;
 
             if let Err(error) = result {
                 warn!(%error, %src_addr, "quic stream processing failed")
@@ -126,6 +137,7 @@ pub(crate) async fn quic_handler(
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
+    server_addr: Option<SocketAddr>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     // TODO: we should make this configurable
@@ -178,6 +190,7 @@ pub(crate) async fn quic_handler(
                 src_addr,
                 Protocol::Quic,
                 QuicResponseHandle(request_stream),
+                server_addr,
             )
             .await;
         });

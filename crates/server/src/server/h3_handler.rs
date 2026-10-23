@@ -43,11 +43,13 @@ pub(super) async fn handle_h3(
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registered h3: {:?}", socket);
+    let server_addr = socket.local_addr().ok();
     handle_h3_with_server(
         H3Server::with_socket(socket, server_cert_resolver)?,
         handshake_timeout,
         idle_timeout,
         request_timeout,
+        server_addr,
         dns_hostname,
         cx,
     )
@@ -59,6 +61,7 @@ pub(super) async fn handle_h3_with_server(
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
+    server_addr: Option<SocketAddr>,
     dns_hostname: Option<String>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -125,6 +128,7 @@ pub(super) async fn handle_h3_with_server(
                 src_addr,
                 idle_timeout,
                 request_timeout,
+                server_addr,
                 dns_hostname,
                 cx,
             )
@@ -146,6 +150,7 @@ pub(crate) async fn h3_handler(
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
+    server_addr: Option<SocketAddr>,
     _dns_hostname: Option<Arc<str>>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
@@ -206,8 +211,14 @@ pub(crate) async fn h3_handler(
                 "Received request body"
             );
 
-            cx.handle_request(request, src_addr, Protocol::H3, H3ResponseHandle(stream))
-                .await
+            cx.handle_request(
+                request,
+                src_addr,
+                Protocol::H3,
+                H3ResponseHandle(stream),
+                server_addr,
+            )
+            .await
         });
 
         max_requests -= 1;

@@ -76,6 +76,7 @@ pub(super) async fn handle_h2_with_acceptor(
 ) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
+    let server_addr = listener.local_addr().ok();
     debug!("registered https: {listener:?}");
 
     let mut inner_join_set = JoinSet::new();
@@ -130,6 +131,7 @@ pub(super) async fn handle_h2_with_acceptor(
                 src_addr,
                 idle_timeout,
                 request_timeout,
+                server_addr,
                 dns_hostname,
                 http_endpoint,
                 cx,
@@ -147,11 +149,13 @@ pub(super) async fn handle_h2_with_acceptor(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn h2_handler(
     io: impl AsyncRead + AsyncWrite + Unpin,
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
+    server_addr: Option<SocketAddr>,
     dns_hostname: Option<Arc<str>>,
     http_endpoint: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
@@ -213,6 +217,7 @@ pub(crate) async fn h2_handler(
                 src_addr,
                 Protocol::Https,
                 HttpsResponseHandle(respond),
+                server_addr,
             )
             .await
         });

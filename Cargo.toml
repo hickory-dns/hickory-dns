@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/dnstap",
     "crates/net",
     "crates/proto",
     "crates/resolver",
@@ -27,6 +28,7 @@ license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 # hickory
+hickory-dnstap = { version = "=0.27.0-alpha.1", path = "crates/dnstap" }
 hickory-net = { version = "=0.27.0-alpha.1", path = "crates/net", default-features = false }
 hickory-resolver = { version = "=0.27.0-alpha.1", path = "crates/resolver", default-features = false }
 hickory-server = { version = "=0.27.0-alpha.1", path = "crates/server", default-features = false }
@@ -36,6 +38,7 @@ test-support.path = "tests/test-support"
 
 # logging
 tracing = { version = "0.1.30", default-features = false }
+tracing-core = "0.1.34"
 tracing-subscriber = { version = "0.3.10", default-features = false }
 tracing-journald = "0.3.2"
 thiserror = { version = "2", default-features = false }
@@ -129,6 +132,11 @@ toml = "1.0.1"
 tower = { version = "0.5", default-features = false }
 tower-http = { version = "0.7", default-features = false }
 wasm-bindgen-crate = { version = "0.2.107", package = "wasm-bindgen" }
+
+# protobuf (dnstap)
+prost = { version = "0.14", default-features = false, features = ["derive"] }
+prost-build = { version = "0.14" }
+protox = { version = "0.9" }
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }

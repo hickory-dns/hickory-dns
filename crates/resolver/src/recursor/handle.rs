@@ -31,13 +31,14 @@ use crate::{
     net::{DnsError, DnsHandle, NetError, NoRecords},
     proto::{
         access_control::{AccessControlSet, AccessControlSetBuilder},
-        op::{DnsRequestOptions, Message, Query},
+        op::{DnsRequestOptions, Edns, Message, Query},
         rr::{
             Name, RData,
             RData::CNAME,
             Record, RecordType,
             rdata::{A, AAAA, NS},
         },
+        serialize::binary::BinEncodable,
     },
 };
 
@@ -456,6 +457,30 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     ) -> Result<Message, RecursorError> {
         limits.try_charge_query(&query)?;
 
+        // DNSTAP: record the outbound hop. Wire bytes are built here since the
+        // pool assembles the request internally; the zone is the hop's
+        // bailiwick. The send time is captured for the response frame's
+        // query_time.
+        let dnstap_query_time = if tracing::enabled!(target: "hickory_server::dnstap", tracing::Level::TRACE)
+        {
+            if let Some(query_wire) = request_wire(&query, self.request_options) {
+                let zone_wire = zone.to_bytes().unwrap_or_default();
+                let query_time = dnstap_now();
+                tracing::event!(
+                    target: "hickory_server::dnstap",
+                    tracing::Level::TRACE,
+                    kind = "resolver_query",
+                    message_bytes = query_wire.as_slice(),
+                    query_zone = zone_wire.as_slice(),
+                );
+                Some(query_time)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let mut response = ns.lookup(query.clone(), self.request_options);
 
         #[cfg(feature = "metrics")]
@@ -476,7 +501,21 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         // TODO: we are only expecting one response
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         let mut response = match response.next().await {
-            Some(Ok(r)) => r,
+            Some(Ok(r)) => {
+                if let Some((query_time_sec, query_time_nsec)) = dnstap_query_time {
+                    let zone_wire = zone.to_bytes().unwrap_or_default();
+                    tracing::event!(
+                        target: "hickory_server::dnstap",
+                        tracing::Level::TRACE,
+                        kind = "resolver_response",
+                        message_bytes = r.as_buffer(),
+                        query_zone = zone_wire.as_slice(),
+                        query_time_sec = query_time_sec,
+                        query_time_nsec = u64::from(query_time_nsec),
+                    );
+                }
+                r
+            }
             Some(Err(mut error)) => {
                 warn!(?query, %error, "lookup error");
 
@@ -1174,6 +1213,33 @@ fn order_cname_chain(answers: &mut Vec<Record>, query_name: &Name) {
     let mut ranked = answers.drain(..).zip(rank).collect::<Vec<_>>();
     ranked.sort_unstable_by_key(|(_, rank)| *rank);
     answers.extend(ranked.into_iter().map(|(record, _)| record));
+}
+
+/// Wire form of an outbound request, mirroring `DnsRequest::from_query`.
+///
+/// The pool applies case randomization after this point, so the recorded bytes
+/// can differ from the bytes actually sent. Returns `None` when encoding fails,
+/// which should not happen for a valid `Query`.
+fn request_wire(query: &Query, options: DnsRequestOptions) -> Option<Vec<u8>> {
+    let mut message = Message::query();
+    message.queries.push(query.clone());
+    message.metadata.recursion_desired = options.recursion_desired;
+    if options.use_edns {
+        message
+            .edns
+            .get_or_insert_with(Edns::new)
+            .set_max_payload(options.edns_payload_len)
+            .set_dnssec_ok(options.edns_set_dnssec_ok);
+    }
+    message.to_vec().ok()
+}
+
+/// Seconds and nanoseconds since the UNIX epoch, for DNSTAP timestamps.
+fn dnstap_now() -> (u64, u32) {
+    let elapsed = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap_or_default();
+    (elapsed.as_secs(), elapsed.subsec_nanos())
 }
 
 #[cfg(test)]
