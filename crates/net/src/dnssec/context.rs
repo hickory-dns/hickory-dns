@@ -289,7 +289,13 @@ impl<'a> RrsetVerificationContext<'a> {
             rec.data.hash(&mut hasher);
         }
 
-        ValidationCacheKey(hasher.finish(), self.query.clone())
+        ValidationCacheKey {
+            hash: hasher.finish(),
+            query: self.query.clone(),
+            key: self.key.clone(),
+            records: self.rrset.records.iter().map(|r| (*r).clone()).collect(),
+            signatures: self.rrset.signatures.iter().map(|r| (*r).clone()).collect(),
+        }
     }
 }
 
