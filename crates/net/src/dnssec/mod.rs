@@ -1728,16 +1728,28 @@ impl<'a> RrsetVerificationContext<'a> {
             rec.data.hash(&mut hasher);
         }
 
-        ValidationCacheKey(hasher.finish(), self.query.clone())
+        ValidationCacheKey {
+            hash: hasher.finish(),
+            query: self.query.clone(),
+            rrset_name: self.rrset.name().clone(),
+            rrset_type: self.rrset.record_type(),
+            records: self.rrset.records(true).cloned().collect(),
+        }
     }
 }
 
 #[derive(Eq, PartialEq)]
-struct ValidationCacheKey(u64, Query);
+struct ValidationCacheKey {
+    hash: u64,
+    query: Query,
+    rrset_name: Name,
+    rrset_type: RecordType,
+    records: Vec<Record>,
+}
 
 impl Hash for ValidationCacheKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
+        self.hash.hash(state);
     }
 }
 
