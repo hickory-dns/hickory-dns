@@ -30,7 +30,7 @@ use crate::{
             rdata::{DNSKEY, DNSSECRData, DS, RRSIG},
         },
         op::{DnsRequest, DnsRequestOptions, DnsResponse, Edns, Message, OpCode, Query},
-        rr::{LowerName, Name, RData, Record, RecordRef, RecordType},
+        rr::{LowerName, Name, RData, Record, RecordRef, RecordType, RrKey},
     },
     runtime::{RuntimeProvider, Time},
     xfer::dns_handle::DnsHandle,
@@ -1360,11 +1360,17 @@ impl ValidationCache {
 }
 
 #[derive(Eq, PartialEq)]
-struct ValidationCacheKey(u64, Query);
+struct ValidationCacheKey {
+    hash: u64,
+    query: Query,
+    key: RrKey,
+    records: Vec<Record>,
+    signatures: Vec<Record>,
+}
 
 impl Hash for ValidationCacheKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
+        self.hash.hash(state);
     }
 }
 
