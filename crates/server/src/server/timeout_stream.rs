@@ -1,5 +1,4 @@
 use std::io;
-use std::mem;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -7,7 +6,7 @@ use std::time::Duration;
 use futures_util::FutureExt;
 use futures_util::stream::{Stream, StreamExt};
 use tokio::time::{Sleep, sleep};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// This wraps the underlying Stream in a timeout.
 ///
@@ -44,40 +43,21 @@ where
 {
     type Item = Result<I, io::Error>;
 
-    // somehow insert a timeout here...
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // if the timer isn't set, set one now
-        if self.timeout.is_none() {
-            let timeout = Self::timeout(self.timeout_duration);
-            self.as_mut().timeout = timeout;
-        }
-
         match self.stream.poll_next_unpin(cx) {
             r @ Poll::Ready(_) => {
-                // reset the timeout to wait for the next request...
-                let timeout = if let Some(mut timeout) = Self::timeout(self.timeout_duration) {
-                    // ensure that interest in the Timeout is registered
-                    match timeout.poll_unpin(cx) {
-                        Poll::Ready(_) => {
-                            warn!("timeout fired immediately!");
-                            return Poll::Ready(Some(Err(io::Error::new(
-                                io::ErrorKind::TimedOut,
-                                "timeout fired immediately!",
-                            ))));
-                        }
-                        Poll::Pending => (), // this is the expected state...
-                    }
-
-                    Some(timeout)
-                } else {
-                    None
-                };
-
-                drop(mem::replace(&mut self.timeout, timeout));
+                // Cancel the timeout future, if present. We may start another one on the next poll.
+                self.timeout = None;
 
                 r
             }
             Poll::Pending => {
+                // If the timeout future isn't set, and timeouts are enabled, set one now.
+                if self.timeout.is_none() {
+                    let timeout = Self::timeout(self.timeout_duration);
+                    self.timeout = timeout;
+                }
+
                 if let Some(timeout) = &mut self.timeout {
                     match timeout.poll_unpin(cx) {
                         Poll::Pending => Poll::Pending,
@@ -99,32 +79,39 @@ where
 
 #[cfg(test)]
 mod tests {
-    use futures_util::stream::{TryStreamExt, iter};
-    use test_support::subscribe;
-    use tokio::runtime::Runtime;
+    use std::{pin::pin, sync::Arc};
+
+    use futures_channel::mpsc::unbounded;
+    use futures_util::stream::iter;
+    use tokio::{spawn, sync::Barrier, time::sleep};
 
     use super::*;
+    use test_support::subscribe;
 
-    #[test]
-    fn test_no_timeout() {
+    #[tokio::test]
+    async fn test_no_timeout() {
         subscribe();
 
-        let sequence = iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(io::Error::other);
-        let core = Runtime::new().expect("could not get core");
+        // Try with both a very long timeout and no timeout.
+        let timeouts = [Some(Duration::from_secs(360)), None];
 
-        let timeout_stream = TimeoutStream::new(sequence, Some(Duration::from_secs(360)));
+        for timeout in timeouts {
+            let sequence = iter(vec![Ok(1), Err(io::Error::other("error")), Ok(2)]);
 
-        let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
-        assert_eq!(val.expect("nothing in stream").ok(), Some(1));
+            let timeout_stream = TimeoutStream::new(sequence, timeout);
 
-        let (error, timeout_stream) = core.block_on(timeout_stream.into_future());
-        assert!(error.expect("nothing in stream").is_err());
+            let (val, timeout_stream) = timeout_stream.into_future().await;
+            assert_eq!(val.expect("nothing in stream").ok(), Some(1));
 
-        let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
-        assert_eq!(val.expect("nothing in stream").ok(), Some(2));
+            let (error, timeout_stream) = timeout_stream.into_future().await;
+            assert!(error.expect("nothing in stream").is_err());
 
-        let (val, _) = core.block_on(timeout_stream.into_future());
-        assert!(val.is_none())
+            let (val, timeout_stream) = timeout_stream.into_future().await;
+            assert_eq!(val.expect("nothing in stream").ok(), Some(2));
+
+            let (val, _) = timeout_stream.into_future().await;
+            assert!(val.is_none());
+        }
     }
 
     struct NeverStream {}
@@ -132,24 +119,96 @@ mod tests {
     impl Stream for NeverStream {
         type Item = Result<(), io::Error>;
 
-        // somehow insert a timeout here...
         fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             Poll::Pending
         }
     }
 
-    #[test]
-    fn test_timeout() {
+    #[tokio::test]
+    async fn test_timeout() {
         subscribe();
 
-        let core = Runtime::new().expect("could not get core");
         let timeout_stream = TimeoutStream::new(NeverStream {}, Some(Duration::from_millis(1)));
 
         assert!(
-            core.block_on(timeout_stream.into_future())
+            timeout_stream
+                .into_future()
+                .await
                 .0
                 .expect("nothing in stream")
                 .is_err()
         );
+    }
+
+    /// Test TimeoutStream with a stream that becomes ready after a delay.
+    #[tokio::test(start_paused = true)]
+    async fn test_slowloris() {
+        subscribe();
+
+        let (sender, receiver) = unbounded::<Result<(), io::Error>>();
+
+        let send_task = spawn({
+            async move {
+                sleep(Duration::from_millis(500)).await;
+                sender.unbounded_send(Ok(())).unwrap();
+
+                sleep(Duration::from_millis(750)).await;
+                sender.unbounded_send(Ok(())).unwrap();
+
+                sleep(Duration::from_millis(1500)).await;
+                sender.unbounded_send(Ok(())).unwrap();
+            }
+        });
+
+        let mut timeout_stream = pin!(TimeoutStream::new(receiver, Some(Duration::from_secs(1))));
+
+        timeout_stream.next().await.unwrap().unwrap();
+
+        timeout_stream.next().await.unwrap().unwrap();
+
+        let err = timeout_stream.next().await.unwrap().unwrap_err();
+        assert_eq!(err.kind(), io::ErrorKind::TimedOut);
+
+        send_task.await.unwrap();
+    }
+
+    /// Check that time between the stream returning Ready and the next poll is not counted against
+    /// the timeout.
+    ///
+    /// This makes sure that slower request processing doesn't cause an unnecessary disconnection.
+    #[tokio::test(start_paused = true)]
+    async fn test_timeout_delay_between_polls() {
+        subscribe();
+
+        let (sender, receiver) = unbounded::<Result<(), io::Error>>();
+
+        let barrier = Arc::new(Barrier::new(2));
+
+        let send_task = spawn({
+            let barrier = barrier.clone();
+            async move {
+                for _ in 0..2 {
+                    sleep(Duration::from_millis(500)).await;
+                    sender.unbounded_send(Ok(())).unwrap();
+                    barrier.wait().await;
+                }
+            }
+        });
+
+        let mut timeout_stream = pin!(TimeoutStream::new(receiver, Some(Duration::from_secs(1))));
+
+        timeout_stream.next().await.unwrap().unwrap();
+
+        // Synchronize tasks before next sleeps.
+        barrier.wait().await;
+
+        // Insert a long delay between the last Ready poll and next Pending poll. We don't want this
+        // to be counted against the timeout.
+        sleep(Duration::from_secs(5)).await;
+
+        timeout_stream.next().await.unwrap().unwrap();
+
+        barrier.wait().await;
+        send_task.await.unwrap();
     }
 }
