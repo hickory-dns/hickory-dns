@@ -189,9 +189,11 @@ pub(crate) struct Config {
     /// TCP socket configuration options.
     #[serde(default)]
     pub(crate) tcp_socket: TcpSocketConfig,
-    /// UDP receive buffer size.
-    #[serde(default = "default_udp_receive_buffer_size")]
-    pub(crate) udp_receive_buffer_size: u16,
+    /// The largest UDP payload the server accepts and advertises in its EDNS responses.
+    ///
+    /// Datagrams larger than this size are truncated by the kernel and fail to parse.
+    #[serde(default = "default_udp_max_payload_size")]
+    pub(crate) udp_max_payload_size: u16,
 }
 
 /// Configuration options for UDP sockets.
@@ -861,6 +863,6 @@ fn default_https_port() -> u16 {
     443
 }
 
-fn default_udp_receive_buffer_size() -> u16 {
+fn default_udp_max_payload_size() -> u16 {
     DEFAULT_MAX_PAYLOAD_LEN
 }

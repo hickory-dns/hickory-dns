@@ -321,7 +321,7 @@ impl DnsServer {
             allow_networks,
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
-            udp_receive_buffer_size,
+            udp_max_payload_size,
         } = config;
 
         #[cfg(unix)]
@@ -339,10 +339,10 @@ impl DnsServer {
             catalog.set_nsid(Some(payload));
         }
 
-        if udp_receive_buffer_size < 512 {
-            return Err("udp_receive_buffer_size is smaller than 512 bytes".to_owned());
+        if udp_max_payload_size < 512 {
+            return Err("udp_max_payload_size is smaller than 512 bytes".to_owned());
         }
-        catalog.set_max_payload_size(udp_receive_buffer_size);
+        catalog.set_max_payload_size(udp_max_payload_size);
 
         // configure our server based on the config_path
         let zone_dir = zonedir.unwrap_or(directory);
@@ -408,7 +408,7 @@ impl DnsServer {
         let listen_port = port.unwrap_or(listen_port);
         match disable_udp {
             true => info!("UDP protocol is disabled"),
-            false => setup.udp(listen_port, udp_receive_buffer_size)?,
+            false => setup.udp(listen_port, udp_max_payload_size)?,
         }
 
         match disable_tcp {
@@ -558,7 +558,7 @@ struct ServerSetup<'a> {
 }
 
 impl ServerSetup<'_> {
-    fn udp(&mut self, port: u16, receive_buffer_size: u16) -> Result<(), String> {
+    fn udp(&mut self, port: u16, max_payload_size: u16) -> Result<(), String> {
         #[cfg(unix)]
         let num_sockets = self.udp_socket_config.sockets.unwrap_or(1);
         #[cfg(not(unix))]
@@ -574,7 +574,7 @@ impl ServerSetup<'_> {
                 .local_addr()
                 .map_err(|err| format!("failed to lookup local address: {err}"))?;
             self.server
-                .register(Udp::new(first_socket).max_payload_size(receive_buffer_size));
+                .register(Udp::new(first_socket).max_payload_size(max_payload_size));
 
             // Afterward, bind any additional sockets.
             for _ in 1..num_sockets {
@@ -584,7 +584,7 @@ impl ServerSetup<'_> {
                             format!("failed to bind to UDP socket address {addr:?}: {err}")
                         })?,
                     )
-                    .max_payload_size(receive_buffer_size),
+                    .max_payload_size(max_payload_size),
                 );
             }
 
