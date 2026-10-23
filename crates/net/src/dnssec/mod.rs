@@ -1674,15 +1674,6 @@ impl ValidationCache {
             "inserting DNSSEC validation cache entry",
         );
 
-        let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
-        if proof.is_err() {
-            if let Some(negative_bounds) = self.negative_ttl.clone() {
-                (min, max) = negative_bounds.into_inner();
-            }
-        } else if let Some(positive_bounds) = self.positive_ttl.clone() {
-            (min, max) = positive_bounds.into_inner();
-        }
-
         let Some(record) = cx.rrset.record() else {
             debug!(
                 name = ?cx.rrset.name(),
@@ -1691,14 +1682,29 @@ impl ValidationCache {
             );
             return;
         };
+        let mut ttl = Duration::from_secs(record.ttl.into());
 
-        self.inner.lock().insert(
-            key,
-            (
-                Instant::now() + Duration::from_secs(record.ttl.into()).clamp(min, max),
-                proof.clone(),
-            ),
-        );
+        let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
+        match &proof {
+            Ok(proof) => {
+                if let Some(positive_bounds) = self.positive_ttl.clone() {
+                    (min, max) = positive_bounds.into_inner();
+                }
+                if let Some(adjusted_ttl) = proof.adjusted_ttl {
+                    ttl = Ord::min(ttl, Duration::from_secs(adjusted_ttl.into()));
+                }
+            }
+            Err(_) => {
+                if let Some(negative_bounds) = self.negative_ttl.clone() {
+                    (min, max) = negative_bounds.into_inner();
+                }
+                ttl = Ord::min(ttl, BOGUS_CACHE_TTL);
+            }
+        };
+
+        self.inner
+            .lock()
+            .insert(key, (Instant::now() + ttl.clamp(min, max), proof));
     }
 }
 
