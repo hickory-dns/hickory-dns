@@ -5,6 +5,7 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::net::SocketAddr;
 
 use crate::{
@@ -15,15 +16,25 @@ use crate::{
 };
 
 /// A handler for send a response to a client
-#[async_trait::async_trait]
 pub trait ResponseHandler: Send + Sync + Unpin + 'static {
     // TODO: add associated error type
     //type Error;
 
-    /// Serializes and sends a message to the wrapped handle
-    async fn send_response<'a>(
+    /// The protocol responses are serialized for.
+    fn protocol(&self) -> Protocol;
+
+    /// Sends an already-serialized message to the wrapped handle.
+    fn send_encoded(
         &mut self,
-        response: MessageResponse<
+        info: ResponseInfo,
+        bytes: Vec<u8>,
+    ) -> impl Future<Output = Result<ResponseInfo, NetError>> + Send;
+
+    /// Serializes and sends a message to the wrapped handle
+    #[cfg_attr(not(feature = "__quic"), allow(unused_mut))]
+    fn send_response<'a>(
+        &mut self,
+        mut response: MessageResponse<
             '_,
             'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
@@ -31,7 +42,21 @@ pub trait ResponseHandler: Send + Sync + Unpin + 'static {
             impl Iterator<Item = &'a Record> + Send + 'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
-    ) -> Result<ResponseInfo, NetError>;
+    ) -> impl Future<Output = Result<ResponseInfo, NetError>> + Send {
+        let protocol = self.protocol();
+
+        // The id should always be 0 in DoQ
+        #[cfg(feature = "__quic")]
+        if protocol == Protocol::Quic {
+            response.metadata_mut().id = 0;
+        }
+
+        let encoded = response.encode(protocol);
+        async move {
+            let (info, bytes) = encoded?;
+            self.send_encoded(info, bytes).await
+        }
+    }
 }
 
 /// A handler for wrapping a [`BufDnsStreamHandle`], which will properly serialize the message and add the
@@ -54,23 +79,19 @@ impl ResponseHandle {
     }
 }
 
-#[async_trait::async_trait]
 impl ResponseHandler for ResponseHandle {
+    fn protocol(&self) -> Protocol {
+        self.protocol
+    }
+
     /// Serializes and sends a message to the wrapped handle
-    async fn send_response<'a>(
+    async fn send_encoded(
         &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
+        info: ResponseInfo,
+        bytes: Vec<u8>,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, buffer) = response.encode(self.protocol)?;
         self.stream_handle
-            .send(SerialMessage::new(buffer, self.dst))?;
+            .send(SerialMessage::new(bytes, self.dst))?;
 
         Ok(info)
     }

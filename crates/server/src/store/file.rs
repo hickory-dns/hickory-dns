@@ -232,7 +232,6 @@ impl ZoneHandler for FileZoneHandler {
 }
 
 #[cfg(feature = "__dnssec")]
-#[async_trait::async_trait]
 impl DnssecZoneHandler for FileZoneHandler {
     /// Add Signer
     async fn add_zone_signing_key(&self, signer: DnssecSigner) -> DnsSecResult<()> {

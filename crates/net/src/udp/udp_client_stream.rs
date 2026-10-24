@@ -23,7 +23,7 @@ use crate::proto::rr::TSigner;
 use crate::runtime::{DnsUdpSocket, RuntimeProvider, Spawn, Time};
 use crate::udp::MAX_RECEIVE_BUFFER_SIZE;
 use crate::udp::udp_stream::NextRandomUdpSocket;
-use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream};
+use crate::xfer::{DnsExchange, DnsRequestSender, DnsResponseStream, TimeoutFuture};
 
 /// A UDP client stream of DNS binary packets.
 ///
@@ -87,11 +87,11 @@ impl<P: RuntimeProvider> DnsRequestSender for UdpClientStream<P> {
             retry_interval_time
         };
 
-        P::Timer::timeout(
+        let timeout: TimeoutFuture = Box::pin(P::Timer::timeout(
             self.timeout,
             retry::<P>(request, retry_interval, max_retries.into()),
-        )
-        .into()
+        ));
+        timeout.into()
     }
 
     fn shutdown(&mut self) {

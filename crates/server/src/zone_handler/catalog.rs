@@ -61,7 +61,6 @@ pub struct Catalog {
     metrics: CatalogMetrics,
 }
 
-#[async_trait::async_trait]
 impl RequestHandler for Catalog {
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///

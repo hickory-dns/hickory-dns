@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 #[cfg(feature = "__dnssec")]
 use hickory_net::client::{ClientHandle, DnssecClient};
 use hickory_net::runtime::Time;
@@ -41,7 +40,6 @@ impl MockHandler {
     }
 }
 
-#[async_trait]
 impl RequestHandler for MockHandler {
     async fn handle_request<R: ResponseHandler, T: Time>(
         &self,
