@@ -556,6 +556,29 @@ mod tests {
     }
 
     #[test]
+    fn txt_record_with_quoted_strings_in_parentheses() {
+        let domain = Name::from_str("example.com.").unwrap();
+
+        let zone_data = r#"$ORIGIN example.com.
+dkim 300 IN TXT ( "v=DKIM1; k=rsa; "
+                  "p=MIGfMA0GCSqGSIb3" )
+"#;
+
+        let (_, records) = Parser::new(zone_data, None, Some(domain)).parse().unwrap();
+        let rrset = records.values().next().unwrap();
+        let RData::TXT(txt) = rrset.records_without_rrsigs().next().unwrap().data.clone() else {
+            panic!("expected a TXT record");
+        };
+        assert_eq!(
+            &*txt.txt_data,
+            [
+                b"v=DKIM1; k=rsa; ".to_vec().into_boxed_slice(),
+                b"p=MIGfMA0GCSqGSIb3".to_vec().into_boxed_slice(),
+            ]
+        );
+    }
+
+    #[test]
     fn empty_txt_record_is_rejected() {
         let domain = Name::from_str("example.com.").unwrap();
 

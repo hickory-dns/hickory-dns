@@ -80,7 +80,7 @@ impl<'a> Lexer<'a> {
                         Some('"') => {
                             self.txt.next();
                             char_data = Some(String::new());
-                            self.state = State::Quote;
+                            self.state = State::Quote { is_list: false };
                         }
                         Some(';') => self.state = State::Comment { is_list: false },
                         Some(ch) if ch.is_whitespace() => {
@@ -115,15 +115,22 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                State::Quote => {
+                State::Quote { is_list } => {
                     match ch {
                         // end and gobble the '"'
                         Some('"') => {
-                            self.state = State::RestOfLine;
                             self.txt.next();
-                            return Ok(Some(Token::CharData(
-                                char_data.take().unwrap_or_else(|| "".into()),
-                            )));
+                            let quoted = char_data.take().unwrap_or_else(|| "".into());
+                            if is_list {
+                                char_data_vec
+                                    .as_mut()
+                                    .ok_or(LexerError::IllegalState("char_data_vec is None"))?
+                                    .push(quoted);
+                                self.state = State::List;
+                            } else {
+                                self.state = State::RestOfLine;
+                                return Ok(Some(Token::CharData(quoted)));
+                            }
                         }
                         Some('\\') => {
                             Self::push_to_str(&mut char_data, self.escape_seq()?)?;
@@ -180,6 +187,11 @@ impl<'a> Lexer<'a> {
                     }
                     Some(ch) if ch.is_whitespace() => {
                         self.txt.next();
+                    }
+                    Some('"') => {
+                        self.txt.next();
+                        char_data = Some(String::new());
+                        self.state = State::Quote { is_list: true };
                     }
                     Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
                         char_data = Some(String::new());
@@ -340,7 +352,7 @@ pub(crate) enum State {
     //  Name,              // CharData + '.' + CharData
     Comment { is_list: bool }, // ;.*
     At,                        // @
-    Quote,                     // ".*"
+    Quote { is_list: bool },   // ".*"
     Dollar,                    // $
     EOL,                       // \n or \r\n
     EOF,
@@ -591,6 +603,18 @@ mod lex_test {
         assert_eq!(
             next_token(&mut lexer).unwrap(),
             Token::List(vec!["abc".to_string()])
+        );
+        assert_eq!(next_token(&mut lexer), None);
+
+        let mut lexer = Lexer::new("( \"a b\" \"c;d\"\n\"\" e )");
+        assert_eq!(
+            next_token(&mut lexer).unwrap(),
+            Token::List(vec![
+                "a b".to_string(),
+                "c;d".to_string(),
+                "".to_string(),
+                "e".to_string()
+            ])
         );
         assert_eq!(next_token(&mut lexer), None);
     }
