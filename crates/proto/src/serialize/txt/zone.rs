@@ -272,6 +272,13 @@ impl<'a> Parser<'a> {
                                     data.make_ascii_uppercase();
                                     let result = DNSClass::from_str(&data);
                                     if let Ok(parsed) = result {
+                                        // RFC 1035 section 3.6: NONE and ANY (`*`) are only
+                                        // valid as QCLASS values, not as the class of a record.
+                                        if matches!(parsed, DNSClass::NONE | DNSClass::ANY) {
+                                            return Err(ParseError::from(format!(
+                                                "query-only class {data} is not allowed in a zone file"
+                                            )));
+                                        }
                                         cx.class = parsed;
                                         State::TtlClassType { rr_started: true }
                                     } else {
@@ -522,6 +529,32 @@ mod tests {
         let rrset = records.values().next().unwrap();
         assert_eq!(rrset.name(), &Name::from_str("www.example.com.").unwrap());
         assert_eq!(rrset.record_type(), RecordType::A);
+    }
+
+    #[test]
+    fn test_query_only_class_is_rejected() {
+        // https://github.com/hickory-dns/hickory-dns/issues/3956
+        for rr in [
+            "www 3600 ANY A 192.0.2.1",
+            "www 3600 * A 192.0.2.1",
+            "www 3600 NONE A 192.0.2.1",
+            "www ANY 3600 A 192.0.2.1",
+            "www 3600 any A 192.0.2.1",
+        ] {
+            let zone_data = format!("$ORIGIN example.com.\n{rr}\n");
+            let result = Parser::new(zone_data, None, None).parse();
+            assert!(
+                result
+                    .as_ref()
+                    .is_err_and(|e| e.to_string().contains("query-only class")),
+                "unexpected result for {rr:?}: {result:#?}"
+            );
+        }
+
+        for rr in ["www 3600 IN A 192.0.2.1", "www 3600 CH A 192.0.2.1"] {
+            let zone_data = format!("$ORIGIN example.com.\n{rr}\n");
+            Parser::new(zone_data, None, None).parse().unwrap();
+        }
     }
 
     #[test]
