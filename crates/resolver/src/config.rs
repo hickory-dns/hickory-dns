@@ -363,7 +363,10 @@ impl ConnectionConfig {
     /// Constructs a new ConnectionConfig for TLS
     #[cfg(feature = "__tls")]
     pub fn tls(server_name: Arc<str>) -> Self {
-        Self::new(ProtocolConfig::Tls { server_name })
+        Self::new(ProtocolConfig::Tls {
+            server_name,
+            disable_sni: false,
+        })
     }
 
     /// Constructs a new ConnectionConfig for HTTPS (HTTP/2)
@@ -372,13 +375,17 @@ impl ConnectionConfig {
         Self::new(ProtocolConfig::Https {
             server_name,
             path: path.unwrap_or_else(|| Arc::from(DEFAULT_DNS_QUERY_PATH)),
+            disable_sni: false,
         })
     }
 
     /// Constructs a new ConnectionConfig for QUIC
     #[cfg(feature = "__quic")]
     pub fn quic(server_name: Arc<str>) -> Self {
-        Self::new(ProtocolConfig::Quic { server_name })
+        Self::new(ProtocolConfig::Quic {
+            server_name,
+            disable_sni: false,
+        })
     }
 
     /// Constructs a new ConnectionConfig for HTTP/3
@@ -388,6 +395,7 @@ impl ConnectionConfig {
             server_name,
             path: path.unwrap_or_else(|| Arc::from(DEFAULT_DNS_QUERY_PATH)),
             disable_grease: false,
+            disable_sni: false,
         })
     }
 
@@ -473,6 +481,9 @@ pub enum ProtocolConfig {
     Tls {
         /// The server name to use in the TLS handshake.
         server_name: Arc<str>,
+        /// Whether to disable sending the server name (SNI) in the TLS handshake
+        #[cfg_attr(feature = "serde", serde(default))]
+        disable_sni: bool,
     },
     /// DNS over HTTP, with HTTP/2
     #[cfg(feature = "__https")]
@@ -481,12 +492,18 @@ pub enum ProtocolConfig {
         server_name: Arc<str>,
         /// The path (or endpoint) to use for the DNS query.
         path: Arc<str>,
+        /// Whether to disable sending the server name (SNI) in the TLS handshake
+        #[cfg_attr(feature = "serde", serde(default))]
+        disable_sni: bool,
     },
     /// DNS over QUIC
     #[cfg(feature = "__quic")]
     Quic {
         /// The server name to use in the TLS handshake.
         server_name: Arc<str>,
+        /// Whether to disable sending the server name (SNI) in the TLS handshake
+        #[cfg_attr(feature = "serde", serde(default))]
+        disable_sni: bool,
     },
     /// DNS over HTTP, with HTTP/3
     #[cfg(feature = "__h3")]
@@ -498,6 +515,9 @@ pub enum ProtocolConfig {
         /// Whether to disable sending "grease"
         #[cfg_attr(feature = "serde", serde(default))]
         disable_grease: bool,
+        /// Whether to disable sending the server name (SNI) in the TLS handshake
+        #[cfg_attr(feature = "serde", serde(default))]
+        disable_sni: bool,
     },
 }
 
@@ -523,11 +543,11 @@ impl ProtocolConfig {
         match self {
             ProtocolConfig::Udp | ProtocolConfig::Tcp => None,
             #[cfg(feature = "__tls")]
-            ProtocolConfig::Tls { server_name } => Some(server_name),
+            ProtocolConfig::Tls { server_name, .. } => Some(server_name),
             #[cfg(feature = "__https")]
             ProtocolConfig::Https { server_name, .. } => Some(server_name),
             #[cfg(feature = "__quic")]
-            ProtocolConfig::Quic { server_name } => Some(server_name),
+            ProtocolConfig::Quic { server_name, .. } => Some(server_name),
             #[cfg(feature = "__h3")]
             ProtocolConfig::H3 { server_name, .. } => Some(server_name),
         }
@@ -1262,10 +1282,23 @@ mod tests {
             assert_eq!(
                 config.protocol,
                 ProtocolConfig::Tls {
-                    server_name: Arc::from("example.com")
+                    server_name: Arc::from("example.com"),
+                    disable_sni: false,
                 }
             );
             assert_eq!(config.port, 853);
+
+            let config = toml::from_str::<ConnectionConfig>(
+                r#"protocol = { type = "tls", server_name = "example.com", disable_sni = true }"#,
+            )
+            .unwrap();
+            assert_eq!(
+                config.protocol,
+                ProtocolConfig::Tls {
+                    server_name: Arc::from("example.com"),
+                    disable_sni: true,
+                }
+            );
         }
 
         // Only protocols without additional fields have a string form.

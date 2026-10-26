@@ -107,7 +107,13 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 self.clone(),
             ))),
             #[cfg(feature = "__tls")]
-            (ProtocolConfig::Tls { server_name }, _) => {
+            (
+                ProtocolConfig::Tls {
+                    server_name,
+                    disable_sni,
+                },
+                _,
+            ) => {
                 let Ok(server_name) = ServerName::try_from(&**server_name) else {
                     return Err(NetError::from(format!(
                         "invalid server name: {server_name}"
@@ -119,7 +125,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     remote_addr,
                     config.bind_addr,
                     server_name,
-                    cx.tls.clone(),
+                    tls_config(cx, *disable_sni),
                     cx.options.timeout,
                     cx.options.connect_timeout,
                     Some(cx.options.max_active_requests),
@@ -127,10 +133,19 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                 )))
             }
             #[cfg(feature = "__https")]
-            (ProtocolConfig::Https { server_name, path }, _) => {
-                let mut builder =
-                    HttpsClientStream::builder(Arc::new(cx.tls.clone()), self.clone())
-                        .connect_timeout(cx.options.connect_timeout);
+            (
+                ProtocolConfig::Https {
+                    server_name,
+                    path,
+                    disable_sni,
+                },
+                _,
+            ) => {
+                let mut builder = HttpsClientStream::builder(
+                    Arc::new(tls_config(cx, *disable_sni)),
+                    self.clone(),
+                )
+                .connect_timeout(cx.options.connect_timeout);
                 if let Some(bind_addr) = config.bind_addr {
                     builder.bind_addr(bind_addr);
                 }
@@ -142,7 +157,13 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
             }
 
             #[cfg(feature = "__quic")]
-            (ProtocolConfig::Quic { server_name }, Some(binder)) => {
+            (
+                ProtocolConfig::Quic {
+                    server_name,
+                    disable_sni,
+                },
+                Some(binder),
+            ) => {
                 let bind_addr = config.bind_addr.unwrap_or(match remote_addr {
                     SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                     SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
@@ -150,7 +171,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Ok(Box::pin(
                     QuicClientStream::builder()
-                        .crypto_config(cx.tls.clone())
+                        .crypto_config(tls_config(cx, *disable_sni))
                         .connect_timeout(cx.options.connect_timeout)
                         .exchange(
                             binder.bind_quic(bind_addr, remote_addr)?,
@@ -166,6 +187,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
                     server_name,
                     path,
                     disable_grease,
+                    disable_sni,
                 },
                 Some(binder),
             ) => {
@@ -176,7 +198,7 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
 
                 Ok(Box::pin(
                     H3ClientStream::builder()
-                        .crypto_config(cx.tls.clone())
+                        .crypto_config(tls_config(cx, *disable_sni))
                         .disable_grease(*disable_grease)
                         .connect_timeout(cx.options.connect_timeout)
                         .exchange(
@@ -202,6 +224,16 @@ impl<P: RuntimeProvider> ConnectionProvider for P {
     fn runtime_provider(&self) -> &Self::RuntimeProvider {
         self
     }
+}
+
+/// Clone the pool's TLS client configuration, turning off SNI if requested.
+#[cfg(feature = "__tls")]
+fn tls_config(cx: &PoolContext, disable_sni: bool) -> rustls::ClientConfig {
+    let mut config = cx.tls.clone();
+    if disable_sni {
+        config.enable_sni = false;
+    }
+    config
 }
 
 /// TLS configuration for the connection provider.
@@ -482,5 +514,63 @@ mod tests {
             .expect("failed to run lookup");
 
         assert_ne!(response.iter().count(), 0);
+    }
+}
+
+#[cfg(all(test, feature = "tokio", feature = "__tls"))]
+mod sni_tests {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::sync::Arc;
+
+    use rustls::server::Acceptor;
+    use tokio::net::TcpListener;
+    use tokio_rustls::LazyConfigAcceptor;
+
+    use super::*;
+    use crate::config::ResolverOpts;
+    use crate::net::runtime::TokioRuntimeProvider;
+
+    #[tokio::test]
+    async fn tls_sends_sni_by_default() {
+        assert_eq!(
+            tls_client_hello_sni(false).await.as_deref(),
+            Some("dns.example.com")
+        );
+    }
+
+    #[tokio::test]
+    async fn tls_disable_sni() {
+        assert_eq!(tls_client_hello_sni(true).await, None);
+    }
+
+    /// Connect over DNS-over-TLS and return the SNI the server sees in the ClientHello.
+    async fn tls_client_hello_sni(disable_sni: bool) -> Option<String> {
+        let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let start = LazyConfigAcceptor::new(Acceptor::default(), stream)
+                .await
+                .unwrap();
+            start.client_hello().server_name().map(str::to_owned)
+        });
+
+        let mut config = ConnectionConfig::new(ProtocolConfig::Tls {
+            server_name: Arc::from("dns.example.com"),
+            disable_sni,
+        });
+        config.port = port;
+        let cx = PoolContext::new(ResolverOpts::default(), TlsConfig::new().unwrap());
+
+        // The server never completes the handshake, so the connection itself fails.
+        let _ = TokioRuntimeProvider::default()
+            .new_connection(IpAddr::V4(Ipv4Addr::LOCALHOST), &config, &cx)
+            .unwrap()
+            .await;
+
+        server.await.unwrap()
     }
 }
