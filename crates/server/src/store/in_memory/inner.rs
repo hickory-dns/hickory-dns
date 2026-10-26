@@ -100,23 +100,18 @@ impl InnerInMemory {
             records.push(cover);
         }
 
-        let wildcard_match = {
-            let wildcard = qname.clone().into_wildcard();
-            self.records.keys().any(|rr_key| rr_key.name == wildcard)
-        };
+        // The wildcard that could have answered is the one at the closest encloser (RFC 4592
+        // §3.3.1). The NSEC3 matching it denies the type there (RFC 5155 §7.2.5), and where the
+        // chain has no such record the NSEC3 covering it denies the wildcard (§7.2.2).
+        let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
+        let rr_key = RrKey::new(
+            info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
+            RecordType::NSEC3,
+        );
 
-        if wildcard_match {
-            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
-            let rr_key = RrKey::new(
-                info.hashed_owner_name(&wildcard_at_closest_encloser, zone)?,
-                RecordType::NSEC3,
-            );
-
-            if let Some(record) = self.records.get(&rr_key) {
-                records.push(record.clone());
-            }
+        if let Some(record) = self.records.get(&rr_key) {
+            records.push(record.clone());
         } else if qtype != RecordType::DS {
-            let wildcard_at_closest_encloser = next_closer_name.into_wildcard();
             if let Some(cover) = self.find_cover(&wildcard_at_closest_encloser, zone, &info)? {
                 records.push(cover);
             }
@@ -225,6 +220,21 @@ impl InnerInMemory {
             search_name = search_name.base_name();
         }
 
+        if let Some(rr_set) = self.rr_set_of_type(name, record_type) {
+            return Some(rr_set.clone());
+        }
+
+        // RFC 1034 §4.3.2 step 3(a) answers a name that exists from that name alone. Only step
+        // 3(c), reached where a label does not exist, looks for a wildcard.
+        if self.node_exists(name) {
+            return None;
+        }
+
+        self.synthesize(name, record_type, lookup_options)
+    }
+
+    /// The RRset stored at `name` that answers a query for `record_type`, if there is one.
+    fn rr_set_of_type(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
         // this range covers all the records for any of the RecordTypes at a given label.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
         let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MAX));
@@ -234,8 +244,7 @@ impl InnerInMemory {
                 && key_type == RecordType::ANAME
         }
 
-        let lookup = self
-            .records
+        self.records
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
             .find(|(key, _)| {
@@ -243,76 +252,105 @@ impl InnerInMemory {
                     || key.record_type == RecordType::CNAME
                     || aname_covers_type(key.record_type, record_type)
             })
-            .map(|(_key, rr_set)| rr_set);
-
-        // TODO: maybe unwrap this recursion.
-        match lookup {
-            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
-            l => l.cloned(),
-        }
+            .map(|(_key, rr_set)| rr_set)
     }
 
-    fn inner_lookup_wildcard(
-        &self,
-        name: &LowerName,
-        record_type: RecordType,
-        lookup_options: LookupOptions,
-    ) -> Option<Arc<RecordSet>> {
-        // if this is a wildcard or a root, both should break continued lookups
-        if name.is_wildcard() || name.is_root() {
+    /// Whether the node at `name` exists, which it does when any record is stored at it or below
+    /// it.
+    ///
+    /// A name holding no records of its own exists as an empty non-terminal when a subdomain of it
+    /// holds some (RFC 4592 §2.2.2).
+    fn node_exists(&self, name: &LowerName) -> bool {
+        // records are keyed in canonical name order, so a name is followed by its own subtree.
+        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::MIN));
+        self.records
+            .range(&start_range_key..)
+            .next()
+            .is_some_and(|(key, _)| name.zone_of(key.name()))
+    }
+
+    /// Whether `name` has anything to answer for, which decides a NODATA against a name error.
+    ///
+    /// A name that only a wildcard covers holds no records of its own, and a query there for a
+    /// type the wildcard does not hold is a NODATA rather than a name error (RFC 4035 §3.1.3.4).
+    pub(super) fn name_exists(&self, name: &LowerName) -> bool {
+        self.node_exists(name)
+            || self
+                .source_of_synthesis(name)
+                .is_some_and(|source| self.node_exists(&source))
+    }
+
+    /// The one wildcard that may answer for `name`, whether or not it exists.
+    ///
+    /// That is the wildcard immediately below `name`'s closest encloser, its deepest existing
+    /// ancestor: the source of synthesis of RFC 4592 §3.3.1. A wildcard higher up may not answer,
+    /// since the existing ancestor blocks it.
+    pub(super) fn source_of_synthesis(&self, name: &LowerName) -> Option<LowerName> {
+        if name.is_root() {
             return None;
         }
 
-        let mut wildcard = name.clone().into_wildcard();
+        let mut next_closer = name.clone();
         loop {
-            let Some(rrset) = self.inner_lookup(&wildcard, record_type, lookup_options) else {
-                let parent = wildcard.base_name();
-                if parent.is_root() {
-                    return None;
-                }
-
-                wildcard = parent.into_wildcard();
-                continue;
-            };
-
-            // we need to change the name to the query name in the result set since this was a wildcard
-            let mut new_answer =
-                RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
-
-            #[allow(clippy::needless_late_init)]
-            let records;
-            #[allow(clippy::needless_late_init)]
-            let _rrsigs: Vec<&Record>;
-            cfg_if! {
-                if #[cfg(feature = "__dnssec")] {
-                    let (records_tmp, rrsigs_tmp) = rrset
-                        .records(lookup_options.dnssec_ok)
-                        .partition(|r| r.record_type() != RecordType::RRSIG);
-                    records = records_tmp;
-                    _rrsigs = rrsigs_tmp;
-                } else {
-                    let (records_tmp, rrsigs_tmp) =
-                        (rrset.records_without_rrsigs(), Vec::with_capacity(0));
-                    records = records_tmp;
-                    _rrsigs = rrsigs_tmp;
-                }
-            };
-
-            for record in records {
-                new_answer.add_rdata(record.data.clone());
+            let encloser = next_closer.base_name();
+            if self.node_exists(&encloser) {
+                return Some(next_closer.into_wildcard());
             }
-
-            #[cfg(feature = "__dnssec")]
-            for rrsig in _rrsigs {
-                let mut rrsig = rrsig.clone();
-                if rrsig.name == *wildcard {
-                    rrsig.name = Name::from(name);
-                }
-                new_answer.insert_rrsig(rrsig)
+            if encloser.is_root() {
+                return None;
             }
-
-            return Some(Arc::new(new_answer));
+            next_closer = encloser;
         }
+    }
+
+    /// Answer for `name` from its source of synthesis (RFC 4592 §3.3.1).
+    fn synthesize(
+        &self,
+        name: &LowerName,
+        record_type: RecordType,
+        #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
+        lookup_options: LookupOptions,
+    ) -> Option<Arc<RecordSet>> {
+        let wildcard = self.source_of_synthesis(name)?;
+        let rrset = self.rr_set_of_type(&wildcard, record_type)?;
+
+        // we need to change the name to the query name in the result set since this was a wildcard
+        let mut new_answer =
+            RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
+
+        #[allow(clippy::needless_late_init)]
+        let records;
+        #[allow(clippy::needless_late_init)]
+        let _rrsigs: Vec<&Record>;
+        cfg_if! {
+            if #[cfg(feature = "__dnssec")] {
+                let (records_tmp, rrsigs_tmp) = rrset
+                    .records(lookup_options.dnssec_ok)
+                    .partition(|r| r.record_type() != RecordType::RRSIG);
+                records = records_tmp;
+                _rrsigs = rrsigs_tmp;
+            } else {
+                let (records_tmp, rrsigs_tmp) =
+                    (rrset.records_without_rrsigs(), Vec::with_capacity(0));
+                records = records_tmp;
+                _rrsigs = rrsigs_tmp;
+            }
+        };
+
+        for record in records {
+            new_answer.add_rdata(record.data.clone());
+        }
+
+        #[cfg(feature = "__dnssec")]
+        for rrsig in _rrsigs {
+            let mut rrsig = rrsig.clone();
+            if rrsig.name == *wildcard {
+                rrsig.name = Name::from(name);
+            }
+            new_answer.insert_rrsig(rrsig)
+        }
+
+        Some(Arc::new(new_answer))
     }
 
     /// Chase a CNAME chain to its terminal record (RFC 1034 §3.6.2).
