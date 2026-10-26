@@ -1064,6 +1064,85 @@ async fn cross_zone_cname_loop_returns_servfail() -> Result<(), NetError> {
     Ok(())
 }
 
+#[tokio::test]
+async fn ds_query_does_not_follow_cname() -> Result<(), NetError> {
+    subscribe();
+
+    let tld_zone = Name::from_ascii("testing.")?;
+    let tld_ns = Name::from_ascii("ns.testing.")?;
+
+    // `cname.testing.` is an alias into a zone that does not exist.
+    let alias = Name::from_ascii("cname.testing.")?;
+    let target = Name::from_ascii("target.other.")?;
+
+    let responses = vec![
+        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
+        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
+            .with_query_name(&tld_zone)
+            .with_query_type(RecordType::NS)
+            .with_section(MockResponseSection::Additional),
+        MockRecord::cname(TLD_IP, &alias, &target).with_query_type(RecordType::DS),
+        // The QNAME minimisation probe is answered with a no-data SOA, so the zone cut
+        // stays at `testing.`.
+        MockRecord::soa(TLD_IP, &tld_zone, &tld_ns, &tld_ns)
+            .with_query_name(&alias)
+            .with_query_type(RecordType::NS)
+            .with_ttl(3600),
+    ];
+
+    let provider = MockProvider::new(MockNetworkHandler::new(responses));
+    let recursor = Recursor::with_options(
+        &[ROOT_IP],
+        RecursorOptions {
+            deny_server: Vec::new(),
+            ..RecursorOptions::default()
+        },
+        provider.clone(),
+    )?;
+
+    let response = match recursor
+        .resolve(
+            Query::new(alias.clone(), RecordType::DS),
+            Instant::now(),
+            false,
+        )
+        .await
+    {
+        Ok(response) => response,
+        Err(error) => panic!("expected the CNAME answer for {alias}, got error {error}"),
+    };
+
+    // RFC 4035 3.2.2 and RFC 6840 4.3: a resolver MUST NOT chase a CNAME for a DS query.
+    // The CNAME the upstream returned is the whole answer.
+    assert_eq!(response.response_code, ResponseCode::NoError);
+    assert!(
+        response
+            .answers
+            .iter()
+            .any(|record| record.record_type() == RecordType::CNAME && record.name == alias),
+        "expected the CNAME in the answer, got {:?}",
+        response.answers
+    );
+    assert!(
+        provider
+            .queries(&ROOT_IP)
+            .iter()
+            .all(|query| query.name != target),
+        "recursor queried for the alias target: {:?}",
+        provider.queries(&ROOT_IP)
+    );
+    assert!(
+        provider
+            .queries(&TLD_IP)
+            .iter()
+            .all(|query| query.name != target),
+        "recursor queried the zone for the alias target: {:?}",
+        provider.queries(&TLD_IP)
+    );
+
+    Ok(())
+}
+
 fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;

@@ -328,8 +328,13 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
         }
 
         // Don't resolve CNAME lookups for a CNAME (or ANY) query, but still order the chain
-        // the upstream returned.
-        if query_type == RecordType::CNAME || query_type == RecordType::ANY {
+        // the upstream returned. DS is in the list because RFC 4035 3.2.2 and RFC 6840 4.3
+        // forbid a resolver from chasing a CNAME for a DS query: a DS record describes a
+        // delegation and cannot be reached through an alias.
+        if query_type == RecordType::CNAME
+            || query_type == RecordType::ANY
+            || query_type == RecordType::DS
+        {
             order_cname_chain(&mut response.answers, &query.name);
             return Ok(response);
         }
