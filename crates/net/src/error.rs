@@ -185,6 +185,77 @@ impl NetError {
         matches!(self, Self::Dns(DnsError::NoRecordsFound { .. }))
     }
 
+    /// Returns true if the error indicates a failure at the transport layer.
+    ///
+    /// The match is exhaustive so a new variant cannot silently change how a
+    /// name server is penalized.
+    pub fn is_transport_error(&self) -> bool {
+        match self {
+            Self::Busy => true,
+
+            // A response header that does not decode as a string.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Decode(_) => false,
+
+            // A response from the server, whatever its contents.
+            Self::Dns(_) => false,
+            Self::ForeignClassRecord { .. } => false,
+            Self::QueryCaseMismatch => false,
+            Self::Truncated => false,
+
+            #[cfg(feature = "__https")]
+            Self::H2(_) => false,
+            #[cfg(feature = "__h3")]
+            Self::H3(_) => false,
+
+            Self::Io(_) => true,
+
+            // Local failures that no server choice can avoid.
+            #[cfg(target_os = "android")]
+            Self::Jni(_) => false,
+            Self::Message(_) => false,
+            Self::NoConnections => false,
+
+            // A response header value that does not parse as a number.
+            Self::ParseInt(_) => false,
+
+            // Usually RDATA our code cannot transform, so the zone contents decide
+            // the failure rather than the server or protocol.
+            Self::Proto(_) => false,
+
+            #[cfg(feature = "__quic")]
+            Self::QuicMessageIdNot0(_) => false,
+
+            // A QUIC configuration or connection failure.
+            #[cfg(feature = "__quic")]
+            Self::QuinnConfigError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnect(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnection(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnReadError(_) => false,
+            #[cfg(feature = "__quic")]
+            Self::QuinnStreamError(_) => false,
+            #[cfg(feature = "__quic")]
+            Self::QuinnTlsConfigError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnUnknownStreamError => false,
+            #[cfg(feature = "__quic")]
+            Self::QuinnWriteError(_) => false,
+
+            // The server responded; only the body exceeded our size limit.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::RequestTooLarge => false,
+
+            // A TLS handshake failure.
+            #[cfg(feature = "__tls")]
+            Self::RustlsError(_) => true,
+
+            Self::Timeout => true,
+        }
+    }
+
     /// Returns true for a transport-level connection error: the connection was
     /// closed, reset, or refused, as opposed to a timeout or a server-side (DNS)
     /// error.
