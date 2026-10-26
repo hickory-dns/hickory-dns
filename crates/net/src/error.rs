@@ -188,10 +188,12 @@ impl NetError {
     /// Returns true if the error indicates a failure at the transport layer.
     ///
     /// The match is exhaustive so a new variant cannot silently change how a
-    /// name server is penalized.
+    /// name server is penalized. Errors from the query, the response contents,
+    /// or local state are not transport errors.
     pub fn is_transport_error(&self) -> bool {
         match self {
-            Self::Busy => true,
+            // Internal resource pressure, not a server property.
+            Self::Busy => false,
 
             // A response header that does not decode as a string.
             #[cfg(any(feature = "__https", feature = "__h3"))]
@@ -203,10 +205,11 @@ impl NetError {
             Self::QueryCaseMismatch => false,
             Self::Truncated => false,
 
+            // An HTTP/2 or HTTP/3 connection or stream failure.
             #[cfg(feature = "__https")]
-            Self::H2(_) => false,
+            Self::H2(_) => true,
             #[cfg(feature = "__h3")]
-            Self::H3(_) => false,
+            Self::H3(_) => true,
 
             Self::Io(_) => true,
 
@@ -223,8 +226,9 @@ impl NetError {
             // the failure rather than the server or protocol.
             Self::Proto(_) => false,
 
+            // A DoQ protocol violation by the server.
             #[cfg(feature = "__quic")]
-            Self::QuicMessageIdNot0(_) => false,
+            Self::QuicMessageIdNot0(_) => true,
 
             // A QUIC configuration or connection failure.
             #[cfg(feature = "__quic")]
@@ -234,15 +238,15 @@ impl NetError {
             #[cfg(feature = "__quic")]
             Self::QuinnConnection(_) => true,
             #[cfg(feature = "__quic")]
-            Self::QuinnReadError(_) => false,
+            Self::QuinnReadError(_) => true,
             #[cfg(feature = "__quic")]
-            Self::QuinnStreamError(_) => false,
+            Self::QuinnStreamError(_) => true,
             #[cfg(feature = "__quic")]
             Self::QuinnTlsConfigError(_) => true,
             #[cfg(feature = "__quic")]
-            Self::QuinnUnknownStreamError => false,
+            Self::QuinnUnknownStreamError => true,
             #[cfg(feature = "__quic")]
-            Self::QuinnWriteError(_) => false,
+            Self::QuinnWriteError(_) => true,
 
             // The server responded; only the body exceeded our size limit.
             #[cfg(any(feature = "__https", feature = "__h3"))]
