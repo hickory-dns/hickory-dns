@@ -30,7 +30,7 @@ use crate::rr::domain::usage::{
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, NameEncoding, Restrict,
 };
-use crate::serialize::txt::ParseError;
+use crate::serialize::txt::{ParseError, parse_zone_name};
 
 /// A domain name
 #[derive(Clone, Default, Eq)]
@@ -500,7 +500,7 @@ impl Name {
         let name = tokens
             .next()
             .ok_or_else(|| ParseError::MissingToken("name".to_string()))
-            .and_then(|s| Self::parse(s, origin).map_err(ParseError::from))?;
+            .and_then(|s| parse_zone_name(s, origin))?;
         Ok(name)
     }
 

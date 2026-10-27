@@ -19,7 +19,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::{binary::*, txt::ParseError},
+    serialize::{
+        binary::*,
+        txt::{ParseError, parse_zone_name},
+    },
 };
 
 /// [RFC 3403 DDDS DNS Database, October 2002](https://tools.ietf.org/html/rfc3403#section-4)
@@ -229,7 +232,7 @@ impl NAPTR {
         let replacement: Name = tokens
             .next()
             .ok_or_else(|| ParseError::MissingToken("replacement".to_string()))
-            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+            .and_then(|s| parse_zone_name(s, origin))?;
 
         Ok(Self::new(
             order,

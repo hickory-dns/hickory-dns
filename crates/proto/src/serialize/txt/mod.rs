@@ -19,6 +19,8 @@
 use alloc::string::ToString;
 use core::str::FromStr;
 
+use crate::rr::Name;
+
 mod errors;
 pub use errors::{LexerError, ParseError, ParseResult};
 
@@ -33,6 +35,17 @@ pub use zone::Parser;
 mod zone_lex;
 pub(crate) use zone_lex::Lexer;
 pub use zone_lex::Token;
+
+/// Parses a domain name in the RDATA of a zone file record.
+///
+/// A free-standing `@` denotes the current origin
+/// ([RFC 1035 section 5.1](https://tools.ietf.org/html/rfc1035#section-5.1)).
+pub(crate) fn parse_zone_name(name: &str, origin: Option<&Name>) -> ParseResult<Name> {
+    match (name, origin) {
+        ("@", Some(origin)) => Ok(origin.clone()),
+        _ => Ok(Name::parse(name, origin)?),
+    }
+}
 
 /// parses the string following the rules from:
 ///  <https://tools.ietf.org/html/rfc2308> (NXCaching RFC) and

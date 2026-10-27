@@ -16,7 +16,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::ProtoResult,
     rr::{RData, RecordData, RecordType, domain::Name},
-    serialize::{binary::*, txt::ParseError},
+    serialize::{
+        binary::*,
+        txt::{ParseError, parse_zone_name},
+    },
 };
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -88,7 +91,7 @@ impl MX {
         let exchange: Name = tokens
             .next()
             .ok_or_else(|| ParseError::MissingToken("exchange".to_string()))
-            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+            .and_then(|s| parse_zone_name(s, origin))?;
 
         Ok(Self::new(preference, exchange))
     }

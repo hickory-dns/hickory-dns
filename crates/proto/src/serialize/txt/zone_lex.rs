@@ -233,8 +233,17 @@ impl<'a> Lexer<'a> {
                 }
                 State::At => {
                     self.txt.next();
-                    self.state = State::RestOfLine;
-                    return Ok(Some(Token::At));
+                    match self.peek() {
+                        // only a free-standing @ is the origin, otherwise it starts a word
+                        Some(ch) if !ch.is_whitespace() && ch != ')' && ch != ';' => {
+                            char_data = Some(String::from("@"));
+                            self.state = State::CharData { is_list: false };
+                        }
+                        _ => {
+                            self.state = State::RestOfLine;
+                            return Ok(Some(Token::At));
+                        }
+                    }
                 }
                 State::EOL => match ch {
                     Some('\r') => {
@@ -538,6 +547,11 @@ mod lex_test {
         assert_eq!(next_token(&mut Lexer::new(";abc")), None);
         assert_eq!(next_token(&mut Lexer::new(";;@$-\"")), None);
         assert_eq!(next_token(&mut Lexer::new("@")).unwrap(), Token::At);
+        assert_eq!(next_token(&mut Lexer::new("@;comment")).unwrap(), Token::At);
+        assert_eq!(
+            next_token(&mut Lexer::new("@home")).unwrap(),
+            Token::CharData("@home".to_string())
+        );
         assert_eq!(
             next_token(&mut Lexer::new("123")).unwrap(),
             Token::CharData("123".to_string())

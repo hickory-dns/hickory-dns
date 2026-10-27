@@ -310,6 +310,12 @@ impl<'a> Parser<'a> {
                                 record_parts.push(part);
                                 State::Record(record_parts)
                             }
+                            // the RDATA parsers read @ as the origin where a domain name is expected
+                            Token::At => {
+                                let mut record_parts = record_parts;
+                                record_parts.push(String::from("@"));
+                                State::Record(record_parts)
+                            }
                             // TODO: we should not tokenize the list...
                             Token::List(list) => {
                                 let mut record_parts = record_parts;
@@ -569,5 +575,60 @@ empty 300 IN TXT
             result.is_err(),
             "an empty TXT record should be rejected: {result:#?}"
         );
+    }
+
+    #[test]
+    fn test_at_in_rdata() {
+        let zone_data = r#"$ORIGIN example.com.
+$TTL 3600
+@ IN SOA @ hostmaster 1 2 3 4 5
+@ IN MX 10 @
+www IN CNAME @
+mail IN MX ( 20 @ )
+_sip._tcp IN SRV 0 0 5060 @
+note IN TXT @ @home user@example.com
+"#;
+
+        let (origin, records) = Parser::new(zone_data, None, None).parse().unwrap();
+        let rdata = |name: &str, rtype| {
+            let key = RrKey::new(LowerName::from_str(name).unwrap(), rtype);
+            let mut rdatas = records[&key]
+                .records_without_rrsigs()
+                .map(|r| r.data.clone());
+            let rdata = rdatas.next().unwrap();
+            assert!(
+                rdatas.next().is_none(),
+                "more than one {rtype} record at {name}"
+            );
+            rdata
+        };
+
+        let RData::SOA(soa) = rdata("example.com.", RecordType::SOA) else {
+            panic!("not a SOA record");
+        };
+        assert_eq!(soa.mname, origin);
+        let RData::MX(mx) = rdata("example.com.", RecordType::MX) else {
+            panic!("not an MX record");
+        };
+        assert_eq!(mx.exchange, origin);
+        let RData::CNAME(cname) = rdata("www.example.com.", RecordType::CNAME) else {
+            panic!("not a CNAME record");
+        };
+        assert_eq!(cname.0, origin);
+        let RData::MX(mx) = rdata("mail.example.com.", RecordType::MX) else {
+            panic!("not an MX record");
+        };
+        assert_eq!(mx.exchange, origin);
+        let RData::SRV(srv) = rdata("_sip._tcp.example.com.", RecordType::SRV) else {
+            panic!("not a SRV record");
+        };
+        assert_eq!(srv.target, origin);
+
+        // outside of domain names, @ is an ordinary character
+        let RData::TXT(txt) = rdata("note.example.com.", RecordType::TXT) else {
+            panic!("not a TXT record");
+        };
+        let strings = txt.txt_data.iter().map(|s| &s[..]).collect::<Vec<_>>();
+        assert_eq!(strings, [&b"@"[..], b"@home", b"user@example.com"]);
     }
 }

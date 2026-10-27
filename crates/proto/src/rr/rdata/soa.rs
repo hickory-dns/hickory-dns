@@ -18,7 +18,7 @@ use crate::{
     rr::{RData, RecordData, RecordType, domain::Name},
     serialize::{
         binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError, RDataEncoding},
-        txt::{ParseError, parse_ttl},
+        txt::{ParseError, parse_ttl, parse_zone_name},
     },
 };
 
@@ -179,12 +179,12 @@ impl SOA {
         let mname: Name = tokens
             .next()
             .ok_or_else(|| ParseError::MissingToken("mname".to_string()))
-            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+            .and_then(|s| parse_zone_name(s, origin))?;
 
         let rname: Name = tokens
             .next()
             .ok_or_else(|| ParseError::MissingToken("rname".to_string()))
-            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+            .and_then(|s| parse_zone_name(s, origin))?;
 
         let serial: u32 = tokens
             .next()
