@@ -150,7 +150,7 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
                 })
                 .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
 
-            if content_type != MIME_APPLICATION_DNS {
+            if !is_dns_message(content_type) {
                 return Err(NetError::from(format!(
                     "ContentType unsupported (must be '{}'): '{}'",
                     MIME_APPLICATION_DNS, content_type
@@ -200,7 +200,7 @@ pub fn verify<T>(
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => {}
+        Some(Ok(ctype)) if is_dns_message(ctype) => {}
         _ => return Err("unsupported content type".into()),
     };
 
@@ -211,11 +211,11 @@ pub fn verify<T>(
             for mime_and_quality in ctype.split(',') {
                 let mut parts = mime_and_quality.splitn(2, ';');
                 match parts.next() {
-                    Some(mime) if mime.trim() == MIME_APPLICATION_DNS => {
+                    Some(mime) if mime.trim().eq_ignore_ascii_case(MIME_APPLICATION_DNS) => {
                         found = true;
                         break;
                     }
-                    Some(mime) if mime.trim() == "application/*" => {
+                    Some(mime) if mime.trim().eq_ignore_ascii_case("application/*") => {
                         found = true;
                         break;
                     }
@@ -359,6 +359,18 @@ pub trait SetHeaders: Send + Sync + 'static {
 
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 
+/// Whether a `Content-Type` value names [`MIME_APPLICATION_DNS`].
+///
+/// The type and subtype are case-insensitive, and may be followed by semicolon-delimited
+/// parameters (RFC 9110 section 8.3.1). RFC 8484 section 7.1 registers no parameters for
+/// `application/dns-message`, so a parameter a peer adds carries no meaning and is ignored, as
+/// MIME implementations ignore parameters they do not recognise (RFC 2045 section 5.1), instead
+/// of making the message unreadable.
+pub(crate) fn is_dns_message(content_type: &str) -> bool {
+    let media_type = content_type.split(';').next().unwrap_or_default();
+    media_type.trim().eq_ignore_ascii_case(MIME_APPLICATION_DNS)
+}
+
 /// The default query path for DNS-over-HTTPS if none was given.
 pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
 
@@ -372,6 +384,71 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn dns_message_media_type_matches_case_insensitively_without_parameters() {
+        for accepted in [
+            "application/dns-message",
+            "Application/DNS-Message",
+            "APPLICATION/DNS-MESSAGE",
+            "application/dns-message;charset=utf-8",
+            "application/dns-message ; charset=utf-8",
+            "application/dns-message;",
+        ] {
+            assert!(is_dns_message(accepted), "{accepted:?}");
+        }
+        for refused in [
+            "",
+            "application/json",
+            "application/dns-json",
+            "application/dns-messages",
+            "application/dns",
+            "text/dns-message",
+            "application/octet-stream; type=application/dns-message",
+        ] {
+            assert!(!is_dns_message(refused), "{refused:?}");
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_verify_accepts_parameters_and_case() {
+        let mut request = RequestContext {
+            version: Version::Http2,
+            server_name: Arc::from("ns.example.com"),
+            query_path: Arc::from("/dns-query"),
+            set_headers: None,
+        }
+        .build(512)
+        .expect("error converting to http");
+        request.headers_mut().insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("Application/DNS-Message; charset=utf-8"),
+        );
+        request
+            .headers_mut()
+            .insert(ACCEPT, HeaderValue::from_static("Application/DNS-Message"));
+        verify(
+            Version::Http2,
+            Some("ns.example.com"),
+            "/dns-query",
+            &request,
+        )
+        .expect("failed to verify");
+
+        request
+            .headers_mut()
+            .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_err()
+        );
+    }
 
     #[test]
     #[cfg(feature = "__https")]
