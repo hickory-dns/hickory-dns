@@ -26,11 +26,29 @@ use crate::xfer::DnsResponseStream;
 pub(crate) struct RequestContext {
     pub(crate) version: Version,
     pub(crate) server_name: Arc<str>,
+    /// The port the server listens on: part of the request's authority unless it is 443, the
+    /// default port of `https`.
+    pub(crate) port: u16,
     pub(crate) query_path: Arc<str>,
     pub(crate) set_headers: Option<Arc<dyn SetHeaders>>,
 }
 
 impl RequestContext {
+    /// The authority of the target URI: `server_name`, with the port unless it is 443.
+    ///
+    /// The `:authority` pseudo-header carries the authority of the target URI (RFC 9113 section
+    /// 8.3.1, RFC 9114 section 4.3.1), and that includes the port unless it is the scheme's
+    /// default (RFC 9110 sections 4.2.2 and 7.2). Without it, a request to a server on another
+    /// port names the origin on port 443, which a server or proxy that routes by authority would
+    /// send elsewhere or refuse.
+    fn authority(&self) -> Result<uri::Authority, NetError> {
+        let authority = match self.port {
+            HTTPS_DEFAULT_PORT => uri::Authority::from_str(&self.server_name),
+            port => uri::Authority::from_str(&format!("{}:{port}", self.server_name)),
+        };
+        authority.map_err(|e| NetError::from(format!("invalid authority: {e}")))
+    }
+
     /// Create a new Request for an http dns-message request
     ///
     /// ```text
@@ -49,10 +67,7 @@ impl RequestContext {
                 .map_err(|e| NetError::from(format!("invalid DoH path: {e}")))?,
         );
         parts.scheme = Some(uri::Scheme::HTTPS);
-        parts.authority = Some(
-            uri::Authority::from_str(&self.server_name)
-                .map_err(|e| NetError::from(format!("invalid authority: {e}")))?,
-        );
+        parts.authority = Some(self.authority()?);
 
         let url =
             Uri::from_parts(parts).map_err(|e| NetError::from(format!("uri parse error: {e}")))?;
@@ -359,6 +374,9 @@ pub trait SetHeaders: Send + Sync + 'static {
 
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 
+/// The default port of the `https` scheme (RFC 9110 section 4.2.2).
+const HTTPS_DEFAULT_PORT: u16 = 443;
+
 /// Whether a `Content-Type` value names [`MIME_APPLICATION_DNS`].
 ///
 /// The type and subtype are case-insensitive, and may be followed by semicolon-delimited
@@ -416,6 +434,7 @@ mod tests {
         let mut request = RequestContext {
             version: Version::Http2,
             server_name: Arc::from("ns.example.com"),
+            port: 443,
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         }
@@ -452,10 +471,38 @@ mod tests {
 
     #[test]
     #[cfg(feature = "__https")]
+    fn test_authority_carries_a_port_other_than_443() {
+        for (port, authority) in [(443, "ns.example.com"), (8443, "ns.example.com:8443")] {
+            let request = RequestContext {
+                version: Version::Http2,
+                server_name: Arc::from("ns.example.com"),
+                port,
+                query_path: Arc::from("/dns-query"),
+                set_headers: None,
+            }
+            .build(512)
+            .expect("error converting to http");
+            assert_eq!(
+                request.uri().authority().map(|a| a.as_str()),
+                Some(authority)
+            );
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request,
+            )
+            .expect("failed to verify");
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
     fn test_new_verify_h2() {
         let cx = RequestContext {
             version: Version::Http2,
             server_name: Arc::from("ns.example.com"),
+            port: 443,
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };
@@ -478,6 +525,7 @@ mod tests {
         let cx = RequestContext {
             version: Version::Http2,
             server_name: Arc::from("ns.example.com"),
+            port: 443,
             query_path: Arc::from("/dns-query"),
             set_headers: Some(Arc::new(vec![(
                 HeaderName::from_static("test-header"),
@@ -511,6 +559,7 @@ mod tests {
         let cx = RequestContext {
             version: Version::Http3,
             server_name: Arc::from("ns.example.com"),
+            port: 443,
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };

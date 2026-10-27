@@ -212,6 +212,7 @@ pub fn connect(
     let context = Arc::new(RequestContext {
         version: Version::Http2,
         server_name,
+        port: name_server.port(),
         query_path,
         set_headers,
     });
@@ -542,6 +543,7 @@ mod tests {
         let cx = RequestContext {
             version: Version::Http2,
             server_name: Arc::from("ns.example.com"),
+            port: 443,
             query_path: Arc::from("/dns-query"),
             set_headers: None,
         };
