@@ -8,6 +8,7 @@
 //! HTTP protocol related components for DNS over HTTP/2 (DoH) and HTTP/3 (DoH3)
 
 use core::future::Future;
+use core::net::Ipv6Addr;
 use core::str::FromStr;
 use std::sync::Arc;
 
@@ -34,17 +35,27 @@ pub(crate) struct RequestContext {
 }
 
 impl RequestContext {
-    /// The authority of the target URI: `server_name`, with the port unless it is 443.
+    /// The authority of the target URI: `server_name`, with the port unless it is 443, and in
+    /// brackets if it is an IPv6 address.
     ///
     /// The `:authority` pseudo-header carries the authority of the target URI (RFC 9113 section
     /// 8.3.1, RFC 9114 section 4.3.1), and that includes the port unless it is the scheme's
     /// default (RFC 9110 sections 4.2.2 and 7.2). Without it, a request to a server on another
     /// port names the origin on port 443, which a server or proxy that routes by authority would
     /// send elsewhere or refuse.
+    ///
+    /// An IPv6 address is written in brackets in a URI's authority (RFC 3986 section 3.2.2), so
+    /// that its colons are not taken for the port's; `server_name` holds it bare, as the TLS
+    /// server name (RFC 6066 section 3 does not allow a literal there, but rustls matches it
+    /// against the certificate's IP address entries).
     fn authority(&self) -> Result<uri::Authority, NetError> {
+        let host = match self.server_name.parse::<Ipv6Addr>() {
+            Ok(_) => format!("[{}]", self.server_name),
+            Err(_) => self.server_name.to_string(),
+        };
         let authority = match self.port {
-            HTTPS_DEFAULT_PORT => uri::Authority::from_str(&self.server_name),
-            port => uri::Authority::from_str(&format!("{}:{port}", self.server_name)),
+            HTTPS_DEFAULT_PORT => uri::Authority::from_str(&host),
+            port => uri::Authority::from_str(&format!("{host}:{port}")),
         };
         authority.map_err(|e| NetError::from(format!("invalid authority: {e}")))
     }
@@ -205,7 +216,7 @@ pub fn verify<T>(
     // the authority must match our nameserver name
     if let Some(name_server) = name_server {
         if let Some(authority) = uri.authority() {
-            if authority.host() != name_server {
+            if unbracketed(authority.host()) != name_server {
                 return Err("incorrect authority".into());
             }
         } else {
@@ -377,6 +388,14 @@ pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 /// The default port of the `https` scheme (RFC 9110 section 4.2.2).
 const HTTPS_DEFAULT_PORT: u16 = 443;
 
+/// A URI's host without the brackets around an IPv6 address (RFC 3986 section 3.2.2), as a
+/// server name holds it.
+fn unbracketed(host: &str) -> &str {
+    host.strip_prefix('[')
+        .and_then(|host| host.strip_suffix(']'))
+        .unwrap_or(host)
+}
+
 /// Whether a `Content-Type` value names [`MIME_APPLICATION_DNS`].
 ///
 /// The type and subtype are case-insensitive, and may be followed by semicolon-delimited
@@ -493,6 +512,33 @@ mod tests {
                 &request,
             )
             .expect("failed to verify");
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_authority_brackets_an_ipv6_address() {
+        for (server_name, port, authority) in [
+            ("2001:db8::53", 443, "[2001:db8::53]"),
+            ("2001:db8::53", 8443, "[2001:db8::53]:8443"),
+            ("::1", 8443, "[::1]:8443"),
+            ("192.0.2.53", 8443, "192.0.2.53:8443"),
+        ] {
+            let request = RequestContext {
+                version: Version::Http2,
+                server_name: Arc::from(server_name),
+                port,
+                query_path: Arc::from("/dns-query"),
+                set_headers: None,
+            }
+            .build(512)
+            .expect("error converting to http");
+            assert_eq!(
+                request.uri().authority().map(|a| a.as_str()),
+                Some(authority)
+            );
+            verify(Version::Http2, Some(server_name), "/dns-query", &request)
+                .expect("failed to verify");
         }
     }
 
