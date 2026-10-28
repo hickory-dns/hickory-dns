@@ -8,5 +8,5 @@ allow_networks = ["127.0.0.1/32", "::/128"]
 
 [[zones]]
 zone = "example.com"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "example.com.zone"

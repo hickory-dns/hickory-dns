@@ -12,7 +12,7 @@ use hickory_proto::rr::Name;
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     store::sqlite::{SqliteConfig, SqliteZoneHandler},
-    zone_handler::{AxfrPolicy, ZoneType},
+    zone_handler::AxfrPolicy,
 };
 
 fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler {
@@ -35,7 +35,6 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler 
 
     block_on(SqliteZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         true,
         None,
@@ -67,7 +66,6 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneH
 
     block_on(SqliteZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         true,
         None,
@@ -107,7 +105,6 @@ fn test_sqlite_memory_journal_path() {
 
     let result = block_on(SqliteZoneHandler::<TokioRuntimeProvider>::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::AllowAll,
         false,
         Some(root_dir.as_path()),

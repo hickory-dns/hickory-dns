@@ -8,7 +8,7 @@ use hickory_proto::rr::{Name, RData, Record, RecordType, rdata::CNAME};
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::{
     store::in_memory::InMemoryZoneHandler,
-    zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType},
+    zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler},
 };
 
 #[tokio::test]
@@ -16,7 +16,6 @@ async fn test_cname_loop() {
     subscribe();
     let mut auth = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),

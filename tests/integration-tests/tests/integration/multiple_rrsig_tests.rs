@@ -25,7 +25,7 @@ use hickory_proto::{
 use hickory_server::{
     dnssec::NxProofKind,
     store::in_memory::InMemoryZoneHandler,
-    zone_handler::{AxfrPolicy, Catalog, ZoneType},
+    zone_handler::{AxfrPolicy, Catalog},
 };
 use test_support::subscribe;
 
@@ -223,7 +223,6 @@ fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
     let origin = zone_name();
     let mut handler: InMemoryZoneHandler = InMemoryZoneHandler::empty(
         origin.clone(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         Some(NxProofKind::Nsec),
     );

@@ -319,11 +319,7 @@ impl Catalog {
             for handler in handlers {
                 #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
                 let (response_code, signer) = match handler.zone_type() {
-                    ZoneType::Secondary => {
-                        error!("secondary forwarding for update not yet implemented");
-                        (ResponseCode::NotImp, None)
-                    }
-                    ZoneType::Primary => {
+                    ZoneType::Authoritative => {
                         let (update_result, signer) = handler.update(update, now).await;
                         match update_result {
                             // successful update
@@ -830,7 +826,7 @@ async fn build_response(
     let lookup_options = LookupOptions::from_edns(edns);
 
     match handler.zone_type() {
-        ZoneType::Primary | ZoneType::Secondary => {
+        ZoneType::Authoritative => {
             build_authoritative_response(
                 result,
                 handler,
@@ -1435,7 +1431,6 @@ mod tests {
 
         let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
             origin.clone(),
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             None,
@@ -1471,7 +1466,6 @@ mod tests {
         let origin = Name::from_str("test.").unwrap();
         let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
             origin.clone(),
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             None,

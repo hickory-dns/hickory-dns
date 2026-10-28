@@ -3,5 +3,5 @@ listen_addrs_ipv6 = ["::0"]
 
 [[zones]]
 zone = "example.com"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "example.com.zone"

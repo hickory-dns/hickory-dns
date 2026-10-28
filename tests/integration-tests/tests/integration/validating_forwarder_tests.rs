@@ -36,7 +36,7 @@ use hickory_server::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryZoneHandler,
     },
-    zone_handler::{AxfrPolicy, Catalog, ZoneType},
+    zone_handler::{AxfrPolicy, Catalog},
 };
 use test_support::subscribe;
 use tokio::{net::UdpSocket, spawn};
@@ -170,7 +170,6 @@ async fn setup_authoritative_server(
     let public_key = key.to_public_key().unwrap();
     let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         Name::root(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         Some(hickory_server::dnssec::NxProofKind::Nsec),
     );
