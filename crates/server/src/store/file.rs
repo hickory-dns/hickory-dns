@@ -22,7 +22,7 @@ use crate::{
 };
 use crate::{
     proto::rr::{LowerName, Name, RecordType},
-    server::{Request, RequestInfo},
+    server::Request,
     store::in_memory::{InMemoryZoneHandler, zone_from_path},
     store::rooted,
     zone_handler::{
@@ -153,11 +153,11 @@ impl ZoneHandler for FileZoneHandler {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        request_info: Option<&RequestInfo<'_>>,
+        request: Option<&Request>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         self.in_memory
-            .lookup(name, rtype, request_info, lookup_options)
+            .lookup(name, rtype, request, lookup_options)
             .await
     }
 

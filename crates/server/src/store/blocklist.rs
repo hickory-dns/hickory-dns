@@ -35,7 +35,7 @@ use crate::{
         },
     },
     resolver::lookup::Lookup,
-    server::{Request, RequestInfo},
+    server::Request,
     store::rooted,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
@@ -345,7 +345,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        request_info: Option<&RequestInfo<'_>>,
+        request: Option<&Request>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         use LookupControlFlow::*;
@@ -361,10 +361,10 @@ impl ZoneHandler for BlocklistZoneHandler {
                 self.metrics.total_hits.increment(1);
                 self.metrics.blocked_queries.increment(1);
             }
-            match request_info {
-                Some(info) if self.log_clients => info!(
+            match request {
+                Some(request) if self.log_clients => info!(
                     query = %name,
-                    client = %info.src,
+                    client = %request.src(),
                     action = "BLOCK",
                     "blocklist matched",
                 ),
@@ -389,7 +389,7 @@ impl ZoneHandler for BlocklistZoneHandler {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        request_info: Option<&RequestInfo<'_>>,
+        request: Option<&Request>,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
@@ -405,11 +405,11 @@ impl ZoneHandler for BlocklistZoneHandler {
                         self.metrics.logged_queries.increment(1);
                         self.metrics.total_hits.increment(1);
                     }
-                    match request_info {
-                        Some(info) if self.log_clients => {
+                    match request {
+                        Some(request) if self.log_clients => {
                             info!(
                                 query = %name,
-                                client = %info.src,
+                                client = %request.src(),
                                 action = "LOG",
                                 "blocklist matched",
                             );
@@ -421,7 +421,7 @@ impl ZoneHandler for BlocklistZoneHandler {
                 (last_result, None)
             }
             BlocklistConsultAction::Enforce => {
-                let lookup = self.lookup(name, rtype, request_info, lookup_options).await;
+                let lookup = self.lookup(name, rtype, request, lookup_options).await;
                 if lookup.is_break() {
                     (lookup, None)
                 } else {

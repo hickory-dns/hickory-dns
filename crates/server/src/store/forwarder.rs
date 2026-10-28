@@ -25,7 +25,7 @@ use crate::{
         ConnectionProvider, Resolver,
         config::{NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts},
     },
-    server::RequestInfo,
+    server::Request,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneType,
@@ -236,7 +236,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        _request: Option<&Request>,
         _lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         // TODO: make this an error?

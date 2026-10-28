@@ -33,7 +33,7 @@ use crate::{
         rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
         serialize::txt::Parser,
     },
-    server::{Request, RequestInfo},
+    server::Request,
     zone_handler::{
         AuthLookup, AxfrPolicy, AxfrRecords, LookupControlFlow, LookupError, LookupOptions,
         LookupRecords, ZoneHandler, ZoneTransfer, ZoneType,
@@ -331,7 +331,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         &self,
         name: &LowerName,
         mut query_type: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        _request: Option<&Request>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         let inner = self.inner.read().await;
@@ -504,11 +504,11 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = request.request_info();
-        debug!("searching InMemoryZoneHandler for: {}", request_info.query);
+        let query = request.query();
+        debug!(?query, "searching InMemoryZoneHandler");
 
-        let lookup_name = request_info.query.name();
-        let record_type: RecordType = request_info.query.query_type();
+        let lookup_name = query.name();
+        let record_type: RecordType = query.query_type();
 
         // perform the actual lookup
         match record_type {
@@ -520,13 +520,8 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
             ),
             // A standard Lookup path
             _ => (
-                self.lookup(
-                    lookup_name,
-                    record_type,
-                    Some(&request_info),
-                    lookup_options,
-                )
-                .await,
+                self.lookup(lookup_name, record_type, Some(request), lookup_options)
+                    .await,
                 None,
             ),
         }
@@ -541,8 +536,8 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
         Result<ZoneTransfer, LookupError>,
         Option<TSigResponseContext>,
     )> {
-        let request_info = request.request_info();
-        if request_info.query.query_type() == RecordType::AXFR {
+        let query = request.query();
+        if query.query_type() == RecordType::AXFR {
             // TODO: support more advanced AXFR options
             if !matches!(self.axfr_policy, AxfrPolicy::AllowAll) {
                 return Some((Err(LookupError::from(ResponseCode::Refused)), None));

@@ -74,7 +74,7 @@ mod h3_handler;
 #[cfg(feature = "__quic")]
 mod quic_handler;
 mod request_handler;
-pub use request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
+pub use request_handler::{Request, RequestHandler, ResponseInfo};
 mod response_handler;
 pub use response_handler::{ResponseHandle, ResponseHandler};
 mod timeout_stream;

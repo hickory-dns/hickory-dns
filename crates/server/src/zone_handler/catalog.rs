@@ -40,7 +40,7 @@ use crate::{
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
     },
-    server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
+    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     zone_handler::{
         AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
         MessageResponseBuilder, ZoneHandler, ZoneType,
@@ -299,8 +299,8 @@ impl Catalog {
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
 
-        let request_info = update.request_info();
-        let ztype = request_info.query.query_type();
+        let query = update.query();
+        let ztype = query.query_type();
 
         if ztype != RecordType::SOA {
             warn!("invalid update request zone type must be SOA, ztype: {ztype}");
@@ -314,7 +314,7 @@ impl Catalog {
         }
 
         // verify the zone type and number of zones in request, then find the zone to update
-        if let Some(handlers) = self.find(request_info.query.name()) {
+        if let Some(handlers) = self.find(query.name()) {
             #[allow(clippy::never_loop)]
             for handler in handlers {
                 #[cfg_attr(not(feature = "__dnssec"), expect(unused))]
@@ -425,8 +425,8 @@ impl Catalog {
         now: u64,
         response_handle: R,
     ) -> ResponseInfo {
-        let request_info = request.request_info();
-        let handlers = self.find(request_info.query.name());
+        let query = request.query();
+        let handlers = self.find(query.name());
 
         let Some(handlers) = handlers else {
             // There are no zone handlers registered that can handle the request
@@ -439,19 +439,10 @@ impl Catalog {
             .await;
         };
 
-        if request_info.query.query_type() == RecordType::AXFR {
-            zone_transfer(
-                request_info,
-                handlers,
-                request,
-                response_edns,
-                now,
-                response_handle,
-            )
-            .await
+        if query.query_type() == RecordType::AXFR {
+            zone_transfer(handlers, request, response_edns, now, response_handle).await
         } else {
             lookup(
-                request_info,
                 handlers,
                 request,
                 response_edns,
@@ -478,7 +469,6 @@ impl Catalog {
 }
 
 async fn lookup<R: ResponseHandler + Unpin>(
-    request_info: RequestInfo<'_>,
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
     response_edns: Option<&Edns>,
@@ -493,8 +483,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         info!("request: {request_id} lookup_options: {lookup_options:?}");
     }
 
-    let query = request_info.query;
-
+    let query = request.query();
     for (index, handler) in handlers.iter().enumerate() {
         debug!(
             "performing {query} on zone handler {origin} with request id {request_id}",
@@ -526,9 +515,9 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
                 let (new_result, new_signer) = consult_handler
                     .consult(
-                        request_info.query.name(),
-                        request_info.query.query_type(),
-                        Some(&request_info),
+                        query.name(),
+                        query.query_type(),
+                        Some(request),
                         LookupOptions::from_edns(response_edns),
                         result,
                     )
@@ -563,7 +552,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         let mut message_response = MessageResponseBuilder::new(
             &request.queries,
             response_edns,
-            request_info.max_payload_size,
+            request.max_payload_size(),
         )
         .build(
             response_message.metadata,
@@ -580,7 +569,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
             let tbs_response = MessageResponseBuilder::new(
                 &request.queries,
                 response_edns,
-                request_info.max_payload_size,
+                request.max_payload_size(),
             )
             .build(
                 response_message.metadata,
@@ -637,7 +626,6 @@ async fn lookup<R: ResponseHandler + Unpin>(
 }
 
 async fn zone_transfer(
-    request_info: RequestInfo<'_>,
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
     response_edns: Option<&Edns>,
@@ -646,9 +634,10 @@ async fn zone_transfer(
 ) -> ResponseInfo {
     // AXFR is restricted to stream transports: RFC 1035 section 4.2.1 states that "UDP is not
     // acceptable for zone transfers" and RFC 5936 section 4.2 leaves AXFR over UDP undefined.
+    let query = request.query();
     if request.protocol().is_datagram() {
         warn!(
-            query = %request_info.query,
+            %query,
             protocol = %request.protocol(),
             "refused zone transfer over datagram transport"
         );
@@ -665,7 +654,7 @@ async fn zone_transfer(
     let lookup_options = LookupOptions::from_edns(request_edns);
     for handler in handlers.iter() {
         debug!(
-            query = %request_info.query,
+            %query,
             origin = %handler.origin(),
             request_id = request.metadata.id,
             "performing zone transfer"
@@ -705,7 +694,7 @@ async fn zone_transfer(
         let mut message_response = MessageResponseBuilder::new(
             &request.queries,
             response_edns,
-            request_info.max_payload_size,
+            request.max_payload_size(),
         )
         .build(
             response_meta,
@@ -724,7 +713,7 @@ async fn zone_transfer(
             let tbs_response = MessageResponseBuilder::new(
                 &request.queries,
                 response_edns,
-                request_info.max_payload_size,
+                request.max_payload_size(),
             )
             .build(
                 response_meta,

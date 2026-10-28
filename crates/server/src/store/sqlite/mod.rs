@@ -46,7 +46,7 @@ use crate::{
             TSigResponseContext,
         },
     },
-    server::{Request, RequestInfo},
+    server::Request,
     store::in_memory::{InMemoryZoneHandler, zone_from_path},
     store::rooted,
     zone_handler::{
@@ -1086,11 +1086,11 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        request_info: Option<&RequestInfo<'_>>,
+        request: Option<&Request>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         self.in_memory
-            .lookup(name, rtype, request_info, lookup_options)
+            .lookup(name, rtype, request, lookup_options)
             .await
     }
 
@@ -1099,8 +1099,7 @@ impl<P: RuntimeProvider + Send + Sync> ZoneHandler for SqliteZoneHandler<P> {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = request.request_info();
-        if request_info.query.query_type() == RecordType::AXFR {
+        if request.query().query_type() == RecordType::AXFR {
             return (
                 LookupControlFlow::Break(Err(LookupError::NetError(
                     "AXFR must be handled with ZoneHandler::zone_transfer()".into(),

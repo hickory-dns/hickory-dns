@@ -10,6 +10,7 @@
 use std::net::SocketAddr;
 
 use bytes::Bytes;
+use hickory_proto::op::LowerQuery;
 
 #[cfg(feature = "testing")]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
@@ -17,9 +18,7 @@ use crate::{
     net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{
-            Header, HeaderCounts, LowerQuery, MessageRequest, MessageType, Metadata, ResponseCode,
-        },
+        op::{Header, HeaderCounts, MessageRequest, MessageType, Metadata, ResponseCode},
         serialize::binary::{BinDecodable, BinDecoder},
     },
     server::ResponseHandler,
@@ -73,17 +72,13 @@ impl Request {
         })
     }
 
-    /// Return just the header and request information from the Request Message
-    ///
-    /// Returns an error if there is not exactly one query
-    pub fn request_info(&self) -> RequestInfo<'_> {
-        RequestInfo {
-            src: self.src,
-            protocol: self.protocol,
-            metadata: &self.message.metadata,
-            query: &self.message.queries,
-            max_payload_size: self.edns.as_ref().map(|edns| edns.max_payload()),
-        }
+    pub(crate) fn max_payload_size(&self) -> Option<u16> {
+        self.message.edns.as_ref().map(|edns| edns.max_payload())
+    }
+
+    /// The query contained in the request
+    pub fn query(&self) -> &LowerQuery {
+        &self.message.queries
     }
 
     /// The IP address from which the request originated.
@@ -107,53 +102,6 @@ impl std::ops::Deref for Request {
 
     fn deref(&self) -> &Self::Target {
         &self.message
-    }
-}
-
-// TODO: add ProtocolInfo that would have TLS details or other additional things...
-/// A narrow view of the Request, specifically a verified single query for the request
-#[non_exhaustive]
-#[derive(Clone)]
-pub struct RequestInfo<'a> {
-    /// The source address from which the request came
-    pub src: SocketAddr,
-    /// The protocol used for the request
-    pub protocol: Protocol,
-    /// The header from the original request
-    pub metadata: &'a Metadata,
-    /// The query from the request
-    pub query: &'a LowerQuery,
-    /// The requestor's UDP payload size.
-    ///
-    /// This limits the allowable size of UDP responses. It is determined by the EDNS OPT
-    /// pseudo-record in the request, if present.
-    pub max_payload_size: Option<u16>,
-}
-
-impl<'a> RequestInfo<'a> {
-    /// Construct a new RequestInfo
-    ///
-    /// # Arguments
-    ///
-    /// * `src` - The source address from which the request came
-    /// * `protocol` - The protocol used for the request
-    /// * `header` - The header from the original request
-    /// * `query` - The query from the request, LowerQuery is intended to reduce complexity for lookups in zone handlers
-    /// * `max_payload_size` - UDP payload size from the request's EDNS pseudo-record
-    pub fn new(
-        src: SocketAddr,
-        protocol: Protocol,
-        metadata: &'a Metadata,
-        query: &'a LowerQuery,
-        max_payload_size: Option<u16>,
-    ) -> Self {
-        Self {
-            src,
-            protocol,
-            metadata,
-            query,
-            max_payload_size,
-        }
     }
 }
 
@@ -210,26 +158,4 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
         request: &Request,
         response_handle: R,
     );
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::proto::op::{Metadata, OpCode, Query};
-
-    #[test]
-    fn request_info_clone() {
-        let query = Query::root();
-        let header = Metadata::new(10, MessageType::Query, OpCode::Query);
-        let lower_query = query.into();
-        let origin = RequestInfo::new(
-            "127.0.0.1:3000".parse().unwrap(),
-            Protocol::Udp,
-            &header,
-            &lower_query,
-            Some(1232),
-        );
-        let cloned = origin.clone();
-        assert_eq!(origin.metadata, cloned.metadata);
-    }
 }
