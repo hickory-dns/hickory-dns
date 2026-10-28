@@ -8,5 +8,4 @@ endpoint_name = "ns.example.com"
 
 [[zones]]
 zone = "example.com"
-zone_type = "Authoritative"
 file = "example.com.zone"

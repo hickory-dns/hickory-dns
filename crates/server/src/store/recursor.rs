@@ -43,7 +43,6 @@ impl<P: RuntimeProvider> RecursiveZoneHandler<P> {
     /// Read the ZoneHandler for the origin from the specified configuration
     pub async fn try_from_config(
         origin: Name,
-        _zone_type: ZoneType,
         config: RecursiveConfig,
         root_dir: Option<&Path>,
         conn_provider: P,
