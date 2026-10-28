@@ -678,10 +678,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             }
 
             // Make an un-verified request for the NS RRset at this ancestor name.
-            let query = Query::new(ancestor.clone(), RecordType::NS);
             let result = self
                 .handle
-                .lookup(query.clone(), options)
+                .lookup(Query::new(ancestor.clone(), RecordType::NS), options)
                 .first_answer()
                 .await;
             match result {
@@ -693,12 +692,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     }
                 }
                 Err(e) if e.is_no_records_found() || e.is_nx_domain() => {}
-                Err(net) => {
-                    return Err(ProofError::new(
-                        Proof::Bogus,
-                        ProofErrorKind::Net { query, net },
-                    ));
-                }
+                Err(e) => debug!(%ancestor, "NS lookup failed, trying parent: {e}"),
             }
 
             ancestor = ancestor.base_name();
