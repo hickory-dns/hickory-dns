@@ -970,7 +970,7 @@ async fn build_authoritative_response(
                         (None, None)
                     }
                     None => {
-                        warn!(
+                        debug!(
                             request_id = _request_id,
                             "unexpected lookup skip for request"
                         );
