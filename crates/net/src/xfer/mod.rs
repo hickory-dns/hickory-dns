@@ -482,4 +482,4 @@ pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 /// - **Client/resolver side**: buffers outbound queries to nameservers
 ///
 /// Under high load, a larger buffer prevents messages from being dropped due to backpressure.
-const DEFAULT_STREAM_BUFFER_SIZE: usize = 32;
+pub const DEFAULT_STREAM_BUFFER_SIZE: usize = 32;

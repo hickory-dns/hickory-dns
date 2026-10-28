@@ -32,8 +32,20 @@ use tracing::{error, info};
 use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
-use hickory_server::server::default_tls_server_config;
-use hickory_server::{server::Server, zone_handler::Catalog};
+use hickory_server::server::tls_config;
+#[cfg(feature = "__https")]
+use hickory_server::server::transport::H2;
+#[cfg(feature = "__quic")]
+use hickory_server::server::transport::Quic;
+#[cfg(feature = "__tls")]
+use hickory_server::server::transport::Tls;
+use hickory_server::{
+    server::{
+        Server,
+        transport::{Tcp, Udp},
+    },
+    zone_handler::Catalog,
+};
 
 mod config;
 use config::{Config, TcpSocketConfig, UdpSocketConfig};
@@ -309,7 +321,7 @@ impl DnsServer {
             allow_networks,
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
-            udp_receive_buffer_size,
+            udp_max_payload_size,
         } = config;
 
         #[cfg(unix)]
@@ -327,10 +339,10 @@ impl DnsServer {
             catalog.set_nsid(Some(payload));
         }
 
-        if udp_receive_buffer_size < 512 {
-            return Err("udp_receive_buffer_size is smaller than 512 bytes".to_owned());
+        if udp_max_payload_size < 512 {
+            return Err("udp_max_payload_size is smaller than 512 bytes".to_owned());
         }
-        catalog.set_max_payload_size(udp_receive_buffer_size);
+        catalog.set_max_payload_size(udp_max_payload_size);
 
         // configure our server based on the config_path
         let zone_dir = zonedir.unwrap_or(directory);
@@ -396,7 +408,7 @@ impl DnsServer {
         let listen_port = port.unwrap_or(listen_port);
         match disable_udp {
             true => info!("UDP protocol is disabled"),
-            false => setup.udp(listen_port, udp_receive_buffer_size)?,
+            false => setup.udp(listen_port, udp_max_payload_size)?,
         }
 
         match disable_tcp {
@@ -546,7 +558,7 @@ struct ServerSetup<'a> {
 }
 
 impl ServerSetup<'_> {
-    fn udp(&mut self, port: u16, receive_buffer_size: u16) -> Result<(), String> {
+    fn udp(&mut self, port: u16, max_payload_size: u16) -> Result<(), String> {
         #[cfg(unix)]
         let num_sockets = self.udp_socket_config.sockets.unwrap_or(1);
         #[cfg(not(unix))]
@@ -562,15 +574,17 @@ impl ServerSetup<'_> {
                 .local_addr()
                 .map_err(|err| format!("failed to lookup local address: {err}"))?;
             self.server
-                .register_socket(first_socket, receive_buffer_size);
+                .register(Udp::new(first_socket).max_payload_size(max_payload_size));
 
             // Afterward, bind any additional sockets.
             for _ in 1..num_sockets {
-                self.server.register_socket(
-                    build_udp_socket(*addr, port, self.udp_socket_config).map_err(|err| {
-                        format!("failed to bind to UDP socket address {addr:?}: {err}")
-                    })?,
-                    receive_buffer_size,
+                self.server.register(
+                    Udp::new(
+                        build_udp_socket(*addr, port, self.udp_socket_config).map_err(|err| {
+                            format!("failed to bind to UDP socket address {addr:?}: {err}")
+                        })?,
+                    )
+                    .max_payload_size(max_payload_size),
                 );
             }
 
@@ -594,10 +608,10 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            self.server.register_listener(
-                tcp_listener,
-                self.stream_timeout(),
-                self.tcp_socket_config.response_buffer_size,
+            self.server.register(
+                Tcp::new(tcp_listener)
+                    .response_buffer_size(self.tcp_socket_config.response_buffer_size)
+                    .maybe_stream_timeout(self.stream_timeout()),
             );
         }
 
@@ -637,21 +651,18 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = default_tls_server_config(b"dot", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(b"dot", cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoT SSL_KEYLOG_FILE support enabled");
                 tls_config.key_log = Arc::new(KeyLogFile::new());
             }
 
-            self.server
-                .register_tls_listener_with_tls_config(
-                    tls_listener,
-                    self.handshake_timeout,
-                    self.stream_timeout(),
-                    Arc::new(tls_config),
-                )
-                .map_err(|err| format!("failed to register TLS listener: {err}"))?;
+            self.server.register(
+                Tls::with_tls_config(tls_listener, Arc::new(tls_config))
+                    .maybe_handshake_timeout(self.handshake_timeout)
+                    .maybe_stream_timeout(self.stream_timeout()),
+            );
         }
         Ok(())
     }
@@ -680,24 +691,21 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = default_tls_server_config(b"h2", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(b"h2", cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoH SSL_KEYLOG_FILE support enabled");
                 tls_config.key_log = Arc::new(KeyLogFile::new());
             }
 
-            self.server
-                .register_https_listener_with_tls_config(
-                    https_listener,
-                    self.handshake_timeout,
-                    self.idle_timeout,
-                    self.request_timeout,
-                    Arc::new(tls_config),
-                    dns_hostname.map(|s| s.to_owned()),
-                    http_endpoint.to_owned(),
-                )
-                .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
+            self.server.register(
+                H2::with_tls_config(https_listener, Arc::new(tls_config))
+                    .maybe_handshake_timeout(self.handshake_timeout)
+                    .maybe_idle_timeout(self.idle_timeout)
+                    .maybe_request_timeout(self.request_timeout)
+                    .maybe_dns_hostname(dns_hostname.map(str::to_owned))
+                    .http_endpoint(http_endpoint.to_owned()),
+            );
         }
 
         Ok(())
@@ -722,22 +730,19 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = default_tls_server_config(b"doq", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(b"doq", cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoQ SSL_KEYLOG_FILE support enabled");
                 tls_config.key_log = Arc::new(KeyLogFile::new());
             }
 
-            self.server
-                .register_quic_listener_and_tls_config(
-                    quic_listener,
-                    self.handshake_timeout,
-                    self.idle_timeout,
-                    self.request_timeout,
-                    Arc::new(tls_config),
-                )
-                .map_err(|err| format!("failed to register QUIC listener: {err}"))?;
+            let quic = Quic::with_tls_config(quic_listener, Arc::new(tls_config))
+                .map_err(|err| format!("failed to initialize QUIC listener: {err}"))?
+                .maybe_handshake_timeout(self.handshake_timeout)
+                .maybe_idle_timeout(self.idle_timeout)
+                .maybe_request_timeout(self.request_timeout);
+            self.server.register(quic);
         }
         Ok(())
     }
