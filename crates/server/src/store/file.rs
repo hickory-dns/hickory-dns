@@ -75,7 +75,6 @@ impl FileZoneHandler {
     /// Read the ZoneHandler for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
-        zone_type: ZoneType,
         axfr_policy: AxfrPolicy,
         root_dir: Option<&Path>,
         config: &FileConfig,
@@ -96,7 +95,6 @@ impl FileZoneHandler {
             in_memory: InMemoryZoneHandler::new(
                 origin,
                 records,
-                zone_type,
                 axfr_policy,
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
@@ -263,7 +261,6 @@ mod tests {
     use test_support::subscribe;
 
     use super::*;
-    use crate::zone_handler::ZoneType;
 
     #[test]
     fn test_load_zone() {
@@ -279,7 +276,6 @@ mod tests {
         };
         let handler = FileZoneHandler::try_from_config(
             Name::from_str("example.com.").unwrap(),
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             None,
             &config,

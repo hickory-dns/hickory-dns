@@ -10,7 +10,7 @@ use hickory_server::Server;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
-use hickory_server::zone_handler::{AxfrPolicy, Catalog, ZoneType};
+use hickory_server::zone_handler::{AxfrPolicy, Catalog};
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
@@ -100,7 +100,6 @@ fn new_large_catalog(num_records: u32) -> Catalog {
     let handler = InMemoryZoneHandler::<TokioRuntimeProvider>::new(
         name,
         records,
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),

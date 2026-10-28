@@ -5,13 +5,12 @@ use hickory_proto::rr::{Name, RData, Record};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
-use hickory_server::zone_handler::{AxfrPolicy, ZoneType};
+use hickory_server::zone_handler::AxfrPolicy;
 
 pub fn create_example() -> InMemoryZoneHandler {
     let origin = Name::parse("example.com.", None).unwrap();
     let mut records = InMemoryZoneHandler::empty(
         origin.clone(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),

@@ -7,7 +7,7 @@ use hickory_proto::rr::{LowerName, Name, RecordType, RrKey};
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::file::{FileConfig, FileZoneHandler};
-use hickory_server::zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType};
+use hickory_server::zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler};
 use test_support::subscribe;
 
 fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileZoneHandler {
@@ -17,7 +17,6 @@ fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileZoneHandler {
 
     FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         None,
         &config,
@@ -40,7 +39,6 @@ fn test_all_lines_are_loaded() {
 
     let mut handler = FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         None,
         &config,
@@ -64,7 +62,6 @@ fn test_implicit_in_class() {
 
     let handler = FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         None,
         &config,
@@ -84,7 +81,6 @@ async fn test_ttl_wildcard() {
     let zone_name = LowerName::from_str("test.local.").unwrap();
     let mut handler = FileZoneHandler::try_from_config(
         Name::from(zone_name.clone()),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         None,
         &config,

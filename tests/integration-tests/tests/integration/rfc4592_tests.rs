@@ -21,7 +21,7 @@ use hickory_proto::{
 use hickory_server::{
     Server,
     store::in_memory::InMemoryZoneHandler,
-    zone_handler::{AxfrPolicy, Catalog, ZoneType},
+    zone_handler::{AxfrPolicy, Catalog},
 };
 use test_support::subscribe;
 use tokio::net::UdpSocket;
@@ -265,7 +265,6 @@ async fn setup() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
 
     let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
         origin.clone(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         None,

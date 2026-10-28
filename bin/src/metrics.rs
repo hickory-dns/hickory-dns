@@ -16,12 +16,9 @@ use crate::config::{Config, ServerStoreConfig, ServerZoneConfig, ZoneConfig, Zon
 pub(super) struct ConfigMetrics {
     #[cfg(feature = "resolver")]
     zones_forwarder: Counter,
-    zones_file_primary: Counter,
-    zones_file_secondary: Counter,
+    zones_file: Counter,
     #[cfg(feature = "sqlite")]
-    zones_sqlite_primary: Counter,
-    #[cfg(feature = "sqlite")]
-    zones_sqlite_secondary: Counter,
+    zones_sqlite: Counter,
 }
 
 impl ConfigMetrics {
@@ -65,8 +62,7 @@ impl ConfigMetrics {
         );
         hickory_config_info.set(1);
 
-        let zones_file_primary = counter!(ZONES_TOTAL, "store" => "file", "role" => "primary");
-        let zones_file_secondary = counter!(ZONES_TOTAL, "store" => "file", "role" => "secondary");
+        let zones_file = counter!(ZONES_TOTAL, "store" => "file");
 
         describe_counter!(ZONES_TOTAL, Unit::Count, "Number of DNS zones in stores.");
 
@@ -74,30 +70,20 @@ impl ConfigMetrics {
         let zones_forwarder = counter!(ZONES_TOTAL, "store" => "forwarder");
 
         #[cfg(feature = "sqlite")]
-        let (zones_sqlite_primary, zones_sqlite_secondary) = {
-            let zones_primary_sqlite =
-                counter!(ZONES_TOTAL, "store" => "sqlite", "role" => "primary");
-            let zones_secondary_sqlite =
-                counter!(ZONES_TOTAL, "store" => "sqlite", "role" => "secondary");
-            (zones_primary_sqlite, zones_secondary_sqlite)
-        };
+        let zones_sqlite = counter!(ZONES_TOTAL, "store" => "sqlite");
 
         Self {
             #[cfg(feature = "resolver")]
             zones_forwarder,
             #[cfg(feature = "sqlite")]
-            zones_sqlite_primary,
-            zones_file_primary,
-            #[cfg(feature = "sqlite")]
-            zones_sqlite_secondary,
-            zones_file_secondary,
+            zones_sqlite,
+            zones_file,
         }
     }
 
     pub(super) fn increment_zone_metrics(&self, zone: &ZoneConfig) {
         match &zone.zone_type_config {
-            ZoneTypeConfig::Primary(server_config) => self.increment_stores(server_config, true),
-            ZoneTypeConfig::Secondary(server_config) => self.increment_stores(server_config, false),
+            ZoneTypeConfig::Authoritative(server_config) => self.increment_stores(server_config),
             #[cfg_attr(not(feature = "resolver"), allow(unused_variables))]
             ZoneTypeConfig::External { stores } =>
             {
@@ -111,22 +97,14 @@ impl ConfigMetrics {
         }
     }
 
-    fn increment_stores(&self, server_config: &ServerZoneConfig, primary: bool) {
+    fn increment_stores(&self, server_config: &ServerZoneConfig) {
         for store in &server_config.stores {
             if matches!(store, ServerStoreConfig::File(_)) {
-                if primary {
-                    self.zones_file_primary.increment(1)
-                } else {
-                    self.zones_file_secondary.increment(1)
-                }
+                self.zones_file.increment(1)
             }
             #[cfg(feature = "sqlite")]
             if matches!(store, ServerStoreConfig::Sqlite(_)) {
-                if primary {
-                    self.zones_sqlite_primary.increment(1)
-                } else {
-                    self.zones_sqlite_secondary.increment(1)
-                }
+                self.zones_sqlite.increment(1)
             };
         }
     }

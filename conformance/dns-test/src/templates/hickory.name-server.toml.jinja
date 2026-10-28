@@ -12,7 +12,7 @@ private_key = "{{ dot.private_key }}"
 
 [[zones]]
 zone = "{{ fqdn }}"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "/etc/zones/main.zone"
 nx_proof_kind = { nsec3 = { iterations = 1 } }
 
@@ -29,6 +29,6 @@ algorithm = "RSASHA256"
 {% for zone in additional_zones -%}
 [[zones]]
 zone = "{{ zone }}"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "/etc/zones/{{ zone }}zone"
 {% endfor -%}

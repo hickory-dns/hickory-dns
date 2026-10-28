@@ -577,9 +577,7 @@ pub enum AxfrPolicy {
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
     /// This authority for a zone
-    Primary,
-    /// A secondary, i.e. replicated from the Primary
-    Secondary,
+    Authoritative,
     /// A cached zone that queries other nameservers
     External,
 }

@@ -25,7 +25,7 @@ use hickory_server::{
         forwarder::{ForwardConfig, ForwardZoneHandler},
         in_memory::InMemoryZoneHandler,
     },
-    zone_handler::{AxfrPolicy, Catalog, ZoneHandler, ZoneType},
+    zone_handler::{AxfrPolicy, Catalog, ZoneHandler},
 };
 
 use hickory_integration::{example_zone::create_example, *};
@@ -105,7 +105,6 @@ fn create_test() -> InMemoryZoneHandler {
 
     let mut records = InMemoryZoneHandler::empty(
         origin.clone(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
@@ -1138,7 +1137,6 @@ mod dnssec {
 
         let mut records = InMemoryZoneHandler::empty(
             origin.clone(),
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             Some(NxProofKind::Nsec3 {
                 algorithm: Nsec3HashAlgorithm::default(),

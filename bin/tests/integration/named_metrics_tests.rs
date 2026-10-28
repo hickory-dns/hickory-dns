@@ -114,17 +114,13 @@ async fn test_prometheus_endpoint_startup() {
     let store_forwarder = [("store", "forwarder")];
     verify_metric(metrics, ZONES_TOTAL, &store_forwarder, Some(1f64));
 
-    let store_file_primary = [("store", "file"), ("role", "primary")];
-    let store_file_secondary = [("store", "file"), ("role", "secondary")];
-    verify_metric(metrics, ZONES_TOTAL, &store_file_primary, Some(4f64));
-    verify_metric(metrics, ZONES_TOTAL, &store_file_secondary, Some(1f64));
+    let store_file = [("store", "file")];
+    verify_metric(metrics, ZONES_TOTAL, &store_file, Some(5f64));
 
     #[cfg(feature = "sqlite")]
     {
-        let store_sqlite_primary = [("store", "sqlite"), ("role", "primary")];
-        let store_sqlite_secondary = [("store", "sqlite"), ("role", "secondary")];
-        verify_metric(metrics, ZONES_TOTAL, &store_sqlite_primary, Some(0f64));
-        verify_metric(metrics, ZONES_TOTAL, &store_sqlite_secondary, Some(0f64));
+        let store_sqlite = [("store", "sqlite")];
+        verify_metric(metrics, ZONES_TOTAL, &store_sqlite, Some(0f64));
     }
 
     // check store metrics
@@ -137,13 +133,13 @@ async fn test_prometheus_endpoint_startup() {
     verify_metric(
         metrics,
         ZONE_LOOKUPS_TOTAL,
-        &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
+        &AUTHORITATIVE_FILE_SUCCESS,
         Some(0f64),
     );
     verify_metric(
         metrics,
         ZONE_LOOKUPS_TOTAL,
-        &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+        &AUTHORITATIVE_FILE_FAILED,
         Some(0f64),
     );
     verify_metric(
@@ -296,24 +292,13 @@ async fn test_request_response() {
     verify_metric(
         metrics,
         ZONE_LOOKUPS_TOTAL,
-        &AUTHORITATIVE_PRIMARY_FILE_SUCCESS,
-        Some(1f64),
+        &AUTHORITATIVE_FILE_SUCCESS,
+        Some(2f64),
     );
     verify_metric(
         metrics,
         ZONE_LOOKUPS_TOTAL,
-        &[
-            ("type", "authoritative"),
-            ("role", "secondary"),
-            ("zone_handler", "file"),
-            ("success", "true"),
-        ],
-        Some(1f64),
-    );
-    verify_metric(
-        metrics,
-        ZONE_LOOKUPS_TOTAL,
-        &AUTHORITATIVE_PRIMARY_FILE_FAILED,
+        &AUTHORITATIVE_FILE_FAILED,
         Some(0f64),
     );
     verify_metric(
@@ -779,6 +764,7 @@ fn test_metrics_description_present(scrape: Scrape) {
     );
 }
 
+#[track_caller]
 fn verify_metric(metrics: &Scrape, name: &str, labels: &[(&str, &str)], value: Option<f64>) {
     let named = metrics
         .samples
@@ -885,27 +871,23 @@ async fn retry_client_lookup(
     }
 }
 
-const AUTHORITATIVE_PRIMARY_FILE_SUCCESS: [(&str, &str); 4] = [
+const AUTHORITATIVE_FILE_SUCCESS: [(&str, &str); 3] = [
     ("type", "authoritative"),
-    ("role", "primary"),
     ("zone_handler", "file"),
     ("success", "true"),
 ];
-const AUTHORITATIVE_PRIMARY_FILE_FAILED: [(&str, &str); 4] = [
+const AUTHORITATIVE_FILE_FAILED: [(&str, &str); 3] = [
     ("type", "authoritative"),
-    ("role", "primary"),
     ("zone_handler", "file"),
     ("success", "false"),
 ];
-const EXTERNAL_FORWARDED_FORWARDER_SUCCESS: [(&str, &str); 4] = [
+const EXTERNAL_FORWARDED_FORWARDER_SUCCESS: [(&str, &str); 3] = [
     ("type", "external"),
-    ("role", "forwarded"),
     ("zone_handler", "forwarder"),
     ("success", "true"),
 ];
-const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 4] = [
+const EXTERNAL_FORWARDED_FORWARDER_FAILED: [(&str, &str); 3] = [
     ("type", "external"),
-    ("role", "forwarded"),
     ("zone_handler", "forwarder"),
     ("success", "false"),
 ];

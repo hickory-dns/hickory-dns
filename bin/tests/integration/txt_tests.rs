@@ -7,7 +7,7 @@ use hickory_proto::serialize::txt::*;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
-use hickory_server::zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler, ZoneType};
+use hickory_server::zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler};
 use test_support::subscribe;
 
 // TODO: split this test up to test each thing separately
@@ -87,7 +87,6 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let handler: InMemoryZoneHandler = InMemoryZoneHandler::new(
         origin,
         records,
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
@@ -557,7 +556,6 @@ a       A       127.0.0.1
         InMemoryZoneHandler::<TokioRuntimeProvider>::new(
             origin,
             records,
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),
@@ -596,7 +594,6 @@ b       A       127.0.0.2
         InMemoryZoneHandler::<TokioRuntimeProvider>::new(
             origin,
             records,
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),
@@ -634,7 +631,6 @@ a       A       127.0.0.1
         InMemoryZoneHandler::<TokioRuntimeProvider>::new(
             origin,
             records,
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             Some(NxProofKind::Nsec),

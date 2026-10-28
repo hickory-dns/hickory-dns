@@ -32,7 +32,7 @@ use hickory_server::store::in_memory::InMemoryZoneHandler;
 use hickory_server::store::sqlite::{Journal, SqliteZoneHandler};
 #[cfg(feature = "__dnssec")]
 use hickory_server::zone_handler::MessageResponseBuilder;
-use hickory_server::zone_handler::{AxfrPolicy, LookupError, LookupOptions, ZoneHandler, ZoneType};
+use hickory_server::zone_handler::{AxfrPolicy, LookupError, LookupOptions, ZoneHandler};
 use test_support::subscribe;
 
 const TEST_METADATA: &Metadata = &Metadata::new(10, MessageType::Query, OpCode::Query);
@@ -1249,7 +1249,6 @@ async fn test_journal() {
     // that record should have been recorded... let's reload the journal and see if we get it.
     let in_memory = InMemoryZoneHandler::empty(
         handler.origin().clone().into(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),
@@ -1307,7 +1306,6 @@ async fn test_recovery() {
         .expect("test should have associated journal");
     let in_memory = InMemoryZoneHandler::empty(
         handler.origin().clone().into(),
-        ZoneType::Primary,
         AxfrPolicy::Deny,
         #[cfg(feature = "__dnssec")]
         Some(NxProofKind::Nsec),

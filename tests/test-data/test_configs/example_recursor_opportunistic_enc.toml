@@ -2,27 +2,27 @@
 ##  configuration cases
 [[zones]]
 zone = "localhost"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "default/localhost.zone"
 
 [[zones]]
 zone = "0.0.127.in-addr.arpa"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "default/127.0.0.1.zone"
 
 [[zones]]
 zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "default/ipv6_1.zone"
 
 [[zones]]
 zone = "255.in-addr.arpa"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "default/255.zone"
 
 [[zones]]
 zone = "0.in-addr.arpa"
-zone_type = "Primary"
+zone_type = "Authoritative"
 file = "default/0.zone"
 
 [[zones]]

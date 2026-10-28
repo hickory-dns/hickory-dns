@@ -57,7 +57,6 @@ use inner::InnerInMemory;
 pub struct InMemoryZoneHandler<P = TokioRuntimeProvider> {
     origin: LowerName,
     class: DNSClass,
-    zone_type: ZoneType,
     axfr_policy: AxfrPolicy,
     inner: RwLock<InnerInMemory>,
     #[cfg(feature = "__dnssec")]
@@ -83,13 +82,11 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     pub fn new(
         origin: Name,
         records: BTreeMap<RrKey, RecordSet>,
-        zone_type: ZoneType,
         axfr_policy: AxfrPolicy,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Result<Self, String> {
         let mut this = Self::empty(
             origin.clone(),
-            zone_type,
             axfr_policy,
             #[cfg(feature = "__dnssec")]
             nx_proof_kind,
@@ -132,14 +129,12 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
     /// This is an invalid zone, SOA must be added
     pub fn empty(
         origin: Name,
-        zone_type: ZoneType,
         axfr_policy: AxfrPolicy,
         #[cfg(feature = "__dnssec")] nx_proof_kind: Option<NxProofKind>,
     ) -> Self {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
-            zone_type,
             axfr_policy,
             inner: RwLock::new(InnerInMemory::default()),
 
@@ -304,7 +299,7 @@ impl<P: RuntimeProvider + Send + Sync> InMemoryZoneHandler<P> {
 impl<P: RuntimeProvider + Send + Sync> ZoneHandler for InMemoryZoneHandler<P> {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
-        self.zone_type
+        ZoneType::Authoritative
     }
 
     /// Return the policy for determining if AXFR requests are allowed
@@ -780,7 +775,6 @@ mod tests {
 
         let mut handler = InMemoryZoneHandler::<TokioRuntimeProvider>::empty(
             origin.clone(),
-            ZoneType::Primary,
             AxfrPolicy::Deny,
             #[cfg(feature = "__dnssec")]
             None,

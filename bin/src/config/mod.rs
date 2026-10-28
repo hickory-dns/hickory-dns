@@ -307,8 +307,7 @@ where
         .into_iter()
         .map(|ZoneConfigWithFile { file, mut config }| match file {
             Some(file) => match &mut config.zone_type_config {
-                ZoneTypeConfig::Primary(server_config)
-                | ZoneTypeConfig::Secondary(server_config) => {
+                ZoneTypeConfig::Authoritative(server_config) => {
                     if server_config
                         .stores
                         .iter()
@@ -366,7 +365,7 @@ impl ZoneConfig {
 
         let mut handlers: Vec<Arc<dyn ZoneHandler>> = vec![];
         match self.zone_type_config {
-            ZoneTypeConfig::Primary(server_config) | ZoneTypeConfig::Secondary(server_config) => {
+            ZoneTypeConfig::Authoritative(server_config) => {
                 debug!(
                     "loading zone handlers for {zone_name} with stores {:?}",
                     server_config.stores
@@ -381,7 +380,6 @@ impl ZoneConfig {
                             let mut handler =
                                 SqliteZoneHandler::<TokioRuntimeProvider>::try_from_config(
                                     zone_name.clone(),
-                                    zone_type,
                                     axfr_policy,
                                     server_config.is_dnssec_enabled(),
                                     Some(zone_dir),
@@ -401,7 +399,6 @@ impl ZoneConfig {
                             #[cfg_attr(not(feature = "__dnssec"), allow(unused_mut))]
                             let mut handler = FileZoneHandler::try_from_config(
                                 zone_name.clone(),
-                                zone_type,
                                 axfr_policy,
                                 Some(zone_dir),
                                 config,
@@ -514,8 +511,7 @@ impl ZoneConfig {
     /// the type of the zone
     fn zone_type(&self) -> ZoneType {
         match &self.zone_type_config {
-            ZoneTypeConfig::Primary { .. } => ZoneType::Primary,
-            ZoneTypeConfig::Secondary { .. } => ZoneType::Secondary,
+            ZoneTypeConfig::Authoritative { .. } => ZoneType::Authoritative,
             ZoneTypeConfig::External { .. } => ZoneType::External,
         }
     }
@@ -528,8 +524,7 @@ const EMPTY_STORES: &str = "empty [[zones.stores]] in config";
 #[serde(deny_unknown_fields)]
 /// Enumeration over each zone type's configuration.
 pub(crate) enum ZoneTypeConfig {
-    Primary(ServerZoneConfig),
-    Secondary(ServerZoneConfig),
+    Authoritative(ServerZoneConfig),
     External {
         /// Store configurations.  Note: we specify a default handler to get a Vec containing a
         /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
@@ -546,7 +541,7 @@ impl ZoneTypeConfig {
     #[cfg(test)]
     fn as_server(&self) -> Option<&ServerZoneConfig> {
         match self {
-            Self::Primary(c) | Self::Secondary(c) => Some(c),
+            Self::Authoritative(c) => Some(c),
             _ => None,
         }
     }

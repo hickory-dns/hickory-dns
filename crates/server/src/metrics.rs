@@ -106,23 +106,18 @@ struct ZoneLookupMetrics {
 impl ZoneLookupMetrics {
     pub(crate) fn new(zone_handler: &'static str, zone_type: ZoneType) -> Self {
         let type_key = "type";
-        let role_key = "role";
         let zone_handler_key = "zone_handler";
         let success_key = "success";
 
         // tags are statically derived from the ZoneHandler ZoneType which is a 1:1 relationship
         let new = match zone_type {
-            ZoneType::Primary => Self {
-                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "true"),
-                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "primary", success_key => "false"),
-            },
-            ZoneType::Secondary => Self {
-                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "true"),
-                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", role_key => "secondary", success_key => "false"),
+            ZoneType::Authoritative => Self {
+                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", success_key => "true"),
+                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "authoritative", success_key => "false"),
             },
             ZoneType::External => Self {
-                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "true"),
-                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "external", role_key => "forwarded", success_key => "false"),
+                success: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "external", success_key => "true"),
+                failed: counter!(ZONE_LOOKUPS_TOTAL, zone_handler_key => zone_handler, type_key => "external", success_key => "false"),
             },
         };
 

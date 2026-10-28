@@ -113,7 +113,6 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
     /// load the zone handler from the configuration
     pub async fn try_from_config(
         origin: Name,
-        zone_type: ZoneType,
         axfr_policy: AxfrPolicy,
         enable_dnssec: bool,
         root_dir: Option<&Path>,
@@ -146,7 +145,6 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
 
             let in_memory = InMemoryZoneHandler::empty(
                 zone_name.clone(),
-                zone_type,
                 AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryZoneHandler.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
@@ -172,7 +170,6 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
             let in_memory = InMemoryZoneHandler::new(
                 zone_name.clone(),
                 records,
-                zone_type,
                 AxfrPolicy::AllowAll, // We apply our own AXFR policy before invoking the InMemoryZoneHandler.
                 #[cfg(feature = "__dnssec")]
                 nx_proof_kind,
@@ -1272,7 +1269,7 @@ mod tests {
     use crate::proto::rr::{Name, RData, Record};
     use crate::store::in_memory::{InMemoryZoneHandler, zone_from_path};
     use crate::store::sqlite::{Journal, SqliteZoneHandler};
-    use crate::zone_handler::{AxfrPolicy, ZoneType};
+    use crate::zone_handler::AxfrPolicy;
 
     #[test]
     fn test_is_send_sync() {
@@ -1292,7 +1289,6 @@ mod tests {
         let in_memory: InMemoryZoneHandler<TokioRuntimeProvider> = InMemoryZoneHandler::new(
             origin.clone(),
             zone_from_path(&zone_path, origin.clone()).unwrap(),
-            ZoneType::Primary,
             AxfrPolicy::AllowAll,
             #[cfg(feature = "__dnssec")]
             None,
@@ -1343,7 +1339,6 @@ mod tests {
         let in_memory_recovered: InMemoryZoneHandler<TokioRuntimeProvider> =
             InMemoryZoneHandler::empty(
                 origin.clone(),
-                ZoneType::Primary,
                 AxfrPolicy::AllowAll,
                 #[cfg(feature = "__dnssec")]
                 None,
