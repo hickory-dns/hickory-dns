@@ -344,7 +344,7 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
     let now = TokioTime::current_time();
 
     let res = catalog
-        .lookup(&question_req, None, now, response_handler.clone())
+        .lookup(&question_req, now, response_handler.clone())
         .await;
     (res, response_handler)
 }

@@ -10,6 +10,7 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{collections::HashMap, iter, sync::Arc};
 
+use hickory_proto::op::LowerQuery;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
@@ -31,11 +32,8 @@ use crate::{
 use crate::{
     net::runtime::Time,
     proto::{
-        op::{
-            DEFAULT_MAX_PAYLOAD_LEN, Edns, LowerQuery, Message, MessageType, Metadata, OpCode,
-            ResponseCode,
-        },
-        rr::{LowerName, Record, RecordType, rdata::opt::NSIDPayload},
+        op::{Edns, Message, MessageType, Metadata, OpCode, ResponseCode},
+        rr::{LowerName, Record, RecordType},
     },
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     zone_handler::{
@@ -47,12 +45,6 @@ use crate::{
 /// Set of zones and zone handlers available to this server.
 #[derive(Default)]
 pub struct Catalog {
-    nsid_payload: Option<NSIDPayload>,
-    /// The server's UDP payload size.
-    ///
-    /// This should match the server's receive buffer size. This value will be used in outgoing EDNS
-    /// pseudo-records.
-    max_payload_size: u16,
     handlers: HashMap<LowerName, Vec<Arc<dyn ZoneHandler>>>,
     #[cfg(feature = "metrics")]
     metrics: CatalogMetrics,
@@ -73,22 +65,6 @@ impl RequestHandler for Catalog {
     ) {
         trace!("request: {:?}", request);
 
-        // check if it's edns
-        let response_edns = match request.edns.as_ref() {
-            Some(edns) => {
-                let (rsp_edns, result) =
-                    edns.for_response(self.max_payload_size, self.nsid_payload.as_ref());
-                match result {
-                    Ok(_) => Some(rsp_edns),
-                    Err(code) => {
-                        send_error_response(request, code, Some(&rsp_edns), response_handle).await;
-                        return;
-                    }
-                }
-            }
-            None => None,
-        };
-
         let now = T::current_time();
         match request.metadata.message_type {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
@@ -96,23 +72,15 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request.metadata.op_code {
                 OpCode::Query => {
                     debug!("query received: {}", request.metadata.id);
-                    self.lookup(request, response_edns.as_ref(), now, response_handle)
-                        .await;
+                    self.lookup(request, now, response_handle).await;
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.metadata.id);
-                    self.update(request, response_edns.as_ref(), now, response_handle)
-                        .await;
+                    self.update(request, now, response_handle).await;
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    send_error_response(
-                        request,
-                        ResponseCode::NotImp,
-                        response_edns.as_ref(),
-                        response_handle,
-                    )
-                    .await;
+                    send_error_response(request, ResponseCode::NotImp, response_handle).await;
                 }
             },
             MessageType::Response => {
@@ -120,13 +88,7 @@ impl RequestHandler for Catalog {
                     "got a response as a request from id: {}",
                     request.metadata.id
                 );
-                send_error_response(
-                    request,
-                    ResponseCode::FormErr,
-                    response_edns.as_ref(),
-                    response_handle,
-                )
-                .await;
+                send_error_response(request, ResponseCode::FormErr, response_handle).await;
             }
         }
     }
@@ -137,8 +99,6 @@ impl Catalog {
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
-            nsid_payload: None,
-            max_payload_size: DEFAULT_MAX_PAYLOAD_LEN,
             #[cfg(feature = "metrics")]
             metrics: CatalogMetrics::default(),
         }
@@ -164,30 +124,6 @@ impl Catalog {
         // NOTE: metrics are not removed to avoid dropping counters that are potentially still
         // being used by other zone handlers having the same labels
         self.handlers.remove(name)
-    }
-
-    /// Set a specified name server identifier (NSID) in responses
-    ///
-    /// The provided `NSIDPayload` will be included in responses to requests that
-    /// specify the NSID option in EDNS. Set to `None` to disable NSID.
-    ///
-    /// By default, no NSID is sent.
-    pub fn set_nsid(&mut self, payload: Option<NSIDPayload>) {
-        self.nsid_payload = payload
-    }
-
-    /// Return the name server identifier (NSID) that is used for responses (if enabled)
-    ///
-    /// See `set_nsid()` for more information.
-    pub fn nsid(&self) -> Option<&NSIDPayload> {
-        self.nsid_payload.as_ref()
-    }
-
-    /// Sets the server's UDP payload size in outgoing EDNS pseudo-records.
-    ///
-    /// This should match the server's receive buffer size.
-    pub fn set_max_payload_size(&mut self, max_payload_size: u16) {
-        self.max_payload_size = max_payload_size;
     }
 
     /// Update the zone given the Update request.
@@ -243,7 +179,6 @@ impl Catalog {
     pub async fn update<R: ResponseHandler>(
         &self,
         update: &Request,
-        response_edns: Option<&Edns>,
         now: u64,
         mut response_handle: R,
     ) -> ResponseInfo {
@@ -259,13 +194,7 @@ impl Catalog {
 
         if ztype != RecordType::SOA {
             warn!("invalid update request zone type must be SOA, ztype: {ztype}");
-            return send_error_response(
-                update,
-                ResponseCode::FormErr,
-                response_edns,
-                response_handle,
-            )
-            .await;
+            return send_error_response(update, ResponseCode::FormErr, response_handle).await;
         }
 
         // verify the zone type and number of zones in request, then find the zone to update
@@ -287,7 +216,7 @@ impl Catalog {
 
                 let response = MessageResponseBuilder::new(
                     &update.queries,
-                    response_edns,
+                    update.response_edns.as_ref(),
                     Some(update.max_payload()),
                 );
                 let mut response_meta =
@@ -305,7 +234,7 @@ impl Catalog {
                     response_meta.response_code = response_code;
                     let tbs_response = MessageResponseBuilder::new(
                         &update.queries,
-                        response_edns,
+                        update.response_edns.as_ref(),
                         Some(update.max_payload()),
                     )
                     .build_no_records(response_meta);
@@ -314,7 +243,6 @@ impl Catalog {
                         return send_error_response(
                             update,
                             ResponseCode::ServFail,
-                            response_edns,
                             response_handle,
                         )
                         .await;
@@ -326,7 +254,6 @@ impl Catalog {
                             return send_error_response(
                                 update,
                                 ResponseCode::ServFail,
-                                response_edns,
                                 response_handle,
                             )
                             .await;
@@ -344,13 +271,7 @@ impl Catalog {
             }
         };
 
-        send_error_response(
-            update,
-            ResponseCode::ServFail,
-            response_edns,
-            response_handle,
-        )
-        .await
+        send_error_response(update, ResponseCode::ServFail, response_handle).await
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -376,7 +297,6 @@ impl Catalog {
     pub async fn lookup<R: ResponseHandler>(
         &self,
         request: &Request,
-        response_edns: Option<&Edns>,
         now: u64,
         response_handle: R,
     ) -> ResponseInfo {
@@ -385,22 +305,15 @@ impl Catalog {
 
         let Some(handlers) = handlers else {
             // There are no zone handlers registered that can handle the request
-            return send_error_response(
-                request,
-                ResponseCode::Refused,
-                response_edns,
-                response_handle,
-            )
-            .await;
+            return send_error_response(request, ResponseCode::Refused, response_handle).await;
         };
 
         if query.query_type() == RecordType::AXFR {
-            zone_transfer(handlers, request, response_edns, now, response_handle).await
+            zone_transfer(handlers, request, now, response_handle).await
         } else {
             lookup(
                 handlers,
                 request,
-                response_edns,
                 response_handle,
                 #[cfg(feature = "metrics")]
                 &self.metrics,
@@ -426,7 +339,6 @@ impl Catalog {
 async fn lookup<R: ResponseHandler + Unpin>(
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
-    response_edns: Option<&Edns>,
     mut response_handle: R,
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> ResponseInfo {
@@ -473,7 +385,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
                         query.name(),
                         query.query_type(),
                         Some(request),
-                        LookupOptions::from_edns(response_edns),
+                        LookupOptions::from_edns(request.response_edns.as_ref()),
                         result,
                     )
                     .await;
@@ -491,13 +403,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         // to clean up the rest of the match conditions
         let Some(result) = result.map_result() else {
             error!("impossible skip detected after final lookup result");
-            return send_error_response(
-                request,
-                ResponseCode::ServFail,
-                response_edns,
-                response_handle,
-            )
-            .await;
+            return send_error_response(request, ResponseCode::ServFail, response_handle).await;
         };
 
         let response_message =
@@ -506,7 +412,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response = MessageResponseBuilder::new(
             &request.queries,
-            response_edns,
+            request.response_edns.as_ref(),
             request.max_payload_size(),
         )
         .build(
@@ -523,7 +429,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
             let tbs_response = MessageResponseBuilder::new(
                 &request.queries,
-                response_edns,
+                request.response_edns.as_ref(),
                 request.max_payload_size(),
             )
             .build(
@@ -535,25 +441,14 @@ async fn lookup<R: ResponseHandler + Unpin>(
             );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
-                return send_error_response(
-                    request,
-                    ResponseCode::ServFail,
-                    response_edns,
-                    response_handle,
-                )
-                .await;
+                return send_error_response(request, ResponseCode::ServFail, response_handle).await;
             }
             match signer.sign(&tbs_response_buf) {
                 Ok(signature) => message_response.set_signature(signature),
                 Err(error) => {
                     error!(%error, "error signing response");
-                    return send_error_response(
-                        request,
-                        ResponseCode::ServFail,
-                        response_edns,
-                        response_handle,
-                    )
-                    .await;
+                    return send_error_response(request, ResponseCode::ServFail, response_handle)
+                        .await;
                 }
             }
         }
@@ -571,19 +466,12 @@ async fn lookup<R: ResponseHandler + Unpin>(
     }
 
     error!("end of chained zone handler loop reached with all zone handlers not answering");
-    send_error_response(
-        request,
-        ResponseCode::ServFail,
-        response_edns,
-        response_handle,
-    )
-    .await
+    send_error_response(request, ResponseCode::ServFail, response_handle).await
 }
 
 async fn zone_transfer(
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
-    response_edns: Option<&Edns>,
     now: u64,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
@@ -596,13 +484,7 @@ async fn zone_transfer(
             protocol = %request.protocol(),
             "refused zone transfer over datagram transport"
         );
-        return send_error_response(
-            request,
-            ResponseCode::Refused,
-            response_edns,
-            response_handle,
-        )
-        .await;
+        return send_error_response(request, ResponseCode::Refused, response_handle).await;
     }
 
     let request_edns = request.edns.as_ref();
@@ -648,7 +530,7 @@ async fn zone_transfer(
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response = MessageResponseBuilder::new(
             &request.queries,
-            response_edns,
+            request.response_edns.as_ref(),
             request.max_payload_size(),
         )
         .build(
@@ -667,7 +549,7 @@ async fn zone_transfer(
             let mut encoder = BinEncoder::new(&mut tbs_response_buf);
             let tbs_response = MessageResponseBuilder::new(
                 &request.queries,
-                response_edns,
+                request.response_edns.as_ref(),
                 request.max_payload_size(),
             )
             .build(
@@ -681,25 +563,14 @@ async fn zone_transfer(
             );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
-                return send_error_response(
-                    request,
-                    ResponseCode::ServFail,
-                    response_edns,
-                    response_handle,
-                )
-                .await;
+                return send_error_response(request, ResponseCode::ServFail, response_handle).await;
             }
             match signer.sign(&tbs_response_buf) {
                 Ok(signature) => message_response.set_signature(signature),
                 Err(error) => {
                     error!(%error, "error signing response");
-                    return send_error_response(
-                        request,
-                        ResponseCode::ServFail,
-                        response_edns,
-                        response_handle,
-                    )
-                    .await;
+                    return send_error_response(request, ResponseCode::ServFail, response_handle)
+                        .await;
                 }
             }
         }
@@ -714,13 +585,7 @@ async fn zone_transfer(
     }
 
     error!("end of chained zone handler loop with all zone handlers not answering");
-    send_error_response(
-        request,
-        ResponseCode::ServFail,
-        response_edns,
-        response_handle,
-    )
-    .await
+    send_error_response(request, ResponseCode::ServFail, response_handle).await
 }
 
 /// Helper function to construct a response message with an error response code, and send it via a
@@ -728,12 +593,12 @@ async fn zone_transfer(
 async fn send_error_response(
     request: &Request,
     response_code: ResponseCode,
-    mut response_edns: Option<&Edns>,
     mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
     let mut new_edns: Edns;
+    let mut response_edns = request.response_edns.as_ref();
     if response_code.high() != 0 {
-        if let Some(edns) = response_edns {
+        if let Some(edns) = &request.response_edns {
             new_edns = edns.clone();
             new_edns.set_rcode_high(response_code.high());
             response_edns = Some(&new_edns);

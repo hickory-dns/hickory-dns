@@ -1,11 +1,15 @@
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 #[cfg(feature = "__dnssec")]
 use std::str::FromStr;
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::Arc;
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
+use std::sync::Mutex as StdMutex;
 
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
+use tokio::net::UdpSocket;
 
+#[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_integration::TestClientStream;
 use hickory_integration::example_zone::create_example;
 use hickory_integration::{GOOGLE_V4, TEST3_V4};
@@ -21,11 +25,12 @@ use hickory_net::xfer::{DnsHandle, DnsMultiplexer};
 use hickory_proto::dnssec::TrustAnchors;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::op::ResponseCode;
-use hickory_proto::op::{DnsRequest, Edns, Message, Query};
+use hickory_proto::op::{DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::opt::{EdnsCode, EdnsOption, NSIDPayload};
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::{Record, TSigner};
+use hickory_server::Server;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::zone_handler::AxfrPolicy;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
@@ -87,18 +92,21 @@ async fn tcp_dnssec_client(addr: SocketAddr) -> DnssecClient {
     client
 }
 
-async fn test_client() -> Client<TokioRuntimeProvider> {
-    // Use an in-process catalog-backed stream so client tests do not depend on public DNS.
+/// Returns a client for a local catalog-backed server, so client tests do not depend on public DNS.
+///
+/// The server must be kept alive for as long as the client is in use.
+async fn test_client() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     let handler = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(handler.origin().clone(), vec![Arc::new(handler)]);
-    catalog.set_nsid(Some(NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap()));
 
-    let (future, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let stream = future.await.expect("failed to connect");
-    let (client, driver) = Client::new(stream, sender);
-    tokio::spawn(driver);
-    client
+    let nsid = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
+    let mut server = Server::with_access(catalog, [], [], DEFAULT_MAX_PAYLOAD_LEN, Some(nsid));
+    let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let addr = socket.local_addr().unwrap();
+    server.register_socket(socket, DEFAULT_MAX_PAYLOAD_LEN);
+
+    (udp_client(addr).await, server)
 }
 
 #[tokio::test]
@@ -111,9 +119,9 @@ async fn test_query_udp() {
 
 #[tokio::test]
 async fn test_query_edns() {
-    // Exercise EDNS request/response handling against the local test catalog.
+    // Exercise EDNS request/response handling against the local test server.
     subscribe();
-    let client = test_client().await;
+    let (client, _server) = test_client().await;
     test_query_edns_response(client).await;
 }
 
