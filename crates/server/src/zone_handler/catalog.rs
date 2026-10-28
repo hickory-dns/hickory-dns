@@ -556,15 +556,8 @@ async fn lookup<R: ResponseHandler + Unpin>(
             .await;
         };
 
-        let response_message = build_response(
-            result,
-            &**handler,
-            request_id,
-            &request.metadata,
-            query,
-            edns,
-        )
-        .await;
+        let response_message =
+            build_response(result, &**handler, &request.metadata, query, edns).await;
 
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response = MessageResponseBuilder::new(
@@ -818,7 +811,6 @@ async fn send_error_response(
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
     handler: &dyn ZoneHandler,
-    request_id: u16,
     request_meta: &Metadata,
     query: &LowerQuery,
     edns: Option<&Edns>,
@@ -827,15 +819,7 @@ async fn build_response(
 
     match handler.zone_type() {
         ZoneType::Authoritative => {
-            build_authoritative_response(
-                result,
-                handler,
-                request_meta,
-                lookup_options,
-                request_id,
-                query,
-            )
-            .await
+            build_authoritative_response(result, handler, request_meta, lookup_options, query).await
         }
         ZoneType::External => {
             build_forwarded_response(
@@ -857,7 +841,6 @@ async fn build_authoritative_response(
     handler: &dyn ZoneHandler,
     request_meta: &Metadata,
     lookup_options: LookupOptions,
-    _request_id: u16,
     query: &LowerQuery,
 ) -> Message {
     let mut response_meta = Metadata::response_from_request(request_meta);
@@ -967,12 +950,12 @@ async fn build_authoritative_response(
                         match res {
                             Some(Ok(nsecs)) => (Some(nsecs), None),
                             Some(Err(error)) => {
-                                warn!(%error, request_id = _request_id, "failed to lookup nsecs for request");
+                                warn!(%error, request_id = request_meta.id, "failed to lookup nsecs for request");
                                 (None, None)
                             }
                             None => {
                                 warn!(
-                                    request_id = _request_id,
+                                    request_id = request_meta.id,
                                     "unexpected lookup skip for request"
                                 );
                                 (None, None)
@@ -991,7 +974,10 @@ async fn build_authoritative_response(
             #[cfg(feature = "__dnssec")]
             {
                 // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-                debug!("request: {_request_id} non-existent adding nsecs");
+                debug!(
+                    request_id = request_meta.id,
+                    "request non-existent adding nsecs"
+                );
                 match handler.nx_proof_kind() {
                     Some(nx_proof_kind) => {
                         // run the nsec lookup future, and then transition to get soa
@@ -1018,12 +1004,12 @@ async fn build_authoritative_response(
                         match future.await.map_result() {
                             Some(Ok(nsecs)) => Some(nsecs),
                             Some(Err(error)) => {
-                                warn!(%error, request_id = _request_id, "failed to lookup nsecs for request");
+                                warn!(%error, request_id = request_meta.id, "failed to lookup nsecs for request");
                                 None
                             }
                             None => {
                                 warn!(
-                                    request_id = _request_id,
+                                    request_id = request_meta.id,
                                     "unexpected lookup skip for request"
                                 );
                                 None
@@ -1451,7 +1437,6 @@ mod tests {
             &handler,
             &metadata,
             LookupOptions::default(),
-            0,
             &query,
         )
         .await;
@@ -1521,7 +1506,6 @@ mod tests {
             &handler,
             &metadata,
             LookupOptions::default(),
-            0,
             &query,
         )
         .await;
