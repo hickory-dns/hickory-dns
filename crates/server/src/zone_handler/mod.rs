@@ -29,7 +29,7 @@ use crate::proto::rr::{
 };
 #[cfg(feature = "recursor")]
 use crate::resolver::recursor::RecursorError;
-use crate::server::{Request, RequestInfo};
+use crate::server::Request;
 
 mod auth_lookup;
 mod catalog;
@@ -77,7 +77,7 @@ pub trait ZoneHandler: Send + Sync {
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
     ///             precede and follow all other records.
-    /// * `request_info` - The `RequestInfo` structure for the request, if it is available.
+    /// * `request` - The `Request`, if it is available.
     /// * `lookup_options` - Query-related lookup options (e.g., DNSSEC DO bit, supported hash
     ///                      algorithms, etc.)
     ///
@@ -88,7 +88,7 @@ pub trait ZoneHandler: Send + Sync {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        request_info: Option<&RequestInfo<'_>>,
+        request: Option<&Request>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup>;
 
@@ -126,7 +126,7 @@ pub trait ZoneHandler: Send + Sync {
         &self,
         _name: &LowerName,
         _rtype: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        _request: Option<&Request>,
         _lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
@@ -151,12 +151,12 @@ pub trait ZoneHandler: Send + Sync {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = request.request_info();
+        let query = request.query();
         (
             self.lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
+                query.name(),
+                query.query_type(),
+                Some(request),
                 lookup_options,
             )
             .await,

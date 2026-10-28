@@ -24,7 +24,7 @@ use crate::{
         rr::{LowerName, Name, RecordType},
     },
     resolver::recursor::{RecursiveConfig, Recursor},
-    server::RequestInfo,
+    server::Request,
     zone_handler::{
         AuthLookup, AxfrPolicy, LookupControlFlow, LookupError, LookupOptions, ZoneHandler,
         ZoneType,
@@ -111,7 +111,7 @@ impl<P: RuntimeProvider> ZoneHandler for RecursiveZoneHandler<P> {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        _request: Option<&Request>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         debug!("recursive lookup: {} {}", name, rtype);

@@ -13,7 +13,7 @@ use hickory_proto::{
 #[cfg(feature = "__dnssec")]
 use hickory_server::{dnssec::NxProofKind, zone_handler::Nsec3QueryInfo};
 use hickory_server::{
-    server::{Request, RequestInfo, ResponseInfo},
+    server::{Request, ResponseInfo},
     zone_handler::{
         AuthLookup, AxfrPolicy, Catalog, LookupControlFlow, LookupError, LookupOptions,
         LookupRecords, ZoneHandler, ZoneType,
@@ -213,7 +213,7 @@ impl ZoneHandler for TestZoneHandler {
         &self,
         name: &LowerName,
         _query_type: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        _request: Option<&Request>,
         lookup_options: LookupOptions,
     ) -> LookupControlFlow<AuthLookup> {
         let Some(res) = inner_lookup(name, &self.lookup_records, &lookup_options) else {
@@ -227,12 +227,12 @@ impl ZoneHandler for TestZoneHandler {
         request: &Request,
         lookup_options: LookupOptions,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
-        let request_info = request.request_info();
+        let query = request.query();
         (
             self.lookup(
-                request_info.query.name(),
-                request_info.query.query_type(),
-                Some(&request_info),
+                query.name(),
+                query.query_type(),
+                Some(request),
                 lookup_options,
             )
             .await,
@@ -244,7 +244,7 @@ impl ZoneHandler for TestZoneHandler {
         &self,
         name: &LowerName,
         _rtype: RecordType,
-        _request_info: Option<&RequestInfo<'_>>,
+        _request: Option<&Request>,
         lookup_options: LookupOptions,
         last_result: LookupControlFlow<AuthLookup>,
     ) -> (LookupControlFlow<AuthLookup>, Option<TSigResponseContext>) {
