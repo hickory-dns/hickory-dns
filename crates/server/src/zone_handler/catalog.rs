@@ -405,7 +405,20 @@ async fn lookup<R: ResponseHandler + Unpin>(
             return send_error_response(request, ResponseCode::ServFail, response_handle).await;
         };
 
-        let response_message = build_response(result, request, &**handler).await;
+        let response_message = match handler.zone_type() {
+            ZoneType::Authoritative => {
+                build_authoritative_response(result, request, &**handler).await
+            }
+            ZoneType::External => {
+                build_forwarded_response(
+                    result,
+                    request,
+                    #[cfg(feature = "__dnssec")]
+                    handler.can_validate_dnssec(),
+                )
+                .await
+            }
+        };
 
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response = MessageResponseBuilder::new(
@@ -610,26 +623,6 @@ async fn send_error_response(
         Err(error) => {
             error!(%error, "failed to send response");
             ResponseInfo::serve_failed(request)
-        }
-    }
-}
-
-/// Build metadata and LookupSections (answers) given a query response from a zone handler
-async fn build_response(
-    result: Result<AuthLookup, LookupError>,
-    request: &Request,
-    handler: &dyn ZoneHandler,
-) -> Message {
-    match handler.zone_type() {
-        ZoneType::Authoritative => build_authoritative_response(result, request, handler).await,
-        ZoneType::External => {
-            build_forwarded_response(
-                result,
-                request,
-                #[cfg(feature = "__dnssec")]
-                handler.can_validate_dnssec(),
-            )
-            .await
         }
     }
 }
