@@ -10,9 +10,9 @@
 use std::net::SocketAddr;
 
 use bytes::Bytes;
-use hickory_proto::op::LowerQuery;
+use hickory_proto::op::{DEFAULT_MAX_PAYLOAD_LEN, Edns, LowerQuery};
 
-#[cfg(feature = "testing")]
+#[cfg(any(test, feature = "testing"))]
 use crate::proto::serialize::binary::{BinEncodable, BinEncoder};
 use crate::{
     net::{runtime::Time, xfer::Protocol},
@@ -29,6 +29,7 @@ use crate::{
 pub struct Request {
     /// Message with the associated query or update data
     pub(crate) message: MessageRequest,
+    pub(crate) response_edns: Option<Edns>,
     pub(super) raw: Bytes,
     /// Source address of the Client
     pub(super) src: SocketAddr,
@@ -38,6 +39,9 @@ pub struct Request {
 
 impl Request {
     /// Construct a new Request from the raw bytes, source address, and protocol
+    ///
+    /// This is only used in tests.
+    #[doc(hidden)]
     pub fn from_bytes(
         raw: Vec<u8>,
         src: SocketAddr,
@@ -45,8 +49,17 @@ impl Request {
     ) -> Result<Self, ProtoError> {
         let mut decoder = BinDecoder::new(&raw);
         let header = Header::read(&mut decoder)?;
+        let message = MessageRequest::read(&mut decoder, header)?;
+
+        let response_edns = message
+            .edns
+            .as_ref()
+            // Ignore bad EDNS version errors here -- only used for testing
+            .map(|edns| Edns::for_response(edns, DEFAULT_MAX_PAYLOAD_LEN, None).0);
+
         Ok(Self {
-            message: MessageRequest::read(&mut decoder, header)?,
+            message,
+            response_edns,
             raw: Bytes::from(raw),
             src,
             protocol,
@@ -54,7 +67,7 @@ impl Request {
     }
 
     /// Construct a new Request from the encoding of a MessageRequest, source address, and protocol
-    #[cfg(feature = "testing")]
+    #[cfg(any(test, feature = "testing"))]
     pub fn from_message(
         message: MessageRequest,
         src: SocketAddr,
@@ -66,6 +79,7 @@ impl Request {
 
         Ok(Self {
             message,
+            response_edns: None,
             raw: Bytes::from(encoded),
             src,
             protocol,

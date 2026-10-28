@@ -8,10 +8,7 @@ use hickory_proto::{
     op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
     rr::{
         LowerName, Name, RData, Record, RecordType,
-        rdata::{
-            A, AAAA, CNAME, NS, SOA,
-            opt::{EdnsCode, EdnsOption, NSIDPayload},
-        },
+        rdata::{A, AAAA, CNAME, NS, SOA},
     },
     serialize::binary::BinEncodable,
 };
@@ -143,7 +140,6 @@ async fn test_catalog_lookup() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -181,7 +177,6 @@ async fn test_catalog_lookup() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -230,7 +225,6 @@ async fn test_catalog_lookup_soa() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -301,7 +295,6 @@ async fn test_catalog_nx_soa() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -359,7 +352,6 @@ async fn test_catalog_soa_query_for_nx_name() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -414,7 +406,6 @@ async fn test_non_authoritive_nx_refused() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -470,7 +461,6 @@ async fn test_axfr_allow_all() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -575,7 +565,6 @@ async fn test_axfr_deny_all() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -613,7 +602,6 @@ async fn test_axfr_refused_over_udp() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -651,7 +639,6 @@ async fn test_axfr_deny_all_sqlite() {
     catalog
         .lookup(
             &request,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -691,7 +678,6 @@ async fn test_axfr_deny_unsigned() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -702,117 +688,6 @@ async fn test_axfr_deny_unsigned() {
     assert!(result.answers.is_empty());
     assert!(result.authorities.is_empty());
     assert!(result.additionals.is_empty());
-}
-
-// Test that requesting NSID produces no NSID response when a payload isn't configured.
-#[tokio::test]
-async fn test_nsid_disabled_requested() {
-    subscribe();
-
-    let mem_handler = create_test();
-    let origin = mem_handler.origin().clone();
-    let mut catalog = Catalog::new(); // Default behaviour: NSID disabled.
-    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
-
-    // Create a question request that asks for NSID in EDNS.
-    let question_req = test_nsid_request(origin.clone(), true);
-
-    let response_handler = TestResponseHandler::new();
-    let _ = catalog
-        .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
-    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
-
-    // We sent EDNS in the request, and so expect to find EDNS in the response.
-    let edns = response.edns.as_ref().expect("missing response EDNS");
-    // We shouldn't find an NSID payload in the response EDNS even though we requested it
-    // The catalog had no payload configured.
-    assert!(
-        edns.option(EdnsCode::NSID).is_none(),
-        "unexpected NSID in reply EDNS"
-    );
-}
-
-// Test that **not** requesting NSID produces no NSID response, even when a payload is configured.
-#[tokio::test]
-async fn test_nsid_enabled_not_requested() {
-    subscribe();
-
-    let mem_handler = create_test();
-    let origin = mem_handler.origin().clone();
-    let mut catalog = Catalog::new();
-    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
-
-    // Configure the catalog with an NSID payload.
-    catalog.set_nsid(Some(NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap()));
-
-    // Create a question request that doesn't ask for NSID in EDNS.
-    let question_req = test_nsid_request(origin.clone(), false);
-
-    let response_handler = TestResponseHandler::new();
-    let _ = catalog
-        .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
-    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
-
-    // We sent EDNS in the request, and so expect to find EDNS in the response.
-    let edns = response.edns.as_ref().expect("missing response EDNS");
-    // We shouldn't find an NSID payload in the response EDNS - we didn't request it.
-    assert!(
-        edns.option(EdnsCode::NSID).is_none(),
-        "unexpected NSID in reply EDNS"
-    );
-}
-
-// Test that requesting NSID when a payload is configured produces the expected payload
-// in the response.
-#[tokio::test]
-async fn test_nsid_enabled_and_requested() {
-    subscribe();
-
-    let mem_handler = create_test();
-    let origin = mem_handler.origin().clone();
-    let mut catalog = Catalog::new();
-    catalog.upsert(origin.clone(), vec![Arc::new(mem_handler)]);
-
-    // Configure the catalog with an NSID payload.
-    let nsid = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
-    catalog.set_nsid(Some(nsid.clone()));
-
-    // Create a question request that asks for NSID in EDNS.
-    let question_req = test_nsid_request(origin.clone(), true);
-
-    let response_handler = TestResponseHandler::new();
-    let _ = catalog
-        .handle_request::<_, TokioTime>(&question_req, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
-    assert_eq!(response.metadata.response_code, ResponseCode::NoError);
-
-    // We sent EDNS in the request, and so expect to find EDNS in the response.
-    let edns = response.edns.as_ref().expect("missing response EDNS");
-    // We should find the expected EDNS NSID payload.
-    assert_eq!(edns.option(EdnsCode::NSID), Some(&EdnsOption::NSID(nsid)));
-}
-
-fn test_nsid_request(origin: LowerName, request_nsid: bool) -> Request {
-    let query = Query::new(origin.into(), RecordType::A);
-
-    let mut question_edns = Edns::new();
-    if request_nsid {
-        question_edns
-            .options_mut()
-            .insert(EdnsOption::NSID(NSIDPayload::new([]).unwrap()));
-    }
-
-    let mut question = Message::query();
-    question.add_query(query);
-    question.set_edns(question_edns);
-
-    let question_bytes = question.to_bytes().unwrap();
-    Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap()
 }
 
 // The DO bit should not be reflected in the response if the client did
@@ -917,7 +792,6 @@ async fn test_cname_alias() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -968,7 +842,6 @@ async fn test_cname_chain() {
     catalog
         .lookup(
             &question_req,
-            None,
             TokioTime::current_time(),
             response_handler.clone(),
         )
@@ -1181,7 +1054,6 @@ mod dnssec {
         catalog
             .lookup(
                 &question_req,
-                None,
                 TokioTime::current_time(),
                 response_handler.clone(),
             )

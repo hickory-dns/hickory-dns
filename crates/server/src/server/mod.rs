@@ -23,6 +23,10 @@ use std::{
 
 use bytes::Bytes;
 use futures_util::StreamExt;
+use hickory_proto::{
+    op::{DEFAULT_MAX_PAYLOAD_LEN, Edns},
+    rr::rdata::opt::NSIDPayload,
+};
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
@@ -90,7 +94,7 @@ pub struct Server<T: RequestHandler> {
 impl<T: RequestHandler> Server<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
-        Self::with_access(handler, [], [])
+        Self::with_access(handler, [], [], DEFAULT_MAX_PAYLOAD_LEN, None)
     }
 
     /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
@@ -98,6 +102,8 @@ impl<T: RequestHandler> Server<T> {
         handler: T,
         denied_networks: impl IntoIterator<Item = IpNet>,
         allowed_networks: impl IntoIterator<Item = IpNet>,
+        max_payload_size: u16,
+        nsid: Option<NSIDPayload>,
     ) -> Self {
         let mut access = AccessControl::default();
         access.insert_deny(denied_networks);
@@ -106,6 +112,8 @@ impl<T: RequestHandler> Server<T> {
         Self {
             context: Arc::new(ServerContext {
                 handler,
+                max_payload_size,
+                nsid,
                 access,
                 shutdown: CancellationToken::new(),
             }),
@@ -731,6 +739,12 @@ pub fn default_tls_server_config(
 
 struct ServerContext<T> {
     handler: T,
+    nsid: Option<NSIDPayload>,
+    /// The server's UDP payload size.
+    ///
+    /// This should match the server's receive buffer size. This value will be used in outgoing EDNS
+    /// pseudo-records.
+    max_payload_size: u16,
     access: AccessControl,
     shutdown: CancellationToken,
 }
@@ -776,6 +790,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 header,
                 None,
                 ResponseCode::NotImp,
+                None,
                 "unsupported op code",
                 response_handler,
             )
@@ -792,6 +807,7 @@ impl<T: RequestHandler> ServerContext<T> {
                     header,
                     None,
                     ResponseCode::FormErr,
+                    None,
                     error,
                     response_handler,
                 )
@@ -814,6 +830,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 header,
                 Some(queries),
                 ResponseCode::Refused,
+                None,
                 "request refused",
                 response_handler,
             )
@@ -825,12 +842,40 @@ impl<T: RequestHandler> ServerContext<T> {
         // Attempt to decode the message
         let request = match MessageRequest::read_with_queries(&mut decoder, queries.clone(), header)
         {
-            Ok(message) => Request {
-                message,
-                raw: message_bytes,
-                src: src_addr,
-                protocol,
-            },
+            Ok(message) => {
+                let response_edns = match message.edns.as_ref() {
+                    Some(edns) => {
+                        let (rsp_edns, result) =
+                            Edns::for_response(edns, self.max_payload_size, self.nsid.as_ref());
+                        match result {
+                            Ok(()) => Some(rsp_edns),
+                            Err(code) => {
+                                error_response_handler(
+                                    protocol,
+                                    src_addr,
+                                    header,
+                                    Some(queries),
+                                    code,
+                                    Some(&rsp_edns),
+                                    "request refused",
+                                    response_handler,
+                                )
+                                .await;
+                                return;
+                            }
+                        }
+                    }
+                    None => None,
+                };
+
+                Request {
+                    message,
+                    response_edns,
+                    raw: message_bytes,
+                    src: src_addr,
+                    protocol,
+                }
+            }
             Err(error) => {
                 error_response_handler(
                     protocol,
@@ -838,6 +883,7 @@ impl<T: RequestHandler> ServerContext<T> {
                     header,
                     Some(queries),
                     ResponseCode::FormErr,
+                    None,
                     error,
                     response_handler,
                 )
@@ -895,12 +941,14 @@ impl<T: RequestHandler> ServerContext<T> {
 }
 
 // method to return an error to the client
+#[expect(clippy::too_many_arguments)]
 async fn error_response_handler(
     protocol: Protocol,
     src_addr: SocketAddr,
     header: Header,
     queries: Option<Queries>,
     response_code: ResponseCode,
+    response_edns: Option<&Edns>,
     error: impl fmt::Display,
     response_handler: impl ResponseHandler,
 ) {
@@ -929,8 +977,8 @@ async fn error_response_handler(
     };
 
     let response = match queries.as_ref() {
-        Some(queries) => MessageResponseBuilder::new(queries, None, None),
-        None => MessageResponseBuilder::no_queries(None),
+        Some(queries) => MessageResponseBuilder::new(queries, response_edns, None),
+        None => MessageResponseBuilder::no_queries(response_edns),
     };
 
     let result = reporter

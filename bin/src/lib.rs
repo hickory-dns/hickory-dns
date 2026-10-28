@@ -198,7 +198,7 @@ impl DnsServer {
             disable_quic,
             #[cfg(feature = "prometheus-metrics")]
             disable_prometheus,
-            nsid,
+            mut nsid,
             nsid_hostname,
         } = self;
 
@@ -317,20 +317,6 @@ impl DnsServer {
             .map_err(|e| format!("failed to register signal handler: {e}"))?;
 
         let mut catalog = Catalog::new();
-        catalog.set_nsid(nsid);
-
-        if nsid_hostname {
-            let hostname =
-                hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
-            let payload = NSIDPayload::new(hostname.into_encoded_bytes())
-                .map_err(|e| format!("invalid NSID payload: {e}"))?;
-            catalog.set_nsid(Some(payload));
-        }
-
-        if udp_receive_buffer_size < 512 {
-            return Err("udp_receive_buffer_size is smaller than 512 bytes".to_owned());
-        }
-        catalog.set_max_payload_size(udp_receive_buffer_size);
 
         // configure our server based on the config_path
         let zone_dir = zonedir.unwrap_or(directory);
@@ -353,9 +339,27 @@ impl DnsServer {
             return Ok(());
         }
 
+        if udp_receive_buffer_size < 512 {
+            return Err("udp_receive_buffer_size is smaller than 512 bytes".to_owned());
+        }
+
+        if nsid_hostname {
+            let hostname =
+                hostname::get().map_err(|e| format!("failed to get system hostname: {e}"))?;
+            let payload = NSIDPayload::new(hostname.into_encoded_bytes())
+                .map_err(|e| format!("invalid NSID payload: {e}"))?;
+            nsid = Some(payload);
+        }
+
         // now, run the server, based on the config
         #[cfg_attr(not(feature = "__tls"), allow(unused_mut))]
-        let mut server = Server::with_access(catalog, deny_networks, allow_networks);
+        let mut server = Server::with_access(
+            catalog,
+            deny_networks,
+            allow_networks,
+            udp_receive_buffer_size,
+            nsid,
+        );
 
         let mut listen_addrs = listen_addrs_ipv4
             .into_iter()
