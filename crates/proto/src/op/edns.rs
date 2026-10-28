@@ -11,16 +11,18 @@ use core::fmt;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use tracing::{trace, warn};
 
 #[cfg(feature = "__dnssec")]
 use crate::dnssec::{Algorithm, SupportedAlgorithms};
 use crate::{
     error::*,
+    op::ResponseCode,
     rr::{
         DNSClass, Name, RData, Record, RecordType,
         rdata::{
             OPT,
-            opt::{EdnsCode, EdnsOption},
+            opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
     },
     serialize::binary::{BinEncodable, BinEncoder},
@@ -59,6 +61,57 @@ impl Edns {
     /// Creates a new extended DNS object.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Creates an EDNS object suitable for a response, based on the request EDNS.
+    pub fn for_response(
+        &self,
+        max_payload_size: u16,
+        nsid: Option<&NSIDPayload>,
+    ) -> (Self, Result<(), ResponseCode>) {
+        let mut resp_edns = Self::default();
+
+        // check our version against the request
+        // TODO: what version are we?
+        let our_version = 0;
+        #[cfg(feature = "__dnssec")]
+        resp_edns.set_dnssec_ok(self.flags().dnssec_ok);
+        resp_edns.set_max_payload(max_payload_size);
+        resp_edns.set_version(our_version);
+
+        if self.version() > our_version {
+            warn!(
+                "request edns version greater than {}: {}",
+                our_version,
+                self.version()
+            );
+            return (resp_edns, Err(ResponseCode::BADVERS));
+        }
+
+        // RFC 5001 "DNS Name Server Identifier (NSID) Option" handling.
+        match (self.option(EdnsCode::NSID), nsid) {
+            // NSID was requested, and we have a payload to reply with. Add it to the
+            // response EDNS.
+            (Some(request_option), Some(payload)) => {
+                // "The name server MUST ignore any NSID payload data that might be
+                //  present in the query message."
+                if !request_option.is_empty() {
+                    warn!("ignoring non-empty EDNS NSID request payload")
+                }
+                resp_edns
+                    .options_mut()
+                    .insert(EdnsOption::NSID(payload.clone()));
+            }
+            // NSID was requested, but we don't have a payload configured.
+            (Some(_), None) => {
+                trace!("ignoring EDNS NSID request - no response payload configured")
+            }
+            // "A name server MUST NOT send an NSID option back to a resolver which
+            // did not request it."
+            (None, _) => {}
+        };
+
+        (resp_edns, Ok(()))
     }
 
     /// The high order bytes for the response code in the DNS Message
@@ -291,11 +344,12 @@ impl From<EdnsFlags> for u16 {
 /// <https://www.dnsflagday.net/2020/>
 pub const DEFAULT_MAX_PAYLOAD_LEN: u16 = 1232;
 
-#[cfg(all(test, feature = "__dnssec"))]
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "__dnssec")]
     fn test_encode_decode() {
         let mut edns = Edns::new();
 
@@ -323,5 +377,48 @@ mod tests {
             .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
         edns.options_mut().remove(EdnsCode::DAU);
         assert!(edns.option(EdnsCode::DAU).is_none());
+    }
+
+    // Test that requesting NSID produces no NSID response when a payload isn't configured.
+    #[test]
+    fn test_nsid_disabled_requested() {
+        let (response, result) = nsid_request().for_response(DEFAULT_MAX_PAYLOAD_LEN, None);
+        assert_eq!(result, Ok(()));
+        assert!(
+            response.option(EdnsCode::NSID).is_none(),
+            "unexpected NSID in reply EDNS"
+        );
+    }
+
+    // Test that **not** requesting NSID produces no NSID response, even when a payload is configured.
+    #[test]
+    fn test_nsid_enabled_not_requested() {
+        let nsid = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
+        let (response, result) = Edns::new().for_response(DEFAULT_MAX_PAYLOAD_LEN, Some(&nsid));
+        assert_eq!(result, Ok(()));
+        assert!(
+            response.option(EdnsCode::NSID).is_none(),
+            "unexpected NSID in reply EDNS"
+        );
+    }
+
+    // Test that requesting NSID when a payload is configured produces the expected payload
+    // in the response.
+    #[test]
+    fn test_nsid_enabled_and_requested() {
+        let nsid = NSIDPayload::new(vec![0xC0, 0xFF, 0xEE]).unwrap();
+        let (response, result) = nsid_request().for_response(DEFAULT_MAX_PAYLOAD_LEN, Some(&nsid));
+        assert_eq!(result, Ok(()));
+        assert_eq!(
+            response.option(EdnsCode::NSID),
+            Some(&EdnsOption::NSID(nsid))
+        );
+    }
+
+    fn nsid_request() -> Edns {
+        let mut edns = Edns::new();
+        edns.options_mut()
+            .insert(EdnsOption::NSID(NSIDPayload::new([]).unwrap()));
+        edns
     }
 }
