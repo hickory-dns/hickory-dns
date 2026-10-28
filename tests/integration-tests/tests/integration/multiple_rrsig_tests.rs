@@ -221,11 +221,8 @@ fn zone_name() -> Name {
 /// Constructs a catalog with a minimal signed `example.` zone.
 fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
     let origin = zone_name();
-    let mut handler: InMemoryZoneHandler = InMemoryZoneHandler::empty(
-        origin.clone(),
-        AxfrPolicy::Deny,
-        Some(NxProofKind::Nsec),
-    );
+    let mut handler: InMemoryZoneHandler =
+        InMemoryZoneHandler::empty(origin.clone(), AxfrPolicy::Deny, Some(NxProofKind::Nsec));
 
     const SERIAL: u32 = 1;
     const TTL: u32 = 3600;

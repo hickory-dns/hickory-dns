@@ -11,7 +11,9 @@ use metrics::{Counter, Unit, counter, describe_counter, describe_gauge, gauge};
 
 #[cfg(feature = "resolver")]
 use crate::config::ExternalStoreConfig;
-use crate::config::{Config, ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig};
+use crate::config::{
+    Config, ExternalZoneConfig, ServerStoreConfig, ServerZoneConfig, ZoneConfig, ZoneTypeConfig,
+};
 
 pub(super) struct ConfigMetrics {
     #[cfg(feature = "resolver")]
@@ -85,7 +87,7 @@ impl ConfigMetrics {
         match &zone.zone_type_config {
             ZoneTypeConfig::Authoritative(server_config) => self.increment_stores(server_config),
             #[cfg_attr(not(feature = "resolver"), allow(unused_variables))]
-            ZoneTypeConfig::External { stores } =>
+            ZoneTypeConfig::External(ExternalZoneConfig { stores }) =>
             {
                 #[cfg(feature = "resolver")]
                 for store in stores {

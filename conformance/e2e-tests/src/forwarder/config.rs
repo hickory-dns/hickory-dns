@@ -85,7 +85,6 @@ group = "nogroup"
 
 [[zones]]
 zone = "."
-zone_type = "External"
 
 [zones.stores]
 type = "forward"

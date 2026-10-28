@@ -12,7 +12,6 @@ use toml::{Table, Value};
 use super::{Config, ServerZoneConfig};
 #[cfg(feature = "resolver")]
 use super::{FileConfig, ServerStoreConfig, ZoneTypeConfig};
-use hickory_server::zone_handler::ZoneType;
 
 #[test]
 fn test_read_config() {
@@ -36,14 +35,12 @@ fn test_read_config() {
     assert_eq!(config.directory, Path::new("/var/named"));
 
     assert_eq!(config.zones[0].zone, "localhost");
-    assert_eq!(config.zones[0].zone_type(), ZoneType::Authoritative);
     assert_eq!(
         server_zone(&config, 0).file(),
         Some(Path::new("default/localhost.zone"))
     );
 
     assert_eq!(config.zones[1].zone, "0.0.127.in-addr.arpa");
-    assert_eq!(config.zones[1].zone_type(), ZoneType::Authoritative);
     assert_eq!(
         server_zone(&config, 1).file(),
         Some(Path::new("default/127.0.0.1.zone"))
@@ -53,28 +50,24 @@ fn test_read_config() {
         config.zones[2].zone,
         "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
     );
-    assert_eq!(config.zones[2].zone_type(), ZoneType::Authoritative);
     assert_eq!(
         server_zone(&config, 2).file(),
         Some(Path::new("default/ipv6_1.zone"))
     );
 
     assert_eq!(config.zones[3].zone, "255.in-addr.arpa");
-    assert_eq!(config.zones[3].zone_type(), ZoneType::Authoritative);
     assert_eq!(
         server_zone(&config, 3).file(),
         Some(Path::new("default/255.zone"))
     );
 
     assert_eq!(config.zones[4].zone, "0.in-addr.arpa");
-    assert_eq!(config.zones[4].zone_type(), ZoneType::Authoritative);
     assert_eq!(
         server_zone(&config, 4).file(),
         Some(Path::new("default/0.zone"))
     );
 
     assert_eq!(config.zones[5].zone, "example.com");
-    assert_eq!(config.zones[5].zone_type(), ZoneType::Authoritative);
     assert_eq!(
         server_zone(&config, 5).file(),
         Some(Path::new("example.com.zone"))
@@ -134,7 +127,6 @@ fn test_parse_zone_keys() {
         "
 [[zones]]
 zone = \"example.com\"
-zone_type = \"Authoritative\"
 [zones.stores]
 type = \"file\"
 zone_path = \"example.com.zone\"
@@ -543,7 +535,6 @@ fn single_store_config_error_message() {
     match toml::from_str::<Config>(
         r#"[[zones]]
                zone = "."
-               zone_type = "External"
 
                [zones.stores]
                ype = "forward""#,
@@ -559,7 +550,6 @@ fn chained_store_config_error_message() {
     match toml::from_str::<Config>(
         r#"[[zones]]
                zone = "."
-               zone_type = "External"
 
                [[zones.stores]]
                type = "forward"
@@ -592,7 +582,6 @@ fn file_store_zone_path() {
     match toml::from_str::<Config>(
         r#"[[zones]]
                zone = "localhost"
-               zone_type = "Authoritative"
 
                [zones.stores]
                type = "file"

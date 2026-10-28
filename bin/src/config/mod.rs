@@ -18,6 +18,7 @@ use std::{
     marker::PhantomData,
     net::{Ipv4Addr, Ipv6Addr},
     path::{Path, PathBuf},
+    slice,
     sync::Arc,
     time::Duration,
 };
@@ -35,7 +36,7 @@ use rustls::{
 // unused when every store feature is enabled.
 #[allow(unused_imports)]
 use serde::de::IgnoredAny;
-use serde::de::{self, Error as _, MapAccess, SeqAccess, Visitor};
+use serde::de::{self, DeserializeOwned, Error as _, MapAccess, SeqAccess, Visitor};
 use serde::{self, Deserialize, Deserializer};
 use thiserror::Error;
 use tracing::{debug, info};
@@ -166,7 +167,6 @@ pub(crate) struct Config {
     pub(crate) drop_privileges: bool,
     /// List of configurations for zones
     #[serde(default)]
-    #[serde(deserialize_with = "deserialize_with_file")]
     pub(crate) zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "__tls")]
@@ -291,61 +291,12 @@ impl Config {
     }
 }
 
-#[derive(Deserialize, Debug)]
-struct ZoneConfigWithFile {
-    file: Option<PathBuf>,
-    #[serde(flatten)]
-    config: ZoneConfig,
-}
-
-fn deserialize_with_file<'de, D>(deserializer: D) -> Result<Vec<ZoneConfig>, D::Error>
-where
-    D: Deserializer<'de>,
-    D::Error: de::Error,
-{
-    Vec::<ZoneConfigWithFile>::deserialize(deserializer)?
-        .into_iter()
-        .map(|ZoneConfigWithFile { file, mut config }| match file {
-            Some(file) => match &mut config.zone_type_config {
-                ZoneTypeConfig::Authoritative(server_config) => {
-                    if server_config
-                        .stores
-                        .iter()
-                        .any(|store| matches!(store, ServerStoreConfig::File(_)))
-                    {
-                        Err(<D::Error as de::Error>::custom(
-                            "having `file` and `[zones.store]` item with type `file` is ambiguous",
-                        ))
-                    } else {
-                        let store = ServerStoreConfig::File(FileConfig { zone_path: file });
-
-                        if server_config.stores.len() == 1
-                            && matches!(&server_config.stores[0], ServerStoreConfig::Default)
-                        {
-                            server_config.stores[0] = store;
-                        } else {
-                            server_config.stores.push(store);
-                        }
-                        Ok(config)
-                    }
-                }
-                _ => Err(<D::Error as de::Error>::custom(
-                    "cannot use `file` on a zone that is not primary or secondary",
-                )),
-            },
-
-            _ => Ok(config),
-        })
-        .collect::<Result<Vec<_>, _>>()
-}
-
 /// Configuration for a zone
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
 pub(crate) struct ZoneConfig {
     /// name of the zone
     pub zone: String, // TODO: make Domain::Name decodable
     /// type of the zone
-    #[serde(flatten)]
     pub zone_type_config: ZoneTypeConfig,
 }
 
@@ -359,7 +310,6 @@ impl ZoneConfig {
         let zone_name = self
             .zone()
             .map_err(|err| format!("failed to read zone name: {err}"))?;
-        let zone_type = self.zone_type();
 
         // load the zone and insert any configured zone handlers in the catalog.
 
@@ -424,7 +374,7 @@ impl ZoneConfig {
                     handlers.push(handler);
                 }
             }
-            ZoneTypeConfig::External { stores } => {
+            ZoneTypeConfig::External(ExternalZoneConfig { stores }) => {
                 debug!(
                     "loading zone handlers for {zone_name} with stores {:?}",
                     stores
@@ -453,18 +403,15 @@ impl ZoneConfig {
                             Arc::new(forwarder)
                         }
                         #[cfg(feature = "recursor")]
-                        ExternalStoreConfig::Recursor(config) => {
-                            let recursor = RecursiveZoneHandler::try_from_config(
+                        ExternalStoreConfig::Recursor(config) => Arc::new(
+                            RecursiveZoneHandler::try_from_config(
                                 zone_name.clone(),
-                                zone_type,
                                 *config,
                                 Some(zone_dir),
                                 TokioRuntimeProvider::default(),
                             )
-                            .await?;
-
-                            Arc::new(recursor)
-                        }
+                            .await?,
+                        ),
                         #[cfg(not(feature = "blocklist"))]
                         ExternalStoreConfig::Blocklist(_) => {
                             return Err(ProtoError::from(
@@ -507,34 +454,94 @@ impl ZoneConfig {
 
         Name::parse(&self.zone, Some(&Name::new()))
     }
+}
 
-    /// the type of the zone
-    fn zone_type(&self) -> ZoneType {
-        match &self.zone_type_config {
-            ZoneTypeConfig::Authoritative { .. } => ZoneType::Authoritative,
-            ZoneTypeConfig::External { .. } => ZoneType::External,
+impl<'de> Deserialize<'de> for ZoneConfig {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut table = toml::Table::deserialize(deserializer)?;
+        let Some(zone) = remove_key::<String, D::Error>(&mut table, "zone")? else {
+            return Err(de::Error::missing_field("zone"));
+        };
+
+        let stores = match table.get("stores") {
+            Some(toml::Value::Array(stores)) => stores.as_slice(),
+            Some(store) => slice::from_ref(store),
+            None => &[],
+        };
+
+        let mut zone_type = ZoneType::Authoritative;
+        for store in stores {
+            match store.get("type").and_then(toml::Value::as_str) {
+                Some("file" | "sqlite") => zone_type = ZoneType::Authoritative,
+                Some("blocklist" | "forward" | "recursor") => zone_type = ZoneType::External,
+                Some(_) => return Err(de::Error::custom("unknown store type")),
+                None => {}
+            }
         }
+
+        let file = remove_key::<PathBuf, D::Error>(&mut table, "file")?;
+        let file = match (zone_type, file) {
+            (ZoneType::Authoritative, file) => file,
+            (ZoneType::External, None) => {
+                return Ok(Self {
+                    zone,
+                    zone_type_config: ZoneTypeConfig::External(
+                        ExternalZoneConfig::deserialize(table).map_err(de::Error::custom)?,
+                    ),
+                });
+            }
+            (ZoneType::External, Some(_)) => {
+                return Err(de::Error::custom(
+                    "cannot use `file` on a zone that is not authoritative",
+                ));
+            }
+        };
+
+        let mut config = ServerZoneConfig::deserialize(table).map_err(de::Error::custom)?;
+        if let Some(zone_path) = file {
+            for store in &config.stores {
+                if let ServerStoreConfig::File(_) = store {
+                    return Err(de::Error::custom(
+                        "having `file` and `[zones.store]` item with type `file` is ambiguous",
+                    ));
+                }
+            }
+
+            let store = ServerStoreConfig::File(FileConfig { zone_path });
+            match config.stores.as_mut_slice() {
+                [default @ ServerStoreConfig::Default] => *default = store,
+                _ => config.stores.push(store),
+            }
+        }
+
+        Ok(Self {
+            zone,
+            zone_type_config: ZoneTypeConfig::Authoritative(config),
+        })
+    }
+}
+
+fn remove_key<T: DeserializeOwned, E: de::Error>(
+    table: &mut toml::Table,
+    key: &'static str,
+) -> Result<Option<T>, E> {
+    let Some(value) = table.remove(key) else {
+        return Ok(None);
+    };
+
+    match T::deserialize(value) {
+        Ok(value) => Ok(Some(value)),
+        Err(error) => Err(E::custom(format_args!("{}\nin `{key}`", error.message()))),
     }
 }
 
 const EMPTY_STORES: &str = "empty [[zones.stores]] in config";
 
-#[derive(Deserialize, Debug)]
-#[serde(tag = "zone_type")]
-#[serde(deny_unknown_fields)]
 /// Enumeration over each zone type's configuration.
+#[derive(Debug)]
 pub(crate) enum ZoneTypeConfig {
     Authoritative(ServerZoneConfig),
-    External {
-        /// Store configurations.  Note: we specify a default handler to get a Vec containing a
-        /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
-        /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
-        /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
-        /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
-        #[serde(default = "store_config_default")]
-        #[serde(deserialize_with = "store_config_visitor")]
-        stores: Vec<ExternalStoreConfig>,
-    },
+    External(ExternalZoneConfig),
 }
 
 impl ZoneTypeConfig {
@@ -605,6 +612,19 @@ impl ServerZoneConfig {
             }
         }
     }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExternalZoneConfig {
+    /// Store configurations.  Note: we specify a default handler to get a Vec containing a
+    /// StoreConfig::Default, which is used for authoritative file-based zones and legacy sqlite
+    /// configurations. #[serde(default)] cannot be used, because it will invoke Default for Vec,
+    /// i.e., an empty Vec and we cannot implement Default for StoreConfig and return a Vec.  The
+    /// custom visitor is used to handle map (single store) or sequence (chained store) configurations.
+    #[serde(default = "store_config_default")]
+    #[serde(deserialize_with = "store_config_visitor")]
+    pub stores: Vec<ExternalStoreConfig>,
 }
 
 /// Enumeration over store types for secondary nameservers.

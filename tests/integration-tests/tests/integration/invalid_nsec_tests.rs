@@ -295,11 +295,8 @@ fn example_zone_catalog(key: Box<dyn SigningKey>) -> Catalog {
 
 /// Constructs a zone handler based on the zone file described in RFC 4035 Appendix A.
 fn example_zone_handler(origin: Name, key: Box<dyn SigningKey>) -> InMemoryZoneHandler {
-    let mut handler = InMemoryZoneHandler::empty(
-        origin.clone(),
-        AxfrPolicy::Deny,
-        Some(NxProofKind::Nsec),
-    );
+    let mut handler =
+        InMemoryZoneHandler::empty(origin.clone(), AxfrPolicy::Deny, Some(NxProofKind::Nsec));
 
     // Note that the serial will be incremented to 1081539377 by `secure_zone_mut()`.
     const SERIAL: u32 = 1081539376;
