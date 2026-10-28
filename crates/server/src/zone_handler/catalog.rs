@@ -10,7 +10,6 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::{collections::HashMap, iter, sync::Arc};
 
-use hickory_proto::op::LowerQuery;
 use tracing::{debug, error, info, trace, warn};
 
 #[cfg(feature = "metrics")]
@@ -406,8 +405,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
             return send_error_response(request, ResponseCode::ServFail, response_handle).await;
         };
 
-        let response_message =
-            build_response(result, &**handler, &request.metadata, query, edns).await;
+        let response_message = build_response(result, request, &**handler).await;
 
         #[cfg_attr(not(feature = "__dnssec"), expect(unused_mut))]
         let mut message_response = MessageResponseBuilder::new(
@@ -619,25 +617,17 @@ async fn send_error_response(
 /// Build metadata and LookupSections (answers) given a query response from a zone handler
 async fn build_response(
     result: Result<AuthLookup, LookupError>,
+    request: &Request,
     handler: &dyn ZoneHandler,
-    request_meta: &Metadata,
-    query: &LowerQuery,
-    edns: Option<&Edns>,
 ) -> Message {
-    let lookup_options = LookupOptions::from_edns(edns);
-
     match handler.zone_type() {
-        ZoneType::Authoritative => {
-            build_authoritative_response(result, handler, request_meta, lookup_options, query).await
-        }
+        ZoneType::Authoritative => build_authoritative_response(result, request, handler).await,
         ZoneType::External => {
             build_forwarded_response(
                 result,
-                request_meta,
+                request,
                 #[cfg(feature = "__dnssec")]
                 handler.can_validate_dnssec(),
-                query,
-                lookup_options,
             )
             .await
         }
@@ -647,12 +637,10 @@ async fn build_response(
 /// Prepare a response for an authoritative zone
 async fn build_authoritative_response(
     response: Result<AuthLookup, LookupError>,
+    request: &Request,
     handler: &dyn ZoneHandler,
-    request_meta: &Metadata,
-    lookup_options: LookupOptions,
-    query: &LowerQuery,
 ) -> Message {
-    let mut response_meta = Metadata::response_from_request(request_meta);
+    let mut response_meta = Metadata::response_from_request(&request.metadata);
     response_meta.authoritative = true;
 
     let mut message = Message::new(
@@ -660,6 +648,7 @@ async fn build_authoritative_response(
         response_meta.message_type,
         response_meta.op_code,
     );
+    let query = request.query();
     message.add_query(query.original().clone());
 
     // In this state we await the records, on success we transition to getting
@@ -698,6 +687,7 @@ async fn build_authoritative_response(
         }
     };
 
+    let lookup_options = LookupOptions::from_edns(request.edns.as_ref());
     #[cfg_attr(not(feature = "__dnssec"), allow(unused_variables))]
     let (ns, soa) = if let Some(answers) = &answers {
         // SOA queries should return the NS records as well.
@@ -759,12 +749,12 @@ async fn build_authoritative_response(
                         match res {
                             Some(Ok(nsecs)) => (Some(nsecs), None),
                             Some(Err(error)) => {
-                                warn!(%error, request_id = request_meta.id, "failed to lookup nsecs for request");
+                                warn!(%error, request_id = request.metadata.id, "failed to lookup nsecs for request");
                                 (None, None)
                             }
                             None => {
                                 warn!(
-                                    request_id = request_meta.id,
+                                    request_id = request.metadata.id,
                                     "unexpected lookup skip for request"
                                 );
                                 (None, None)
@@ -784,7 +774,7 @@ async fn build_authoritative_response(
             {
                 // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                 debug!(
-                    request_id = request_meta.id,
+                    request_id = request.metadata.id,
                     "request non-existent adding nsecs"
                 );
                 match handler.nx_proof_kind() {
@@ -813,12 +803,12 @@ async fn build_authoritative_response(
                         match future.await.map_result() {
                             Some(Ok(nsecs)) => Some(nsecs),
                             Some(Err(error)) => {
-                                warn!(%error, request_id = request_meta.id, "failed to lookup nsecs for request");
+                                warn!(%error, request_id = request.metadata.id, "failed to lookup nsecs for request");
                                 None
                             }
                             None => {
                                 warn!(
-                                    request_id = request_meta.id,
+                                    request_id = request.metadata.id,
                                     "unexpected lookup skip for request"
                                 );
                                 None
@@ -887,12 +877,10 @@ async fn build_authoritative_response(
 /// Prepare a response for a forwarded zone.
 async fn build_forwarded_response(
     response: Result<AuthLookup, LookupError>,
-    request_meta: &Metadata,
+    request: &Request,
     #[cfg(feature = "__dnssec")] can_validate_dnssec: bool,
-    query: &LowerQuery,
-    lookup_options: LookupOptions,
 ) -> Message {
-    let mut response_meta = Metadata::response_from_request(request_meta);
+    let mut response_meta = Metadata::response_from_request(&request.metadata);
     response_meta.recursion_available = true;
     response_meta.authoritative = false;
     let mut message = Message::new(
@@ -900,11 +888,12 @@ async fn build_forwarded_response(
         response_meta.message_type,
         response_meta.op_code,
     );
+    let query = request.query();
     message.add_query(query.original().clone());
 
-    if !request_meta.recursion_desired {
+    if !request.metadata.recursion_desired {
         info!(
-            id = request_meta.id,
+            id = request.metadata.id,
             "request disabled recursion, returning REFUSED"
         );
 
@@ -1036,6 +1025,7 @@ async fn build_forwarded_response(
     };
 
     // If DNSSEC is disabled, we ignore the CD bit and do not set the AD bit.
+    let lookup_options = LookupOptions::from_edns(request.edns.as_ref());
     #[cfg(feature = "__dnssec")]
     if can_validate_dnssec {
         // section 3.2.2 ("the CD bit") of RFC4035 is a bit underspecified because it does not use
@@ -1065,12 +1055,12 @@ async fn build_forwarded_response(
         if rsp.soa.is_none() {
             match summarize_proofs(rsp.answers.iter(), rsp.nsec_proof) {
                 DnssecSummary::Secure
-                    if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
+                    if (request.metadata.authentic_data || lookup_options.dnssec_ok) =>
                 {
                     trace!("setting ad header");
                     response_meta.authentic_data = true;
                 }
-                DnssecSummary::Bogus if !request_meta.checking_disabled => {
+                DnssecSummary::Bogus if !request.metadata.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
                     // do not return Bogus records when CD=0
                     rsp.answers = AuthLookup::default();
@@ -1082,12 +1072,12 @@ async fn build_forwarded_response(
                 summarize_proofs(rsp.soa.iter().chain(rsp.authorities.iter()), rsp.nsec_proof);
             match dnssec_summary {
                 DnssecSummary::Secure
-                    if (request_meta.authentic_data || lookup_options.dnssec_ok) =>
+                    if (request.metadata.authentic_data || lookup_options.dnssec_ok) =>
                 {
                     trace!("setting ad header");
                     response_meta.authentic_data = true;
                 }
-                DnssecSummary::Bogus if !request_meta.checking_disabled => {
+                DnssecSummary::Bogus if !request.metadata.checking_disabled => {
                     response_meta.response_code = ResponseCode::ServFail;
                     // do not return Bogus records when CD=0
                     trace!("clearing SOA record from response");
@@ -1126,13 +1116,16 @@ fn summarize_proofs<'a>(
 
 #[cfg(all(test, feature = "resolver"))]
 mod tests {
-    use std::{net::Ipv4Addr, str::FromStr};
+    use std::{
+        net::{Ipv4Addr, SocketAddr},
+        str::FromStr,
+    };
 
     use super::*;
-    use crate::net::runtime::TokioRuntimeProvider;
+    use crate::net::{runtime::TokioRuntimeProvider, xfer::Protocol};
     use crate::proto::rr::rdata::NS;
     use crate::proto::{
-        op::{MessageType, OpCode, Query},
+        op::{MessageRequest, MessageType, OpCode, Query},
         rr::{
             Name, RData, Record, RecordSet, RecordType,
             rdata::{A, CNAME, SOA},
@@ -1177,17 +1170,15 @@ mod tests {
         let auth_lookup = AuthLookup::Resolved(lookup);
 
         // Build the forwarded response
-        let mut request_meta = Metadata::new(1234, MessageType::Query, OpCode::Query);
-        request_meta.recursion_desired = true;
-        let query_lower = LowerQuery::from(query);
+        let mut metadata = Metadata::new(1234, MessageType::Query, OpCode::Query);
+        metadata.recursion_desired = true;
+        let request = mock_request(metadata, query);
 
         let message = build_forwarded_response(
             Ok(auth_lookup),
-            &request_meta,
+            &request,
             #[cfg(feature = "__dnssec")]
             false,
-            &query_lower,
-            LookupOptions::default(),
         )
         .await;
 
@@ -1235,20 +1226,15 @@ mod tests {
             None,
         );
 
-        let metadata = Metadata::new(0, MessageType::Query, OpCode::Query);
-        let query = LowerQuery::from(Query::new(
-            Name::from_str("www.sub.example.com.").unwrap(),
-            RecordType::A,
-        ));
+        let request = mock_request(
+            Metadata::new(0, MessageType::Query, OpCode::Query),
+            Query::new(
+                Name::from_str("www.sub.example.com.").unwrap(),
+                RecordType::A,
+            ),
+        );
 
-        let message = build_authoritative_response(
-            Ok(auth_lookup),
-            &handler,
-            &metadata,
-            LookupOptions::default(),
-            &query,
-        )
-        .await;
+        let message = build_authoritative_response(Ok(auth_lookup), &request, &handler).await;
 
         assert!(message.answers.is_empty());
         assert!(!message.authorities.is_empty());
@@ -1301,23 +1287,23 @@ mod tests {
             1,
         );
 
-        let metadata = Metadata::new(0, MessageType::Query, OpCode::Query);
-        let query = LowerQuery::from(Query::new(b_name, RecordType::A));
+        let request = mock_request(
+            Metadata::new(0, MessageType::Query, OpCode::Query),
+            Query::new(b_name, RecordType::A),
+        );
 
         let response = handler
-            .lookup(query.name(), RecordType::A, None, LookupOptions::default())
+            .lookup(
+                request.query().name(),
+                RecordType::A,
+                None,
+                LookupOptions::default(),
+            )
             .await
             .map_result()
             .expect("lookup should not be skipped");
 
-        let message = build_authoritative_response(
-            response,
-            &handler,
-            &metadata,
-            LookupOptions::default(),
-            &query,
-        )
-        .await;
+        let message = build_authoritative_response(response, &request, &handler).await;
 
         assert_eq!(message.metadata.response_code, ResponseCode::NXDomain);
         assert_eq!(message.answers.len(), 2);
@@ -1333,5 +1319,14 @@ mod tests {
                 .iter()
                 .any(|r| r.record_type() == RecordType::SOA)
         );
+    }
+
+    fn mock_request(metadata: Metadata, query: Query) -> Request {
+        Request::from_message(
+            MessageRequest::mock(metadata, query),
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+            Protocol::Udp,
+        )
+        .unwrap()
     }
 }
