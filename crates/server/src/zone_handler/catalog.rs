@@ -35,10 +35,7 @@ use crate::{
             DEFAULT_MAX_PAYLOAD_LEN, Edns, LowerQuery, Message, MessageType, Metadata, OpCode,
             ResponseCode,
         },
-        rr::{
-            LowerName, Record, RecordType,
-            rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
-        },
+        rr::{LowerName, Record, RecordType, rdata::opt::NSIDPayload},
     },
     server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
     zone_handler::{
@@ -76,62 +73,20 @@ impl RequestHandler for Catalog {
     ) {
         trace!("request: {:?}", request);
 
-        let mut resp_edns: Edns;
-
         // check if it's edns
-        let response_edns = if let Some(req_edns) = request.edns.as_ref() {
-            resp_edns = Edns::new();
-
-            // check our version against the request
-            // TODO: what version are we?
-            let our_version = 0;
-            #[cfg(feature = "__dnssec")]
-            resp_edns.set_dnssec_ok(req_edns.flags().dnssec_ok);
-            resp_edns.set_max_payload(self.max_payload_size);
-            resp_edns.set_version(our_version);
-
-            if req_edns.version() > our_version {
-                warn!(
-                    "request edns version greater than {}: {}",
-                    our_version,
-                    req_edns.version()
-                );
-                send_error_response(
-                    request,
-                    ResponseCode::BADVERS,
-                    Some(&resp_edns),
-                    response_handle,
-                )
-                .await;
-                return;
-            }
-
-            // RFC 5001 "DNS Name Server Identifier (NSID) Option" handling.
-            match (req_edns.option(EdnsCode::NSID), &self.nsid_payload) {
-                // NSID was requested, and we have a payload to reply with. Add it to the
-                // response EDNS.
-                (Some(request_option), Some(payload)) => {
-                    // "The name server MUST ignore any NSID payload data that might be
-                    //  present in the query message."
-                    if !request_option.is_empty() {
-                        warn!("ignoring non-empty EDNS NSID request payload")
+        let response_edns = match request.edns.as_ref() {
+            Some(edns) => {
+                let (rsp_edns, result) =
+                    edns.for_response(self.max_payload_size, self.nsid_payload.as_ref());
+                match result {
+                    Ok(_) => Some(rsp_edns),
+                    Err(code) => {
+                        send_error_response(request, code, Some(&rsp_edns), response_handle).await;
+                        return;
                     }
-                    resp_edns
-                        .options_mut()
-                        .insert(EdnsOption::NSID(payload.clone()));
                 }
-                // NSID was requested, but we don't have a payload configured.
-                (Some(_), None) => {
-                    trace!("ignoring EDNS NSID request - no response payload configured")
-                }
-                // "A name server MUST NOT send an NSID option back to a resolver which
-                // did not request it."
-                (None, _) => {}
-            };
-
-            Some(&resp_edns)
-        } else {
-            None
+            }
+            None => None,
         };
 
         let now = T::current_time();
@@ -141,12 +96,12 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request.metadata.op_code {
                 OpCode::Query => {
                     debug!("query received: {}", request.metadata.id);
-                    self.lookup(request, response_edns, now, response_handle)
+                    self.lookup(request, response_edns.as_ref(), now, response_handle)
                         .await;
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.metadata.id);
-                    self.update(request, response_edns, now, response_handle)
+                    self.update(request, response_edns.as_ref(), now, response_handle)
                         .await;
                 }
                 c => {
@@ -154,7 +109,7 @@ impl RequestHandler for Catalog {
                     send_error_response(
                         request,
                         ResponseCode::NotImp,
-                        response_edns,
+                        response_edns.as_ref(),
                         response_handle,
                     )
                     .await;
@@ -168,7 +123,7 @@ impl RequestHandler for Catalog {
                 send_error_response(
                     request,
                     ResponseCode::FormErr,
-                    response_edns,
+                    response_edns.as_ref(),
                     response_handle,
                 )
                 .await;
