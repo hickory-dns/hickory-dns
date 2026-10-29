@@ -155,9 +155,48 @@ impl<'r> BinDecodable<'r> for CertType {
     }
 }
 
+impl FromStr for CertType {
+    type Err = ParseError;
+
+    /// Parses a certificate type from its decimal value or its mnemonic
+    /// ([RFC 4398 section 2.2](https://datatracker.ietf.org/doc/html/rfc4398#section-2.2))
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(value) = u16::from_str(s) {
+            return Ok(Self::from(value));
+        }
+
+        Ok(match s {
+            s if s.eq_ignore_ascii_case("PKIX") => Self::PKIX,
+            s if s.eq_ignore_ascii_case("SPKI") => Self::SPKI,
+            s if s.eq_ignore_ascii_case("PGP") => Self::PGP,
+            s if s.eq_ignore_ascii_case("IPKIX") => Self::IPKIX,
+            s if s.eq_ignore_ascii_case("ISPKI") => Self::ISPKI,
+            s if s.eq_ignore_ascii_case("IPGP") => Self::IPGP,
+            s if s.eq_ignore_ascii_case("ACPKIX") => Self::ACPKIX,
+            s if s.eq_ignore_ascii_case("IACPKIX") => Self::IACPKIX,
+            s if s.eq_ignore_ascii_case("URI") => Self::URI,
+            s if s.eq_ignore_ascii_case("OID") => Self::OID,
+            _ => return Err(ParseError::from("Invalid digit found in cert_type token")),
+        })
+    }
+}
+
 impl fmt::Display for CertType {
+    /// Writes the mnemonic of the certificate type if it has one, its decimal value otherwise
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Self::PKIX => f.write_str("PKIX"),
+            Self::SPKI => f.write_str("SPKI"),
+            Self::PGP => f.write_str("PGP"),
+            Self::IPKIX => f.write_str("IPKIX"),
+            Self::ISPKI => f.write_str("ISPKI"),
+            Self::IPGP => f.write_str("IPGP"),
+            Self::ACPKIX => f.write_str("ACPKIX"),
+            Self::IACPKIX => f.write_str("IACPKIX"),
+            Self::URI => f.write_str("URI"),
+            Self::OID => f.write_str("OID"),
+            _ => write!(f, "{}", u16::from(*self)),
+        }
     }
 }
 
@@ -378,9 +417,71 @@ impl<'r> BinDecodable<'r> for Algorithm {
     }
 }
 
+impl FromStr for Algorithm {
+    type Err = ParseError;
+
+    /// Parses an algorithm from its decimal value or its DNSSEC mnemonic
+    /// ([RFC 4398 section 2.2](https://datatracker.ietf.org/doc/html/rfc4398#section-2.2))
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(value) = u8::from_str(s) {
+            return Ok(Self::from(value));
+        }
+
+        Ok(match s {
+            s if s.eq_ignore_ascii_case("RSAMD5") => Self::RSAMD5,
+            s if s.eq_ignore_ascii_case("DH") => Self::DH,
+            s if s.eq_ignore_ascii_case("DSA") => Self::DSA,
+            s if s.eq_ignore_ascii_case("ECC") => Self::ECC,
+            s if s.eq_ignore_ascii_case("RSASHA1") => Self::RSASHA1,
+            s if s.eq_ignore_ascii_case("DSA-NSEC3-SHA1") || s.eq_ignore_ascii_case("NSEC3DSA") => {
+                Self::DSANSEC3SHA1
+            }
+            s if s.eq_ignore_ascii_case("RSASHA1-NSEC3-SHA1")
+                || s.eq_ignore_ascii_case("NSEC3RSASHA1") =>
+            {
+                Self::RSASHA1NSEC3SHA1
+            }
+            s if s.eq_ignore_ascii_case("RSASHA256") => Self::RSASHA256,
+            s if s.eq_ignore_ascii_case("RSASHA512") => Self::RSASHA512,
+            s if s.eq_ignore_ascii_case("ECC-GOST") || s.eq_ignore_ascii_case("ECCGOST") => {
+                Self::ECCGOST
+            }
+            s if s.eq_ignore_ascii_case("ECDSAP256SHA256") => Self::ECDSAP256SHA256,
+            s if s.eq_ignore_ascii_case("ECDSAP384SHA384") => Self::ECDSAP384SHA384,
+            s if s.eq_ignore_ascii_case("ED25519") => Self::ED25519,
+            s if s.eq_ignore_ascii_case("ED448") => Self::ED448,
+            s if s.eq_ignore_ascii_case("SM2SM3") => Self::SM2SM3,
+            s if s.eq_ignore_ascii_case("ECC-GOST12") || s.eq_ignore_ascii_case("ECCGOST12") => {
+                Self::ECCGOST12
+            }
+            s if s.eq_ignore_ascii_case("INDIRECT") => Self::INDIRECT,
+            s if s.eq_ignore_ascii_case("PRIVATEDNS") => Self::PRIVATEDNS,
+            s if s.eq_ignore_ascii_case("PRIVATEOID") => Self::PRIVATEOID,
+            _ => return Err(ParseError::from("Invalid digit found in algorithm token")),
+        })
+    }
+}
+
 impl fmt::Display for Algorithm {
+    /// Writes the mnemonic of the algorithm, or its decimal value for algorithms without a
+    /// mnemonic that zone file parsers agree on
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Self::RSAMD5 => f.write_str("RSAMD5"),
+            Self::DH => f.write_str("DH"),
+            Self::DSA => f.write_str("DSA"),
+            Self::RSASHA1 => f.write_str("RSASHA1"),
+            Self::RSASHA256 => f.write_str("RSASHA256"),
+            Self::RSASHA512 => f.write_str("RSASHA512"),
+            Self::ECDSAP256SHA256 => f.write_str("ECDSAP256SHA256"),
+            Self::ECDSAP384SHA384 => f.write_str("ECDSAP384SHA384"),
+            Self::ED25519 => f.write_str("ED25519"),
+            Self::ED448 => f.write_str("ED448"),
+            Self::INDIRECT => f.write_str("INDIRECT"),
+            Self::PRIVATEDNS => f.write_str("PRIVATEDNS"),
+            Self::PRIVATEOID => f.write_str("PRIVATEOID"),
+            _ => write!(f, "{}", u8::from(*self)),
+        }
     }
 }
 
@@ -447,11 +548,8 @@ impl CERT {
 
         let token = iter
             .next()
-            .ok_or(ParseError::Message("CERT cert type field missing"))?;
-        let cert_type = CertType::from(
-            u16::from_str(token)
-                .map_err(|_| ParseError::Message("Invalid digit found in cert_type token"))?,
-        );
+            .ok_or_else(|| ParseError::from("CERT cert type field missing"))?;
+        let cert_type = CertType::from_str(token)?;
 
         let token = iter
             .next()
@@ -461,19 +559,18 @@ impl CERT {
 
         let token = iter
             .next()
-            .ok_or(ParseError::Message("CERT algorithm field missing"))?;
-        let algorithm = Algorithm::from(
-            u8::from_str(token)
-                .map_err(|_| ParseError::Message("Invalid digit found in algorithm token"))?,
-        );
+            .ok_or_else(|| ParseError::from("CERT algorithm field missing"))?;
+        let algorithm = Algorithm::from_str(token)?;
 
-        let token = iter
-            .next()
-            .ok_or(ParseError::Message("CERT data missing"))?;
+        // the base64 data may be split into several whitespace separated tokens
+        let cert_data = iter.collect::<String>();
+        if cert_data.is_empty() {
+            return Err(ParseError::from("CERT data missing"));
+        }
 
         let cert_data = data_encoding::BASE64
-            .decode(token.as_bytes())
-            .map_err(|_| ParseError::Message("Invalid base64 CERT data"))?;
+            .decode(cert_data.as_bytes())
+            .map_err(|_| ParseError::from("Invalid base64 CERT data"))?;
 
         Ok(Self::new(cert_type, key_tag, algorithm, cert_data))
     }
@@ -606,6 +703,8 @@ impl fmt::Display for CERT {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use alloc::string::ToString;
 
     use super::*;
 
@@ -852,5 +951,38 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert_eq!(format!("{err}"), "CERT data missing");
+    }
+
+    #[test]
+    fn test_mnemonics_and_split_data() {
+        let tokens = ["pgp", "7", "rsasha1", "Q2VydGlm", "aWNhdGUgZGF0YQ=="].into_iter();
+        let cert = CERT::from_tokens(tokens).unwrap();
+        assert_eq!(cert.cert_type, CertType::PGP);
+        assert_eq!(cert.algorithm, Algorithm::RSASHA1);
+        assert_eq!(cert.cert_data, b"Certificate data".to_vec());
+    }
+
+    #[test]
+    fn test_display_round_trip() {
+        for (cert_type, algorithm, expected) in [
+            (0, 0, "0 1 0 AQID"),
+            (1, 8, "PKIX 1 RSASHA256 AQID"),
+            (6, 6, "IPGP 1 6 AQID"),
+            (9, 20, "9 1 20 AQID"),
+            (253, 13, "URI 1 ECDSAP256SHA256 AQID"),
+            (255, 252, "255 1 INDIRECT AQID"),
+            (65280, 255, "65280 1 255 AQID"),
+            (65535, 23, "65535 1 23 AQID"),
+        ] {
+            let cert = CERT::new(
+                CertType::from(cert_type),
+                1,
+                Algorithm::from(algorithm),
+                vec![1, 2, 3],
+            );
+            let text = cert.to_string();
+            assert_eq!(text, expected);
+            assert_eq!(CERT::from_tokens(text.split(' ')).unwrap(), cert);
+        }
     }
 }
