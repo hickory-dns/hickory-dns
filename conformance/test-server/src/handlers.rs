@@ -4,10 +4,7 @@ use async_trait::async_trait;
 use aws_lc_rs::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, EcdsaKeyPair};
 use data_encoding::BASE32_DNSSEC;
 use hickory_net::{
-    client::Client,
-    runtime::TokioRuntimeProvider,
-    tcp::TcpClientStream,
-    xfer::{DnsHandle, FirstAnswer},
+    client::Client, runtime::TokioRuntimeProvider, tcp::TcpClientStream, xfer::DnsHandle,
 };
 use hickory_proto::{
     dnssec::{
@@ -907,7 +904,6 @@ impl Handler for BogusNoDataInsteadOfCname {
             let request = DnsRequest::from_query(negative_query, options);
             let mut response = client
                 .send(request)
-                .first_answer()
                 .await
                 .context("error sending proxied query")?;
 
@@ -950,7 +946,6 @@ impl Handler for BogusNoDataInsteadOfCname {
             // Proxy any other queries.
             client
                 .send(query_request)
-                .first_answer()
                 .await
                 .context("error sending proxied query")?
         };
@@ -1051,7 +1046,6 @@ async fn proxy_query(ip_address: IpAddr, query_message: Message) -> Result<DnsRe
 
     let mut response = client
         .send(query_request)
-        .first_answer()
         .await
         .context("error sending proxied query")?;
 

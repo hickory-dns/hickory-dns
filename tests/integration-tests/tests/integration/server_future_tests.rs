@@ -5,8 +5,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use futures::TryStreamExt;
-
 #[cfg(feature = "__tls")]
 use rustls::{
     ClientConfig, RootCertStore,
@@ -20,6 +18,7 @@ use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 
 use hickory_integration::example_zone::create_example;
+use hickory_net::NetError;
 use hickory_net::client::{Client, ClientHandle};
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::tcp::TcpClientStream;
@@ -149,14 +148,10 @@ async fn test_server_form_error_on_multiple_queries_udp() {
     message.metadata.recursion_desired = true;
     message.add_query(query_a).add_query(query_aaaa);
 
-    let mut client_result = client
+    let client_result = client
         .send(DnsRequest::from(message))
-        .try_collect::<Vec<_>>()
         .await
         .expect("query failed");
-
-    assert_eq!(client_result.len(), 1);
-    let client_result = client_result.pop().expect("there should be one response");
 
     assert_eq!(client_result.metadata.response_code, ResponseCode::FormErr);
 
@@ -189,14 +184,10 @@ async fn test_server_form_error_on_multiple_queries_tcp() {
     message.metadata.recursion_desired = true;
     message.add_query(query_a).add_query(query_aaaa);
 
-    let mut client_result = client
+    let client_result = client
         .send(DnsRequest::from(message))
-        .try_collect::<Vec<_>>()
         .await
         .expect("query failed");
-
-    assert_eq!(client_result.len(), 1);
-    let client_result = client_result.pop().unwrap();
 
     assert_eq!(client_result.metadata.response_code, ResponseCode::FormErr);
 
@@ -224,12 +215,8 @@ async fn test_server_no_response_on_response() {
     let mut message = Message::response(10, OpCode::Query);
     message.add_query(query_a);
 
-    let client_result = client
-        .send(DnsRequest::from(message))
-        .try_collect::<Vec<_>>()
-        .await
-        .unwrap();
-    assert_eq!(client_result.len(), 0);
+    let client_result = client.send(DnsRequest::from(message)).await;
+    assert!(matches!(client_result, Err(NetError::Timeout)));
 
     server_continue.store(false, Ordering::Relaxed);
     server.await.unwrap();

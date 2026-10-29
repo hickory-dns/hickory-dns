@@ -15,7 +15,6 @@ use std::task::{Context, Poll};
 use futures::{
     AsyncRead, AsyncWrite,
     future::{self, BoxFuture},
-    stream::{Stream, once},
 };
 
 use hickory_net::NetError;
@@ -183,16 +182,17 @@ impl<O: OnSend> MockClientHandle<O> {
 }
 
 impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = MockRuntimeProvider;
 
-    fn send(&self, _: DnsRequest) -> Self::Response {
+    fn send(&self, _: DnsRequest) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         let mut messages = self.messages.lock().expect("failed to lock at messages");
         println!("MockClientHandle::send message count: {}", messages.len());
 
-        Box::pin(once(self.on_send.on_send(messages.pop().unwrap_or_else(
-            || Err(NetError::from("Messages exhausted in MockClientHandle")),
-        ))))
+        self.on_send.on_send(
+            messages
+                .pop()
+                .unwrap_or_else(|| Err(NetError::from("Messages exhausted in MockClientHandle"))),
+        )
     }
 }
 

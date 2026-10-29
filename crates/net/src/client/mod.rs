@@ -54,8 +54,6 @@ pub use dnssec_client::{AsyncSecureClientBuilder, DnssecClient};
 mod memoize_client_handle;
 pub use memoize_client_handle::MemoizeClientHandle;
 
-mod rc_stream;
-
 #[cfg(test)]
 mod tests;
 
@@ -124,13 +122,32 @@ impl<P: RuntimeProvider> Client<P> {
     pub fn disable_edns(&mut self) {
         self.use_edns = false;
     }
+
+    /// Download all records from a zone, or all records modified since given SOA was observed.
+    /// The request will either be a AXFR Query (ask for full zone transfer) if a SOA was not
+    /// provided, or a IXFR Query (incremental zone transfer) if a SOA was provided.
+    ///
+    /// # Arguments
+    /// * `zone_origin` - the zone name to update, i.e. SOA name
+    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
+    pub fn zone_transfer(
+        &self,
+        zone_origin: Name,
+        last_soa: Option<SOA>,
+    ) -> ClientStreamXfr<DnsExchangeSend<P>> {
+        let ixfr = last_soa.is_some();
+        let message = update_message::zone_transfer(zone_origin, last_soa);
+        ClientStreamXfr::new(self.exchange.send_stream(DnsRequest::from(message)), ixfr)
+    }
 }
 
 impl<P: RuntimeProvider> DnsHandle for Client<P> {
-    type Response = DnsExchangeSend<P>;
     type Runtime = P;
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
+    fn send(
+        &self,
+        request: DnsRequest,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         self.exchange.send(request)
     }
 
@@ -158,12 +175,12 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         name: Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         let mut query = Query::new(name, query_type);
         query.set_query_class(query_class);
         let mut options = DnsRequestOptions::default();
         options.use_edns = self.is_using_edns();
-        ClientResponse(self.lookup(query, options))
+        self.lookup(query, options)
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -232,7 +249,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send
     where
         R: Into<RecordSet>,
     {
@@ -267,7 +284,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
             message.add_answers(rrset.into());
         }
 
-        ClientResponse(self.send(DnsRequest::from(message)))
+        self.send(DnsRequest::from(message))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -307,13 +324,13 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         &mut self,
         rrset: R,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send
     where
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
         let message = update_message::create(rrset, zone_origin, self.is_using_edns());
-        ClientResponse(self.send(DnsRequest::from(message)))
+        self.send(DnsRequest::from(message))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -355,13 +372,13 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         rrset: R,
         zone_origin: Name,
         must_exist: bool,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send
     where
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
         let message = update_message::append(rrset, zone_origin, must_exist, self.is_using_edns());
-        ClientResponse(self.send(DnsRequest::from(message)))
+        self.send(DnsRequest::from(message))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -410,7 +427,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         current: C,
         new: N,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send
     where
         C: Into<RecordSet>,
         N: Into<RecordSet>,
@@ -420,7 +437,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         let message =
             update_message::compare_and_swap(current, new, zone_origin, self.is_using_edns());
-        ClientResponse(self.send(DnsRequest::from(message)))
+        self.send(DnsRequest::from(message))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -463,13 +480,13 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         &mut self,
         rrset: R,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send
     where
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
         let message = update_message::delete_by_rdata(rrset, zone_origin, self.is_using_edns());
-        ClientResponse(self.send(DnsRequest::from(message)))
+        self.send(DnsRequest::from(message))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -510,10 +527,10 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         &mut self,
         record: Record,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         assert!(zone_origin.zone_of(&record.name));
         let message = update_message::delete_rrset(record, zone_origin, self.is_using_edns());
-        ClientResponse(self.send(DnsRequest::from(message)))
+        self.send(DnsRequest::from(message))
     }
 
     /// Deletes all records at the specified name
@@ -545,7 +562,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         name_of_records: Name,
         zone_origin: Name,
         dns_class: DNSClass,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         assert!(zone_origin.zone_of(&name_of_records));
         let message = update_message::delete_all(
             name_of_records,
@@ -553,24 +570,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
             dns_class,
             self.is_using_edns(),
         );
-        ClientResponse(self.send(DnsRequest::from(message)))
-    }
-
-    /// Download all records from a zone, or all records modified since given SOA was observed.
-    /// The request will either be a AXFR Query (ask for full zone transfer) if a SOA was not
-    /// provided, or a IXFR Query (incremental zone transfer) if a SOA was provided.
-    ///
-    /// # Arguments
-    /// * `zone_origin` - the zone name to update, i.e. SOA name
-    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
-    fn zone_transfer(
-        &mut self,
-        zone_origin: Name,
-        last_soa: Option<SOA>,
-    ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
-        let ixfr = last_soa.is_some();
-        let message = update_message::zone_transfer(zone_origin, last_soa);
-        ClientStreamXfr::new(self.send(DnsRequest::from(message)), ixfr)
+        self.send(DnsRequest::from(message))
     }
 }
 
@@ -588,26 +588,6 @@ where
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(ready!(self.0.poll_next_unpin(cx)))
-    }
-}
-
-/// A future result of a Client Request
-#[must_use = "futures do nothing unless polled"]
-pub struct ClientResponse<R>(pub(crate) R)
-where
-    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static;
-
-impl<R> Future for ClientResponse<R>
-where
-    R: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static,
-{
-    type Output = Result<DnsResponse, NetError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(match ready!(self.0.poll_next_unpin(cx)) {
-            Some(r) => r,
-            None => Err(NetError::Timeout),
-        })
     }
 }
 

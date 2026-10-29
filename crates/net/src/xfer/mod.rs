@@ -27,7 +27,7 @@ use tracing::{debug, warn};
 use crate::error::NetError;
 use crate::proto::ProtoError;
 use crate::proto::op::{DnsRequest, DnsResponse, SerialMessage};
-use crate::runtime::{RuntimeProvider, Time};
+use crate::runtime::Time;
 
 mod dns_exchange;
 pub use dns_exchange::{DnsExchange, DnsExchangeBackground, DnsExchangeSend};
@@ -253,11 +253,9 @@ pub struct BufDnsRequestStreamHandle<P> {
     _phantom: PhantomData<P>,
 }
 
-impl<P: RuntimeProvider> DnsHandle for BufDnsRequestStreamHandle<P> {
-    type Response = DnsResponseReceiver;
-    type Runtime = P;
-
-    fn send(&self, request: DnsRequest) -> Self::Response {
+impl<P> BufDnsRequestStreamHandle<P> {
+    /// Enqueue a request for the background task, returning a stream of responses
+    pub(crate) fn send(&self, request: DnsRequest) -> DnsResponseReceiver {
         debug!(
             "enqueueing message:{}:{:?}",
             request.op_code, request.queries

@@ -2,7 +2,6 @@ use hickory_net::DnsHandle;
 use hickory_net::client::Client;
 use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_net::udp::UdpClientStream;
-use hickory_net::xfer::FirstAnswer;
 use hickory_proto::op::{DEFAULT_MAX_PAYLOAD_LEN, DnsRequest, Edns, Message, Query};
 use hickory_proto::rr::rdata::{A, SOA};
 use hickory_proto::rr::{Name, RData, Record, RecordSet, RecordType, RrKey};
@@ -52,7 +51,6 @@ async fn test_truncation() {
 
     let result = client
         .send(DnsRequest::from(msg))
-        .first_answer()
         .await
         .expect("query failed");
 

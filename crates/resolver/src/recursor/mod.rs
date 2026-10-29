@@ -45,11 +45,7 @@ use crate::{
 #[cfg(feature = "__dnssec")]
 use crate::{
     ResponseCache,
-    net::{
-        DnsError, NetError, NoRecords,
-        dnssec::DnssecDnsHandle,
-        xfer::{DnsHandle as _, FirstAnswer as _},
-    },
+    net::{DnsError, NetError, NoRecords, dnssec::DnssecDnsHandle, xfer::DnsHandle as _},
     proto::{
         dnssec::TrustAnchors,
         op::{DnsRequestOptions, ResponseCode},
@@ -489,11 +485,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         options.use_edns = true;
         options.edns_set_dnssec_ok = true;
 
-        let response = self
-            .handle
-            .lookup(query.clone(), options)
-            .first_answer()
-            .await?;
+        let response = self.handle.lookup(query.clone(), options).await?;
 
         // Return NXDomain and NoData responses in error form
         // These need to bypass the cache lookup (and casting to a Lookup object in general)

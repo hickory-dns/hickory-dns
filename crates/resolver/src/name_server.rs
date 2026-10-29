@@ -38,7 +38,7 @@ use crate::{
     net::{
         DnsError, NetError, NoRecords,
         runtime::{RuntimeProvider, Spawn},
-        xfer::{DnsHandle, FirstAnswer, Protocol},
+        xfer::{DnsHandle, Protocol},
     },
     proto::{
         op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
@@ -194,7 +194,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             #[cfg(feature = "metrics")]
             self.resolver_metrics.increment_outgoing_query(&protocol);
             let now = Instant::now();
-            let response = handle.send(request.clone()).first_answer().await;
+            let response = handle.send(request.clone()).await;
             let rtt = now.elapsed();
 
             match response {
@@ -614,7 +614,6 @@ impl<P: ConnectionProvider> ProbeRequest<P> {
                 Query::new(Name::root(), RecordType::NS),
                 DnsRequestOptions::default(),
             ))
-            .first_answer()
             .await
         {
             Ok(_) => {
@@ -2626,8 +2625,7 @@ mod mock_provider {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use futures_util::stream::once;
-    use futures_util::{Stream, future};
+    use futures_util::future;
     use tokio::net::UdpSocket;
 
     use super::*;
@@ -2710,12 +2708,14 @@ mod mock_provider {
     }
 
     impl DnsHandle for MockClientHandle {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
         type Runtime = MockSyncRuntimeProvider;
 
-        fn send(&self, request: DnsRequest) -> Self::Response {
+        fn send(
+            &self,
+            request: DnsRequest,
+        ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
             if let Some(Some(err)) = self.send_outcomes.lock().pop_front() {
-                return Box::pin(once(future::ready(Err(err))));
+                return future::ready(Err(err));
             }
             let mut response = Message::response(request.id, request.op_code);
             response.metadata.response_code = ResponseCode::NoError;
@@ -2727,9 +2727,7 @@ mod mock_provider {
                     RData::NULL(NULL::with(vec![0])),
                 ));
             }
-            Box::pin(once(future::ready(Ok(
-                DnsResponse::from_message(response).unwrap()
-            ))))
+            future::ready(Ok(DnsResponse::from_message(response).unwrap()))
         }
     }
 

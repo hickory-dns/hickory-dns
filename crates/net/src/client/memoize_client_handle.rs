@@ -4,18 +4,13 @@
 // https://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use core::pin::Pin;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use futures_util::future::FutureExt;
+use futures_util::future::{BoxFuture, FutureExt, Shared};
 use futures_util::lock::Mutex;
-use futures_util::stream::Stream;
 
-use super::{
-    ClientHandle,
-    rc_stream::{RcStream, rc_stream},
-};
+use super::ClientHandle;
 use crate::{
     NetError,
     proto::op::{DnsRequest, DnsResponse, Query},
@@ -32,7 +27,7 @@ use crate::{
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
-    active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
+    active_queries: Arc<Mutex<HashMap<Query, SharedResponse>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -46,57 +41,43 @@ where
             active_queries: Arc::new(Mutex::new(HashMap::new())),
         }
     }
+}
 
-    async fn inner_send(
-        request: DnsRequest,
-        active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
-        client: H,
-    ) -> impl Stream<Item = Result<DnsResponse, NetError>> {
+impl<H: ClientHandle> DnsHandle for MemoizeClientHandle<H> {
+    type Runtime = H::Runtime;
+
+    async fn send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
         // TODO: what if we want to support multiple queries (non-standard)?
         let query = request.queries.first().expect("no query!").clone();
 
         // lock all the currently running queries
-        let mut active_queries = active_queries.lock().await;
+        let mut active_queries = self.active_queries.lock().await;
 
         // TODO: we need to consider TTL on the records here at some point
-        // If the query is running, grab that existing one...
-        if let Some(rc_stream) = active_queries.get(&query) {
-            return rc_stream.clone();
-        };
-
-        // Otherwise issue a new query and store in the map
-        active_queries
+        // If the query is running, grab that existing one, otherwise issue a new query and
+        // store it in the map
+        let response = active_queries
             .entry(query)
-            .or_insert_with(|| rc_stream(client.send(request)))
-            .clone()
+            .or_insert_with(|| {
+                let client = self.client.clone();
+                async move { client.send(request).await }.boxed().shared()
+            })
+            .clone();
+
+        drop(active_queries);
+        response.await
     }
 }
 
-impl<H: ClientHandle> DnsHandle for MemoizeClientHandle<H> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
-    type Runtime = H::Runtime;
-
-    fn send(&self, request: DnsRequest) -> Self::Response {
-        Box::pin(
-            Self::inner_send(
-                request,
-                Arc::clone(&self.active_queries),
-                self.client.clone(),
-            )
-            .flatten_stream(),
-        )
-    }
-}
+type SharedResponse = Shared<BoxFuture<'static, Result<DnsResponse, NetError>>>;
 
 #[cfg(test)]
 mod test {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    use core::pin::Pin;
     use std::sync::Arc;
 
     use futures_util::lock::Mutex;
-    use futures_util::stream;
 
     use super::*;
     use crate::{
@@ -105,7 +86,7 @@ mod test {
             rr::{Name, RecordType},
         },
         runtime::TokioRuntimeProvider,
-        xfer::{DnsHandle, FirstAnswer},
+        xfer::DnsHandle,
     };
     use test_support::subscribe;
 
@@ -115,24 +96,20 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
         type Runtime = TokioRuntimeProvider;
 
-        fn send(&self, request: DnsRequest) -> Self::Response {
-            let i = Arc::clone(&self.i);
-            Box::pin(stream::once(async move {
-                let mut i = i.lock().await;
-                let message = Message::new(*i, MessageType::Query, OpCode::Query).into_response();
-                std::println!(
-                    "sending {}: {}",
-                    *i,
-                    request.queries.first().expect("no query!").clone()
-                );
+        async fn send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
+            let mut i = self.i.lock().await;
+            let message = Message::new(*i, MessageType::Query, OpCode::Query).into_response();
+            std::println!(
+                "sending {}: {}",
+                *i,
+                request.queries.first().expect("no query!").clone()
+            );
 
-                *i += 1;
+            *i += 1;
 
-                Ok(DnsResponse::from_message(message).unwrap())
-            }))
+            Ok(DnsResponse::from_message(message).unwrap())
         }
     }
 
@@ -152,17 +129,17 @@ mod test {
         let mut test2 = Message::query();
         test2.add_query(Query::new(Name::root(), RecordType::AAAA));
 
-        let result = block_on(client.send(DnsRequest::from(test1.clone())).first_answer()).unwrap();
+        let result = block_on(client.send(DnsRequest::from(test1.clone()))).unwrap();
         assert_eq!(result.id, 0);
 
-        let result = block_on(client.send(DnsRequest::from(test2.clone())).first_answer()).unwrap();
+        let result = block_on(client.send(DnsRequest::from(test2.clone()))).unwrap();
         assert_eq!(result.id, 1);
 
         // should get the same result for each...
-        let result = block_on(client.send(DnsRequest::from(test1)).first_answer()).unwrap();
+        let result = block_on(client.send(DnsRequest::from(test1))).unwrap();
         assert_eq!(result.id, 0);
 
-        let result = block_on(client.send(DnsRequest::from(test2)).first_answer()).unwrap();
+        let result = block_on(client.send(DnsRequest::from(test2))).unwrap();
         assert_eq!(result.id, 1);
     }
 }

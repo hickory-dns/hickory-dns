@@ -7,7 +7,6 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::server_harness::{TestServer, query_a, query_all_dnssec};
-use futures_util::TryStreamExt;
 use hickory_dns::dnssec::key_from_file;
 use hickory_net::DnsHandle;
 use hickory_net::client::Client;
@@ -204,12 +203,7 @@ async fn test_rrsig_ttl() {
 
         // query www.example.com. expected ttl is 86400.
         let query = Query::new("www.example.com.".parse().unwrap(), RecordType::A);
-        let response = client
-            .lookup(query, options)
-            .try_next()
-            .await
-            .unwrap()
-            .expect("Expected an answer");
+        let response = client.lookup(query, options).await.unwrap();
 
         // check the ttl of all answers, of which at least one must be of type A and one
         // of type RRSIG
@@ -239,12 +233,7 @@ async fn test_rrsig_ttl() {
 
         // query shortlived.example.com. expected ttl is 900.
         let query = Query::new("shortlived.example.com.".parse().unwrap(), RecordType::A);
-        let response = client
-            .lookup(query, options)
-            .try_next()
-            .await
-            .unwrap()
-            .expect("Expected an answer");
+        let response = client.lookup(query, options).await.unwrap();
 
         // check the ttl of all answers, of which at least one must be of type A and one
         // of type RRSIG

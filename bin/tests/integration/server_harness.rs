@@ -315,20 +315,19 @@ impl<C: ClientHandle + Unpin> MutMessageHandle<C> {
 
 #[cfg(feature = "__dnssec")]
 impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
-    type Response = <C as DnsHandle>::Response;
     type Runtime = C::Runtime;
 
     fn is_verifying_dnssec(&self) -> bool {
         true
     }
 
-    fn send(&self, mut request: DnsRequest) -> Self::Response {
+    async fn send(&self, mut request: DnsRequest) -> Result<DnsResponse, NetError> {
         // mutable block
         let edns = request.edns.get_or_insert_with(Edns::new);
         edns.set_dnssec_ok(true);
 
         println!("sending message");
-        self.client.send(request)
+        self.client.send(request).await
     }
 }
 

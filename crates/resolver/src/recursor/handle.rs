@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, trace, warn};
@@ -455,7 +455,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
     ) -> Result<Message, RecursorError> {
         limits.try_charge_query(&query)?;
 
-        let mut response = ns.lookup(query.clone(), self.request_options);
+        let response = ns.lookup(query.clone(), self.request_options);
 
         #[cfg(feature = "metrics")]
         self.metrics.outgoing_query_counter.increment(1);
@@ -472,11 +472,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             true
         };
 
-        // TODO: we are only expecting one response
-        // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
-        let mut response = match response.next().await {
-            Some(Ok(r)) => r,
-            Some(Err(mut error)) => {
+        let mut response = match response.await {
+            Ok(r) => r,
+            Err(mut error) => {
                 warn!(?query, %error, "lookup error");
 
                 // Do bailiwick filtering on records embedded in the error, if applicable.
@@ -524,10 +522,6 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                 );
 
                 return Err(RecursorError::from(error));
-            }
-            None => {
-                warn!("no response to lookup for {query}");
-                return Err("no response to lookup".into());
             }
         };
 
@@ -886,11 +880,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
             for rec_type in [RecordType::A, RecordType::AAAA] {
                 let query = Query::new(query_name.clone(), rec_type);
                 limits.try_charge_query(&query)?;
-                futures.push(Box::pin(
-                    pool.lookup(query, self.request_options)
-                        .into_future()
-                        .map(|(first, _rest)| first),
-                ));
+                futures.push(pool.lookup(query, self.request_options));
             }
         }
 
@@ -898,13 +888,9 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
 
         while let Some(next) = futures.next().await {
             let response = match next {
-                Some(Ok(response)) => response,
-                Some(Err(e)) => {
+                Ok(response) => response,
+                Err(e) => {
                     warn!("append_ips_from_lookup: resolution failed failed: {e}");
-                    continue;
-                }
-                None => {
-                    warn!("no response to lookup");
                     continue;
                 }
             };
@@ -1043,11 +1029,6 @@ impl Drop for InFlightCnames<'_> {
 
 #[cfg(feature = "__dnssec")]
 mod for_dnssec {
-    use futures_util::{
-        future,
-        stream::{self, BoxStream},
-    };
-
     use super::*;
     use crate::{
         net::{DnsHandle, NetError},
@@ -1055,47 +1036,38 @@ mod for_dnssec {
     };
 
     impl<P: ConnectionProvider> DnsHandle for RecursorDnsHandle<P> {
-        type Response = BoxStream<'static, Result<DnsResponse, NetError>>;
         type Runtime = P::RuntimeProvider;
 
-        fn send(&self, request: DnsRequest) -> Self::Response {
+        async fn send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
             let query = if let OpCode::Query = request.op_code {
                 if let Some(query) = request.queries.first().cloned() {
                     query
                 } else {
-                    return Box::pin(stream::once(future::err(NetError::from(
-                        "no query in request",
-                    ))));
+                    return Err(NetError::from("no query in request"));
                 }
             } else {
-                return Box::pin(stream::once(future::err(NetError::from(
-                    "request is not a query",
-                ))));
+                return Err(NetError::from("request is not a query"));
             };
 
-            let this = self.clone();
-            stream::once(async move {
-                // request the DNSSEC records; we'll strip them if not needed on the caller side
-                let do_bit = true;
+            // request the DNSSEC records; we'll strip them if not needed on the caller side
+            let do_bit = true;
 
-                let limits = RequestLimits::new();
-                let future = this.resolve(query, Instant::now(), do_bit, 0, &limits);
-                let response = match future.await {
-                    Ok(response) => response,
-                    Err(e) => return Err(NetError::from(e)),
-                };
+            let limits = RequestLimits::new();
+            let future = self.resolve(query, Instant::now(), do_bit, 0, &limits);
+            let response = match future.await {
+                Ok(response) => response,
+                Err(e) => return Err(NetError::from(e)),
+            };
 
-                // `DnssecDnsHandle` will only look at the answer section of the message so
-                // we can put "stubs" in the other fields
-                let mut msg = Message::query();
+            // `DnssecDnsHandle` will only look at the answer section of the message so
+            // we can put "stubs" in the other fields
+            let mut msg = Message::query();
 
-                msg.add_answers(response.answers.iter().cloned());
-                msg.add_authorities(response.authorities.iter().cloned());
-                msg.add_additionals(response.additionals.iter().cloned());
+            msg.add_answers(response.answers.iter().cloned());
+            msg.add_authorities(response.authorities.iter().cloned());
+            msg.add_additionals(response.additionals.iter().cloned());
 
-                DnsResponse::from_message(msg.into_response()).map_err(NetError::from)
-            })
-            .boxed()
+            DnsResponse::from_message(msg.into_response()).map_err(NetError::from)
         }
     }
 }

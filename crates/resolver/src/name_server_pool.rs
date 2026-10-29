@@ -17,7 +17,7 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant, SystemTime};
 
 use futures_util::lock::{Mutex as AsyncMutex, MutexGuard};
-use futures_util::stream::{FuturesUnordered, Stream, StreamExt, once};
+use futures_util::stream::{FuturesUnordered, StreamExt};
 use futures_util::{
     Future, FutureExt,
     future::{BoxFuture, Shared},
@@ -138,21 +138,27 @@ type TtlInstant = Instant;
 type TtlInstant = tokio::time::Instant;
 
 impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = P::RuntimeProvider;
 
-    fn lookup(&self, query: Query, mut options: DnsRequestOptions) -> Self::Response {
+    fn lookup(
+        &self,
+        query: Query,
+        mut options: DnsRequestOptions,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         debug!("querying: {} {:?}", query.name, query.query_type);
         options.case_randomization = self.state.cx.options.case_randomization;
         self.send(DnsRequest::from_query(query, options))
     }
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
+    fn send(
+        &self,
+        request: DnsRequest,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         let state = self.state.clone();
         let acs = self.state.cx.answer_address_filter.clone();
         let active_requests = self.active_requests.clone();
 
-        Box::pin(once(async move {
+        async move {
             debug!("sending request: {:?}", request.queries);
             let query = match request.queries.first() {
                 Some(q) => q.clone(),
@@ -262,7 +268,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
             // Since the message might have changed, create a new response from
             // the message to update the buffer.
             DnsResponse::from_message(response.into_message()).map_err(NetError::from)
-        }))
+        }
     }
 }
 
@@ -1086,7 +1092,7 @@ mod tests {
     use super::*;
     use crate::config::{NameServerConfig, ResolverConfig, ServerOrderingStrategy};
     use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
-    use crate::net::xfer::{DnsHandle, FirstAnswer, Protocol};
+    use crate::net::xfer::{DnsHandle, Protocol};
     use crate::proto::op::{DnsRequestOptions, Message, Query};
     use crate::proto::rr::{DNSClass, Name, RecordType};
 
@@ -1321,7 +1327,6 @@ mod tests {
             Query::new(query_name, RecordType::A),
             DnsRequestOptions::default(),
         )
-        .first_answer()
         .await
         .expect("lookup should succeed");
 
@@ -1379,7 +1384,6 @@ mod tests {
             Query::new(query_name, RecordType::A),
             DnsRequestOptions::default(),
         )
-        .first_answer()
         .await
         .expect("lookup should succeed");
 
@@ -1474,13 +1478,10 @@ mod tests {
         for i in 0..2 {
             assert!(
                 io_loop
-                    .block_on(
-                        pool.lookup(
-                            Query::new(name.clone(), RecordType::A),
-                            DnsRequestOptions::default()
-                        )
-                        .first_answer()
-                    )
+                    .block_on(pool.lookup(
+                        Query::new(name.clone(), RecordType::A),
+                        DnsRequestOptions::default()
+                    ))
                     .is_err(),
                 "iter: {i}"
             );
@@ -1489,13 +1490,10 @@ mod tests {
         for i in 0..10 {
             assert!(
                 io_loop
-                    .block_on(
-                        pool.lookup(
-                            Query::new(name.clone(), RecordType::A),
-                            DnsRequestOptions::default()
-                        )
-                        .first_answer()
-                    )
+                    .block_on(pool.lookup(
+                        Query::new(name.clone(), RecordType::A),
+                        DnsRequestOptions::default()
+                    ))
                     .is_ok(),
                 "iter: {i}"
             );
@@ -1528,7 +1526,6 @@ mod tests {
                 Query::new(name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await
             .expect("lookup failed");
 
@@ -1545,7 +1542,6 @@ mod tests {
                 Query::new(name, RecordType::AAAA),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await
             .expect("lookup failed");
 
@@ -1610,7 +1606,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await
             .expect("pool should retry on timeout and succeed with the second server");
 
@@ -1667,7 +1662,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await
             .expect("lookup should succeed via second server");
 
@@ -1727,7 +1721,6 @@ mod tests {
                 Query::new(query_name, RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await;
         assert!(result.is_err(), "lookup should fail: no reachable server");
 
@@ -1847,7 +1840,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await
             .expect("lookup should succeed via good server");
 
@@ -1989,7 +1981,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await
             .expect("pool should fall through slow servers and reach the good server");
 
@@ -2251,7 +2242,6 @@ mod tests {
             Query::new(query_name, RecordType::A),
             DnsRequestOptions::default(),
         )
-        .first_answer()
         .await
     }
 
@@ -2305,7 +2295,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await;
 
         assert!(
@@ -2364,7 +2353,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await;
 
         assert!(
@@ -2432,7 +2420,6 @@ mod tests {
                 Query::new(query_name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             )
-            .first_answer()
             .await;
 
         assert!(
