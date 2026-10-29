@@ -340,7 +340,6 @@ pub(crate) mod tests {
 
     use futures_executor::block_on;
     use futures_util::future;
-    use futures_util::stream::{Stream, once};
     use test_support::subscribe;
 
     use super::*;
@@ -356,13 +355,13 @@ pub(crate) mod tests {
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin>>;
         type Runtime = TokioRuntimeProvider;
 
-        fn send(&self, _: DnsRequest) -> Self::Response {
-            Box::pin(once(future::ready(
-                self.messages.lock().unwrap().pop().unwrap_or_else(empty),
-            )))
+        fn send(
+            &self,
+            _: DnsRequest,
+        ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
+            future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty))
         }
     }
 

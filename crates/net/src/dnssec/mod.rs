@@ -13,7 +13,6 @@ use core::{
     hash::{Hash, Hasher},
     mem,
     ops::RangeInclusive,
-    pin::Pin,
     time::Duration,
 };
 use std::{
@@ -23,10 +22,7 @@ use std::{
     time::Instant,
 };
 
-use futures_util::{
-    future::{self, FutureExt},
-    stream::{self, Stream, StreamExt},
-};
+use futures_util::future::{self, FutureExt};
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, error, trace, warn};
@@ -46,7 +42,7 @@ use crate::{
         },
     },
     runtime::{RuntimeProvider, Time},
-    xfer::{FirstAnswer, dns_handle::DnsHandle},
+    xfer::dns_handle::DnsHandle,
 };
 
 mod error;
@@ -679,11 +675,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
             // Make an un-verified request for the NS RRset at this ancestor name.
             let query = Query::new(ancestor.clone(), RecordType::NS);
-            let result = self
-                .handle
-                .lookup(query.clone(), options)
-                .first_answer()
-                .await;
+            let result = self.handle.lookup(query.clone(), options).await;
             match result {
                 Ok(response) => {
                     if response.all_sections().any(|record| {
@@ -714,11 +706,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         zone: Name,
         options: DnsRequestOptions,
     ) -> Result<Vec<Record<DS>>, ProofError> {
-        let mut response = match self
-            .lookup(Query::new(zone.clone(), RecordType::DS), options)
-            .first_answer()
-            .await
-        {
+        let query = Query::new(zone.clone(), RecordType::DS);
+        let mut response = match Box::pin(self.lookup(query, options)).await {
             Ok(response) => response,
             Err(net) => {
                 return Err(ProofError::new(
@@ -1045,40 +1034,33 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     return None;
                 }
 
-                Some(
-                    self.lookup(query.clone(), options)
-                        .first_answer()
-                        .map(move |result| match result {
-                            Ok(message) => {
-                                // Report a failed signature as an error, so that select_ok()
-                                // below tries the remaining RRSIGs.
-                                match verify_rrsig_with_keys(
-                                    message,
-                                    &rrsig,
-                                    key,
-                                    rrset,
-                                    current_time,
-                                ) {
-                                    Some((proof, adjusted_ttl)) => Ok(RrsetProof {
-                                        proof,
-                                        adjusted_ttl,
-                                        rrsig_index: Some(i),
-                                    }),
-                                    None => Err(ProofError::new(
-                                        Proof::Bogus,
-                                        ProofErrorKind::RrsigsUnverified {
-                                            name: Name::from(&key.name),
-                                            record_type: key.record_type,
-                                        },
-                                    )),
-                                }
+                Some(Box::pin(self.lookup(query.clone(), options)).map(
+                    move |result| match result {
+                        Ok(message) => {
+                            // Report a failed signature as an error, so that select_ok()
+                            // below tries the remaining RRSIGs.
+                            match verify_rrsig_with_keys(message, &rrsig, key, rrset, current_time)
+                            {
+                                Some((proof, adjusted_ttl)) => Ok(RrsetProof {
+                                    proof,
+                                    adjusted_ttl,
+                                    rrsig_index: Some(i),
+                                }),
+                                None => Err(ProofError::new(
+                                    Proof::Bogus,
+                                    ProofErrorKind::RrsigsUnverified {
+                                        name: Name::from(&key.name),
+                                        record_type: key.record_type,
+                                    },
+                                )),
                             }
-                            Err(net) => Err(ProofError::new(
-                                Proof::Bogus,
-                                ProofErrorKind::Net { query, net },
-                            )),
-                        }),
-                )
+                        }
+                        Err(net) => Err(ProofError::new(
+                            Proof::Bogus,
+                            ProofErrorKind::Net { query, net },
+                        )),
+                    },
+                ))
             })
             .collect::<Vec<_>>();
 
@@ -1121,7 +1103,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 }
 
 impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = H::Runtime;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -1129,41 +1110,35 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         true
     }
 
-    fn send(&self, mut request: DnsRequest) -> Self::Response {
+    async fn send(&self, mut request: DnsRequest) -> Result<DnsResponse, NetError> {
         // backstop
         if self.request_depth > request.options().max_request_depth {
             error!("exceeded max validation depth");
-            return Box::pin(stream::once(future::err(NetError::from(
-                "exceeded max validation depth",
-            ))));
+            return Err(NetError::from("exceeded max validation depth"));
         }
 
         // dnssec only matters on queries.
         match request.op_code {
             OpCode::Query => {}
-            _ => return Box::pin(self.handle.send(request)),
+            _ => return self.handle.send(request).await,
         }
 
         // This will fail on no queries, that is a very odd type of request, isn't it?
         // TODO: with mDNS there can be multiple queries
         let Some(query) = request.queries.first().cloned() else {
-            return Box::pin(stream::once(future::err(NetError::from(
-                "no query in request",
-            ))));
+            return Err(NetError::from("no query in request"));
         };
 
-        let handle = self.clone_with_context();
         request.edns.get_or_insert_with(Edns::new).enable_dnssec();
 
         request.metadata.authentic_data = true;
         request.metadata.checking_disabled = false;
         let options = *request.options();
 
-        Box::pin(self.handle.send(request).then(move |result| {
-            handle
-                .clone()
-                .verify_response(result, query.clone(), options)
-        }))
+        let result = self.handle.send(request).await;
+        self.clone_with_context()
+            .verify_response(result, query, options)
+            .await
     }
 }
 

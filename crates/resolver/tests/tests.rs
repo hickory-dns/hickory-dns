@@ -11,7 +11,7 @@ use std::{
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use test_support::{MockNetworkHandler, MockProvider, MockRecord, subscribe};
 
-use hickory_net::xfer::{DnsHandle, FirstAnswer, Protocol};
+use hickory_net::xfer::{DnsHandle, Protocol};
 use hickory_proto::{
     ProtoError,
     op::{DnsRequestOptions, Message, Query, ResponseCode},
@@ -61,13 +61,11 @@ async fn test_shared_lookup() -> Result<(), ProtoError> {
         pool.lookup(
             Query::new(query_name.clone(), RecordType::A),
             DnsRequestOptions::default(),
-        )
-        .first_answer(),
+        ),
         pool.lookup(
             Query::new(query_name.clone(), RecordType::A),
             DnsRequestOptions::default(),
-        )
-        .first_answer(),
+        ),
     ]
     .into_iter()
     .collect::<FuturesUnordered<_>>();

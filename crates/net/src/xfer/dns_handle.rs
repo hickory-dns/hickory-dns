@@ -7,7 +7,8 @@
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 
-use futures_util::stream::Stream;
+use core::future::Future;
+
 use tracing::debug;
 
 use crate::{
@@ -24,9 +25,6 @@ pub trait DnsStreamHandle: 'static + Send {
 
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
-    /// The associated response from the response stream, this should resolve to the Response messages
-    type Response: Stream<Item = Result<DnsResponse, NetError>> + Send + Unpin + 'static;
-
     /// The asynchronous runtime in use.
     type Runtime: RuntimeProvider;
 
@@ -42,14 +40,17 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
         true
     }
 
-    /// Send a message via the channel in the client
+    /// Send a message via the channel in the client, resolving to the first response
     ///
     /// # Arguments
     ///
     /// * `request` - the fully constructed Message to send, note that most implementations of
     ///   will most likely be required to rewrite the QueryId, do no rely on that as
     ///   being stable.
-    fn send(&self, request: DnsRequest) -> Self::Response;
+    fn send(
+        &self,
+        request: DnsRequest,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send;
 
     /// A *classic* DNS query
     ///
@@ -59,7 +60,11 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     ///
     /// * `query` - the query to lookup
     /// * `options` - options to use when constructing the message
-    fn lookup(&self, query: Query, options: DnsRequestOptions) -> Self::Response {
+    fn lookup(
+        &self,
+        query: Query,
+        options: DnsRequestOptions,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         debug!("querying: {} {:?}", query.name, query.query_type);
         self.send(DnsRequest::from_query(query, options))
     }

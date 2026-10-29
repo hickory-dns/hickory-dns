@@ -23,7 +23,7 @@ use crate::runtime::Time;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{
     BufDnsRequestStreamHandle, DEFAULT_STREAM_BUFFER_SIZE, DnsRequestSender, DnsResponseReceiver,
-    OneshotDnsRequest,
+    FirstAnswer, OneshotDnsRequest,
 };
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
@@ -66,6 +66,19 @@ impl<P: RuntimeProvider> DnsExchange<P> {
             },
         )
     }
+
+    /// Send a request, yielding all responses received for it
+    ///
+    /// Most requests receive a single response, but zone transfers may span multiple messages.
+    pub(crate) fn send_stream(&self, request: DnsRequest) -> DnsExchangeSend<P> {
+        DnsExchangeSend {
+            result: self.sender.send(request),
+            // TODO: this shouldn't be necessary, currently the presence of Senders is what allows
+            // the background to track current users, it generally is dropped right after send,
+            // this makes sure that there is at least one active after send
+            _sender: self.sender.clone(),
+        }
+    }
 }
 
 impl<P: Clone> Clone for DnsExchange<P> {
@@ -77,14 +90,13 @@ impl<P: Clone> Clone for DnsExchange<P> {
 }
 
 impl<P: RuntimeProvider> DnsHandle for DnsExchange<P> {
-    type Response = DnsExchangeSend<P>;
     type Runtime = P;
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
-        DnsExchangeSend {
-            result: self.sender.send(request),
-            _sender: self.sender.clone(), // TODO: this shouldn't be necessary, currently the presence of Senders is what allows the background to track current users, it generally is dropped right after send, this makes sure that there is at least one active after send
-        }
+    fn send(
+        &self,
+        request: DnsRequest,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
+        self.sender.send(request).first_answer()
     }
 }
 

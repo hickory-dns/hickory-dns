@@ -18,7 +18,6 @@ use hickory_net::{
     runtime::TokioRuntimeProvider,
     tcp::TcpClientStream,
     udp::UdpClientStream,
-    xfer::FirstAnswer,
 };
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_net::{
@@ -183,7 +182,6 @@ async fn test_query_edns(client: &mut Client<TokioRuntimeProvider>) {
 
     let response = client
         .send(DnsRequest::from(msg))
-        .first_answer()
         .await
         .expect("query failed");
     println!("response records: {response:?}");

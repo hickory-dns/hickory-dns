@@ -1,17 +1,14 @@
 //! Tests for [`DnssecDnsHandle`] against a mock upstream returning canned responses.
 
+use core::future::Future;
 use std::{
     collections::HashMap,
     net::Ipv4Addr,
-    pin::Pin,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use futures_util::{
-    future,
-    stream::{self, Stream},
-};
+use futures_util::future;
 use time::OffsetDateTime;
 
 use super::DnssecDnsHandle;
@@ -30,7 +27,7 @@ use crate::{
         },
     },
     runtime::TokioRuntimeProvider,
-    xfer::{DnsHandle, FirstAnswer},
+    xfer::DnsHandle,
 };
 use test_support::subscribe;
 
@@ -127,7 +124,6 @@ async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsRespo
             Query::new(name, RecordType::A),
             DnsRequestOptions::default(),
         )
-        .first_answer()
         .await
 }
 
@@ -376,25 +372,24 @@ struct MockHandle {
 }
 
 impl DnsHandle for MockHandle {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = TokioRuntimeProvider;
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
+    fn send(
+        &self,
+        request: DnsRequest,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         let query = request.queries[0].clone();
         self.queries.0.lock().unwrap().push(query.clone());
 
         let key = (LowerName::from(&query.name), query.query_type);
         let Some(message) = self.responses.get(&key) else {
-            return Box::pin(stream::once(future::err(NetError::from(format!(
-                "no canned response for {query}"
-            )))));
+            return future::err(NetError::from(format!("no canned response for {query}")));
         };
 
         let mut message = message.clone();
         message.metadata.id = request.metadata.id;
         message.add_query(query);
-        let response = DnsResponse::from_message(message.into_response()).unwrap();
-        Box::pin(stream::once(future::ok(response)))
+        future::ok(DnsResponse::from_message(message.into_response()).unwrap())
     }
 }
 

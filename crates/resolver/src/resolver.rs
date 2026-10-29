@@ -14,7 +14,7 @@ use std::sync::atomic::AtomicU8;
 use std::task::{Context, Poll};
 
 use futures_util::{
-    FutureExt, Stream,
+    FutureExt,
     future::{self, BoxFuture},
     lock::Mutex as AsyncMutex,
 };
@@ -384,7 +384,6 @@ enum LookupEither<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send>>;
     type Runtime = P::RuntimeProvider;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -395,11 +394,11 @@ impl<P: ConnectionProvider> DnsHandle for LookupEither<P> {
         }
     }
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
+    async fn send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
         match self {
-            Self::Retry(c) => c.send(request),
+            Self::Retry(c) => c.send(request).await,
             #[cfg(feature = "__dnssec")]
-            Self::Secure(c) => c.send(request),
+            Self::Secure(c) => c.send(request).await,
         }
     }
 }

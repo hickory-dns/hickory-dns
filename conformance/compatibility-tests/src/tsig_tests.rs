@@ -144,7 +144,7 @@ async fn test_tsig_zone_transfer() {
         TcpClientStream::new(socket, None, None, TokioRuntimeProvider::default());
     let multiplexer = DnsMultiplexer::new(future.await.unwrap(), sender).with_signer(signer);
 
-    let (mut client, driver) = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
+    let (client, driver) = Client::<TokioRuntimeProvider>::from_sender(multiplexer);
     tokio::spawn(driver);
 
     let name = Name::from_str("example.net.").unwrap();

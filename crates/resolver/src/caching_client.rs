@@ -19,10 +19,7 @@ use crate::proto::dnssec::DnssecSummary;
 use crate::{
     cache::{MAX_TTL, ResponseCache, TtlConfig},
     lookup::Lookup,
-    net::{
-        DnsError, NetError, NoRecords,
-        xfer::{DnsHandle, FirstAnswer},
-    },
+    net::{DnsError, NetError, NoRecords, xfer::DnsHandle},
     proto::{
         op::{DnsRequestOptions, DnsResponse, Message, OpCode, Query, ResponseCode},
         rr::{
@@ -175,11 +172,7 @@ where
         #[cfg(feature = "metrics")]
         client.cache_metrics.cache_miss.increment(1);
 
-        let response_message = client
-            .client
-            .lookup(query.clone(), options)
-            .first_answer()
-            .await;
+        let response_message = client.client.lookup(query.clone(), options).await;
 
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...

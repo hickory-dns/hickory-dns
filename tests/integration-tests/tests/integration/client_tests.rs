@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
-use futures::TryStreamExt;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use time::Duration;
 
@@ -173,10 +172,8 @@ async fn test_query_edns_response(client: Client<TokioRuntimeProvider>) {
 
     let response = client
         .send(DnsRequest::from(msg))
-        .try_collect::<Vec<_>>()
         .await
-        .expect("Query failed")
-        .remove(0);
+        .expect("Query failed");
 
     println!("response records: {response:?}");
     assert!(

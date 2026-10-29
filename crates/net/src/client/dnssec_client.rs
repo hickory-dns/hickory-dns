@@ -6,10 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use core::future::Future;
-use core::pin::Pin;
 use std::sync::Arc;
-
-use futures_util::stream::Stream;
 
 use super::Client;
 use crate::dnssec::DnssecDnsHandle;
@@ -71,10 +68,12 @@ impl Clone for DnssecClient {
 }
 
 impl DnsHandle for DnssecClient {
-    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, NetError>> + Send + 'static>>;
     type Runtime = TokioRuntimeProvider;
 
-    fn send(&self, request: DnsRequest) -> Self::Response {
+    fn send(
+        &self,
+        request: DnsRequest,
+    ) -> impl Future<Output = Result<DnsResponse, NetError>> + Send {
         self.client.send(request)
     }
 }
