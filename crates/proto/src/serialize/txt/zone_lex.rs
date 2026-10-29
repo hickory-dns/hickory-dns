@@ -138,7 +138,7 @@ impl<'a> Lexer<'a> {
                 State::Dollar => {
                     match ch {
                         // even this is a little broad for what's actually possible in a dollar...
-                        Some(ch @ 'A'..='Z') => {
+                        Some(ch) if ch.is_ascii_alphabetic() => {
                             self.txt.next();
                             Self::push_to_str(&mut char_data, ch)?;
                         }
@@ -152,15 +152,12 @@ impl<'a> Lexer<'a> {
                                 )
                             })?;
 
-                            return Ok(Some(match dollar.as_str() {
+                            // directives are case-insensitive, like other zone file keywords
+                            return Ok(Some(match dollar.to_ascii_uppercase().as_str() {
                                 "INCLUDE" => Token::Include,
                                 "ORIGIN" => Token::Origin,
                                 "TTL" => Token::Ttl,
-                                _ => {
-                                    return Err(LexerError::UnrecognizedDollar(
-                                        char_data.take().unwrap_or_else(|| "".into()),
-                                    ));
-                                }
+                                _ => return Err(LexerError::UnrecognizedDollar(dollar)),
                             }));
                         }
                     }
@@ -551,6 +548,22 @@ mod lex_test {
             Token::Origin
         );
         assert_eq!(next_token(&mut Lexer::new("$TTL")).unwrap(), Token::Ttl);
+        assert_eq!(next_token(&mut Lexer::new("$ttl")).unwrap(), Token::Ttl);
+        assert_eq!(
+            next_token(&mut Lexer::new("$Origin")).unwrap(),
+            Token::Origin
+        );
+        assert_eq!(
+            next_token(&mut Lexer::new("$include")).unwrap(),
+            Token::Include
+        );
+        assert_eq!(
+            Lexer::new("$GENERATE")
+                .next_token()
+                .unwrap_err()
+                .to_string(),
+            "unrecognized dollar content: GENERATE"
+        );
         assert_eq!(next_token(&mut Lexer::new("\n")), Some(Token::EOL));
         assert_eq!(next_token(&mut Lexer::new("\r\n")), Some(Token::EOL));
     }
