@@ -39,6 +39,7 @@ use crate::{
             LowerName, Record, RecordType,
             rdata::opt::{EdnsCode, EdnsOption, NSIDPayload},
         },
+        serialize::binary::BinEncodable,
     },
     server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
     zone_handler::{
@@ -556,6 +557,18 @@ async fn lookup<R: ResponseHandler + Unpin>(
             .await;
         };
 
+        // DNSTAP: record the answering zone so the response frame carries the
+        // bailiwick.
+        if tracing::enabled!(target: "hickory_server::dnstap", tracing::Level::TRACE) {
+            let zone_wire = handler.origin().to_bytes().unwrap_or_default();
+            tracing::event!(
+                target: "hickory_server::dnstap",
+                tracing::Level::TRACE,
+                kind = "zone",
+                query_zone = zone_wire.as_slice(),
+            );
+        }
+
         let response_message = build_response(
             result,
             &**handler,
@@ -682,6 +695,18 @@ async fn zone_transfer(
         else {
             continue;
         };
+
+        // DNSTAP: record the answering zone so the response frame carries the
+        // bailiwick.
+        if tracing::enabled!(target: "hickory_server::dnstap", tracing::Level::TRACE) {
+            let zone_wire = handler.origin().to_bytes().unwrap_or_default();
+            tracing::event!(
+                target: "hickory_server::dnstap",
+                tracing::Level::TRACE,
+                kind = "zone",
+                query_zone = zone_wire.as_slice(),
+            );
+        }
 
         let mut response_meta = Metadata::response_from_request(&request.metadata);
         let zone_transfer = match result {

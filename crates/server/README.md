@@ -23,6 +23,7 @@ See the [`hickory-dns`] binary crate for a complete application built using
 - Recursive resolver (experimental)
 - ANAME resolution, for zone mapping aliass to A and AAAA records
 - Additionals section generation for aliasing record types
+- DNSTAP structured event logging
 
 ## Cryptography provider
 

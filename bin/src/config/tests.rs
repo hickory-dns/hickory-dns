@@ -601,3 +601,22 @@ fn file_store_zone_path() {
         Err(e) => panic!("expected successful parse: {e:?}"),
     }
 }
+
+#[cfg(all(feature = "dnstap", unix))]
+#[test]
+fn dnstap_config_rejects_ambiguous_endpoint() {
+    let config = Config::from_toml(
+        "[dnstap]\n\
+         enabled = true\n\
+         tcp_address = \"127.0.0.1:6000\"\n\
+         unix_path = \"/run/dnstap.sock\"\n",
+    )
+    .unwrap();
+
+    let err = config
+        .dnstap
+        .expect("dnstap section parsed")
+        .into_dnstap_config()
+        .expect_err("both endpoints configured must be rejected");
+    assert!(err.contains("only one of"), "unexpected error: {err}");
+}
