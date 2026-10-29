@@ -684,13 +684,24 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 .lookup(query.clone(), options)
                 .first_answer()
                 .await;
+            // Some zones have no NS records at their apex. The SOA record is always owned by the
+            // zone apex, so a NODATA response with it also marks the zone cut.
             match result {
                 Ok(response) => {
                     if response.all_sections().any(|record| {
-                        record.record_type() == RecordType::NS && record.name == ancestor
+                        matches!(record.record_type(), RecordType::NS | RecordType::SOA)
+                            && record.name == ancestor
                     }) {
                         break ancestor;
                     }
+                }
+                Err(NetError::Dns(DnsError::NoRecordsFound(no_records)))
+                    if no_records
+                        .soa
+                        .as_ref()
+                        .is_some_and(|soa| soa.name == ancestor) =>
+                {
+                    break ancestor;
                 }
                 Err(e) if e.is_no_records_found() || e.is_nx_domain() => {}
                 Err(net) => {
