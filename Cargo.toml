@@ -60,7 +60,7 @@ futures-io = { version = "0.3.5", default-features = false }
 futures-util = { version = "0.3.5", default-features = false }
 tokio = "1.36"
 tokio-util = "0.7.9"
-parking_lot = "0.12"
+parking_lot = "0.13"
 pin-project-lite = "0.2"
 
 
