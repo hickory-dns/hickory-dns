@@ -15,7 +15,7 @@ use crate::{
             Edns, Header, HeaderCounts, MessageRequest, MessageType, Metadata, OpCode, Queries,
             QueriesEmitAndCount, ResponseCode, emit_message_parts,
         },
-        rr::{Record, rdata::TSIG},
+        rr::{RData, Record, rdata::TSIG},
         serialize::binary::{BinEncodable, BinEncoder},
     },
     server::ResponseInfo,
@@ -124,8 +124,25 @@ where
         mut self,
         encoder: &mut BinEncoder<'_>,
     ) -> Result<ResponseInfo, ProtoError> {
+        // Note down the TTLs for the Cache-Control header as we iterate over records
+        let mut min_answer_ttl = None;
+        let mut soa_ttl = None;
+
+        let mut answers = self.answers.inspect(|record| {
+            min_answer_ttl = Some(match min_answer_ttl {
+                Some(ttl) => record.ttl.min(ttl),
+                None => record.ttl,
+            });
+        });
+
         // soa records are part of the authority section
-        let mut authorities = self.authorities.chain(self.soa);
+        let mut authorities = self.authorities.chain(self.soa).inspect(|record| {
+            if soa_ttl.is_none() {
+                if let RData::SOA(soa) = &record.data {
+                    soa_ttl = Some(record.ttl.min(soa.minimum));
+                }
+            }
+        });
 
         let header = emit_message_parts(
             &self.metadata,
@@ -133,7 +150,7 @@ where
                 Some(queries) => queries.as_emit_and_count(),
                 None => QueriesEmitAndCount::None,
             },
-            &mut self.answers,
+            &mut answers,
             &mut authorities,
             &mut self.additionals,
             self.edns,
@@ -141,7 +158,34 @@ where
             encoder,
         )?;
 
-        Ok(ResponseInfo::from(header))
+        // the TTLs are ours to read again once the two closures above are gone
+        drop((answers, authorities));
+
+        Ok(ResponseInfo::new(
+            header,
+            cache_ttl(&header.metadata, min_answer_ttl, soa_ttl),
+        ))
+    }
+}
+
+/// Returns the TTL this response may be cached for, if it is cacheable.
+///
+/// The TTL is derived according to DoH RFC 8484 section 5.1 and RFC 2308 section 5
+/// `None` means the response is non cacheable, because it is a non-query opcode,
+/// a rcode that is neither NoError nor NXDomain, or is a negative answer with no SOA.
+fn cache_ttl(
+    metadata: &Metadata,
+    min_answer_ttl: Option<u32>,
+    soa_ttl: Option<u32>,
+) -> Option<u32> {
+    let OpCode::Query = metadata.op_code else {
+        return None;
+    };
+
+    match metadata.response_code {
+        ResponseCode::NoError => min_answer_ttl.or(soa_ttl),
+        ResponseCode::NXDomain => soa_ttl,
+        _ => None,
     }
 }
 
@@ -323,6 +367,7 @@ mod tests {
     use std::str::FromStr;
 
     use crate::proto::op::{Header, Message, MessageType, Metadata, OpCode, Query};
+    use crate::proto::rr::rdata::SOA;
     use crate::proto::rr::{DNSClass, Name, RData, Record};
     use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 
@@ -525,5 +570,121 @@ mod tests {
             .build_no_records(Metadata::response_from_request(&msg.metadata))
             .destructive_emit(&mut encoder)
             .unwrap();
+    }
+
+    #[test]
+    fn cache_ttl_positive_takes_smallest_answer_ttl() {
+        // The smallest value sits in the middle, so this distinguishes a true minimum
+        // from simply taking the first or last answer.
+        let answers = [answer(300), answer(100), answer(200)];
+
+        assert_eq!(
+            encode_and_get_cache_ttl(response(ResponseCode::NoError), &answers, &[]),
+            Some(100)
+        );
+    }
+
+    #[test]
+    fn cache_ttl_nodata_falls_back_to_soa_record_ttl() {
+        // NODATA: NoError with an empty answer section. Here the SOA's own TTL is the
+        // lesser of the two values.
+        assert_eq!(
+            encode_and_get_cache_ttl(response(ResponseCode::NoError), &[], &[soa(200, 500)]),
+            Some(200)
+        );
+    }
+
+    #[test]
+    fn cache_ttl_nodata_falls_back_to_soa_minimum() {
+        // Same as above with the two SOA values swapped, pinning down that the rule is a
+        // minimum of both fields rather than either one alone.
+        assert_eq!(
+            encode_and_get_cache_ttl(response(ResponseCode::NoError), &[], &[soa(500, 200)]),
+            Some(200)
+        );
+    }
+
+    #[test]
+    fn cache_ttl_nxdomain_ignores_answers_and_uses_soa() {
+        // A Name Error may still carry answers: the CNAMEs followed before reaching the
+        // name that does not exist. The response code must win over their TTLs.
+        assert_eq!(
+            encode_and_get_cache_ttl(
+                response(ResponseCode::NXDomain),
+                &[answer(900)],
+                &[soa(300, 600)]
+            ),
+            Some(300)
+        );
+    }
+
+    #[test]
+    fn cache_ttl_negative_without_soa_is_uncacheable() {
+        assert_eq!(
+            encode_and_get_cache_ttl(response(ResponseCode::NoError), &[], &[]),
+            None
+        );
+    }
+
+    #[test]
+    fn cache_ttl_error_response_is_uncacheable() {
+        // An SOA is present, so this fails if the response code is not checked.
+        assert_eq!(
+            encode_and_get_cache_ttl(response(ResponseCode::ServFail), &[], &[soa(300, 600)]),
+            None
+        );
+    }
+
+    #[test]
+    fn cache_ttl_non_query_opcode_is_uncacheable() {
+        // Answers are present, so this fails if the opcode is not checked. An UPDATE is
+        // neither safe nor idempotent and must never be cached.
+        let metadata = Metadata::new(0, MessageType::Response, OpCode::Update);
+
+        assert_eq!(
+            encode_and_get_cache_ttl(metadata, &[answer(100)], &[]),
+            None
+        );
+    }
+
+    /// Builds a response out of the given sections, writes it out, and reports back how long
+    /// it may be cached for.
+    fn encode_and_get_cache_ttl(
+        metadata: Metadata,
+        answers: &[Record],
+        authorities: &[Record],
+    ) -> Option<u32> {
+        let request = MessageRequest::mock(
+            Metadata::new(metadata.id, MessageType::Query, metadata.op_code),
+            Query::root(),
+        );
+
+        let (info, _bytes) = MessageResponseBuilder::from_message_request(&request)
+            .build(metadata, answers, authorities, [], [])
+            .encode(Protocol::Tcp)
+            .expect("failed to encode");
+
+        info.cache_ttl()
+    }
+
+    /// An answer-section record with the given TTL. The name and address are irrelevant.
+    fn answer(ttl: u32) -> Record {
+        Record::from_rdata(Name::root(), ttl, RData::A(Ipv4Addr::LOCALHOST.into()))
+    }
+
+    /// An authority-section SOA whose record TTL and MINIMUM field are set independently,
+    /// so tests can tell which of the two RFC 2308 section 5 takes the minimum of.
+    fn soa(record_ttl: u32, minimum: u32) -> Record {
+        Record::from_rdata(
+            Name::root(),
+            record_ttl,
+            RData::SOA(SOA::new(Name::root(), Name::root(), 1, 0, 0, 0, minimum)),
+        )
+    }
+
+    fn response(response_code: ResponseCode) -> Metadata {
+        let mut metadata = Metadata::new(0, MessageType::Response, OpCode::Query);
+        metadata.response_code = response_code;
+        metadata
     }
 }
