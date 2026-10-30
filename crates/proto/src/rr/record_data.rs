@@ -1594,6 +1594,20 @@ mod tests {
     }
 
     #[test]
+    fn test_txt_parse_decimal_escapes() {
+        // https://github.com/hickory-dns/hickory-dns/issues/3955
+        let data = r#""\065\077" "caf\195\169""#;
+        let record = RData::try_from_str(RecordType::TXT, data).unwrap();
+
+        assert_eq!(
+            record,
+            RData::TXT(
+                TXT::new([b"AM".to_vec(), "caf\u{e9}".as_bytes().to_vec()].into_iter()).unwrap()
+            )
+        );
+    }
+
+    #[test]
     fn test_aaaa() {
         let tokens = ["::1"];
         let name = Name::from_str("example.com.").unwrap();
