@@ -394,7 +394,7 @@ impl ConnectionConfig {
     /// Constructs a new ConnectionConfig with the specified [`ProtocolConfig`].
     pub fn new(protocol: ProtocolConfig) -> Self {
         Self {
-            port: protocol.default_port(),
+            port: protocol.to_protocol().default_port(),
             protocol,
             bind_addr: None,
         }
@@ -448,7 +448,9 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
 
         let parts = OptionalParts::deserialize(deserializer)?;
         Ok(Self {
-            port: parts.port.unwrap_or_else(|| parts.protocol.default_port()),
+            port: parts
+                .port
+                .unwrap_or_else(|| parts.protocol.to_protocol().default_port()),
             protocol: parts.protocol,
             bind_addr: parts.bind_addr,
         })
@@ -530,22 +532,6 @@ impl ProtocolConfig {
             ProtocolConfig::Quic { server_name } => Some(server_name),
             #[cfg(feature = "__h3")]
             ProtocolConfig::H3 { server_name, .. } => Some(server_name),
-        }
-    }
-
-    /// Default port for the protocol.
-    pub fn default_port(&self) -> u16 {
-        match self {
-            ProtocolConfig::Udp => 53,
-            ProtocolConfig::Tcp => 53,
-            #[cfg(feature = "__tls")]
-            ProtocolConfig::Tls { .. } => 853,
-            #[cfg(feature = "__https")]
-            ProtocolConfig::Https { .. } => 443,
-            #[cfg(feature = "__quic")]
-            ProtocolConfig::Quic { .. } => 853,
-            #[cfg(feature = "__h3")]
-            ProtocolConfig::H3 { .. } => 443,
         }
     }
 }
