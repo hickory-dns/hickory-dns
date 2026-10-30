@@ -459,6 +459,22 @@ impl Protocol {
             Self::H3 => "http3",
         }
     }
+
+    /// Default port for the protocol.
+    pub fn default_port(&self) -> u16 {
+        match self {
+            Self::Udp => 53,
+            Self::Tcp => 53,
+            #[cfg(feature = "__tls")]
+            Self::Tls => 853,
+            #[cfg(feature = "__https")]
+            Self::Https => 443,
+            #[cfg(feature = "__quic")]
+            Self::Quic => 853,
+            #[cfg(feature = "__h3")]
+            Self::H3 => 443,
+        }
+    }
 }
 
 impl Display for Protocol {
