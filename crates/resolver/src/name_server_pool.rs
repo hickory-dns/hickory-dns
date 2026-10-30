@@ -433,6 +433,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     NetError::Busy => busy.push(server),
                     // If the connection failed or timed out, try another one.
                     NetError::Io(_) | NetError::NoConnections | NetError::Timeout => {}
+                    NetError::Dns(DnsError::ResponseCode(ResponseCode::ServFail)) => {}
                     // If we got an `NXDomain` response from a server whose negative responses we
                     // don't trust, we should try another server.
                     NetError::Dns(DnsError::NoRecordsFound(NoRecords {
@@ -1551,6 +1552,126 @@ mod tests {
             name_servers[0].is_connected(),
             "if this is failing then the NameServers aren't being properly shared."
         );
+    }
+
+    #[tokio::test]
+    async fn test_pool_retries_on_servfail() {
+        subscribe();
+
+        let failed_ip = IpAddr::from([10, 0, 0, 1]);
+        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let answer_ip = [93, 188, 44, 50].into();
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        for num_concurrent_reqs in [1, 2] {
+            let handler = MockNetworkHandler::new(
+                [failed_ip, good_ip]
+                    .map(|ip| MockRecord::a(ip, &query_name, answer_ip))
+                    .to_vec(),
+            )
+            .with_mutation(Box::new(move |ip, _, message| {
+                if ip == failed_ip {
+                    message.metadata.response_code = ResponseCode::ServFail;
+                    message.answers.clear();
+                }
+            }));
+            let provider = MockProvider::new(handler);
+            let opts = ResolverOpts {
+                num_concurrent_reqs,
+                server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+                ..ResolverOpts::default()
+            };
+            let pool = NameServerPool::from_nameservers(
+                [failed_ip, good_ip]
+                    .into_iter()
+                    .map(|ip| {
+                        // Ensure SERVFAIL arrives before the successful parallel response.
+                        let delay = if ip == good_ip {
+                            Duration::from_millis(20)
+                        } else {
+                            Duration::ZERO
+                        };
+                        Arc::new(NameServer::new(
+                            [],
+                            NameServerConfig::udp(ip),
+                            &opts,
+                            DelayedBindProvider::new(provider.clone(), delay),
+                        ))
+                    })
+                    .collect(),
+                Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+            );
+
+            let response = pool
+                .lookup(
+                    Query::new(query_name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                )
+                .first_answer()
+                .await
+                .expect("pool should try another server after SERVFAIL");
+
+            assert_eq!(response.answers.len(), 1);
+            assert_eq!(
+                response.answers[0].data,
+                RData::A(A([93, 188, 44, 50].into()))
+            );
+            for ip in [failed_ip, good_ip] {
+                assert!(
+                    !provider.queries(&ip).is_empty(),
+                    "server {ip} was not queried"
+                );
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_pool_all_servers_servfail() {
+        subscribe();
+
+        let ips = [IpAddr::from([10, 0, 0, 1]), IpAddr::from([10, 0, 0, 2])];
+        let query_name = Name::from_str("example.com.").unwrap();
+
+        for num_concurrent_reqs in [1, 2] {
+            let handler =
+                MockNetworkHandler::new(ips.map(|ip| MockRecord::a(ip, &query_name, ip)).to_vec())
+                    .with_mutation(Box::new(|_, _, message| {
+                        message.metadata.response_code = ResponseCode::ServFail;
+                        message.answers.clear();
+                    }));
+            let provider = MockProvider::new(handler);
+            let opts = ResolverOpts {
+                num_concurrent_reqs,
+                server_ordering_strategy: ServerOrderingStrategy::UserProvidedOrder,
+                ..ResolverOpts::default()
+            };
+            let pool = NameServerPool::from_config(
+                ips.map(NameServerConfig::udp),
+                Arc::new(PoolContext::new(opts, TlsConfig::new().unwrap())),
+                provider.clone(),
+            );
+
+            let result = pool
+                .lookup(
+                    Query::new(query_name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                )
+                .first_answer()
+                .await;
+
+            assert!(matches!(
+                result,
+                Err(NetError::Dns(DnsError::ResponseCode(
+                    ResponseCode::ServFail
+                )))
+            ));
+            for ip in ips {
+                assert!(
+                    !provider.queries(&ip).is_empty(),
+                    "server {ip} was not queried"
+                );
+            }
+        }
     }
 
     /// Regression test: when the first name server in the pool times out, the pool should
