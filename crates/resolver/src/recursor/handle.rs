@@ -592,6 +592,7 @@ impl<P: ConnectionProvider> RecursorDnsHandle<P> {
                             "already have cached name server pool for zone"
                         );
                         nameserver_pool = ns.clone();
+                        zone = candidate_zone;
                         continue;
                     }
                 }
