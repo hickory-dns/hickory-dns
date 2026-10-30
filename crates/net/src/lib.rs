@@ -7,6 +7,9 @@ pub use hickory_proto as proto;
 
 pub mod client;
 
+mod connection_provider;
+pub use connection_provider::{ConnectionProvider, TlsConfig};
+
 #[cfg(feature = "__dnssec")]
 pub mod dnssec;
 
