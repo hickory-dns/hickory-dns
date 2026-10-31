@@ -99,7 +99,7 @@ where
         });
 
         let error = match self.destructive_emit(&mut encoder) {
-            Ok(info) => return Ok((info, bytes)),
+            Ok((header, cache_ttl)) => return Ok((ResponseInfo { header, cache_ttl }, bytes)),
             Err(error) => error,
         };
 
@@ -123,7 +123,7 @@ where
     pub fn destructive_emit(
         mut self,
         encoder: &mut BinEncoder<'_>,
-    ) -> Result<ResponseInfo, ProtoError> {
+    ) -> Result<(Header, Option<u32>), ProtoError> {
         // Note down the TTLs for the Cache-Control header as we iterate over records
         let mut min_answer_ttl = None;
         let mut soa_ttl = None;
@@ -161,10 +161,7 @@ where
         // the TTLs are ours to read again once the two closures above are gone
         drop((answers, authorities));
 
-        Ok(ResponseInfo {
-            header,
-            cache_ttl: cache_ttl(&header.metadata, min_answer_ttl, soa_ttl),
-        })
+        Ok((header, cache_ttl(&header.metadata, min_answer_ttl, soa_ttl)))
     }
 }
 

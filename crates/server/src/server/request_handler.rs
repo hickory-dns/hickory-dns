@@ -145,6 +145,11 @@ impl ResponseInfo {
             counts: HeaderCounts::default(),
         })
     }
+
+    /// Creates a new `ResponseInfo` with the given header and cache TTL.
+    pub fn new(header: Header, cache_ttl: Option<u32>) -> Self {
+        Self { header, cache_ttl }
+    }
 }
 
 impl From<Header> for ResponseInfo {
