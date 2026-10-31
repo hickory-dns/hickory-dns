@@ -61,7 +61,7 @@ impl RequestHandler for Catalog {
         &self,
         request: &Request,
         response_handle: R,
-    ) {
+    ) -> ResponseInfo {
         trace!("request: {:?}", request);
 
         let now = T::current_time();
@@ -71,15 +71,15 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request.metadata.op_code {
                 OpCode::Query => {
                     debug!("query received: {}", request.metadata.id);
-                    self.lookup(request, now, response_handle).await;
+                    self.lookup(request, now, response_handle).await
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.metadata.id);
-                    self.update(request, now, response_handle).await;
+                    self.update(request, now, response_handle).await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    send_error_response(request, ResponseCode::NotImp, response_handle).await;
+                    send_error_response(request, ResponseCode::NotImp, response_handle).await
                 }
             },
             MessageType::Response => {
@@ -87,7 +87,7 @@ impl RequestHandler for Catalog {
                     "got a response as a request from id: {}",
                     request.metadata.id
                 );
-                send_error_response(request, ResponseCode::FormErr, response_handle).await;
+                send_error_response(request, ResponseCode::FormErr, response_handle).await
             }
         }
     }

@@ -133,7 +133,8 @@ pub struct ResponseInfo {
 }
 
 impl ResponseInfo {
-    pub(crate) fn serve_failed(request: &Request) -> Self {
+    /// Information for a `ServFail` response to the given request
+    pub fn serve_failed(request: &Request) -> Self {
         let mut metadata = Metadata::new(
             request.metadata.id,
             MessageType::Response,
@@ -174,6 +175,8 @@ impl std::ops::Deref for ResponseInfo {
 pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
+    /// Returns information about the response that was sent.
+    ///
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
@@ -182,5 +185,5 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
         &self,
         request: &Request,
         response_handle: R,
-    );
+    ) -> ResponseInfo;
 }

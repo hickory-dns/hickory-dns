@@ -5,7 +5,7 @@ use hickory_net::runtime::Time;
 #[cfg(feature = "__dnssec")]
 use hickory_proto::rr::DNSClass;
 use hickory_proto::{
-    op::{DnsResponse, Header, HeaderCounts, MessageType, Metadata, ResponseCode},
+    op::{DnsResponse, Metadata, ResponseCode},
     rr::{LowerName, Name, RecordType},
 };
 use hickory_server::{
@@ -47,12 +47,12 @@ impl RequestHandler for MockHandler {
         &self,
         request: &Request,
         mut response_handle: R,
-    ) {
+    ) -> ResponseInfo {
         let query = request.query();
         if query.name() == &self.query_name && query.query_type() == self.query_type {
-            send_response(response_handle, request, &self.response).await;
+            send_response(response_handle, request, &self.response).await
         } else if query.name() == &self.dnskey_name && query.query_type() == RecordType::DNSKEY {
-            send_response(response_handle, request, &self.dnskey_response).await;
+            send_response(response_handle, request, &self.dnskey_response).await
         } else {
             error!(%query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
@@ -61,8 +61,12 @@ impl RequestHandler for MockHandler {
             let result = response_handle
                 .send_response(response_builder.build_no_records(response_meta))
                 .await;
-            if let Err(e) = result {
-                error!(error = %e, "error responding to request");
+            match result {
+                Ok(info) => info,
+                Err(e) => {
+                    error!(error = %e, "error responding to request");
+                    ResponseInfo::serve_failed(request)
+                }
             }
         }
     }
@@ -97,16 +101,7 @@ async fn send_response(
         Ok(info) => info,
         Err(e) => {
             error!(error = %e, "error responding to request");
-            let mut metadata = Metadata::new(
-                request.metadata.id,
-                MessageType::Response,
-                request.metadata.op_code,
-            );
-            metadata.response_code = ResponseCode::ServFail;
-            ResponseInfo::from(Header {
-                metadata,
-                counts: HeaderCounts::default(),
-            })
+            ResponseInfo::serve_failed(request)
         }
     }
 }
