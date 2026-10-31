@@ -17,7 +17,7 @@ use hickory_proto::op::{LowerQuery, Metadata, OpCode, ResponseCode};
 use hickory_proto::rr::{DNSClass, Record, RecordType};
 use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 
-use crate::server::{ReportingResponseHandler, ResponseHandler, ResponseInfo};
+use crate::server::{ResponseInfo, ResponseReporter};
 use crate::zone_handler::{AuthLookup, LookupControlFlow, ZoneHandler, ZoneType};
 
 pub(super) struct CatalogMetrics {
@@ -348,18 +348,13 @@ pub(super) struct ResponseHandlerMetrics {
 }
 
 impl ResponseHandlerMetrics {
-    pub(super) fn update(
-        &self,
-        response_handler: &ReportingResponseHandler<impl ResponseHandler>,
-        response_info: &ResponseInfo,
-    ) {
-        self.proto.increment(&response_handler.protocol);
-        self.operation
-            .increment(&response_handler.request_meta.op_code);
-        self.request_flags.increment(&response_handler.request_meta);
+    pub(super) fn update(&self, info: &ResponseInfo, reporter: &ResponseReporter) {
+        self.proto.increment(&reporter.protocol);
+        self.operation.increment(&reporter.request_meta.op_code);
+        self.request_flags.increment(&reporter.request_meta);
 
-        self.response_code.increment(&response_info.response_code);
-        self.response_flags.increment(response_info);
+        self.response_code.increment(&info.response_code);
+        self.response_flags.increment(info);
     }
 }
 
