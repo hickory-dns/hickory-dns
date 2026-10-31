@@ -240,6 +240,21 @@ impl SVCB {
             svc_params.push(into_svc_param(key, value)?);
         }
 
+        // every key listed in `mandatory` must be present in the record
+        for (_, value) in &svc_params {
+            let SvcParamValue::Mandatory(Mandatory(keys)) = value else {
+                continue;
+            };
+            if let Some(missing) = keys
+                .iter()
+                .find(|key| !svc_params.iter().any(|(present, _)| present == *key))
+            {
+                return Err(ParseError::from(format!(
+                    "SVCB mandatory key {missing} is not present in the record"
+                )));
+            }
+        }
+
         Ok(SVCB::new(svc_priority, target_name, svc_params))
     }
 }
@@ -301,11 +316,24 @@ fn parse_char_data(value: &str) -> Result<String, ParseError> {
 ///   ipv6hint=... key65333=ex1 key65444=ex2 mandatory=key65444,ipv6hint
 /// ```
 ///
-/// Currently this does not validate that the mandatory section matches the other keys
+/// The keys are sorted, as the wire format requires them in strictly increasing order. That
+/// each key appears in the record is checked in `SVCB::from_tokens`.
 fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one Mandatory field"))?;
 
-    let mandatories = parse_list::<SvcParamKey>(value)?;
+    let mut mandatories = parse_list::<SvcParamKey>(value)?;
+    mandatories.sort();
+    if mandatories.windows(2).any(|keys| keys[0] == keys[1]) {
+        return Err(ParseError::from(
+            "duplicate key in SVCB mandatory parameter",
+        ));
+    }
+    if mandatories.contains(&SvcParamKey::Mandatory) {
+        return Err(ParseError::from(
+            "SVCB mandatory parameter must not list \"mandatory\"",
+        ));
+    }
+
     Ok(SvcParamValue::Mandatory(Mandatory(mandatories)))
 }
 
@@ -1529,6 +1557,33 @@ mod tests {
 
     use super::*;
 
+    fn parse_svcb(txt: &str) -> Result<SVCB, ParseError> {
+        SVCB::from_tokens(txt.split_whitespace())
+    }
+
+    #[test]
+    fn test_mandatory_validation() {
+        // https://github.com/hickory-dns/hickory-dns/issues/4089
+        let svcb = parse_svcb("1 . mandatory=ipv4hint,alpn alpn=h2 ipv4hint=192.0.2.1").unwrap();
+        let mandatory = svcb
+            .svc_params
+            .iter()
+            .find_map(|(_, value)| match value {
+                SvcParamValue::Mandatory(mandatory) => Some(mandatory),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(mandatory.0, [SvcParamKey::Alpn, SvcParamKey::Ipv4Hint]);
+
+        for invalid in [
+            "1 . mandatory=alpn,alpn alpn=h2",
+            "1 . mandatory=mandatory,alpn alpn=h2",
+            "1 . mandatory=ipv4hint alpn=h2",
+        ] {
+            assert!(parse_svcb(invalid).is_err(), "{invalid} should not parse");
+        }
+    }
+
     #[test]
     fn read_svcb_key() {
         assert_eq!(SvcParamKey::Mandatory, 0.into());
@@ -1883,8 +1938,8 @@ mod tests {
                     (
                         SvcParamKey::Mandatory,
                         SvcParamValue::Mandatory(Mandatory(vec![
-                            SvcParamKey::Ipv4Hint,
                             SvcParamKey::Alpn,
+                            SvcParamKey::Ipv4Hint,
                         ])),
                     ),
                     (
