@@ -325,6 +325,7 @@ impl H3ClientStreamBuilder {
             context: Arc::new(RequestContext {
                 version: Version::Http3,
                 server_name,
+                port: name_server.port(),
                 query_path: path,
                 set_headers: self.set_headers,
             }),
