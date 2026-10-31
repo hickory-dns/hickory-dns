@@ -19,7 +19,7 @@ use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
 
 use super::{
     quic_config,
-    quic_stream::{self, QuicStream},
+    quic_stream::{self, DoqErrorCode, QuicStream},
 };
 
 /// A DNS-over-QUIC Server, see QuicClientStream for the client counterpart
@@ -93,6 +93,7 @@ impl QuicServer {
 }
 
 /// A stream of bi-directional QUIC streams
+#[derive(Clone)]
 pub struct QuicStreams {
     connection: Connection,
 }
@@ -112,5 +113,10 @@ impl QuicStreams {
             }
             Err(e) => Some(Err(NetError::from(e))),
         }
+    }
+
+    /// Close the connection with the given error code
+    pub fn close(&self, code: DoqErrorCode) {
+        self.connection.close(code.into(), &[]);
     }
 }

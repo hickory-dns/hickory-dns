@@ -19,7 +19,7 @@ use super::{
 use crate::{
     net::{
         NetError,
-        quic::{QuicServer, QuicStream, QuicStreams},
+        quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
         xfer::Protocol,
     },
     proto::rr::Record,
@@ -154,6 +154,7 @@ pub(crate) async fn quic_handler(
         };
 
         let cx = cx.clone();
+        let connection = quic_streams.clone();
         tokio::spawn(async move {
             let Ok(request_res) =
                 optional_timeout(request_timeout, request_stream.receive_bytes()).await
@@ -167,6 +168,13 @@ pub(crate) async fn quic_handler(
                     return;
                 }
             };
+
+            // RFC 9250 section 4.2.1 requires the DNS Message ID to be 0
+            if request.get(..2).is_some_and(|id| id != [0, 0]) {
+                warn!(%src_addr, "received QUIC request with non-zero message id");
+                connection.close(DoqErrorCode::ProtocolError);
+                return;
+            }
 
             debug!(
                 "Received bytes {} from {src_addr} {request:?}",

@@ -81,17 +81,7 @@ where
         self.signature = Some(signature);
     }
 
-    #[cfg_attr(not(feature = "__quic"), expect(unused_mut))]
-    pub(crate) fn encode(
-        mut self,
-        protocol: Protocol,
-    ) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
-        // The id should always be 0 in DoQ
-        #[cfg(feature = "__quic")]
-        if let Protocol::Quic = protocol {
-            self.metadata.id = 0;
-        }
-
+    pub(crate) fn encode(self, protocol: Protocol) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
         let id = self.metadata.id;
         debug!(
             id,
