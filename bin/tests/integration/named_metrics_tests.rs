@@ -190,6 +190,49 @@ async fn test_prometheus_endpoint_startup() {
     verify_all_histograms_have_buckets(metrics);
 }
 
+/// The DNSTAP names are the wire contract a dashboard binds to, and the flush
+/// histogram must reach the scrape with buckets configured.
+#[tokio::test]
+#[cfg(feature = "dnstap")]
+async fn test_dnstap_metrics() {
+    subscribe();
+
+    let server = TestServer::start("dnstap_metrics.toml");
+    let metrics = fetch_parse_check_metrics(&server.ports).await;
+
+    for name in [
+        "hickory_dnstap_sent_events_total",
+        "hickory_dnstap_dropped_events_total",
+        "hickory_dnstap_filtered_events_total",
+        "hickory_dnstap_sent_bytes_total",
+        "hickory_dnstap_session_reconnects_total",
+        "hickory_dnstap_buffer_events",
+        "hickory_dnstap_buffer_bytes",
+        "hickory_dnstap_buffer_max_events_total",
+        "hickory_dnstap_buffer_max_bytes_total",
+        "hickory_dnstap_collector_session_up",
+        "hickory_dnstap_reconnect_backoff_seconds",
+        "hickory_dnstap_batch_flush_duration_seconds",
+    ] {
+        assert!(
+            metrics.samples.iter().any(|sample| sample.metric == name),
+            "failed locating metric: {name}"
+        );
+    }
+
+    // The flush histogram must land in the configured buckets, not a summary.
+    assert!(
+        metrics
+            .samples
+            .iter()
+            .any(|sample| matches!(&sample.value, Value::Histogram(_))
+                && sample.metric == "hickory_dnstap_batch_flush_duration_seconds"),
+        "the batch flush duration must be exported as a histogram"
+    );
+
+    verify_all_histograms_have_buckets(&metrics);
+}
+
 #[tokio::test]
 async fn test_request_response() {
     subscribe();

@@ -11,7 +11,7 @@ use std::{
     cmp,
     fmt::Debug,
     marker::PhantomData,
-    net::IpAddr,
+    net::{IpAddr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicU8, AtomicU32, Ordering},
@@ -43,6 +43,7 @@ use crate::{
     proto::{
         op::{DnsRequest, DnsRequestOptions, DnsResponse, Query, ResponseCode},
         rr::{Name, RecordType},
+        serialize::binary::BinEncodable,
     },
 };
 
@@ -71,6 +72,131 @@ pub struct NameServer<P: ConnectionProvider> {
     #[cfg(feature = "__h3")]
     h3: Arc<ConnectionMeta>,
     connection_provider: P,
+}
+
+/// Target of the tracing events the DNSTAP layer captures.
+const DNSTAP_TARGET: &str = "hickory_server::dnstap";
+
+/// Emit a RESOLVER_QUERY or FORWARDER_QUERY for a request going upstream.
+///
+/// Queries with RD set ask the upstream to recurse and are FORWARDER_QUERY,
+/// matching the protobuf definition; recursor hops clear RD and are
+/// RESOLVER_QUERY. Returns the send time for the matching response event, or
+/// `None` when no subscriber is interested.
+fn dnstap_query(
+    request: &DnsRequest,
+    zone: Option<&Name>,
+    server_addr: Option<SocketAddr>,
+    protocol: Protocol,
+) -> Option<(u64, u32)> {
+    if !tracing::enabled!(target: DNSTAP_TARGET, tracing::Level::TRACE) {
+        return None;
+    }
+
+    let bytes = request.to_vec().ok()?;
+    let query_time = dnstap_now();
+    let kind = if request.metadata.recursion_desired {
+        "forwarder_query"
+    } else {
+        "resolver_query"
+    };
+    let mut addr_buf = [0u8; 16];
+    let (server_addr_bytes, server_port) = dnstap_endpoint(server_addr, &mut addr_buf);
+    // A lookup outside any zone has no bailiwick; the layer treats an empty
+    // zone field as absent.
+    let zone = zone
+        .and_then(|zone| zone.to_bytes().ok())
+        .unwrap_or_default();
+
+    tracing::event!(
+        target: DNSTAP_TARGET,
+        tracing::Level::TRACE,
+        kind = kind,
+        message_bytes = bytes.as_slice(),
+        protocol = %protocol,
+        server_addr_bytes = server_addr_bytes,
+        server_port = server_port,
+        query_zone = zone.as_slice(),
+    );
+
+    Some(query_time)
+}
+
+/// Emit a RESOLVER_RESPONSE or FORWARDER_RESPONSE for an upstream message.
+///
+/// Every received message is recorded, including the response codes that
+/// [`DnsError::from_response`] later converts into errors, so negative answers
+/// reach the collector too.
+fn dnstap_response(
+    response: &DnsResponse,
+    zone: Option<&Name>,
+    query_time: Option<(u64, u32)>,
+    server_addr: Option<SocketAddr>,
+    protocol: Protocol,
+) {
+    if !tracing::enabled!(target: DNSTAP_TARGET, tracing::Level::TRACE) {
+        return;
+    }
+
+    let bytes = response.as_buffer();
+    let (query_time_sec, query_time_nsec) = query_time.unwrap_or_else(dnstap_now);
+    // The upstream response echoes the query's RD bit.
+    let kind = if response.metadata.recursion_desired {
+        "forwarder_response"
+    } else {
+        "resolver_response"
+    };
+    let mut addr_buf = [0u8; 16];
+    let (server_addr_bytes, server_port) = dnstap_endpoint(server_addr, &mut addr_buf);
+    // The upstream response carries the request's bailiwick; an empty zone
+    // field means the lookup has none.
+    let zone = zone
+        .and_then(|zone| zone.to_bytes().ok())
+        .unwrap_or_default();
+
+    tracing::event!(
+        target: DNSTAP_TARGET,
+        tracing::Level::TRACE,
+        kind = kind,
+        message_bytes = bytes,
+        protocol = %protocol,
+        server_addr_bytes = server_addr_bytes,
+        server_port = server_port,
+        query_zone = zone.as_slice(),
+        query_time_sec = query_time_sec,
+        query_time_nsec = u64::from(query_time_nsec),
+    );
+}
+
+/// Octets and port of the upstream endpoint, or an empty address when it is
+/// unknown.
+fn dnstap_endpoint(addr: Option<SocketAddr>, buf: &mut [u8; 16]) -> (&[u8], u64) {
+    match addr {
+        Some(addr) => (octets(addr.ip(), buf), u64::from(addr.port())),
+        None => (&[], 0),
+    }
+}
+
+/// IP octets in a caller buffer, so the event needs no address allocation.
+fn octets(ip: IpAddr, buf: &mut [u8; 16]) -> &[u8] {
+    match ip {
+        IpAddr::V4(v4) => {
+            buf[..4].copy_from_slice(&v4.octets());
+            &buf[..4]
+        }
+        IpAddr::V6(v6) => {
+            *buf = v6.octets();
+            &buf[..]
+        }
+    }
+}
+
+/// Seconds and nanoseconds since the UNIX epoch, for DNSTAP timestamps.
+fn dnstap_now() -> (u64, u32) {
+    let elapsed = std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap_or_default();
+    (elapsed.as_secs(), elapsed.subsec_nanos())
 }
 
 impl<P: ConnectionProvider> NameServer<P> {
@@ -113,6 +239,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                         _ => udp.clone(),
                     },
                     protocol,
+                    None,
                 )
             })
             .collect::<Vec<_>>();
@@ -157,8 +284,9 @@ impl<P: ConnectionProvider> NameServer<P> {
         request: DnsRequest,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
+        zone: Option<&Name>,
     ) -> Result<DnsResponse, NetError> {
-        let (_protocol, result) = self.send_inner(request, policy, cx).await;
+        let (_protocol, result) = self.send_inner(request, policy, cx, zone).await;
         #[cfg(feature = "metrics")]
         if let Some(protocol) = _protocol {
             self.resolver_metrics
@@ -173,6 +301,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         request: DnsRequest,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
+        zone: Option<&Name>,
     ) -> (Option<Protocol>, Result<DnsResponse, NetError>) {
         // Reconnect and retry once if a reused connection was closed mid-flight.
         // Caps total retries even when the pool holds several reusable connections.
@@ -183,6 +312,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                 meta,
                 protocol,
                 reuse,
+                remote_addr,
             } = match self.connected_mut_client(policy, cx).await {
                 Ok(v) => v,
                 Err((err, protocol)) => {
@@ -193,6 +323,7 @@ impl<P: ConnectionProvider> NameServer<P> {
 
             #[cfg(feature = "metrics")]
             self.resolver_metrics.increment_outgoing_query(&protocol);
+            let dnstap_query_time = dnstap_query(&request, zone, remote_addr, protocol);
             let now = Instant::now();
             let response = handle.send(request.clone()).await;
             let rtt = now.elapsed();
@@ -200,6 +331,7 @@ impl<P: ConnectionProvider> NameServer<P> {
             match response {
                 Ok(response) => {
                     meta.set_status(Status::Established);
+                    dnstap_response(&response, zone, dnstap_query_time, remote_addr, protocol);
                     let result = DnsError::from_response(response);
                     let error = match result {
                         Ok(response) => {
@@ -311,6 +443,7 @@ impl<P: ConnectionProvider> NameServer<P> {
                     meta: self.meta(conn.protocol).clone(),
                     protocol: conn.protocol,
                     reuse: ConnectionReuse::Reused,
+                    remote_addr: conn.remote_addr,
                 });
             }
         }
@@ -336,6 +469,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
 
         let meta = self.meta(protocol);
+        let remote_addr = Some(SocketAddr::new(self.config.ip, config.port));
         let handle_failure = |error| {
             self.record_connection_failure(protocol, &error);
             (error, Some(protocol))
@@ -353,13 +487,14 @@ impl<P: ConnectionProvider> NameServer<P> {
         }
 
         // Store the new connection (with lock)
-        let state = ConnectionState::new(handle.clone(), meta.clone(), protocol);
+        let state = ConnectionState::new(handle.clone(), meta.clone(), protocol, remote_addr);
         self.connections.lock().await.push(state);
         Ok(ConnectedClient {
             handle,
             meta: meta.clone(),
             protocol,
             reuse: ConnectionReuse::Fresh,
+            remote_addr,
         })
     }
 
@@ -657,20 +792,28 @@ struct ConnectedClient<P: ConnectionProvider> {
     meta: Arc<ConnectionMeta>,
     protocol: Protocol,
     reuse: ConnectionReuse,
+    remote_addr: Option<SocketAddr>,
 }
 
 struct ConnectionState<P: ConnectionProvider> {
     protocol: Protocol,
     handle: P::Conn,
     meta: Arc<ConnectionMeta>,
+    remote_addr: Option<SocketAddr>,
 }
 
 impl<P: ConnectionProvider> ConnectionState<P> {
-    fn new(handle: P::Conn, meta: Arc<ConnectionMeta>, protocol: Protocol) -> Self {
+    fn new(
+        handle: P::Conn,
+        meta: Arc<ConnectionMeta>,
+        protocol: Protocol,
+        remote_addr: Option<SocketAddr>,
+    ) -> Self {
         Self {
             protocol,
             handle,
             meta,
+            remote_addr,
         }
     }
 }
@@ -1078,6 +1221,7 @@ mod tests {
                 ),
                 ConnectionPolicy::default(),
                 &cx,
+                None,
             )
             .await
             .expect("query failed");
@@ -1111,7 +1255,8 @@ mod tests {
                         DnsRequestOptions::default(),
                     ),
                     ConnectionPolicy::default(),
-                    &cx
+                    &cx,
+                    None,
                 )
                 .await
                 .is_err()
@@ -1170,6 +1315,7 @@ mod tests {
                 DnsRequest::from_query(Query::new(name.clone(), RecordType::NULL), request_options),
                 ConnectionPolicy::default(),
                 &cx,
+                None,
             )
             .await
             .unwrap();
@@ -1859,6 +2005,7 @@ mod opportunistic_enc_tests {
             MockClientHandle::default(),
             Arc::new(ConnectionMeta::default()),
             protocol,
+            None,
         )
     }
 
@@ -2158,6 +2305,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2203,6 +2351,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2252,6 +2401,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2296,6 +2446,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2350,6 +2501,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2404,6 +2556,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2459,6 +2612,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2507,6 +2661,7 @@ mod resolver_metrics_tests {
                         ),
                         ConnectionPolicy::default(),
                         &cx,
+                        None,
                     )
                     .await;
             });
@@ -2589,11 +2744,11 @@ mod reconnect_tests {
             name_server_with(VecDeque::from([None, Some(connection_closed())]));
 
         ns.clone()
-            .send(query(), ConnectionPolicy::default(), &cx)
+            .send(query(), ConnectionPolicy::default(), &cx, None)
             .await
             .expect("initial query establishes the connection");
         ns.clone()
-            .send(query(), ConnectionPolicy::default(), &cx)
+            .send(query(), ConnectionPolicy::default(), &cx, None)
             .await
             .expect("stale reused connection is transparently reconnected");
 
@@ -2609,7 +2764,7 @@ mod reconnect_tests {
 
         let (ns, provider, cx) = name_server_with(VecDeque::from([Some(connection_closed())]));
 
-        ns.send(query(), ConnectionPolicy::default(), &cx)
+        ns.send(query(), ConnectionPolicy::default(), &cx, None)
             .await
             .expect_err("a fresh connection failure must not be retried");
 
@@ -2750,8 +2905,8 @@ mod mock_provider {
         #[allow(clippy::unimplemented)]
         fn connect_tcp(
             &self,
-            _server_addr: std::net::SocketAddr,
-            _bind_addr: Option<std::net::SocketAddr>,
+            _server_addr: SocketAddr,
+            _bind_addr: Option<SocketAddr>,
             _timeout: Option<Duration>,
         ) -> Pin<Box<dyn Future<Output = Result<Self::Tcp, io::Error>> + Send>> {
             unimplemented!();
@@ -2760,8 +2915,8 @@ mod mock_provider {
         #[allow(clippy::unimplemented)]
         fn bind_udp(
             &self,
-            _local_addr: std::net::SocketAddr,
-            _server_addr: std::net::SocketAddr,
+            _local_addr: SocketAddr,
+            _server_addr: SocketAddr,
         ) -> Pin<Box<dyn Future<Output = Result<Self::Udp, io::Error>> + Send>> {
             unimplemented!();
         }

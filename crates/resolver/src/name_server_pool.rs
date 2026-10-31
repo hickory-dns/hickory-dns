@@ -157,6 +157,8 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
         let state = self.state.clone();
         let acs = self.state.cx.answer_address_filter.clone();
         let active_requests = self.active_requests.clone();
+        // Travels into the send path so recursor hops record their bailiwick.
+        let zone = self.zone.clone();
 
         async move {
             debug!("sending request: {:?}", request.queries);
@@ -176,7 +178,7 @@ impl<P: ConnectionProvider> DnsHandle for NameServerPool<P> {
                     debug!(%query, "creating new shared lookup");
 
                     let lookup = async move {
-                        match state.try_send(request).await {
+                        match state.try_send(request, zone.as_ref()).await {
                             Ok(response) => Some(Ok(response)),
                             Err(e) => Some(Err(e)),
                         }
@@ -279,7 +281,11 @@ struct PoolState<P: ConnectionProvider> {
 }
 
 impl<P: ConnectionProvider> PoolState<P> {
-    async fn try_send(&self, request: DnsRequest) -> Result<DnsResponse, NetError> {
+    async fn try_send(
+        &self,
+        request: DnsRequest,
+        zone: Option<&Name>,
+    ) -> Result<DnsResponse, NetError> {
         let mut servers = self.servers.clone();
         match self.cx.options.server_ordering_strategy {
             // select the highest priority connection
@@ -384,7 +390,7 @@ impl<P: ConnectionProvider> PoolState<P> {
                     request.options_mut().retry_interval = retry_interval;
                     debug!(?retry_interval, ip = ?server.ip(), "setting retry_interval");
 
-                    let future = server.clone().send(request, policy, &self.cx);
+                    let future = server.clone().send(request, policy, &self.cx, zone);
                     async { (server, future.await) }
                 })
                 .collect::<FuturesUnordered<_>>();

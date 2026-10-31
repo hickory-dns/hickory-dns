@@ -29,12 +29,13 @@ ascii-art = []
 
 systemd = ["dep:sd-notify", "dep:tracing-journald"]
 blocklist = ["hickory-server/blocklist"]
+dnstap = ["dep:hickory-dnstap"]
 recursor = ["hickory-server/recursor"]
 # Recursive Resolution is Experimental!
 resolver = ["hickory-server/resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 prometheus-metrics = ["metrics", "dep:http", "dep:hyper", "dep:hyper-util", "dep:metrics-exporter-prometheus", "dep:tokio-util", "dep:tower", "dep:tower-http"]
-metrics = ["hickory-server/metrics", "hickory-resolver/metrics", "dep:metrics", "dep:metrics-process"]
+metrics = ["hickory-server/metrics", "hickory-resolver/metrics", "hickory-dnstap?/metrics", "dep:metrics", "dep:metrics-process"]
 
 tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "hickory-resolver/tls-aws-lc-rs", "__tls"]
 https-aws-lc-rs = ["hickory-server/https-aws-lc-rs", "hickory-resolver/https-aws-lc-rs", "tls-aws-lc-rs", "__https"]
@@ -85,7 +86,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
 time.workspace = true
 tracing.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "registry", "std"] }
 tracing-journald = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["time", "rt", "signal"] }
 tokio-util = { workspace = true, optional = true }
@@ -97,6 +98,7 @@ hickory-proto.workspace = true
 hickory-net.workspace = true
 hickory-resolver.workspace = true
 hickory-server = { workspace = true, features = ["toml"] }
+hickory-dnstap = { workspace = true, optional = true }
 hostname.workspace = true
 metrics = { workspace = true, optional = true }
 metrics-exporter-prometheus = { workspace = true, optional = true }

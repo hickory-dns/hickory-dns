@@ -69,6 +69,9 @@ impl ResponseHandler for ResponseHandle {
         >,
     ) -> Result<ResponseInfo, NetError> {
         let (info, buffer) = response.encode(self.protocol)?;
+
+        super::emit_response_frame(&buffer);
+
         self.stream_handle
             .send(SerialMessage::new(buffer, self.dst))?;
 

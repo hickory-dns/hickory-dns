@@ -407,6 +407,12 @@ fn test_reject_unknown_fields() {
             skip = true;
         }
 
+        #[cfg(not(feature = "dnstap"))]
+        if config_table.contains_key("dnstap") {
+            println!("skipping due to dnstap setting");
+            skip = true;
+        }
+
         if file_name.starts_with("example_recursor_opportunistic_enc") {
             // The opportunistic encryption enum doesn't work with this test. There's no
             // serde equivalent to deny_unknown_fields that works for enums - it's specific
@@ -599,5 +605,71 @@ fn file_store_zone_path() {
             ));
         }
         Err(e) => panic!("expected successful parse: {e:?}"),
+    }
+}
+
+#[cfg(all(feature = "dnstap", unix))]
+#[test]
+fn dnstap_config_rejects_ambiguous_endpoint() {
+    let config = Config::from_toml(
+        "[dnstap]\n\
+         enabled = true\n\
+         tcp_address = \"127.0.0.1:6000\"\n\
+         unix_path = \"/run/dnstap.sock\"\n",
+    )
+    .unwrap();
+
+    let err = config
+        .dnstap
+        .expect("dnstap section parsed")
+        .into_dnstap_config()
+        .expect_err("both endpoints configured must be rejected");
+    assert!(err.contains("only one of"), "unexpected error: {err}");
+}
+
+/// Each `log_*` option maps to exactly its own message type, so a swapped or
+/// dropped field cannot silently mis-route logging.
+#[cfg(feature = "dnstap")]
+#[test]
+fn dnstap_config_maps_each_message_type_flag() {
+    use hickory_dnstap::DnstapConfig;
+
+    type FlagReader = fn(&DnstapConfig) -> bool;
+
+    let fields: [(&str, FlagReader); 10] = [
+        ("log_auth_query", |c| c.log_auth_query),
+        ("log_auth_response", |c| c.log_auth_response),
+        ("log_client_query", |c| c.log_client_query),
+        ("log_client_response", |c| c.log_client_response),
+        ("log_resolver_query", |c| c.log_resolver_query),
+        ("log_resolver_response", |c| c.log_resolver_response),
+        ("log_forwarder_query", |c| c.log_forwarder_query),
+        ("log_forwarder_response", |c| c.log_forwarder_response),
+        ("log_update_query", |c| c.log_update_query),
+        ("log_update_response", |c| c.log_update_response),
+    ];
+
+    for &(option, _) in &fields {
+        let config = Config::from_toml(&format!(
+            "[dnstap]\n\
+             enabled = true\n\
+             tcp_address = \"127.0.0.1:6000\"\n\
+             {option} = true\n"
+        ))
+        .unwrap();
+
+        let dnstap = config
+            .dnstap
+            .expect("dnstap section parsed")
+            .into_dnstap_config()
+            .expect("dnstap config must convert");
+
+        let enabled: Vec<&str> = fields
+            .iter()
+            .filter(|(_, field)| field(&dnstap))
+            .map(|(name, _)| *name)
+            .collect();
+
+        assert_eq!(enabled, [option], "{option} must enable only its own type");
     }
 }

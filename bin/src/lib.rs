@@ -51,6 +51,11 @@ mod prometheus_server;
 #[cfg(feature = "prometheus-metrics")]
 use prometheus_server::PrometheusServer;
 
+// `metrics` must forward to `hickory-dnstap/metrics` or the DNSTAP counters are
+// compiled out; this reference turns a missing forward into a build error.
+#[cfg(all(feature = "dnstap", feature = "metrics"))]
+const _: &str = hickory_dnstap::metrics::SENT_EVENTS_TOTAL;
+
 /// Cli struct for all options managed with clap derive api.
 #[derive(Debug, Parser)]
 #[clap(name = "Hickory DNS named server", version, about)]
@@ -170,7 +175,43 @@ pub struct DnsServer {
 }
 
 impl DnsServer {
-    pub async fn run(self) -> Result<(), String> {
+    /// Create a DNSTAP tracing layer from the server configuration file.
+    ///
+    /// This should be called before the tracing subscriber is initialized,
+    /// so the layer can be included in the subscriber stack.  The returned
+    /// [`DnstapConnection`](hickory_dnstap::DnstapConnection) must be
+    /// [`start`](hickory_dnstap::DnstapConnection::start)ed inside the Tokio
+    /// runtime after startup logging is complete.
+    ///
+    /// The config file is read here ahead of `run()`, which reads it again,
+    /// because the subscriber must be built before the runtime starts.
+    #[cfg(feature = "dnstap")]
+    pub fn create_dnstap_layer(
+        &self,
+    ) -> Result<
+        (
+            Option<hickory_dnstap::DnstapLayer>,
+            Option<hickory_dnstap::DnstapConnection>,
+        ),
+        String,
+    > {
+        let config_path = Path::new(&self.config);
+        let config = Config::read_config(config_path)
+            .map_err(|err| format!("failed to read config file from {config_path:?}: {err}"))?;
+        if let Some(dnstap_section) = config.dnstap {
+            if dnstap_section.enabled {
+                let dnstap_config = dnstap_section.into_dnstap_config()?;
+                let (layer, connection) = hickory_dnstap::DnstapLayer::new(dnstap_config);
+                return Ok((Some(layer), Some(connection)));
+            }
+        }
+        Ok((None, None))
+    }
+
+    pub async fn run(
+        self,
+        #[cfg(feature = "dnstap")] dnstap_connection: Option<hickory_dnstap::DnstapConnection>,
+    ) -> Result<(), String> {
         let Self {
             validate,
             workers: _, // Used in `main()`
@@ -310,6 +351,8 @@ impl DnsServer {
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
             udp_receive_buffer_size,
+            #[cfg(feature = "dnstap")]
+            dnstap,
         } = config;
 
         #[cfg(unix)]
@@ -360,6 +403,32 @@ impl DnsServer {
             udp_receive_buffer_size,
             nsid,
         );
+
+        // DNSTAP is configured via a tracing subscriber Layer.
+        // The DnstapLayer should be installed on the tracing subscriber
+        // before the server starts (see hickory-dns.rs).
+        #[cfg(feature = "dnstap")]
+        if let Some(ref dnstap_section) = dnstap {
+            if dnstap_section.enabled {
+                let endpoint_display = if let Some(ref addr) = dnstap_section.tcp_address {
+                    format!("tcp://{addr}")
+                } else {
+                    #[cfg(unix)]
+                    {
+                        dnstap_section
+                            .unix_path
+                            .as_deref()
+                            .map(|p| format!("unix://{p}"))
+                            .unwrap_or_else(|| "<unknown>".to_string())
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        "<unknown>".to_string()
+                    }
+                };
+                info!("DNSTAP logging enabled, sending to {endpoint_display}");
+            }
+        }
 
         let mut listen_addrs = listen_addrs_ipv4
             .into_iter()
@@ -488,6 +557,11 @@ impl DnsServer {
                 }
             });
             info!(?interval, "systemd watchdog enabled");
+        }
+
+        #[cfg(feature = "dnstap")]
+        if let Some(connection) = dnstap_connection {
+            connection.start();
         }
 
         match server.block_until_done().await {

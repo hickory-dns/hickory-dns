@@ -15,6 +15,8 @@ use tower::{Service, ServiceBuilder};
 use tower_http::compression::CompressionLayer;
 use tracing::{debug, error};
 
+#[cfg(feature = "dnstap")]
+use hickory_dnstap::metrics::BATCH_FLUSH_DURATION_SECONDS;
 #[cfg(any(feature = "__tls", feature = "__quic"))]
 use hickory_resolver::metrics::opportunistic_encryption::PROBE_DURATION_SECONDS;
 #[cfg(feature = "recursor")]
@@ -154,6 +156,8 @@ fn configure_buckets(mut builder: PrometheusBuilder) -> PrometheusBuilder {
 const HISTOGRAMS: &[(&str, &[f64])] = &[
     #[cfg(any(feature = "__tls", feature = "__quic"))]
     (PROBE_DURATION_SECONDS, INTERNET_LATENCY_BUCKETS),
+    #[cfg(feature = "dnstap")]
+    (BATCH_FLUSH_DURATION_SECONDS, DNSTAP_FLUSH_BUCKETS),
     (RESOLVER_CACHE_MISS_DURATION, INTERNET_LATENCY_BUCKETS),
     (RESOLVER_CACHE_HIT_DURATION, INTERNAL_LATENCY_BUCKETS),
     #[cfg(feature = "recursor")]
@@ -174,4 +178,14 @@ const INTERNET_LATENCY_BUCKETS: &[f64] = &[
 /// The values used are a range of buckets between 100μs and 100ms.
 const INTERNAL_LATENCY_BUCKETS: &[f64] = &[
     0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1,
+];
+
+/// Histogram buckets for the DNSTAP batch flush.
+///
+/// Writing a batch is a local write unless the collector stalls, so the
+/// internal buckets resolve the healthy range while the internet buckets
+/// resolve the stalls. This is the union of the two sets.
+const DNSTAP_FLUSH_BUCKETS: &[f64] = &[
+    0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5,
+    5.0, 10.0,
 ];

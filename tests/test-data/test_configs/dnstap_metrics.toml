@@ -1,0 +1,13 @@
+directory = "/var/named"
+
+## DNSTAP collector that never accepts: the sender registers its metrics at
+## start and then sits in its reconnect loop, which is all the scrape needs.
+[dnstap]
+enabled = true
+tcp_address = "127.0.0.1:6100"
+log_client_query = true
+log_client_response = true
+
+[[zones]]
+zone = "localhost"
+file = "default/localhost.zone"

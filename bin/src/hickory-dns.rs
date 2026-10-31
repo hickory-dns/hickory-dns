@@ -66,35 +66,6 @@ fn run() -> Result<(), String> {
         _ => Level::INFO,
     };
 
-    #[cfg(feature = "systemd")]
-    let output_layer = match args.logging {
-        Some(Logging::Journal) => journal_layer()?.boxed(),
-        None if env::var_os("JOURNAL_STREAM").is_some_and(|it| !it.is_empty())
-            && !io::stdin().is_terminal() =>
-        {
-            journal_layer()?.boxed()
-        }
-        Some(Logging::Stdout) | None => tracing_subscriber::fmt::layer().boxed(),
-    };
-
-    #[cfg(not(feature = "systemd"))]
-    let output_layer = tracing_subscriber::fmt::layer().boxed();
-
-    // Setup tracing for logging based on input
-    tracing_subscriber::registry()
-        .with(output_layer)
-        .with(
-            EnvFilter::builder()
-                .with_default_directive(level.into())
-                .from_env()
-                .map_err(|err| {
-                    format!("failed to parse environment variable for tracing: {err}")
-                })?,
-        )
-        .init();
-
-    info!("Hickory DNS {} starting...", env!("CARGO_PKG_VERSION"));
-
     let mut runtime = runtime::Builder::new_multi_thread();
     runtime.enable_all().thread_name("hickory-server-runtime");
     if let Some(workers) = args.workers {
@@ -104,7 +75,49 @@ fn run() -> Result<(), String> {
         .build()
         .map_err(|err| format!("failed to initialize Tokio runtime: {err}"))?;
 
-    runtime.block_on(args.run())
+    // Create the DNSTAP layer (channel only - the background task is spawned
+    // later inside `run()` so its log output appears after startup messages).
+    #[cfg(feature = "dnstap")]
+    let (dnstap_layer, dnstap_connection) = args.create_dnstap_layer()?;
+
+    // The EnvFilter is per output layer so no global filter can block
+    // TRACE-level DNSTAP events from reaching the DnstapLayer.
+    let env_filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env()
+        .map_err(|err| format!("failed to parse environment variable for tracing: {err}"))?;
+
+    #[cfg(feature = "systemd")]
+    let output_layer = match args.logging {
+        Some(Logging::Journal) => journal_layer()?.with_filter(env_filter.clone()).boxed(),
+        None if env::var_os("JOURNAL_STREAM").is_some_and(|it| !it.is_empty())
+            && !io::stdin().is_terminal() =>
+        {
+            journal_layer()?.with_filter(env_filter.clone()).boxed()
+        }
+        Some(Logging::Stdout) | None => tracing_subscriber::fmt::layer()
+            .with_filter(env_filter.clone())
+            .boxed(),
+    };
+
+    #[cfg(not(feature = "systemd"))]
+    let output_layer = tracing_subscriber::fmt::layer()
+        .with_filter(env_filter)
+        .boxed();
+
+    let registry = tracing_subscriber::registry().with(output_layer);
+
+    #[cfg(feature = "dnstap")]
+    let registry = registry.with(dnstap_layer);
+
+    registry.init();
+
+    info!("Hickory DNS {} starting...", env!("CARGO_PKG_VERSION"));
+
+    runtime.block_on(args.run(
+        #[cfg(feature = "dnstap")]
+        dnstap_connection,
+    ))
 }
 
 #[cfg(feature = "systemd")]
