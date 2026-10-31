@@ -54,7 +54,7 @@ use crate::net::tls::{default_provider, tls_from_stream};
 use crate::{
     access::AccessControl,
     net::{
-        BufDnsStreamHandle, NetError,
+        BufDnsStreamHandle, DnsStreamHandle, NetError,
         runtime::{TokioTime, iocompat::AsyncIoTokioAsStd},
         tcp::TcpStream,
         udp::UdpStream,
@@ -78,8 +78,6 @@ mod h3_handler;
 mod quic_handler;
 mod request_handler;
 pub use request_handler::{Request, RequestHandler, ResponseInfo};
-mod response_handler;
-pub use response_handler::{ResponseHandle, ResponseHandler};
 mod timeout_stream;
 pub use timeout_stream::TimeoutStream;
 
@@ -759,37 +757,24 @@ impl<T: RequestHandler> ServerContext<T> {
         &self,
         message: SerialMessage,
         protocol: Protocol,
-        response_handler: BufDnsStreamHandle,
+        mut stream_handle: BufDnsStreamHandle,
     ) {
         let (message, src_addr) = message.into_parts();
-        let response_handler = ResponseHandle::new(src_addr, response_handler);
-
-        self.handle_request(Bytes::from(message), src_addr, protocol, response_handler)
-            .await;
-    }
-
-    async fn handle_request(
-        &self,
-        message: Bytes,
-        src_addr: SocketAddr,
-        protocol: Protocol,
-        mut response_handler: impl ResponseHandler,
-    ) {
-        let Some((info, reporter)) = self.process_request(message, src_addr, protocol).await else {
+        let Some((info, reporter)) = self
+            .handle_request(Bytes::from(message), src_addr, protocol)
+            .await
+        else {
             return;
         };
 
-        let header = info.header;
-        if let Err(error) = response_handler.send_response(info).await {
-            warn!(%error, "failed to send response");
-            return;
+        match stream_handle.send(SerialMessage::new(info.bytes, src_addr)) {
+            Ok(()) => reporter.report(&info.header),
+            Err(error) => warn!(%error, "failed to send response"),
         }
-
-        reporter.report(&header);
     }
 
     /// Decodes and handles a request
-    async fn process_request(
+    async fn handle_request(
         &self,
         message_bytes: Bytes,
         src_addr: SocketAddr,

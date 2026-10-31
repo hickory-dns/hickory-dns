@@ -14,11 +14,11 @@ use tracing::{debug, warn};
 
 use super::{
     ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
-    request_handler::ResponseInfo, response_handler::ResponseHandler, sanitize_src_address,
+    sanitize_src_address,
 };
 use crate::net::{
     NetError,
-    quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
+    quic::{DoqErrorCode, QuicServer, QuicStreams},
     xfer::Protocol,
 };
 
@@ -176,13 +176,24 @@ pub(crate) async fn quic_handler(
                 request.len()
             );
 
-            cx.handle_request(
-                request,
-                src_addr,
-                Protocol::Quic,
-                QuicResponseHandle(request_stream),
-            )
-            .await;
+            let Some((info, reporter)) = cx.handle_request(request, src_addr, Protocol::Quic).await
+            else {
+                return;
+            };
+
+            let bytes = Bytes::from(info.bytes);
+            debug!("sending quic response: {}", bytes.len());
+            if let Err(error) = request_stream.send_bytes(bytes).await {
+                warn!(%error, "failed to send response");
+                return;
+            }
+
+            if let Err(error) = request_stream.finish().await {
+                warn!(%error, "failed to send response");
+                return;
+            }
+
+            reporter.report(&info.header);
         });
 
         max_requests -= 1;
@@ -194,21 +205,4 @@ pub(crate) async fn quic_handler(
     }
 
     Ok(())
-}
-
-struct QuicResponseHandle(QuicStream);
-
-#[async_trait::async_trait]
-impl ResponseHandler for QuicResponseHandle {
-    // TODO: rethink this entire interface
-    async fn send_response(&mut self, info: ResponseInfo) -> Result<(), NetError> {
-        let bytes = Bytes::from(info.bytes);
-
-        debug!("sending quic response: {}", bytes.len());
-        let stream = &mut self.0;
-        stream.send_bytes(bytes).await?;
-        stream.finish().await?;
-
-        Ok(())
-    }
 }

@@ -20,10 +20,7 @@ use tracing::{debug, warn};
 
 use super::{
     ServerContext, default_tls_server_config, is_unrecoverable_socket_error, optional_timeout,
-    reap_tasks,
-    request_handler::{RequestHandler, ResponseInfo},
-    response_handler::ResponseHandler,
-    sanitize_src_address,
+    reap_tasks, request_handler::RequestHandler, sanitize_src_address,
 };
 use crate::net::{
     NetError,
@@ -180,7 +177,7 @@ pub(crate) async fn h2_handler(
         let Some(result) = accept_option else {
             break; // The connection is closed.
         };
-        let (request, respond) = match result {
+        let (request, mut respond) = match result {
             Ok(pair) => pair,
             Err(error) => {
                 warn!("error accepting request {}: {}", src_addr, error);
@@ -206,31 +203,39 @@ pub(crate) async fn h2_handler(
                 }
             };
 
-            cx.handle_request(
-                body.freeze(),
-                src_addr,
-                Protocol::Https,
-                HttpsResponseHandle(respond),
-            )
-            .await
+            let Some((info, reporter)) = cx
+                .handle_request(body.freeze(), src_addr, Protocol::Https)
+                .await
+            else {
+                return;
+            };
+
+            let bytes = Bytes::from(info.bytes);
+            let response = match http::response(Version::Http2, bytes.len(), info.cache_ttl) {
+                Ok(response) => response,
+                Err(error) => {
+                    warn!(%error, "failed to build response");
+                    return;
+                }
+            };
+
+            debug!("sending response: {:#?}", response);
+            let mut stream = match respond.send_response(response, false) {
+                Ok(stream) => stream,
+                Err(error) => {
+                    warn!(%error, "failed to send response");
+                    return;
+                }
+            };
+
+            if let Err(error) = stream.send_data(bytes, true) {
+                warn!(%error, "failed to send response");
+                return;
+            }
+
+            reporter.report(&info.header);
         });
 
         // we'll continue handling requests from here.
-    }
-}
-
-struct HttpsResponseHandle(server::SendResponse<Bytes>);
-
-#[async_trait::async_trait]
-impl ResponseHandler for HttpsResponseHandle {
-    async fn send_response(&mut self, info: ResponseInfo) -> Result<(), NetError> {
-        let bytes = Bytes::from(info.bytes);
-        let response = http::response(Version::Http2, bytes.len(), info.cache_ttl)?;
-
-        debug!("sending response: {:#?}", response);
-        let mut stream = self.0.send_response(response, false)?;
-        stream.send_data(bytes, true)?;
-
-        Ok(())
     }
 }
