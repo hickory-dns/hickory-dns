@@ -306,6 +306,16 @@ fn parse_mandatory(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     let value = value.ok_or_else(|| ParseError::from("expected at least one Mandatory field"))?;
 
     let mandatories = parse_list::<SvcParamKey>(value)?;
+
+    // RFC 9460 8: keys MAY appear in any order, but MUST NOT appear more than once.
+    if mandatories
+        .iter()
+        .enumerate()
+        .any(|(index, key)| mandatories[..index].contains(key))
+    {
+        return Err(ParseError::from("duplicate key in Mandatory"));
+    }
+
     Ok(SvcParamValue::Mandatory(Mandatory(mandatories)))
 }
 
@@ -957,8 +967,12 @@ impl BinEncodable for Mandatory {
             return Err(ProtoError::from("Alpn expects at least one value"));
         }
 
-        // TODO: order by key value
-        for key in self.0.iter() {
+        // RFC 9460 2.2: presentation format allows any order, but the wire format
+        // requires the keys in strictly increasing numeric order.
+        let mut keys = self.0.clone();
+        keys.sort_unstable_by_key(|key| u16::from(*key));
+
+        for key in keys.iter() {
             key.emit(encoder)?
         }
 
@@ -1963,4 +1977,37 @@ mod tests {
     const CF_SVCB_RECORD: &str = "crypto.cloudflare.com. 1664 IN SVCB 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
     const CF_HTTPS_RECORD: &str = "crypto.cloudflare.com. 1664 IN HTTPS 1 . alpn=\"http/1.1,h2\" ipv4hint=162.159.137.85,162.159.138.85 ech=AEX+DQBBtgAgACBMmGJQR02doup+5VPMjYpe5HQQ/bpntFCxDa8LT2PLAgAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA= ipv6hint=2606:4700:7::a29f:8955,2606:4700:7::a29f:8a5";
     const GOOGLE_HTTPS_RECORD: &str = "google.com 21132 IN HTTPS 1 . alpn=\"h2,h3\"";
+
+    #[test]
+    fn test_mandatory_duplicate_keys_rejected() {
+        let parsed = Parser::new(
+            ". 86400 IN SVCB 1 . mandatory=alpn,alpn alpn=h2",
+            None,
+            Some(Name::root()),
+        )
+        .parse();
+        assert!(
+            parsed.is_err(),
+            "RFC 9460 8: keys MUST NOT appear more than once in mandatory; parsed as {:?}",
+            parsed
+        );
+    }
+
+    #[test]
+    fn test_mandatory_wire_order_ascending() {
+        let mandatory = Mandatory(vec![
+            SvcParamKey::Ipv6Hint,
+            SvcParamKey::Alpn,
+            SvcParamKey::Port,
+        ]);
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        mandatory.emit(&mut encoder).expect("failed to emit");
+        let wire = encoder.into_bytes();
+        assert_eq!(
+            wire.as_slice(),
+            [0u8, 1, 0, 3, 0, 6].as_slice(),
+            "RFC 9460 2.2: wire format keys must be in strictly increasing numeric order"
+        );
+    }
 }
