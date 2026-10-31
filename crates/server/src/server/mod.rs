@@ -762,7 +762,7 @@ impl<T: RequestHandler> ServerContext<T> {
         response_handler: BufDnsStreamHandle,
     ) {
         let (message, src_addr) = message.into_parts();
-        let response_handler = ResponseHandle::new(src_addr, response_handler, protocol);
+        let response_handler = ResponseHandle::new(src_addr, response_handler);
 
         self.handle_request(Bytes::from(message), src_addr, protocol, response_handler)
             .await;
@@ -770,26 +770,46 @@ impl<T: RequestHandler> ServerContext<T> {
 
     async fn handle_request(
         &self,
+        message: Bytes,
+        src_addr: SocketAddr,
+        protocol: Protocol,
+        mut response_handler: impl ResponseHandler,
+    ) {
+        let Some((info, reporter)) = self.process_request(message, src_addr, protocol).await else {
+            return;
+        };
+
+        let header = info.header;
+        if let Err(error) = response_handler.send_response(info).await {
+            warn!(%error, "failed to send response");
+            return;
+        }
+
+        reporter.report(&header);
+    }
+
+    /// Decodes and handles a request
+    async fn process_request(
+        &self,
         message_bytes: Bytes,
         src_addr: SocketAddr,
         protocol: Protocol,
-        response_handler: impl ResponseHandler,
-    ) {
+    ) -> Option<(ResponseInfo, ResponseReporter)> {
         let mut decoder = BinDecoder::new(&message_bytes);
         let Ok(header) = Header::read(&mut decoder) else {
             // This will only fail if the message is less than twelve bytes long. Such messages are
             // definitely not valid DNS queries, so it should be fine to return without sending a
             // response.
-            return;
+            return None;
         };
 
         if header.metadata.message_type == MessageType::Response {
             // Don't process response messages to avoid DoS attacks from reflection.
-            return;
+            return None;
         }
 
         if matches!(header.metadata.op_code, OpCode::Unknown(_)) {
-            error_response_handler(
+            return Some(error_response(
                 protocol,
                 src_addr,
                 header,
@@ -797,16 +817,13 @@ impl<T: RequestHandler> ServerContext<T> {
                 ResponseCode::NotImp,
                 None,
                 "unsupported op code",
-                response_handler,
-            )
-            .await;
-            return;
+            ));
         }
 
         let queries = match Queries::read(&mut decoder, header.counts.queries as usize) {
             Ok(queries) => queries,
             Err(error) => {
-                error_response_handler(
+                return Some(error_response(
                     protocol,
                     src_addr,
                     header,
@@ -814,10 +831,7 @@ impl<T: RequestHandler> ServerContext<T> {
                     ResponseCode::FormErr,
                     None,
                     error,
-                    response_handler,
-                )
-                .await;
-                return;
+                ));
             }
         };
 
@@ -829,7 +843,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 port = src_addr.port(),
             );
 
-            error_response_handler(
+            return Some(error_response(
                 protocol,
                 src_addr,
                 header,
@@ -837,11 +851,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 ResponseCode::Refused,
                 None,
                 "request refused",
-                response_handler,
-            )
-            .await;
-
-            return;
+            ));
         }
 
         // Attempt to decode the message
@@ -855,7 +865,7 @@ impl<T: RequestHandler> ServerContext<T> {
                         match result {
                             Ok(()) => Some(rsp_edns),
                             Err(code) => {
-                                error_response_handler(
+                                return Some(error_response(
                                     protocol,
                                     src_addr,
                                     header,
@@ -863,10 +873,7 @@ impl<T: RequestHandler> ServerContext<T> {
                                     code,
                                     Some(&rsp_edns),
                                     "request refused",
-                                    response_handler,
-                                )
-                                .await;
-                                return;
+                                ));
                             }
                         }
                     }
@@ -882,7 +889,7 @@ impl<T: RequestHandler> ServerContext<T> {
                 }
             }
             Err(error) => {
-                error_response_handler(
+                return Some(error_response(
                     protocol,
                     src_addr,
                     header,
@@ -890,11 +897,7 @@ impl<T: RequestHandler> ServerContext<T> {
                     ResponseCode::FormErr,
                     None,
                     error,
-                    response_handler,
-                )
-                .await;
-
-                return;
+                ));
             }
         };
 
@@ -938,17 +941,13 @@ impl<T: RequestHandler> ServerContext<T> {
             metrics: ResponseHandlerMetrics::default(),
         };
 
-        let info = self
-            .handler
-            .handle_request::<_, TokioTime>(&request, response_handler)
-            .await;
-        reporter.report(&info);
+        let info = self.handler.handle_request::<TokioTime>(&request).await;
+        Some((info, reporter))
     }
 }
 
-// method to return an error to the client
-#[expect(clippy::too_many_arguments)]
-async fn error_response_handler(
+// method to build an error response for the client
+fn error_response(
     protocol: Protocol,
     src_addr: SocketAddr,
     header: Header,
@@ -956,8 +955,7 @@ async fn error_response_handler(
     response_code: ResponseCode,
     response_edns: Option<&Edns>,
     error: impl fmt::Display,
-    mut response_handler: impl ResponseHandler,
-) {
+) -> (ResponseInfo, ResponseReporter) {
     // debug for more info on why the message parsing failed
     debug!(
         "request:{id} src:{proto}://{addr}#{port} type:{message_type} {op}:{response_code}:{error}",
@@ -986,14 +984,10 @@ async fn error_response_handler(
         None => MessageResponseBuilder::no_queries(response_edns),
     };
 
-    let result = response_handler
-        .send_response(response.error_msg(&header, response_code))
-        .await;
-
-    match result {
-        Ok(info) => reporter.report(&info),
-        Err(error) => warn!(%error, "failed to return FormError to client"),
-    }
+    (
+        response.error_msg(&header, response_code).encode(protocol),
+        reporter,
+    )
 }
 
 pub(super) struct ResponseReporter {
@@ -1007,16 +1001,16 @@ pub(super) struct ResponseReporter {
 
 impl ResponseReporter {
     /// Logs the response sent for the request, and updates metrics
-    fn report(&self, info: &ResponseInfo) {
+    fn report(&self, header: &Header) {
         let id = self.request_meta.id;
-        let rid = info.id;
+        let rid = header.id;
         if id != rid {
             warn!("request id:{id} does not match response id:{rid}");
             debug_assert_eq!(id, rid, "request id and response id should match");
         }
 
-        let rflags = info.flags();
-        let counts = info.header.counts;
+        let rflags = header.flags();
+        let counts = header.counts;
         info!(
             "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
             id = rid,
@@ -1025,7 +1019,7 @@ impl ResponseReporter {
             port = self.src_addr.port(),
             op = self.request_meta.op_code,
             qflags = self.request_meta.flags(),
-            code = info.header.response_code,
+            code = header.response_code,
             answers = counts.answers,
             authorities = counts.authorities,
             additionals = counts.additionals,
@@ -1042,7 +1036,7 @@ impl ResponseReporter {
         }
 
         #[cfg(feature = "metrics")]
-        self.metrics.update(info, self);
+        self.metrics.update(header, self);
     }
 }
 
