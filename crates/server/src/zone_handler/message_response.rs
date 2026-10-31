@@ -81,7 +81,10 @@ where
         self.signature = Some(signature);
     }
 
-    pub(crate) fn encode(self, protocol: Protocol) -> Result<(ResponseInfo, Vec<u8>), ProtoError> {
+    /// Encodes the response for sending over the given protocol
+    ///
+    /// If the response cannot be encoded, a `ServFail` response is encoded instead.
+    pub(crate) fn encode(self, protocol: Protocol) -> (ResponseInfo, Vec<u8>) {
         let id = self.metadata.id;
         debug!(
             id,
@@ -99,7 +102,7 @@ where
         });
 
         let error = match self.destructive_emit(&mut encoder) {
-            Ok((header, cache_ttl)) => return Ok((ResponseInfo { header, cache_ttl }, bytes)),
+            Ok((header, cache_ttl)) => return (ResponseInfo { header, cache_ttl }, bytes),
             Err(error) => error,
         };
 
@@ -115,8 +118,10 @@ where
             counts: HeaderCounts::default(),
         };
 
-        header.emit(&mut encoder)?;
-        Ok((ResponseInfo::from(header), bytes))
+        header
+            .emit(&mut encoder)
+            .expect("encoding a header should never fail");
+        (ResponseInfo::from(header), bytes)
     }
 
     /// Consumes self, and emits to the encoder.
@@ -471,7 +476,7 @@ mod tests {
             [],
         );
 
-        let (_info, buf) = response.encode(Protocol::Udp).expect("failed to encode");
+        let (_info, buf) = response.encode(Protocol::Udp);
         assert!(buf.len() <= 512, "response was {} bytes", buf.len());
 
         let response = Message::from_vec(&buf).expect("failed to decode");
@@ -505,7 +510,7 @@ mod tests {
         );
         response.set_edns(&edns);
 
-        let (_info, buf) = response.encode(Protocol::Udp).expect("failed to encode");
+        let (_info, buf) = response.encode(Protocol::Udp);
         assert!(buf.len() <= 512, "response was {} bytes", buf.len());
 
         let response = Message::from_vec(&buf).expect("failed to decode");
@@ -658,8 +663,7 @@ mod tests {
 
         let (info, _bytes) = MessageResponseBuilder::from_message_request(&request)
             .build(metadata, answers, authorities, [], [])
-            .encode(Protocol::Tcp)
-            .expect("failed to encode");
+            .encode(Protocol::Tcp);
 
         info.cache_ttl
     }

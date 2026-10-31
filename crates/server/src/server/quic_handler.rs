@@ -217,7 +217,7 @@ impl ResponseHandler for QuicResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode(Protocol::Quic)?;
+        let (info, bytes) = response.encode(Protocol::Quic);
         let bytes = Bytes::from(bytes);
 
         debug!("sending quic response: {}", bytes.len());

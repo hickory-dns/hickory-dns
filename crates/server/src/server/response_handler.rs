@@ -68,7 +68,7 @@ impl ResponseHandler for ResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        let (info, buffer) = response.encode(self.protocol)?;
+        let (info, buffer) = response.encode(self.protocol);
         self.stream_handle
             .send(SerialMessage::new(buffer, self.dst))?;
 
