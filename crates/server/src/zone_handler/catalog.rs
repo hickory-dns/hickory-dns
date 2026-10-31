@@ -34,7 +34,7 @@ use crate::{
         op::{Edns, Message, MessageType, Metadata, OpCode, ResponseCode},
         rr::{LowerName, Record, RecordType},
     },
-    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
+    server::{Request, RequestHandler, ResponseInfo},
     zone_handler::{
         AuthLookup, LookupControlFlow, LookupError, LookupOptions, LookupRecords,
         MessageResponseBuilder, ZoneHandler, ZoneType,
@@ -56,12 +56,7 @@ impl RequestHandler for Catalog {
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
-    /// * `response_handle` - sink for the response message to be sent
-    async fn handle_request<R: ResponseHandler, T: Time>(
-        &self,
-        request: &Request,
-        response_handle: R,
-    ) -> ResponseInfo {
+    async fn handle_request<T: Time>(&self, request: &Request) -> ResponseInfo {
         trace!("request: {:?}", request);
 
         let now = T::current_time();
@@ -71,15 +66,15 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request.metadata.op_code {
                 OpCode::Query => {
                     debug!("query received: {}", request.metadata.id);
-                    self.lookup(request, now, response_handle).await
+                    self.lookup(request, now).await
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.metadata.id);
-                    self.update(request, now, response_handle).await
+                    self.update(request, now).await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    send_error_response(request, ResponseCode::NotImp, response_handle).await
+                    error_response(request, ResponseCode::NotImp)
                 }
             },
             MessageType::Response => {
@@ -87,7 +82,7 @@ impl RequestHandler for Catalog {
                     "got a response as a request from id: {}",
                     request.metadata.id
                 );
-                send_error_response(request, ResponseCode::FormErr, response_handle).await
+                error_response(request, ResponseCode::FormErr)
             }
         }
     }
@@ -174,13 +169,7 @@ impl Catalog {
     ///
     /// * `request` - an update message
     /// * `response_edns` an optional `Edns` value for the response message
-    /// * `response_handle` - sink for the response message to be sent
-    pub async fn update<R: ResponseHandler>(
-        &self,
-        update: &Request,
-        now: u64,
-        mut response_handle: R,
-    ) -> ResponseInfo {
+    pub async fn update(&self, update: &Request, now: u64) -> ResponseInfo {
         // 2.3 - Zone Section
         //
         //  All records to be updated must be in the same zone, and
@@ -193,7 +182,7 @@ impl Catalog {
 
         if ztype != RecordType::SOA {
             warn!("invalid update request zone type must be SOA, ztype: {ztype}");
-            return send_error_response(update, ResponseCode::FormErr, response_handle).await;
+            return error_response(update, ResponseCode::FormErr);
         }
 
         // verify the zone type and number of zones in request, then find the zone to update
@@ -239,38 +228,22 @@ impl Catalog {
                     .build_no_records(response_meta);
                     if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                         error!(%error, "error encoding response");
-                        return send_error_response(
-                            update,
-                            ResponseCode::ServFail,
-                            response_handle,
-                        )
-                        .await;
+                        return error_response(update, ResponseCode::ServFail);
                     }
                     match signer.sign(&tbs_response_buf) {
                         Ok(signature) => response.set_signature(signature),
                         Err(error) => {
                             error!(%error, "error signing response");
-                            return send_error_response(
-                                update,
-                                ResponseCode::ServFail,
-                                response_handle,
-                            )
-                            .await;
+                            return error_response(update, ResponseCode::ServFail);
                         }
                     }
                 }
 
-                match response_handle.send_response(response).await {
-                    Err(error) => {
-                        error!(%error, "error sending message");
-                        return ResponseInfo::serve_failed(update);
-                    }
-                    Ok(response_info) => return response_info,
-                }
+                return response.encode(update.protocol());
             }
         };
 
-        send_error_response(update, ResponseCode::ServFail, response_handle).await
+        error_response(update, ResponseCode::ServFail)
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -292,28 +265,21 @@ impl Catalog {
     ///
     /// * `request` - the query message.
     /// * `response_edns` an optional `Edns` value for the response message
-    /// * `response_handle` - sink for the response message to be sent
-    pub async fn lookup<R: ResponseHandler>(
-        &self,
-        request: &Request,
-        now: u64,
-        response_handle: R,
-    ) -> ResponseInfo {
+    pub async fn lookup(&self, request: &Request, now: u64) -> ResponseInfo {
         let query = request.query();
         let handlers = self.find(query.name());
 
         let Some(handlers) = handlers else {
             // There are no zone handlers registered that can handle the request
-            return send_error_response(request, ResponseCode::Refused, response_handle).await;
+            return error_response(request, ResponseCode::Refused);
         };
 
         if query.query_type() == RecordType::AXFR {
-            zone_transfer(handlers, request, now, response_handle).await
+            zone_transfer(handlers, request, now).await
         } else {
             lookup(
                 handlers,
                 request,
-                response_handle,
                 #[cfg(feature = "metrics")]
                 &self.metrics,
             )
@@ -335,10 +301,9 @@ impl Catalog {
     }
 }
 
-async fn lookup<R: ResponseHandler + Unpin>(
+async fn lookup(
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
-    mut response_handle: R,
     #[cfg(feature = "metrics")] metrics: &CatalogMetrics,
 ) -> ResponseInfo {
     let edns = request.edns.as_ref();
@@ -402,7 +367,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         // to clean up the rest of the match conditions
         let Some(result) = result.map_result() else {
             error!("impossible skip detected after final lookup result");
-            return send_error_response(request, ResponseCode::ServFail, response_handle).await;
+            return error_response(request, ResponseCode::ServFail);
         };
 
         let response_message = match handler.zone_type() {
@@ -452,14 +417,13 @@ async fn lookup<R: ResponseHandler + Unpin>(
             );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
-                return send_error_response(request, ResponseCode::ServFail, response_handle).await;
+                return error_response(request, ResponseCode::ServFail);
             }
             match signer.sign(&tbs_response_buf) {
                 Ok(signature) => message_response.set_signature(signature),
                 Err(error) => {
                     error!(%error, "error signing response");
-                    return send_error_response(request, ResponseCode::ServFail, response_handle)
-                        .await;
+                    return error_response(request, ResponseCode::ServFail);
                 }
             }
         }
@@ -467,24 +431,17 @@ async fn lookup<R: ResponseHandler + Unpin>(
         #[cfg(feature = "metrics")]
         metrics.update_request_response(query, response_message.answers.iter());
 
-        match response_handle.send_response(message_response).await {
-            Err(error) => {
-                error!(%error, "error sending response");
-                return ResponseInfo::serve_failed(request);
-            }
-            Ok(response_info) => return response_info,
-        }
+        return message_response.encode(request.protocol());
     }
 
     error!("end of chained zone handler loop reached with all zone handlers not answering");
-    send_error_response(request, ResponseCode::ServFail, response_handle).await
+    error_response(request, ResponseCode::ServFail)
 }
 
 async fn zone_transfer(
     handlers: &[Arc<dyn ZoneHandler>],
     request: &Request,
     now: u64,
-    mut response_handle: impl ResponseHandler,
 ) -> ResponseInfo {
     // AXFR is restricted to stream transports: RFC 1035 section 4.2.1 states that "UDP is not
     // acceptable for zone transfers" and RFC 5936 section 4.2 leaves AXFR over UDP undefined.
@@ -495,7 +452,7 @@ async fn zone_transfer(
             protocol = %request.protocol(),
             "refused zone transfer over datagram transport"
         );
-        return send_error_response(request, ResponseCode::Refused, response_handle).await;
+        return error_response(request, ResponseCode::Refused);
     }
 
     let request_edns = request.edns.as_ref();
@@ -574,38 +531,26 @@ async fn zone_transfer(
             );
             if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
                 error!(%error, "error encoding response");
-                return send_error_response(request, ResponseCode::ServFail, response_handle).await;
+                return error_response(request, ResponseCode::ServFail);
             }
             match signer.sign(&tbs_response_buf) {
                 Ok(signature) => message_response.set_signature(signature),
                 Err(error) => {
                     error!(%error, "error signing response");
-                    return send_error_response(request, ResponseCode::ServFail, response_handle)
-                        .await;
+                    return error_response(request, ResponseCode::ServFail);
                 }
             }
         }
 
-        match response_handle.send_response(message_response).await {
-            Err(error) => {
-                error!(%error, "error sending response");
-                return ResponseInfo::serve_failed(request);
-            }
-            Ok(response_info) => return response_info,
-        }
+        return message_response.encode(request.protocol());
     }
 
     error!("end of chained zone handler loop with all zone handlers not answering");
-    send_error_response(request, ResponseCode::ServFail, response_handle).await
+    error_response(request, ResponseCode::ServFail)
 }
 
-/// Helper function to construct a response message with an error response code, and send it via a
-/// response handler.
-async fn send_error_response(
-    request: &Request,
-    response_code: ResponseCode,
-    mut response_handle: impl ResponseHandler,
-) -> ResponseInfo {
+/// Helper function to construct and encode a response message with an error response code.
+fn error_response(request: &Request, response_code: ResponseCode) -> ResponseInfo {
     let mut new_edns: Edns;
     let mut response_edns = request.response_edns.as_ref();
     if response_code.high() != 0 {
@@ -615,16 +560,9 @@ async fn send_error_response(
             response_edns = Some(&new_edns);
         }
     }
-    let response =
-        MessageResponseBuilder::new(&request.queries, response_edns, Some(request.max_payload()))
-            .error_msg(&request.metadata, response_code);
-    match response_handle.send_response(response).await {
-        Ok(r) => r,
-        Err(error) => {
-            error!(%error, "failed to send response");
-            ResponseInfo::serve_failed(request)
-        }
-    }
+    MessageResponseBuilder::new(&request.queries, response_edns, Some(request.max_payload()))
+        .error_msg(&request.metadata, response_code)
+        .encode(request.protocol())
 }
 
 /// Prepare a response for an authoritative zone

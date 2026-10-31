@@ -18,10 +18,9 @@ use crate::{
     net::{runtime::Time, xfer::Protocol},
     proto::{
         ProtoError,
-        op::{Header, HeaderCounts, MessageRequest, MessageType, Metadata, ResponseCode},
+        op::{Header, MessageRequest, Metadata},
         serialize::binary::{BinDecodable, BinDecoder},
     },
-    server::ResponseHandler,
 };
 
 /// An incoming request to the DNS catalog
@@ -121,7 +120,7 @@ impl std::ops::Deref for Request {
 
 /// Information about the response sent for a request
 #[non_exhaustive]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct ResponseInfo {
     /// Header for this response
     pub header: Header,
@@ -130,36 +129,8 @@ pub struct ResponseInfo {
     /// `None` means the response is not cacheable. The TTL is derived while the response is
     /// encoded, so a `ResponseInfo` from any other source reports `None`.
     pub cache_ttl: Option<u32>,
-}
-
-impl ResponseInfo {
-    /// Information for a `ServFail` response to the given request
-    pub fn serve_failed(request: &Request) -> Self {
-        let mut metadata = Metadata::new(
-            request.metadata.id,
-            MessageType::Response,
-            request.metadata.op_code,
-        );
-        metadata.response_code = ResponseCode::ServFail;
-        Self::from(Header {
-            metadata,
-            counts: HeaderCounts::default(),
-        })
-    }
-
-    /// Creates a new `ResponseInfo` with the given header and cache TTL.
-    pub fn new(header: Header, cache_ttl: Option<u32>) -> Self {
-        Self { header, cache_ttl }
-    }
-}
-
-impl From<Header> for ResponseInfo {
-    fn from(header: Header) -> Self {
-        Self {
-            header,
-            cache_ttl: None,
-        }
-    }
+    /// The encoded response message
+    pub bytes: Vec<u8>,
 }
 
 impl std::ops::Deref for ResponseInfo {
@@ -175,15 +146,10 @@ impl std::ops::Deref for ResponseInfo {
 pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
-    /// Returns information about the response that was sent.
+    /// Returns the encoded response message to send back to the client.
     ///
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
-    /// * `response_handle` - handle to which a return message should be sent
-    async fn handle_request<R: ResponseHandler, T: Time>(
-        &self,
-        request: &Request,
-        response_handle: R,
-    ) -> ResponseInfo;
+    async fn handle_request<T: Time>(&self, request: &Request) -> ResponseInfo;
 }

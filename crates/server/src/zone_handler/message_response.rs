@@ -84,7 +84,7 @@ where
     /// Encodes the response for sending over the given protocol
     ///
     /// If the response cannot be encoded, a `ServFail` response is encoded instead.
-    pub(crate) fn encode(self, protocol: Protocol) -> (ResponseInfo, Vec<u8>) {
+    pub fn encode(self, protocol: Protocol) -> ResponseInfo {
         let id = self.metadata.id;
         debug!(
             id,
@@ -102,7 +102,13 @@ where
         });
 
         let error = match self.destructive_emit(&mut encoder) {
-            Ok((header, cache_ttl)) => return (ResponseInfo { header, cache_ttl }, bytes),
+            Ok((header, cache_ttl)) => {
+                return ResponseInfo {
+                    header,
+                    cache_ttl,
+                    bytes,
+                };
+            }
             Err(error) => error,
         };
 
@@ -121,7 +127,11 @@ where
         header
             .emit(&mut encoder)
             .expect("encoding a header should never fail");
-        (ResponseInfo::from(header), bytes)
+        ResponseInfo {
+            header,
+            cache_ttl: None,
+            bytes,
+        }
     }
 
     /// Consumes self, and emits to the encoder.
@@ -476,7 +486,7 @@ mod tests {
             [],
         );
 
-        let (_info, buf) = response.encode(Protocol::Udp);
+        let buf = response.encode(Protocol::Udp).bytes;
         assert!(buf.len() <= 512, "response was {} bytes", buf.len());
 
         let response = Message::from_vec(&buf).expect("failed to decode");
@@ -510,7 +520,7 @@ mod tests {
         );
         response.set_edns(&edns);
 
-        let (_info, buf) = response.encode(Protocol::Udp);
+        let buf = response.encode(Protocol::Udp).bytes;
         assert!(buf.len() <= 512, "response was {} bytes", buf.len());
 
         let response = Message::from_vec(&buf).expect("failed to decode");
@@ -661,11 +671,10 @@ mod tests {
             Query::root(),
         );
 
-        let (info, _bytes) = MessageResponseBuilder::from_message_request(&request)
+        MessageResponseBuilder::from_message_request(&request)
             .build(metadata, answers, authorities, [], [])
-            .encode(Protocol::Tcp);
-
-        info.cache_ttl
+            .encode(Protocol::Tcp)
+            .cache_ttl
     }
 
     /// An answer-section record with the given TTL. The name and address are irrelevant.

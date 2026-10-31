@@ -136,15 +136,11 @@ async fn test_catalog_lookup() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(result.metadata.message_type, MessageType::Response);
@@ -173,15 +169,11 @@ async fn test_catalog_lookup() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(result.metadata.message_type, MessageType::Response);
@@ -221,15 +213,11 @@ async fn test_catalog_lookup_soa() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
     assert_eq!(result.metadata.message_type, MessageType::Response);
@@ -291,15 +279,11 @@ async fn test_catalog_nx_soa() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
     assert_eq!(result.metadata.message_type, MessageType::Response);
@@ -348,15 +332,11 @@ async fn test_catalog_soa_query_for_nx_name() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::NXDomain);
     assert_eq!(result.metadata.message_type, MessageType::Response);
@@ -402,15 +382,11 @@ async fn test_non_authoritive_nx_refused() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::Refused);
     assert_eq!(result.metadata.message_type, MessageType::Response);
@@ -457,15 +433,11 @@ async fn test_axfr_allow_all() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     let mut answers = result.answers;
 
@@ -561,15 +533,11 @@ async fn test_axfr_deny_all() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::Refused);
     assert!(result.answers.is_empty());
@@ -598,15 +566,11 @@ async fn test_axfr_refused_over_udp() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::Refused);
     assert!(result.answers.is_empty());
@@ -635,15 +599,7 @@ async fn test_axfr_deny_all_sqlite() {
     let request =
         Request::from_bytes(message_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &request,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.lookup(&request, TokioTime::current_time()).await);
 
     assert_eq!(response.metadata.response_code, ResponseCode::Refused);
     assert!(response.answers.is_empty());
@@ -674,15 +630,11 @@ async fn test_axfr_deny_unsigned() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.response_code, ResponseCode::Refused);
     assert!(result.answers.is_empty());
@@ -705,11 +657,7 @@ async fn test_do_bit_not_reflected_when_not_requested() {
     question_edns.set_dnssec_ok(false);
     let request = test_edns_request(origin, question_edns);
 
-    let response_handler = TestResponseHandler::new();
-    let _ = catalog
-        .handle_request::<_, TokioTime>(&request, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.handle_request::<TokioTime>(&request).await);
     assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let edns = response.edns.as_ref().expect("missing response EDNS");
@@ -735,11 +683,7 @@ async fn test_do_bit_reflected_when_requested() {
     question_edns.set_dnssec_ok(true);
     let request = test_edns_request(origin, question_edns);
 
-    let response_handler = TestResponseHandler::new();
-    let _ = catalog
-        .handle_request::<_, TokioTime>(&request, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.handle_request::<TokioTime>(&request).await);
     assert_eq!(response.metadata.response_code, ResponseCode::NoError);
 
     let edns = response.edns.as_ref().expect("missing response EDNS");
@@ -788,15 +732,11 @@ async fn test_cname_alias() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.message_type, MessageType::Response);
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -838,15 +778,11 @@ async fn test_cname_chain() {
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .lookup(
-            &question_req,
-            TokioTime::current_time(),
-            response_handler.clone(),
-        )
-        .await;
-    let result = response_handler.into_message().await;
+    let result = into_message(
+        catalog
+            .lookup(&question_req, TokioTime::current_time())
+            .await,
+    );
 
     assert_eq!(result.metadata.message_type, MessageType::Response);
     assert_eq!(result.metadata.response_code, ResponseCode::NoError);
@@ -898,11 +834,7 @@ async fn test_update_forwarder() {
     let request =
         Request::from_bytes(message_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .handle_request::<_, TokioTime>(&request, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.handle_request::<TokioTime>(&request).await);
 
     assert_eq!(response.metadata.response_code, ResponseCode::NotAuth);
     assert!(response.answers.is_empty());
@@ -925,11 +857,7 @@ async fn test_empty_chain_query() {
     let request =
         Request::from_bytes(message_bytes, ([127, 0, 0, 1], 53).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .handle_request::<_, TokioTime>(&request, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.handle_request::<TokioTime>(&request).await);
 
     assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
     assert!(response.answers.is_empty());
@@ -957,11 +885,7 @@ async fn test_empty_chain_update() {
     let request =
         Request::from_bytes(message_bytes, ([127, 0, 0, 1], 53).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .handle_request::<_, TokioTime>(&request, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.handle_request::<TokioTime>(&request).await);
 
     assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
     assert!(response.answers.is_empty());
@@ -984,11 +908,7 @@ async fn test_empty_chain_axfr() {
     let request =
         Request::from_bytes(message_bytes, ([127, 0, 0, 1], 53).into(), Protocol::Tcp).unwrap();
 
-    let response_handler = TestResponseHandler::new();
-    catalog
-        .handle_request::<_, TokioTime>(&request, response_handler.clone())
-        .await;
-    let response = response_handler.into_message().await;
+    let response = into_message(catalog.handle_request::<TokioTime>(&request).await);
 
     assert_eq!(response.metadata.response_code, ResponseCode::ServFail);
     assert!(response.answers.is_empty());
@@ -1050,15 +970,11 @@ mod dnssec {
             Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp)
                 .unwrap();
 
-        let response_handler = TestResponseHandler::new();
-        catalog
-            .lookup(
-                &question_req,
-                TokioTime::current_time(),
-                response_handler.clone(),
-            )
-            .await;
-        response_handler.into_message().await
+        into_message(
+            catalog
+                .lookup(&question_req, TokioTime::current_time())
+                .await,
+        )
     }
 
     #[tokio::test]

@@ -13,18 +13,13 @@ use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, reap_tasks, request_handler::RequestHandler,
-    response_handler::ResponseHandler, sanitize_src_address,
+    ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
+    request_handler::ResponseInfo, response_handler::ResponseHandler, sanitize_src_address,
 };
-use crate::{
-    net::{
-        NetError,
-        quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
-        xfer::Protocol,
-    },
-    proto::rr::Record,
-    server::optional_timeout,
-    zone_handler::MessageResponse,
+use crate::net::{
+    NetError,
+    quic::{DoqErrorCode, QuicServer, QuicStream, QuicStreams},
+    xfer::Protocol,
 };
 
 pub(super) async fn handle_quic(
@@ -206,25 +201,14 @@ struct QuicResponseHandle(QuicStream);
 #[async_trait::async_trait]
 impl ResponseHandler for QuicResponseHandle {
     // TODO: rethink this entire interface
-    async fn send_response<'a>(
-        &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode(Protocol::Quic);
-        let bytes = Bytes::from(bytes);
+    async fn send_response(&mut self, info: ResponseInfo) -> Result<(), NetError> {
+        let bytes = Bytes::from(info.bytes);
 
         debug!("sending quic response: {}", bytes.len());
         let stream = &mut self.0;
         stream.send_bytes(bytes).await?;
         stream.finish().await?;
 
-        Ok(info)
+        Ok(())
     }
 }

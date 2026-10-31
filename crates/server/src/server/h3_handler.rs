@@ -15,22 +15,19 @@ use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, reap_tasks, request_handler::RequestHandler,
-    response_handler::ResponseHandler, sanitize_src_address,
+    ServerContext, optional_timeout, reap_tasks,
+    request_handler::{RequestHandler, ResponseInfo},
+    response_handler::ResponseHandler,
+    sanitize_src_address,
 };
-use crate::{
-    net::{
-        NetError,
-        h3::{
-            BodyStream,
-            h3_server::{H3Connection, H3Server},
-        },
-        http::{self, Version},
-        xfer::Protocol,
+use crate::net::{
+    NetError,
+    h3::{
+        BodyStream,
+        h3_server::{H3Connection, H3Server},
     },
-    proto::rr::Record,
-    server::optional_timeout,
-    zone_handler::MessageResponse,
+    http::{self, Version},
+    xfer::Protocol,
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -245,19 +242,8 @@ struct H3ResponseHandle(RequestStream<SendStream<Bytes>, Bytes>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for H3ResponseHandle {
-    async fn send_response<'a>(
-        &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode(Protocol::H3);
-        let bytes = Bytes::from(bytes);
+    async fn send_response(&mut self, info: ResponseInfo) -> Result<(), NetError> {
+        let bytes = Bytes::from(info.bytes);
         let response = http::response(Version::Http3, bytes.len(), info.cache_ttl)?;
 
         debug!("sending response: {:#?}", response);
@@ -266,6 +252,6 @@ impl ResponseHandler for H3ResponseHandle {
         stream.send_data(bytes).await?;
         stream.finish().await?;
 
-        Ok(info)
+        Ok(())
     }
 }

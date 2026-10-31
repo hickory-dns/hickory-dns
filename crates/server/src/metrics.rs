@@ -13,11 +13,11 @@ use std::{
 };
 
 use hickory_net::xfer::Protocol as NetProtocol;
-use hickory_proto::op::{LowerQuery, Metadata, OpCode, ResponseCode};
+use hickory_proto::op::{Header, LowerQuery, Metadata, OpCode, ResponseCode};
 use hickory_proto::rr::{DNSClass, Record, RecordType};
 use metrics::{Counter, Gauge, Unit, counter, describe_counter, describe_gauge, gauge};
 
-use crate::server::{ResponseInfo, ResponseReporter};
+use crate::server::ResponseReporter;
 use crate::zone_handler::{AuthLookup, LookupControlFlow, ZoneHandler, ZoneType};
 
 pub(super) struct CatalogMetrics {
@@ -348,13 +348,13 @@ pub(super) struct ResponseHandlerMetrics {
 }
 
 impl ResponseHandlerMetrics {
-    pub(super) fn update(&self, info: &ResponseInfo, reporter: &ResponseReporter) {
+    pub(super) fn update(&self, header: &Header, reporter: &ResponseReporter) {
         self.proto.increment(&reporter.protocol);
         self.operation.increment(&reporter.request_meta.op_code);
         self.request_flags.increment(&reporter.request_meta);
 
-        self.response_code.increment(&info.response_code);
-        self.response_flags.increment(info);
+        self.response_code.increment(&header.response_code);
+        self.response_flags.increment(header);
     }
 }
 

@@ -3,19 +3,14 @@
 
 use std::{
     fmt,
-    future::poll_fn,
-    mem,
     net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     pin::Pin,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::{Arc, Mutex},
     task::{Context, Poll},
 };
 
 use futures::{
-    Future, FutureExt,
+    FutureExt,
     future::{self, BoxFuture},
     stream::{Stream, StreamExt},
 };
@@ -42,14 +37,13 @@ use hickory_proto::{
 };
 use hickory_proto::{
     op::{DnsResponse, Message, SerialMessage},
-    rr::Record,
-    serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder},
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::Server;
 use hickory_server::{
-    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
-    zone_handler::{Catalog, MessageResponse},
+    server::{Request, RequestHandler, ResponseInfo},
+    zone_handler::Catalog,
 };
 
 pub mod example_zone;
@@ -79,61 +73,10 @@ impl TestClientStream {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct TestResponseHandler {
-    message_ready: Arc<AtomicBool>,
-    buf: Arc<Mutex<Vec<u8>>>,
-}
-
-impl TestResponseHandler {
-    pub fn new() -> Self {
-        let buf = Arc::new(Mutex::new(Vec::with_capacity(512)));
-        let message_ready = Arc::new(AtomicBool::new(false));
-        Self { message_ready, buf }
-    }
-
-    fn into_inner(self) -> impl Future<Output = Vec<u8>> {
-        poll_fn(move |_| {
-            if self
-                .message_ready
-                .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
-                .is_ok()
-            {
-                let bytes: Vec<u8> = mem::take(&mut self.buf.lock().unwrap());
-                Poll::Ready(bytes)
-            } else {
-                Poll::Pending
-            }
-        })
-    }
-
-    pub async fn into_message(self) -> Message {
-        let bytes = self.into_inner().await;
-        let mut decoder = BinDecoder::new(&bytes);
-        Message::read(&mut decoder).expect("could not decode message")
-    }
-}
-
-#[async_trait::async_trait]
-impl ResponseHandler for TestResponseHandler {
-    async fn send_response<'a>(
-        &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> Result<ResponseInfo, NetError> {
-        let buf = &mut self.buf.lock().unwrap();
-        buf.clear();
-        let mut encoder = BinEncoder::new(buf);
-        let (header, cache_ttl) = response.destructive_emit(&mut encoder)?;
-        self.message_ready.store(true, Ordering::Release);
-        Ok(ResponseInfo::new(header, cache_ttl))
-    }
+/// Decode the encoded response produced by a request handler
+pub fn into_message(info: ResponseInfo) -> Message {
+    let mut decoder = BinDecoder::new(&info.bytes);
+    Message::read(&mut decoder).expect("could not decode message")
 }
 
 impl DnsClientStream for TestClientStream {
@@ -157,16 +100,14 @@ impl Stream for TestClientStream {
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
                 let request = Request::from_bytes(bytes, src_addr, Protocol::Udp).unwrap();
 
-                let response_handler = TestResponseHandler::new();
-                block_on(
+                let response = block_on(
                     self.catalog
                         .lock()
                         .unwrap()
-                        .handle_request::<_, TokioTime>(&request, response_handler.clone()),
+                        .handle_request::<TokioTime>(&request),
                 );
 
-                let buf = block_on(response_handler.into_inner());
-                Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
+                Poll::Ready(Some(Ok(SerialMessage::new(response.bytes, src_addr))))
             }
             // now we get to drop through to the receives...
             Poll::Ready(None) => Poll::Ready(None),

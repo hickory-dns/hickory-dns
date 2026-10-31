@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hickory_integration::TestResponseHandler;
+use hickory_integration::into_message;
 use hickory_net::{
     runtime::{Time, TokioTime},
     xfer::Protocol,
@@ -329,7 +329,7 @@ fn inner_lookup(
 }
 
 // Boilerplate to query the catalog
-async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestResponseHandler) {
+async fn do_query(catalog: &Catalog, query_name: &str) -> ResponseInfo {
     let mut question = Message::query();
 
     let query = Query::new(Name::from_ascii(query_name).unwrap(), RecordType::A);
@@ -340,20 +340,15 @@ async fn do_query(catalog: &Catalog, query_name: &str) -> (ResponseInfo, TestRes
     let question_bytes = question.to_bytes().unwrap();
     let question_req =
         Request::from_bytes(question_bytes, ([127, 0, 0, 1], 5553).into(), Protocol::Udp).unwrap();
-    let response_handler = TestResponseHandler::new();
     let now = TokioTime::current_time();
 
-    let res = catalog
-        .lookup(&question_req, now, response_handler.clone())
-        .await;
-    (res, response_handler)
+    catalog.lookup(&question_req, now).await
 }
 
 // Handle boilerplate for the most common test case pattern: a positive response with a single A
 // record.
 async fn basic_test(catalog: &Catalog, query_name: &'static str, answer: A) {
-    let (_, response_handler) = do_query(catalog, query_name).await;
-    let result = response_handler.into_message().await;
+    let result = into_message(do_query(catalog, query_name).await);
 
     let answers = result.answers;
 
@@ -365,7 +360,7 @@ async fn basic_test(catalog: &Catalog, query_name: &'static str, answer: A) {
 }
 
 async fn error_test(catalog: &Catalog, query_name: &str, r_code: ResponseCode) {
-    let (res, _) = do_query(catalog, query_name).await;
+    let res = do_query(catalog, query_name).await;
 
     assert_eq!(res.response_code, r_code);
     assert_eq!(res.header.counts.answers, 0);

@@ -9,7 +9,7 @@ use hickory_proto::{
     rr::{LowerName, Name, RecordType},
 };
 use hickory_server::{
-    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
+    server::{Request, RequestHandler, ResponseInfo},
     zone_handler::MessageResponseBuilder,
 };
 use tracing::error;
@@ -43,44 +43,28 @@ impl MockHandler {
 
 #[async_trait]
 impl RequestHandler for MockHandler {
-    async fn handle_request<R: ResponseHandler, T: Time>(
-        &self,
-        request: &Request,
-        mut response_handle: R,
-    ) -> ResponseInfo {
+    async fn handle_request<T: Time>(&self, request: &Request) -> ResponseInfo {
         let query = request.query();
         if query.name() == &self.query_name && query.query_type() == self.query_type {
-            send_response(response_handle, request, &self.response).await
+            encode_response(request, &self.response)
         } else if query.name() == &self.dnskey_name && query.query_type() == RecordType::DNSKEY {
-            send_response(response_handle, request, &self.dnskey_response).await
+            encode_response(request, &self.dnskey_response)
         } else {
             error!(%query, "unexpected request");
             let response_builder = MessageResponseBuilder::from_message_request(request);
             let mut response_meta = Metadata::response_from_request(&request.metadata);
             response_meta.response_code = ResponseCode::ServFail;
-            let result = response_handle
-                .send_response(response_builder.build_no_records(response_meta))
-                .await;
-            match result {
-                Ok(info) => info,
-                Err(e) => {
-                    error!(error = %e, "error responding to request");
-                    ResponseInfo::serve_failed(request)
-                }
-            }
+            response_builder
+                .build_no_records(response_meta)
+                .encode(request.protocol())
         }
     }
 }
 
 /// Helper for implementation of `RequestHandler`.
 ///
-/// Turns a `DnsResponse` into a `MessageResponse`, performs error handling, and produces a
-/// `ResponseInfo`.
-async fn send_response(
-    mut response_handle: impl ResponseHandler,
-    request: &Request,
-    response: &DnsResponse,
-) -> ResponseInfo {
+/// Turns a `DnsResponse` into a `MessageResponse`, and encodes it into a `ResponseInfo`.
+fn encode_response(request: &Request, response: &DnsResponse) -> ResponseInfo {
     let mut response_meta = response.metadata;
     response_meta.id = request.metadata.id;
 
@@ -96,14 +80,7 @@ async fn send_response(
         &response.additionals,
     );
 
-    let result = response_handle.send_response(message_response).await;
-    match result {
-        Ok(info) => info,
-        Err(e) => {
-            error!(error = %e, "error responding to request");
-            ResponseInfo::serve_failed(request)
-        }
-    }
+    message_response.encode(request.protocol())
 }
 
 /// Helper to query `example. IN DNSKEY` and return the response.

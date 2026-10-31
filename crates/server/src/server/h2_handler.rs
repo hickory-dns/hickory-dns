@@ -19,19 +19,16 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
 
 use super::{
-    ResponseInfo, ServerContext, default_tls_server_config, is_unrecoverable_socket_error,
-    reap_tasks, request_handler::RequestHandler, response_handler::ResponseHandler,
+    ServerContext, default_tls_server_config, is_unrecoverable_socket_error, optional_timeout,
+    reap_tasks,
+    request_handler::{RequestHandler, ResponseInfo},
+    response_handler::ResponseHandler,
     sanitize_src_address,
 };
-use crate::{
-    net::{
-        NetError,
-        http::{self, Version},
-        xfer::Protocol,
-    },
-    proto::rr::Record,
-    server::optional_timeout,
-    zone_handler::MessageResponse,
+use crate::net::{
+    NetError,
+    http::{self, Version},
+    xfer::Protocol,
 };
 
 /// handle h2 using the default TLS server config.
@@ -226,25 +223,14 @@ struct HttpsResponseHandle(server::SendResponse<Bytes>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for HttpsResponseHandle {
-    async fn send_response<'a>(
-        &mut self,
-        response: MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> Result<ResponseInfo, NetError> {
-        let (info, bytes) = response.encode(Protocol::Https);
-        let bytes = Bytes::from(bytes);
+    async fn send_response(&mut self, info: ResponseInfo) -> Result<(), NetError> {
+        let bytes = Bytes::from(info.bytes);
         let response = http::response(Version::Http2, bytes.len(), info.cache_ttl)?;
 
         debug!("sending response: {:#?}", response);
         let mut stream = self.0.send_response(response, false)?;
         stream.send_data(bytes, true)?;
 
-        Ok(info)
+        Ok(())
     }
 }
