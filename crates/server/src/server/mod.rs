@@ -65,7 +65,6 @@ use crate::{
             Header, LowerQuery, MessageRequest, MessageType, Metadata, OpCode, Queries,
             ResponseCode, SerialMessage,
         },
-        rr::Record,
         serialize::binary::{BinDecodable, BinDecoder},
     },
     zone_handler::MessageResponseBuilder,
@@ -930,19 +929,20 @@ impl<T: RequestHandler> ServerContext<T> {
         );
 
         // The reporter will handle making sure to log the result of the request
-        let reporter = ReportingResponseHandler {
+        let reporter = ResponseReporter {
             request_meta: request.metadata,
             query: Some(query.clone()),
             protocol: request.protocol(),
             src_addr: request.src(),
-            handler: response_handler,
             #[cfg(feature = "metrics")]
             metrics: ResponseHandlerMetrics::default(),
         };
 
-        self.handler
-            .handle_request::<_, TokioTime>(&request, reporter)
+        let info = self
+            .handler
+            .handle_request::<_, TokioTime>(&request, response_handler)
             .await;
+        reporter.report(&info);
     }
 }
 
@@ -956,7 +956,7 @@ async fn error_response_handler(
     response_code: ResponseCode,
     response_edns: Option<&Edns>,
     error: impl fmt::Display,
-    response_handler: impl ResponseHandler,
+    mut response_handler: impl ResponseHandler,
 ) {
     // debug for more info on why the message parsing failed
     debug!(
@@ -972,12 +972,11 @@ async fn error_response_handler(
     );
 
     // The reporter will handle making sure to log the result of the request
-    let mut reporter = ReportingResponseHandler {
+    let reporter = ResponseReporter {
         request_meta: header.metadata,
         query: queries.as_ref().map(|q| (**q).clone()),
         protocol,
         src_addr,
-        handler: response_handler,
         #[cfg(feature = "metrics")]
         metrics: ResponseHandlerMetrics::default(),
     };
@@ -987,40 +986,28 @@ async fn error_response_handler(
         None => MessageResponseBuilder::no_queries(response_edns),
     };
 
-    let result = reporter
+    let result = response_handler
         .send_response(response.error_msg(&header, response_code))
         .await;
 
-    if let Err(error) = result {
-        warn!(%error, "failed to return FormError to client");
+    match result {
+        Ok(info) => reporter.report(&info),
+        Err(error) => warn!(%error, "failed to return FormError to client"),
     }
 }
 
-pub(super) struct ReportingResponseHandler<R: ResponseHandler> {
+pub(super) struct ResponseReporter {
     pub(super) request_meta: Metadata,
     query: Option<LowerQuery>,
     pub(super) protocol: Protocol,
     src_addr: SocketAddr,
-    handler: R,
     #[cfg(feature = "metrics")]
     metrics: ResponseHandlerMetrics,
 }
 
-#[async_trait::async_trait]
-impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
-    async fn send_response<'a>(
-        &mut self,
-        response: crate::zone_handler::MessageResponse<
-            '_,
-            'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-            impl Iterator<Item = &'a Record> + Send + 'a,
-        >,
-    ) -> Result<ResponseInfo, NetError> {
-        let response_info = self.handler.send_response(response).await?;
-
+impl ResponseReporter {
+    /// Logs the response sent for the request, and updates metrics
+    fn report(&self, response_info: &ResponseInfo) {
         let id = self.request_meta.id;
         let rid = response_info.id;
         if id != rid {
@@ -1055,9 +1042,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         }
 
         #[cfg(feature = "metrics")]
-        self.metrics.update(self, &response_info);
-
-        Ok(response_info)
+        self.metrics.update(response_info, self);
     }
 }
 
