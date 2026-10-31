@@ -200,7 +200,7 @@ impl ResponseHandler for QuicResponseHandle {
     // TODO: rethink this entire interface
     async fn send_response<'a>(
         &mut self,
-        mut response: MessageResponse<
+        response: MessageResponse<
             '_,
             'a,
             impl Iterator<Item = &'a Record> + Send + 'a,
@@ -209,8 +209,6 @@ impl ResponseHandler for QuicResponseHandle {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
-        // The id should always be 0 in DoQ
-        response.metadata_mut().id = 0;
         let (info, bytes) = response.encode(Protocol::Quic)?;
         let bytes = Bytes::from(bytes);
 
