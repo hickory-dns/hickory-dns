@@ -8,16 +8,12 @@
 use std::{net::SocketAddr, sync::Arc, task::Context, time::Duration};
 
 use bytes::{Buf, Bytes};
-use h3::server::RequestStream;
-use h3_quinn::SendStream;
 use rustls::server::ResolvesServerCert;
 use tokio::{net, task::JoinSet};
 use tracing::{debug, warn};
 
 use super::{
-    ServerContext, optional_timeout, reap_tasks,
-    request_handler::{RequestHandler, ResponseInfo},
-    response_handler::ResponseHandler,
+    ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
     sanitize_src_address,
 };
 use crate::net::{
@@ -193,7 +189,7 @@ pub(crate) async fn h3_handler(
 
             debug!("Received request: {:#?}", request);
 
-            let (send, mut recv) = stream.split();
+            let (mut send, mut recv) = stream.split();
 
             let body_stream = BodyStream::from(move |cx: &mut Context<'_>| recv.poll_recv_data(cx));
             let request = request.map(|()| body_stream);
@@ -217,13 +213,39 @@ pub(crate) async fn h3_handler(
                 "Received request body"
             );
 
-            cx.handle_request(
-                body.freeze(),
-                src_addr,
-                Protocol::H3,
-                H3ResponseHandle(send),
-            )
-            .await
+            let Some((info, reporter)) = cx
+                .handle_request(body.freeze(), src_addr, Protocol::H3)
+                .await
+            else {
+                return;
+            };
+
+            let bytes = Bytes::from(info.bytes);
+            let response = match http::response(Version::Http3, bytes.len(), info.cache_ttl) {
+                Ok(response) => response,
+                Err(error) => {
+                    warn!(%error, "failed to build response");
+                    return;
+                }
+            };
+
+            debug!("sending response: {:#?}", response);
+            if let Err(error) = send.send_response(response).await {
+                warn!(%error, "failed to send response");
+                return;
+            }
+
+            if let Err(error) = send.send_data(bytes).await {
+                warn!(%error, "failed to send response");
+                return;
+            }
+
+            if let Err(error) = send.finish().await {
+                warn!(%error, "failed to send response");
+                return;
+            }
+
+            reporter.report(&info.header);
         });
 
         max_requests -= 1;
@@ -236,22 +258,4 @@ pub(crate) async fn h3_handler(
     }
 
     Ok(())
-}
-
-struct H3ResponseHandle(RequestStream<SendStream<Bytes>, Bytes>);
-
-#[async_trait::async_trait]
-impl ResponseHandler for H3ResponseHandle {
-    async fn send_response(&mut self, info: ResponseInfo) -> Result<(), NetError> {
-        let bytes = Bytes::from(info.bytes);
-        let response = http::response(Version::Http3, bytes.len(), info.cache_ttl)?;
-
-        debug!("sending response: {:#?}", response);
-        let stream = &mut self.0;
-        stream.send_response(response).await?;
-        stream.send_data(bytes).await?;
-        stream.finish().await?;
-
-        Ok(())
-    }
 }
