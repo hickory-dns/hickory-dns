@@ -1,0 +1,59 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-11.1"
+
+# Privacy
+#
+#    With the ECS option, the network address of the client that initiated
+#    the resolution becomes visible to all servers involved in the
+#    resolution process.  Additionally, it will be visible from any
+#    network traversed by the DNS packets.
+# 
+#    To protect users' privacy, Recursive Resolvers are strongly
+#    encouraged to conceal part of the user's IP address by truncating
+#    IPv4 addresses to 24 bits. 56 bits are recommended for IPv6, based on
+#    [RFC6177].
+# 
+#    ISPs should have more detailed knowledge of their own networks.  That
+#    is, they might know that all 24-bit prefixes in a /20 are in the same
+#    area.  In those cases, for optimal cache utilization and improved
+#    privacy, the ISP's Recursive Resolver SHOULD truncate IP addresses in
+#    this /20 to just 20 bits, instead of 24 as recommended above.
+# 
+#    Users who wish their full IP address to be hidden need to configure
+#    their client software, if possible, to include an ECS option
+#    specifying the wildcard address (i.e., a SOURCE PREFIX-LENGTH of 0).
+# 
+#    As described in previous sections, this option will be forwarded
+#    across all the Recursive Resolvers supporting ECS, which MUST NOT
+#    modify it to include the network address of the client.
+# 
+#    Note that even without an ECS option, any server queried directly by
+#    the user will be able to see the full client IP address.  Recursive
+#    Resolvers or Authoritative Nameservers MAY use the source IP address
+#    of queries to return a cached entry or to generate a Tailored
+#    Response that best matches the query.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In those cases, for optimal cache utilization and improved
+privacy, the ISP's Recursive Resolver SHOULD truncate IP addresses in
+this /20 to just 20 bits, instead of 24 as recommended above.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As described in previous sections, this option will be forwarded
+across all the Recursive Resolvers supporting ECS, which MUST NOT
+modify it to include the network address of the client.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Recursive
+Resolvers or Authoritative Nameservers MAY use the source IP address
+of queries to return a cached entry or to generate a Tailored
+Response that best matches the query.
+'''
+

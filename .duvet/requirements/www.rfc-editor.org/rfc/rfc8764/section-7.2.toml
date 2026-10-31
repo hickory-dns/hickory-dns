@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-7.2"
+
+# LLQ Refresh Acknowledgment
+#
+#    Upon receiving an LLQ Refresh message, a server MUST send an
+#    acknowledgment of the Refresh.  This acknowledgment is formatted like
+#    the "ACK + Answers" message described in Section 5.2.4, but with the
+#    following variations:
+# 
+#    *  It contains no answers.
+# 
+#    *  The LLQ-OPCODE is set to LLQ-REFRESH.
+# 
+#    *  NO-SUCH-LLQ MUST be returned as an error code if the client
+#       attempts to refresh an expired or non-existent LLQ (as determined
+#       by the LLQ-ID in the request).
+# 
+#    *  The LLQ-ID in the acknowledgment is set to the LLQ-ID in the
+#       request.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Upon receiving an LLQ Refresh message, a server MUST send an
+acknowledgment of the Refresh.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  NO-SUCH-LLQ MUST be returned as an error code if the client
+attempts to refresh an expired or non-existent LLQ (as determined
+by the LLQ-ID in the request).
+'''
+

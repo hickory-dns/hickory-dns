@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc9077#section-3.2"
+
+# Updates to RFC 4035
+#
+#    [RFC4035] says:
+# 
+#    |  The TTL value for any NSEC RR SHOULD be the same as the minimum
+#    |  TTL value field in the zone SOA RR.
+# 
+#    This is updated to say:
+# 
+#    |  The TTL of the NSEC RR that is returned MUST be the lesser of the
+#    |  MINIMUM field of the SOA record and the TTL of the SOA itself.
+#    |  This matches the definition of the TTL for negative responses in
+#    |  [RFC2308].  Because some signers incrementally update the NSEC
+#    |  chain, a transient inconsistency between the observed and expected
+#    |  TTL MAY exist.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+|  The TTL value for any NSEC RR SHOULD be the same as the minimum
+|  TTL value field in the zone SOA RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  The TTL of the NSEC RR that is returned MUST be the lesser of the
+|  MINIMUM field of the SOA record and the TTL of the SOA itself.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Because some signers incrementally update the NSEC
+|  chain, a transient inconsistency between the observed and expected
+|  TTL MAY exist.
+'''
+

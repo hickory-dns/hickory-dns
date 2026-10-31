@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc8020#section-1.1"
+
+# Terminology
+#
+#    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+#    "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+#    document are to be interpreted as described in [RFC2119].
+# 
+#    "QNAME": defined in [RFC1034] and in [RFC1035], Section 4.1.2, but,
+#    because [RFC2308] provides a different definition, we repeat the
+#    original one here: the QNAME is the domain name in the question
+#    section.
+# 
+#    "Denied name": the domain name whose existence has been denied by a
+#    response RCODE of NXDOMAIN.  In most cases, it is the QNAME but,
+#    because of [RFC6604], it is not always the case.
+# 
+#    Other terms are defined in [RFC1034], [RFC1035], and (like NXDOMAIN
+#    itself) in the more recent [RFC7719].
+# 
+#    The domain name space is conceptually defined in terms of a tree
+#    structure.  The implementation of a DNS resolver/cache MAY use a tree
+#    or other data structures.  The cache being a subset of the data in
+#    the domain name space, it is much easier to reason about it in terms
+#    of that tree structure and to describe things in those terms (names
+#    under/above, descendant names, subtrees, etc.).  In fact, the DNS
+#    algorithm description in [RFC1034] even states an assumption that the
+#    cache is a tree structure, so the precedent is already well
+#    established: see its Section 4.3.2, which says "The following
+#    algorithm assumes that the RRs are organized in several tree
+#    structures, one for each zone, and another for the cache..." So, in
+#    this document, each time we talk about a tree or tree operations,
+#    we're referring to the model, not to the actual implementation.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The implementation of a DNS resolver/cache MAY use a tree
+or other data structures.
+'''
+

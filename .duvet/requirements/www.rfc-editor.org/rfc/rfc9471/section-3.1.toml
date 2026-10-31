@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc9471#section-3.1"
+
+# Glue for In-Domain Name Servers
+#
+#    This document clarifies that when a name server generates a referral
+#    response, it MUST include all available glue records for in-domain
+#    name servers in the additional section or MUST set TC=1 if
+#    constrained by message size.
+# 
+#    At the time of this writing, most iterative clients send initial
+#    queries over UDP and retry over TCP upon receiving a response with
+#    the TC flag set.  UDP responses are generally limited to between 1232
+#    and 4096 bytes, due to values commonly used for the EDNS0 UDP Message
+#    Size field [RFC6891] [FLAGDAY2020].  TCP responses are limited to
+#    65,535 bytes.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This document clarifies that when a name server generates a referral
+response, it MUST include all available glue records for in-domain
+name servers in the additional section or MUST set TC=1 if
+constrained by message size.
+'''
+

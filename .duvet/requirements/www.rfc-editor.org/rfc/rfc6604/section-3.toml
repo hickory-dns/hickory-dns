@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc6604#section-3"
+
+# RCODE Clarification
+#
+#    The RCODE field in a DNS query response header is non-zero to
+#    indicate an error.  Section 4.3.2 of [RFC1034] has a resolution
+#    algorithm that includes CNAME processing but has been found to be
+#    unclear concerning the ultimate setting of RCODE in the case of such
+#    redirection.  Section 2.1 of [RFC2308] implies that the RCODE should
+#    be set based on the last query cycle in the case of an xNAME chain,
+#    but Section 2.2.1 of [RFC2308] says that some servers don't do that!
+# 
+#    When there is an xNAME chain, the RCODE field is set as follows:
+# 
+#       When an xNAME chain is followed, all but the last query cycle
+#       necessarily had no error.  The RCODE in the ultimate DNS response
+#       MUST BE set based on the final query cycle leading to that
+#       response.  If the xNAME chain was terminated by an error, it will
+#       be that error code.  If the xNAME chain terminated without error,
+#       it will be zero.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The RCODE in the ultimate DNS response
+MUST BE set based on the final query cycle leading to that
+response.
+'''
+

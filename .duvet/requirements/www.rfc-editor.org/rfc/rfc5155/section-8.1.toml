@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.1"
+
+# Responses with Unknown Hash Types
+#
+#    A validator MUST ignore NSEC3 RRs with unknown hash types.  The
+#    practical result of this is that responses containing only such NSEC3
+#    RRs will generally be considered bogus.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A validator MUST ignore NSEC3 RRs with unknown hash types.
+'''
+

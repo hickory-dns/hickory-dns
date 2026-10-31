@@ -1,0 +1,68 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-4.2"
+
+# States
+#
+#    Start    The key doesn't yet exist as a trust anchor at the resolver.
+#             It may or may not exist at the zone server, but either
+#             hasn't yet been seen at the resolver or was seen but was
+#             absent from the last DNSKEY RRSet (e.g., KeyRem event).
+# 
+#    AddPend  The key has been seen at the resolver, has its 'SEP' bit
+#             set, and has been included in a validated DNSKEY RRSet.
+#             There is a hold-down time for the key before it can be used
+#             as a trust anchor.
+# 
+#    Valid    The key has been seen at the resolver and has been included
+#             in all validated DNSKEY RRSets from the time it was first
+#             seen through the hold-down time.  It is now valid for
+#             verifying RRSets that arrive after the hold-down time.
+#             Clarification: The DNSKEY RRSet does not need to be
+#             continuously present at the resolver (e.g., its TTL might
+#             expire).  If the RRSet is seen and is validated (i.e.,
+#             verifies against an existing trust anchor), this key MUST be
+#             in the RRSet, otherwise a 'KeyRem' event is triggered.
+# 
+#    Missing  This is an abnormal state.  The key remains a valid trust-
+#             point key, but was not seen at the resolver in the last
+#             validated DNSKEY RRSet.  This is an abnormal state because
+#             the zone operator should be using the REVOKE bit prior to
+#             removal.
+# 
+#    Revoked  This is the state a key moves to once the resolver sees an
+#             RRSIG(DNSKEY) signed by this key where that DNSKEY RRSet
+#             contains this key with its REVOKE bit set to '1'.  Once in
+#             this state, this key MUST permanently be considered invalid
+#             as a trust anchor.
+# 
+#    Removed  After a fairly long hold-down time, information about this
+#             key may be purged from the resolver.  A key in the removed
+#             state MUST NOT be considered a valid trust anchor.  (Note:
+#             this state is more or less equivalent to the "Start" state,
+#             except that it's bad practice to re-introduce previously
+#             used keys -- think of this as the holding state for all the
+#             old keys for which the resolver no longer needs to track
+#             state.)
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the RRSet is seen and is validated (i.e.,
+verifies against an existing trust anchor), this key MUST be
+in the RRSet, otherwise a 'KeyRem' event is triggered.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once in
+this state, this key MUST permanently be considered invalid
+as a trust anchor.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A key in the removed
+state MUST NOT be considered a valid trust anchor.
+'''
+

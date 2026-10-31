@@ -1,0 +1,88 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-6.2"
+
+# Using the New CDS/CDNSKEY Records
+#
+#    Regardless of how the Parental Agent detected changes to a CDS/
+#    CDNSKEY RRset, the Parental Agent SHOULD use a DNSSEC validator to
+#    obtain a validated CDS/CDNSKEY RRset from the Child zone.  A NOT
+#    RECOMMENDED exception to this is if the Parent performs some
+#    additional validation on the data to confirm that it is the "correct"
+#    key.
+# 
+#    The Parental Agent MUST ensure that previous versions of the CDS/
+#    CDNSKEY RRset do not overwrite more recent versions.  This MAY be
+#    accomplished by checking that the signature inception in the Resource
+#    Record Signature (RRSIG) for CDS/CDNSKEY RRset is later and/or that
+#    the serial number on the Child's Start of Authority (SOA) is greater.
+#    This may require the Parental Agent to maintain some state
+#    information.
+# 
+#    The Parental Agent MAY take extra security measures.  For example, to
+#    mitigate the possibility that a Child's Key Signing Key (KSK) has
+#    been compromised, the Parental Agent may inform (by email or other
+#    methods) the Child DNS Operator of the change.  However, the precise
+#    out-of-band measures that a Parent zone takes are outside the scope
+#    of this document.
+# 
+#    Once the Parental Agent has obtained a valid CDS/CDNSKEY RRset it
+#    MUST check the publication rules from Section 4.1.  In particular,
+#    the Parental Agent MUST check the Continuity rule and do its best not
+#    to invalidate the Child zone.  Once checked, if the information in
+#    the CDS/CDNSKEY and DS differ, it may apply the changes to the Parent
+#    zone.  If the Parent consumes CDNSKEY, the Parent should calculate
+#    the DS before doing this comparison.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Regardless of how the Parental Agent detected changes to a CDS/
+CDNSKEY RRset, the Parental Agent SHOULD use a DNSSEC validator to
+obtain a validated CDS/CDNSKEY RRset from the Child zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A NOT
+RECOMMENDED exception to this is if the Parent performs some
+additional validation on the data to confirm that it is the "correct"
+key.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Parental Agent MUST ensure that previous versions of the CDS/
+CDNSKEY RRset do not overwrite more recent versions.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+This MAY be
+accomplished by checking that the signature inception in the Resource
+Record Signature (RRSIG) for CDS/CDNSKEY RRset is later and/or that
+the serial number on the Child's Start of Authority (SOA) is greater.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The Parental Agent MAY take extra security measures.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once the Parental Agent has obtained a valid CDS/CDNSKEY RRset it
+MUST check the publication rules from Section 4.1.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In particular,
+the Parental Agent MUST check the Continuity rule and do its best not
+to invalidate the Child zone.
+'''
+

@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-7.2"
+
+# TLS Versions
+#
+#    All implementations of this specification MUST use only TLS 1.3
+#    [RFC8446] or later.
+
+[[spec]]
+level = "MUST"
+quote = '''
+All implementations of this specification MUST use only TLS 1.3
+[RFC8446] or later.
+'''
+

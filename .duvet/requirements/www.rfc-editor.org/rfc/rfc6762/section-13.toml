@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-13"
+
+# Enabling and Disabling Multicast DNS
+#
+#    The option to fail-over to Multicast DNS for names not ending in
+#    ".local." SHOULD be a user-configured option, and SHOULD be disabled
+#    by default because of the possible security issues related to
+#    unintended local resolution of apparently global names.  Enabling
+#    Multicast DNS for names not ending in ".local." may be appropriate on
+#    a secure isolated network, or on some future network were machines
+#    exclusively use DNSSEC for all DNS queries, and have Multicast DNS
+#    responders capable of generating the appropriate cryptographic DNSSEC
+#    signatures, thereby guarding against spoofing.
+# 
+#    The option to look up unqualified (relative) names by appending
+#    ".local." (or not) is controlled by whether ".local." appears (or
+#    not) in the client's DNS search list.
+# 
+#    No special control is needed for enabling and disabling Multicast DNS
+#    for names explicitly ending with ".local." as entered by the user.
+#    The user doesn't need a way to disable Multicast DNS for names ending
+#    with ".local.", because if the user doesn't want to use Multicast
+#    DNS, they can achieve this by simply not using those names.  If a
+#    user *does* enter a name ending in ".local.", then we can safely
+#    assume the user's intention was probably that it should work.  Having
+#    user configuration options that can be (intentionally or
+# 
+#    unintentionally) set so that local names don't work is just one more
+#    way of frustrating the user's ability to perform the tasks they want,
+#    perpetuating the view that, "IP networking is too complicated to
+#    configure and too hard to use".
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The option to fail-over to Multicast DNS for names not ending in
+".local." SHOULD be a user-configured option, and SHOULD be disabled
+by default because of the possible security issues related to
+unintended local resolution of apparently global names.
+'''
+

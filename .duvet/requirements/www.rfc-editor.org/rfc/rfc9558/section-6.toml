@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc9558#section-6"
+
+# Implementation Considerations
+#
+#    The support of this cryptographic suite in DNSSEC-aware systems is
+#    OPTIONAL.  According to RFC 6840 [RFC6840], Section 5.2, systems that
+#    do not support these algorithms MUST ignore the RRSIG, DNSKEY, and DS
+#    resource records associated with the GOST R 34.10-2012 digital
+#    signature algorithm.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The support of this cryptographic suite in DNSSEC-aware systems is
+OPTIONAL.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+According to RFC 6840 [RFC6840], Section 5.2, systems that
+do not support these algorithms MUST ignore the RRSIG, DNSKEY, and DS
+resource records associated with the GOST R 34.10-2012 digital
+signature algorithm.
+'''
+

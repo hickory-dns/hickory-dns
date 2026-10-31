@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-1"
+
+# Introduction
+#
+#    DNS [RFC1035] specifies a message format, and within such messages
+#    there are standard formats for encoding options, errors, and name
+#    compression.  The maximum allowable size of a DNS message over UDP
+#    not using the extensions described in this document is 512 bytes.
+#    Many of DNS's protocol limits, such as the maximum message size over
+#    UDP, are too small to efficiently support the additional information
+#    that can be conveyed in the DNS (e.g., several IPv6 addresses or DNS
+#    Security (DNSSEC) signatures).  Finally, RFC 1035 does not define any
+#    way for implementations to advertise their capabilities to any of the
+#    other actors they interact with.
+# 
+#    [RFC2671] added extension mechanisms to DNS.  These mechanisms are
+#    widely supported, and a number of new DNS uses and protocol
+#    extensions depend on the presence of these extensions.  This memo
+#    refines and obsoletes [RFC2671].
+# 
+#    Unextended agents will not know how to interpret the protocol
+#    extensions defined in [RFC2671] and restated here.  Extended agents
+#    need to be prepared for handling the interactions with unextended
+#    clients in the face of new protocol elements and fall back gracefully
+#    to unextended DNS.
+# 
+#    EDNS is a hop-by-hop extension to DNS.  This means the use of EDNS is
+#    negotiated between each pair of hosts in a DNS resolution process,
+#    for instance, the stub resolver communicating with the recursive
+#    resolver or the recursive resolver communicating with an
+#    authoritative server.
+# 
+#    [RFC2671] specified extended label types.  The only such label
+#    proposed was in [RFC2673] for a label type called "Bit-String Label"
+#    or "Binary Labels", with this latest term being the one in common
+#    use.  For various reasons, introducing a new label type was found to
+#    be extremely difficult, and [RFC2673] was moved to Experimental.
+#    This document obsoletes [RFC2673], deprecating Binary Labels.
+#    Extended labels remain defined, but their use is discouraged due to
+#    practical difficulties with deployment; their use in the future
+#    SHOULD only be considered after careful evaluation of the deployment
+#    hindrances.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Extended labels remain defined, but their use is discouraged due to
+practical difficulties with deployment; their use in the future
+SHOULD only be considered after careful evaluation of the deployment
+hindrances.
+'''
+

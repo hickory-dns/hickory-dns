@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#section-3.1.5"
+
+# Signature Expiration and Inception Fields
+#
+#    The Signature Expiration and Inception fields specify a validity
+#    period for the signature.  The RRSIG record MUST NOT be used for
+#    authentication prior to the inception date and MUST NOT be used for
+#    authentication after the expiration date.
+# 
+#    The Signature Expiration and Inception field values specify a date
+#    and time in the form of a 32-bit unsigned number of seconds elapsed
+#    since 1 January 1970 00:00:00 UTC, ignoring leap seconds, in network
+#    byte order.  The longest interval that can be expressed by this
+#    format without wrapping is approximately 136 years.  An RRSIG RR can
+#    have an Expiration field value that is numerically smaller than the
+#    Inception field value if the expiration field value is near the
+#    32-bit wrap-around point or if the signature is long lived.  Because
+#    of this, all comparisons involving these fields MUST use "Serial
+#    number arithmetic", as defined in [RFC1982].  As a direct
+#    consequence, the values contained in these fields cannot refer to
+#    dates more than 68 years in either the past or the future.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The RRSIG record MUST NOT be used for
+authentication prior to the inception date and MUST NOT be used for
+authentication after the expiration date.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Because
+of this, all comparisons involving these fields MUST use "Serial
+number arithmetic", as defined in [RFC1982].
+'''
+

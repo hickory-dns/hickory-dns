@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.8"
+
+# Validating Wildcard Answer Responses
+#
+#    The verified wildcard answer RRSet in the response provides the
+#    validator with a (candidate) closest encloser for QNAME.  This
+#    closest encloser is the immediate ancestor to the generating
+#    wildcard.
+# 
+#    Validators MUST verify that there is an NSEC3 RR that covers the
+#    "next closer" name to QNAME present in the response.  This proves
+#    that QNAME itself did not exist and that the correct wildcard was
+#    used to generate the response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Validators MUST verify that there is an NSEC3 RR that covers the
+"next closer" name to QNAME present in the response.
+'''
+

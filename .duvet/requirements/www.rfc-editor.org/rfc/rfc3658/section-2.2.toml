@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2"
+
+# Protocol Change
+#
+#    All DNS servers and resolvers that support DS MUST support the OK bit
+#    [RFC3225] and a larger message size [RFC3226].  In order for a
+#    delegation to be considered secure the delegation MUST contain a DS
+#    RRset.  If a query contains the OK bit, a nameserver returning a
+#    referral for the delegation MUST include the following RRsets in the
+#    authority section in this order:
+# 
+#    If DS RRset is present:
+#       parent's copy of child's NS RRset
+#       DS and SIG(DS)
+# 
+#    If no DS RRset is present:
+#       parent's copy of child's NS RRset
+#       parent's zone NXT and SIG(NXT)
+# 
+#    This increases the size of referral messages, possibly causing some
+#    or all glue to be omitted.  If the DS or NXT RRsets with signatures
+#    do not fit in the DNS message, the TC bit MUST be set.  Additional
+#    section processing is not changed.
+# 
+#    A DS RRset accompanying a NS RRset indicates that the child zone is
+#    secure.  If a NS RRset exists without a DS RRset, the child zone is
+#    unsecure (from the parents point of view).  DS RRsets MUST NOT appear
+#    at non-delegation points or at a zone's apex.
+# 
+#    Section 2.2.1 defines special considerations related to authoritative
+#    nameservers responding to DS queries and replaces RFC 2535 sections
+#    2.3.4 and 3.4.  Section 2.2.2 replaces RFC 3008 section 2.7, and
+#    section 2.2.3 updates RFC 3090.
+
+[[spec]]
+level = "MUST"
+quote = '''
+All DNS servers and resolvers that support DS MUST support the OK bit
+[RFC3225] and a larger message size [RFC3226].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order for a
+delegation to be considered secure the delegation MUST contain a DS
+RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a query contains the OK bit, a nameserver returning a
+referral for the delegation MUST include the following RRsets in the
+authority section in this order:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the DS or NXT RRsets with signatures
+do not fit in the DNS message, the TC bit MUST be set.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DS RRsets MUST NOT appear
+at non-delegation points or at a zone's apex.
+'''
+

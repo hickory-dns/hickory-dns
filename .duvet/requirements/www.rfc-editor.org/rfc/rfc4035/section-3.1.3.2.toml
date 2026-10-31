@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.3.2"
+
+# Including NSEC RRs: Name Error Response
+#
+#    If the zone does not contain any RRsets matching <SNAME, SCLASS>
+#    either exactly or via wildcard name expansion, then the name server
+#    MUST include the following NSEC RRs in the Authority section, along
+#    with their associated RRSIG RRs:
+# 
+#    o  An NSEC RR proving that there is no exact match for <SNAME,
+#       SCLASS>.
+# 
+#    o  An NSEC RR proving that the zone contains no RRsets that would
+#       match <SNAME, SCLASS> via wildcard name expansion.
+# 
+#    In some cases, a single NSEC RR may prove both of these points.  If
+#    it does, the name server SHOULD only include the NSEC RR and its
+#    RRSIG RR(s) once in the Authority section.
+# 
+#    If space does not permit inclusion of these NSEC and RRSIG RRs, the
+#    name server MUST set the TC bit (see Section 3.1.1).
+# 
+#    The owner names of these NSEC and RRSIG RRs are not subject to
+#    wildcard name expansion when these RRs are included in the Authority
+#    section of the response.
+# 
+#    Note that this form of response includes cases in which SNAME
+#    corresponds to an empty non-terminal name within the zone (a name
+#    that is not the owner name for any RRset but that is the parent name
+#    of one or more RRsets).
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the zone does not contain any RRsets matching <SNAME, SCLASS>
+either exactly or via wildcard name expansion, then the name server
+MUST include the following NSEC RRs in the Authority section, along
+with their associated RRSIG RRs:
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If
+it does, the name server SHOULD only include the NSEC RR and its
+RRSIG RR(s) once in the Authority section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does not permit inclusion of these NSEC and RRSIG RRs, the
+name server MUST set the TC bit (see Section 3.1.1).
+'''
+

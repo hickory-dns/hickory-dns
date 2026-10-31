@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-3.3"
+
+# Glue Records
+#
+#    As quoted in the previous section, Section 4.2.1 of RFC 1034 provides
+#    guidance and rationale for the inclusion of glue records as part of
+#    an AXFR response.  And, as also argued in the previous section of
+#    this document, even when there is an inconsistency between the
+#    address in a glue record and the authoritative copy of the name
+#    server's address, the glue resource record that is registered as part
+#    of the zone for that serial number is to be included.
+# 
+#    This applies to glue records for any address family [IANA-AF].
+# 
+#    The AXFR response MUST contain the appropriate glue records as
+#    registered with the zone.  The interpretation of "registered with" in
+#    the previous section applies here.  Inconsistent glue records are an
+#    operational matter.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The AXFR response MUST contain the appropriate glue records as
+registered with the zone.
+'''
+

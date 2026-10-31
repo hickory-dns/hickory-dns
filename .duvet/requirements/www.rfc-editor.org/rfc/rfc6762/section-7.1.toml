@@ -1,0 +1,80 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-7.1"
+
+# Known-Answer Suppression
+#
+#    When a Multicast DNS querier sends a query to which it already knows
+#    some answers, it populates the Answer Section of the DNS query
+#    message with those answers.
+# 
+#    Generally, this applies only to Shared records, not Unique records,
+#    since if a Multicast DNS querier already has at least one Unique
+#    record in its cache then it should not be expecting further different
+#    answers to this question, since the Unique record(s) it already has
+#    comprise the complete answer, so it has no reason to be sending the
+#    query at all.  In contrast, having some Shared records in its cache
+#    does not necessarily imply that a Multicast DNS querier will not
+# 
+#    receive further answers to this query, and it is in this case that it
+#    is beneficial to use the Known-Answer list to suppress repeated
+#    sending of redundant answers that the querier already knows.
+# 
+#    A Multicast DNS responder MUST NOT answer a Multicast DNS query if
+#    the answer it would give is already included in the Answer Section
+#    with an RR TTL at least half the correct value.  If the RR TTL of the
+#    answer as given in the Answer Section is less than half of the true
+#    RR TTL as known by the Multicast DNS responder, the responder MUST
+#    send an answer so as to update the querier's cache before the record
+#    becomes in danger of expiration.
+# 
+#    Because a Multicast DNS responder will respond if the remaining TTL
+#    given in the Known-Answer list is less than half the true TTL, it is
+#    superfluous for the querier to include such records in the Known-
+#    Answer list.  Therefore, a Multicast DNS querier SHOULD NOT include
+#    records in the Known-Answer list whose remaining TTL is less than
+#    half of their original TTL.  Doing so would simply consume space in
+#    the message without achieving the goal of suppressing responses and
+#    would, therefore, be a pointless waste of network capacity.
+# 
+#    A Multicast DNS querier MUST NOT cache resource records observed in
+#    the Known-Answer Section of other Multicast DNS queries.  The Answer
+#    Section of Multicast DNS queries is not authoritative.  By placing
+#    information in the Answer Section of a Multicast DNS query, the
+#    querier is stating that it *believes* the information to be true.  It
+#    is not asserting that the information *is* true.  Some of those
+#    records may have come from other hosts that are no longer on the
+#    network.  Propagating that stale information to other Multicast DNS
+#    queriers on the network would not be helpful.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS responder MUST NOT answer a Multicast DNS query if
+the answer it would give is already included in the Answer Section
+with an RR TTL at least half the correct value.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the RR TTL of the
+answer as given in the Answer Section is less than half of the true
+RR TTL as known by the Multicast DNS responder, the responder MUST
+send an answer so as to update the querier's cache before the record
+becomes in danger of expiration.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore, a Multicast DNS querier SHOULD NOT include
+records in the Known-Answer list whose remaining TTL is less than
+half of their original TTL.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS querier MUST NOT cache resource records observed in
+the Known-Answer Section of other Multicast DNS queries.
+'''
+

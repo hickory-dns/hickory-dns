@@ -1,0 +1,113 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-9"
+
+# Security Considerations
+#
+#    This work is for the normal case; when things go wrong there is only
+#    so much that automation can fix.
+# 
+#    If the Child breaks DNSSEC validation by removing all the DNSKEYs
+#    that are represented in the DS set, its only repair actions are to
+#    contact the Parent or restore the DNSKEYs in the DS set.
+# 
+#    In the event of a compromise of the server or system generating
+#    signatures for a zone, an attacker might be able to generate and
+#    publish new CDS/CDNSKEY resource records.  The modified CDS/CDNSKEY
+#    records will be picked up by this technique and may allow the
+#    attacker to extend the effective time of his attack.  If there is a
+#    delay in accepting changes to DS, as in [RFC5011], then the attacker
+#    needs to hope his activity is not detected before the DS in the
+#    Parent is changed.  If this type of change takes place, the Child
+#    needs to contact the Parent (possibly via a Registrar web interface)
+#    and remove any compromised DS keys.
+# 
+#    A compromise of the account with the Parent (e.g., Registrar) will
+#    not be mitigated by this technique, as the "new Registrant" can
+#    delete or modify the DS records at will.
+# 
+#    While it may be tempting, the techniques specified in this document
+#    SHOULD NOT be used for initial enrollment of keys since there is no
+#    way to ensure that the initial key is the correct one.  If it is
+#    used, strict rules for inclusion of keys -- such as hold-down times,
+#    challenge data inclusion, or similar -- MUST be used along with some
+#    kind of challenge mechanism.  A Child cannot use this mechanism to go
+#    from signed to unsigned (publishing an empty CDS/CDNSKEY RRset means
+#    no change should be made in the Parent).
+# 
+#    The CDS RR type should allow for enhanced security by simplifying the
+#    process.  Since key change is automated, updating a DS RRset by other
+#    means may be regarded as unusual and subject to extra security
+#    checks.
+# 
+#    As this introduces a new mechanism to update information in the
+#    Parent, it MUST be clear who is fetching the records and creating the
+#    appropriate records in the Parent zone.  Specifically, some
+#    operations may use mechanisms other than what is described here.  For
+#    example, a Registrar may assume that it is maintaining the DNSSEC key
+#    information in the Registry and may have this cached.  If the
+#    Registry is fetching the CDS/CDNSKEY RRset, then the Registry and
+#    Registrar may have different views of the DNSSEC key material; the
+# 
+#    result of such a situation is unclear.  Therefore, this mechanism
+#    SHOULD NOT be used to bypass intermediaries that might cache
+#    information and, because of that, get the wrong state.
+# 
+#    If there is a failure in applying changes in the Child zone to all
+#    DNS servers listed in either Parent or Child NS set, it is possible
+#    that the Parental Agent may get confused either because it gets
+#    different answers on different checks or CDS RR validation fails.  In
+#    the worst case, the Parental Agent performs an action reversing a
+#    prior action after the Child signing system decides to take the next
+#    step in the key change process, resulting in a broken delegation.
+# 
+#    DNS is a loosely coherent distributed database with local caching;
+#    therefore, it is important to allow old information to expire from
+#    caches before deleting DS or DNSKEY records.  Similarly, it is
+#    important to allow new records to propagate through the DNS before
+#    use (see [RFC6781]).
+# 
+#    It is common practice for users to outsource their DNS hosting to a
+#    third-party DNS provider.  In order for that provider to be able to
+#    maintain the DNSSEC information, some users give the provider their
+#    Registrar login credentials (which obviously has negative security
+#    implications).  Deploying the solution described in this document
+#    allows third-party DNS providers to maintain the DNSSEC information
+#    without Registrants giving their Registrar credentials, thereby
+#    improving security.
+# 
+#    By automating the maintenance of the DNSSEC key information (and
+#    removing humans from the process), we expect to decrease the number
+#    of DNSSEC related outages, which should increase DNSSEC deployment.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+While it may be tempting, the techniques specified in this document
+SHOULD NOT be used for initial enrollment of keys since there is no
+way to ensure that the initial key is the correct one.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If it is
+used, strict rules for inclusion of keys -- such as hold-down times,
+challenge data inclusion, or similar -- MUST be used along with some
+kind of challenge mechanism.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As this introduces a new mechanism to update information in the
+Parent, it MUST be clear who is fetching the records and creating the
+appropriate records in the Parent zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Therefore, this mechanism
+SHOULD NOT be used to bypass intermediaries that might cache
+information and, because of that, get the wrong state.
+'''
+

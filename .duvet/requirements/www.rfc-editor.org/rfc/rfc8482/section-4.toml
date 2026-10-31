@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-4"
+
+# Behavior of DNS Responders
+#
+#    Below are the three different modes of behavior by DNS responders
+#    when processing queries with QNAMEs that exist, QCLASS=IN, and
+#    QTYPE=ANY.  Operators and implementers are free to choose whichever
+#    mechanism best suits their environment.
+# 
+#    1.  A DNS responder can choose to select one or a larger subset of
+#        the available RRsets at the QNAME.
+# 
+#    2.  A DNS responder can return a synthesized HINFO resource record.
+#        See Section 6 for discussion of the use of HINFO.
+# 
+#    3.  A resolver can try to give out the most likely records the
+#        requester wants.  This is not always possible, and the result
+#        might well be a large response.
+# 
+#    Except as described below in this section, the DNS responder MUST
+#    follow the standard algorithms when constructing a response.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Except as described below in this section, the DNS responder MUST
+follow the standard algorithms when constructing a response.
+'''
+

@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-5.2"
+
+# Dynamic Update and DNAME
+#
+#    DNAME records can be added, changed, and removed in a zone using
+#    dynamic update transactions.  Adding a DNAME RR to a zone occludes
+#    any domain names that may exist under the added DNAME.
+# 
+#    If a dynamic update message attempts to add a DNAME with a given
+#    owner name, but a CNAME is associated with that name, then the server
+#    MUST ignore the DNAME.  If a DNAME is already associated with that
+#    name, then it is replaced with the new DNAME.  Otherwise, add the
+#    DNAME.  If a CNAME is added with a given owner name, but a DNAME is
+# 
+#    associated with that name, then the CNAME MUST be ignored.  Similar
+#    behavior occurs for dynamic updates to an owner name of a CNAME RR
+#    [RFC2136].
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a dynamic update message attempts to add a DNAME with a given
+owner name, but a CNAME is associated with that name, then the server
+MUST ignore the DNAME.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+associated with that name, then the CNAME MUST be ignored.
+'''
+

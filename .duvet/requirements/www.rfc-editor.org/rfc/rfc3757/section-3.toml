@@ -1,0 +1,17 @@
+target = "https://www.rfc-editor.org/rfc/rfc3757#section-3"
+
+# DNSSEC Protocol Changes
+#
+#    The bit MUST NOT be used during the resolving and verification
+#    process.  The SEP flag is only used to provide a hint about the
+#    different administrative properties of the key and therefore the use
+#    of the SEP flag does not change the DNS resolution protocol or the
+#    resolution process.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The bit MUST NOT be used during the resolving and verification
+process.
+'''
+

@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-11"
+
+# Policies for Both AXoT and IXoT
+#
+#    Whilst the protection of the zone contents in a transfer between two
+#    endpoints can be provided by the XoT protocol, the protection of all
+#    the transfers of a given zone requires operational administration and
+#    policy management.
+# 
+#    The entire group of servers involved in XFR for a particular set of
+#    zones (all the primaries and all the secondaries) is called the
+#    'transfer group'.
+# 
+#    In order to assure the confidentiality of the zone information, the
+#    entire transfer group MUST have a consistent policy of using XoT.  If
+#    any do not, this is a weak link for attackers to exploit.  For
+#    clarification, this means that within any transfer group both AXFRs
+#    and IXFRs for a zone MUST all use XoT.
+# 
+#    An individual zone transfer is not considered protected by XoT unless
+#    both the client and server are configured to use only XoT, and the
+#    overall zone transfer is not considered protected until all members
+#    of the transfer group are configured to use only XoT with all other
+#    transfers servers (see Section 12).
+# 
+#    A XoT policy MUST specify if:
+# 
+#    *  mutual TLS is used and/or
+# 
+#    *  an IP-based ACL and TSIG/SIG(0) combination is used.
+# 
+#    Since this may require configuration of a number of servers who may
+#    be under the control of different operators, the desired consistency
+#    could be hard to enforce and audit in practice.
+# 
+#    Certain aspects of the policies can be relatively easy to test
+#    independently, e.g., by requesting zone transfers without TSIG, from
+#    unauthorized IP addresses or over cleartext DNS.  Other aspects, such
+#    as if a secondary will accept data without a TSIG digest or if
+#    secondaries are using Strict as opposed to Opportunistic TLS, are
+#    more challenging.
+# 
+#    The mechanics of coordinating or enforcing such policies are out of
+#    the scope of this document but may be the subject of future
+#    operational guidance.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In order to assure the confidentiality of the zone information, the
+entire transfer group MUST have a consistent policy of using XoT.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For
+clarification, this means that within any transfer group both AXFRs
+and IXFRs for a zone MUST all use XoT.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A XoT policy MUST specify if:
+'''
+

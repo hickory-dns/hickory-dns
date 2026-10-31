@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9"
+
+# Using Service Bindings with HTTP
+#
+#    The use of any protocol with SVCB requires a protocol-specific
+#    mapping specification.  This section specifies the mapping for the
+#    "http" and "https" URI schemes [HTTP].
+# 
+#    To enable special handling for HTTP use cases, the HTTPS RR type is
+#    defined as a SVCB-compatible RR type, specific to the "https" and
+#    "http" schemes.  Clients MUST NOT perform SVCB queries or accept SVCB
+#    responses for "https" or "http" schemes.
+# 
+#    The presentation format of the record is:
+# 
+#    Name TTL IN HTTPS SvcPriority TargetName SvcParams
+# 
+#    All the SvcParamKeys defined in Section 7 are permitted for use in
+#    HTTPS RRs.  The default set of ALPN IDs is the single value
+#    "http/1.1".  The "automatically mandatory" keys (Section 8) are
+#    "port" and "no-default-alpn".  (As described in Section 8, clients
+#    must either implement these keys or ignore any RR in which they
+#    appear.)  Clients that restrict the destination port in "https" URIs
+#    (e.g., using the "bad ports" list from [FETCH]) SHOULD apply the same
+#    restriction to the "port" SvcParam.
+# 
+#    The presence of an HTTPS RR for an origin also indicates that clients
+#    should connect securely and use the "https" scheme, as discussed in
+#    Section 9.5.  This allows HTTPS RRs to apply to pre-existing "http"
+#    scheme URLs, while ensuring that the client uses a secure and
+#    authenticated connection.
+# 
+#    The HTTPS RR parallels the concepts introduced in "HTTP Alternative
+#    Services" [AltSvc].  Clients and servers that implement HTTPS RRs are
+#    not required to implement Alt-Svc.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients MUST NOT perform SVCB queries or accept SVCB
+responses for "https" or "http" schemes.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+(As described in Section 8, clients
+must either implement these keys or ignore any RR in which they
+appear.)  Clients that restrict the destination port in "https" URIs
+(e.g., using the "bad ports" list from [FETCH]) SHOULD apply the same
+restriction to the "port" SvcParam.
+'''
+

@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-12.1.1"
+
+# Dictionary Attacks
+#
+#    The NSEC3 RRs are still susceptible to dictionary attacks (i.e., the
+#    attacker retrieves all the NSEC3 RRs, then calculates the hashes of
+#    all likely domain names, comparing against the hashes found in the
+#    NSEC3 RRs, and thus enumerating the zone).  These are substantially
+#    more expensive than enumerating the original NSEC RRs would have
+#    been, and in any case, such an attack could also be used directly
+#    against the name server itself by performing queries for all likely
+#    names, though this would obviously be more detectable.  The expense
+#    of this off-line attack can be chosen by setting the number of
+#    iterations in the NSEC3 RR.
+# 
+#    Zones are also susceptible to a pre-calculated dictionary attack --
+#    that is, a list of hashes for all likely names is computed once, then
+#    NSEC3 RR is scanned periodically and compared against the precomputed
+#    hashes.  This attack is prevented by changing the salt on a regular
+#    basis.
+# 
+#    The salt SHOULD be at least 64 bits long and unpredictable, so that
+#    an attacker cannot anticipate the value of the salt and compute the
+#    next set of dictionaries before the zone is published.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The salt SHOULD be at least 64 bits long and unpredictable, so that
+an attacker cannot anticipate the value of the salt and compute the
+next set of dictionaries before the zone is published.
+'''
+

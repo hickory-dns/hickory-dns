@@ -1,0 +1,127 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-5.4"
+
+# Questions Requesting Unicast Responses
+#
+#    Sending Multicast DNS responses via multicast has the benefit that
+#    all the other hosts on the network get to see those responses,
+#    enabling them to keep their caches up to date and detect conflicting
+#    responses.
+# 
+#    However, there are situations where all the other hosts on the
+#    network don't need to see every response.  Some examples are a laptop
+#    computer waking from sleep, the Ethernet cable being connected to a
+#    running machine, or a previously inactive interface being activated
+#    through a configuration change.  At the instant of wake-up or link
+#    activation, the machine is a brand new participant on a new network.
+#    Its Multicast DNS cache for that interface is empty, and it has no
+# 
+#    knowledge of its peers on that link.  It may have a significant
+#    number of questions that it wants answered right away, to discover
+#    information about its new surroundings and present that information
+#    to the user.  As a new participant on the network, it has no idea
+#    whether the exact same questions may have been asked and answered
+#    just seconds ago.  In this case, triggering a large sudden flood of
+#    multicast responses may impose an unreasonable burden on the network.
+# 
+#    To avoid large floods of potentially unnecessary responses in these
+#    cases, Multicast DNS defines the top bit in the class field of a DNS
+#    question as the unicast-response bit.  When this bit is set in a
+#    question, it indicates that the querier is willing to accept unicast
+#    replies in response to this specific query, as well as the usual
+#    multicast responses.  These questions requesting unicast responses
+#    are referred to as "QU" questions, to distinguish them from the more
+#    usual questions requesting multicast responses ("QM" questions).  A
+#    Multicast DNS querier sending its initial batch of questions
+#    immediately on wake from sleep or interface activation SHOULD set the
+#    unicast-response bit in those questions.
+# 
+#    When a question is retransmitted (as described in Section 5.2), the
+#    unicast-response bit SHOULD NOT be set in subsequent retransmissions
+#    of that question.  Subsequent retransmissions SHOULD be usual "QM"
+#    questions.  After the first question has received its responses, the
+#    querier should have a large Known-Answer list (Section 7.1) so that
+#    subsequent queries should elicit few, if any, further responses.
+#    Reverting to multicast responses as soon as possible is important
+#    because of the benefits that multicast responses provide (see
+#    Appendix D).  In addition, the unicast-response bit SHOULD be set
+#    only for questions that are active and ready to be sent the moment of
+#    wake from sleep or interface activation.  New questions created by
+#    local clients afterwards should be treated as normal "QM" questions
+#    and SHOULD NOT have the unicast-response bit set on the first
+#    question of the series.
+# 
+#    When receiving a question with the unicast-response bit set, a
+#    responder SHOULD usually respond with a unicast packet directed back
+#    to the querier.  However, if the responder has not multicast that
+#    record recently (within one quarter of its TTL), then the responder
+#    SHOULD instead multicast the response so as to keep all the peer
+#    caches up to date, and to permit passive conflict detection.  In the
+#    case of answering a probe question (Section 8.1) with the unicast-
+#    response bit set, the responder should always generate the requested
+#    unicast response, but it may also send a multicast announcement if
+#    the time since the last multicast announcement of that record is more
+#    than a quarter of its TTL.
+# 
+#    Unicast replies are subject to all the same packet generation rules
+#    as multicast replies, including the cache-flush bit (Section 10.2)
+#    and (except when defending a unique name against a probe from another
+#    host) randomized delays to reduce network collisions (Section 6).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A
+Multicast DNS querier sending its initial batch of questions
+immediately on wake from sleep or interface activation SHOULD set the
+unicast-response bit in those questions.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a question is retransmitted (as described in Section 5.2), the
+unicast-response bit SHOULD NOT be set in subsequent retransmissions
+of that question.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Subsequent retransmissions SHOULD be usual "QM"
+questions.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In addition, the unicast-response bit SHOULD be set
+only for questions that are active and ready to be sent the moment of
+wake from sleep or interface activation.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+New questions created by
+local clients afterwards should be treated as normal "QM" questions
+and SHOULD NOT have the unicast-response bit set on the first
+question of the series.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When receiving a question with the unicast-response bit set, a
+responder SHOULD usually respond with a unicast packet directed back
+to the querier.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+However, if the responder has not multicast that
+record recently (within one quarter of its TTL), then the responder
+SHOULD instead multicast the response so as to keep all the peer
+caches up to date, and to permit passive conflict detection.
+'''
+

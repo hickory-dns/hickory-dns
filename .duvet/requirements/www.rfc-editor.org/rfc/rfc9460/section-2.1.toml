@@ -1,0 +1,78 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.1"
+
+# Zone-File Presentation Format
+#
+#    The presentation format <RDATA> of the record ([RFC1035],
+#    Section 5.1) has the form:
+# 
+#    SvcPriority TargetName SvcParams
+# 
+#    The SVCB record is defined specifically within the Internet ("IN")
+#    Class ([RFC1035], Section 3.2.4).
+# 
+#    SvcPriority is a number in the range 0-65535, TargetName is a
+#    <domain-name> ([RFC1035], Section 5.1), and the SvcParams are a
+#    whitespace-separated list with each SvcParam consisting of a
+#    SvcParamKey=SvcParamValue pair or a standalone SvcParamKey.
+#    SvcParamKeys are registered by IANA (Section 14.3).
+# 
+#    Each SvcParamKey SHALL appear at most once in the SvcParams.  In
+#    presentation format, SvcParamKeys are lowercase alphanumeric strings.
+#    Key names contain 1-63 characters from the ranges "a"-"z", "0"-"9",
+#    and "-".  In ABNF [RFC5234],
+# 
+#    alpha-lc      = %x61-7A   ; a-z
+#    SvcParamKey   = 1*63(alpha-lc / DIGIT / "-")
+#    SvcParam      = SvcParamKey ["=" SvcParamValue]
+#    SvcParamValue = char-string ; See Appendix A.
+#    value         = *OCTET ; Value before key-specific parsing
+# 
+#    The SvcParamValue is parsed using the character-string decoding
+#    algorithm (Appendix A), producing a value.  The value is then
+#    validated and converted into wire format in a manner specific to each
+#    key.
+# 
+#    When the optional "=" and SvcParamValue are omitted, the value is
+#    interpreted as empty.
+# 
+#    Arbitrary keys can be represented using the unknown-key presentation
+#    format "keyNNNNN" where NNNNN is the numeric value of the key type
+#    without leading zeros.  A SvcParam in this form SHALL be parsed as
+#    specified above, and the decoded value SHALL be used as its wire-
+#    format encoding.
+# 
+#    For some SvcParamKeys, the value corresponds to a list or set of
+#    items.  Presentation formats for such keys SHOULD use a comma-
+#    separated list (Appendix A.1).
+# 
+#    SvcParams in presentation format MAY appear in any order, but keys
+#    MUST NOT be repeated.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each SvcParamKey SHALL appear at most once in the SvcParams.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A SvcParam in this form SHALL be parsed as
+specified above, and the decoded value SHALL be used as its wire-
+format encoding.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Presentation formats for such keys SHOULD use a comma-
+separated list (Appendix A.1).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+SvcParams in presentation format MAY appear in any order, but keys
+MUST NOT be repeated.
+'''
+

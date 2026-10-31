@@ -1,0 +1,77 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2.1.2"
+
+# Special processing when child and an ancestor share
+#
+#           nameserver
+# 
+#    Special rules are needed to permit DS RR aware nameservers to
+#    gracefully interact with older caches which otherwise might falsely
+#    label a nameserver as lame because of the placement of the DS RR set.
+# 
+#    Such a situation might arise when a nameserver is authoritative for
+#    both a zone and it's grandparent, but not the parent.  This sounds
+#    like an obscure example, but it is very real.  The root zone is
+#    currently served on 13 machines, and "root-servers.net." is served on
+#    4 of the 13, but "net." is severed on different nameservers.
+# 
+#    When a nameserver receives a query for (<QNAME>, DS, <QCLASS>), the
+#    response MUST be determined from reading these rules in order:
+# 
+#    1) If the nameserver is authoritative for the zone that holds the DS
+#       RR set (i.e., the zone that delegates <QNAME>, a.k.a. the "parent"
+#       zone), the response contains the DS RR set as an authoritative
+#       answer.
+# 
+#    2) If the nameserver is offering recursive service and the RD bit is
+#       set in the query, the nameserver performs the query itself
+#       (according to the rules for resolvers described below) and returns
+#       its findings.
+# 
+#    3) If the nameserver is authoritative for the zone that holds the
+#       <QNAME>'s SOA RR set, the response is an authoritative negative
+#       answer as described in 2.2.1.1.
+# 
+#    4) If the nameserver is authoritative for a zone or zones above the
+#       QNAME, a referral to the most enclosing (deepest match) zone's
+#       servers is made.
+# 
+#    5) If the nameserver is not authoritative for any part of the QNAME,
+#       a response indicating a lame nameserver for QNAME is given.
+# 
+#    Using these rules will require some special processing on the part of
+#    a DS RR aware resolver.  To illustrate this, an example is used.
+# 
+#    Assuming a nameserver is authoritative for roots.example.net. and for
+#    the root zone but not the intervening two zones (or the intervening
+#    two label deep zone).  Assume that QNAME=roots.example.net.,
+#    QTYPE=DS, and QCLASS=IN.
+# 
+#    The resolver will issue this request (assuming no cached data)
+#    expecting a referral to a nameserver for .net.  Instead, rule number
+#    3 above applies and a negative answer is returned by the nameserver.
+#    The reaction by the resolver is not to accept this answer as final,
+#    as it can determine from the SOA RR in the negative answer the
+#    context within which the nameserver has answered.
+# 
+#    A solution would be to instruct the resolver to hunt for the
+#    authoritative zone of the data in a brute force manner.
+# 
+#    This can be accomplished by taking the owner name of the returned SOA
+#    RR and striping off enough left-hand labels until a successful NS
+#    response is obtained.  A successful response here means that the
+#    answer has NS records in it.  (Entertaining the possibility that a
+#    cut point can be two labels down in a zone.)
+# 
+#    Returning to the example, the response will include a negative answer
+#    with either the SOA RR for "roots.example.net." or "example.net."
+#    depending on whether roots.example.net is a delegated domain.  In
+#    either case, removing the left most label of the SOA owner name will
+#    lead to the location of the desired data.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a nameserver receives a query for (<QNAME>, DS, <QCLASS>), the
+response MUST be determined from reading these rules in order:
+'''
+

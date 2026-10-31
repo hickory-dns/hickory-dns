@@ -1,0 +1,128 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-4.2"
+
+# Stream Mapping and Usage
+#
+#    The mapping of DNS traffic over QUIC streams takes advantage of the
+#    QUIC stream features detailed in Section 2 of [RFC9000], the QUIC
+#    transport specification.
+# 
+#    DNS query/response traffic [RFC1034] [RFC1035] follows a simple
+#    pattern in which the client sends a query, and the server provides
+#    one or more responses (multiple responses can occur in zone
+#    transfers).
+# 
+#    The mapping specified here requires that the client select a separate
+#    QUIC stream for each query.  The server then uses the same stream to
+#    provide all the response messages for that query.  In order for
+#    multiple responses to be parsed, a 2-octet length field is used in
+#    exactly the same way as the 2-octet length field defined for DNS over
+#    TCP [RFC1035].  The practical result of this is that the content of
+#    each QUIC stream is exactly the same as the content of a TCP
+#    connection that would manage exactly one query.
+# 
+#    All DNS messages (queries and responses) sent over DoQ connections
+#    MUST be encoded as a 2-octet length field followed by the message
+#    content as specified in [RFC1035].
+# 
+#    The client MUST select the next available client-initiated
+#    bidirectional stream for each subsequent query on a QUIC connection,
+#    in conformance with the QUIC transport specification [RFC9000].
+#    Packet losses and other network events might cause queries to arrive
+#    in a different order.  Servers SHOULD process queries as they arrive,
+#    as not doing so would cause unnecessary delays.
+# 
+#    The client MUST send the DNS query over the selected stream and MUST
+#    indicate through the STREAM FIN mechanism that no further data will
+#    be sent on that stream.
+# 
+#    The server MUST send the response(s) on the same stream and MUST
+#    indicate, after the last response, through the STREAM FIN mechanism
+#    that no further data will be sent on that stream.
+# 
+#    Therefore, a single DNS transaction consumes a single bidirectional
+#    client-initiated stream.  This means that the client's first query
+#    occurs on QUIC stream 0, the second on 4, and so on (see Section 2.1
+#    of [RFC9000]).
+# 
+#    Servers MAY defer processing of a query until the STREAM FIN has been
+#    indicated on the stream selected by the client.
+# 
+#    Servers and clients MAY monitor the number of "dangling" streams.
+#    These are open streams where the following events have not occurred
+#    after implementation-defined timeouts:
+# 
+#    *  the expected queries or responses have not been received or,
+# 
+#    *  the expected queries or responses have been received but not the
+#       STREAM FIN
+# 
+#    Implementations MAY impose a limit on the number of such dangling
+#    streams.  If limits are encountered, implementations MAY close the
+#    connection.
+
+[[spec]]
+level = "MUST"
+quote = '''
+All DNS messages (queries and responses) sent over DoQ connections
+MUST be encoded as a 2-octet length field followed by the message
+content as specified in [RFC1035].
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST select the next available client-initiated
+bidirectional stream for each subsequent query on a QUIC connection,
+in conformance with the QUIC transport specification [RFC9000].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Servers SHOULD process queries as they arrive,
+as not doing so would cause unnecessary delays.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST send the DNS query over the selected stream and MUST
+indicate through the STREAM FIN mechanism that no further data will
+be sent on that stream.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST send the response(s) on the same stream and MUST
+indicate, after the last response, through the STREAM FIN mechanism
+that no further data will be sent on that stream.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Servers MAY defer processing of a query until the STREAM FIN has been
+indicated on the stream selected by the client.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Servers and clients MAY monitor the number of "dangling" streams.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementations MAY impose a limit on the number of such dangling
+streams.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If limits are encountered, implementations MAY close the
+connection.
+'''
+

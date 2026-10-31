@@ -1,0 +1,91 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-3.2.1"
+
+# Type Bit Maps Encoding
+#
+#    The encoding of the Type Bit Maps field is the same as that used by
+#    the NSEC RR, described in [RFC4034].  It is explained and clarified
+#    here for clarity.
+# 
+#    The RR type space is split into 256 window blocks, each representing
+#    the low-order 8 bits of the 16-bit RR type space.  Each block that
+#    has at least one active RR type is encoded using a single octet
+#    window number (from 0 to 255), a single octet bitmap length (from 1
+#    to 32) indicating the number of octets used for the bitmap of the
+#    window block, and up to 32 octets (256 bits) of bitmap.
+# 
+#    Blocks are present in the NSEC3 RR RDATA in increasing numerical
+#    order.
+# 
+#       Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
+# 
+#       where "|" denotes concatenation.
+# 
+#    Each bitmap encodes the low-order 8 bits of RR types within the
+#    window block, in network bit order.  The first bit is bit 0.  For
+#    window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds
+#    to RR type 2 (NS), and so forth.  For window block 1, bit 1
+#    corresponds to RR type 257, bit 2 to RR type 258.  If a bit is set to
+#    1, it indicates that an RRSet of that type is present for the
+#    original owner name of the NSEC3 RR.  If a bit is set to 0, it
+#    indicates that no RRSet of that type is present for the original
+#    owner name of the NSEC3 RR.
+# 
+#    Since bit 0 in window block 0 refers to the non-existing RR type 0,
+#    it MUST be set to 0.  After verification, the validator MUST ignore
+#    the value of bit 0 in window block 0.
+# 
+#    Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of
+#    [RFC2929] or within the range reserved for assignment only to QTYPEs
+#    and Meta-TYPEs MUST be set to 0, since they do not appear in zone
+#    data.  If encountered, they must be ignored upon reading.
+# 
+#    Blocks with no types present MUST NOT be included.  Trailing zero
+#    octets in the bitmap MUST be omitted.  The length of the bitmap of
+#    each block is determined by the type code with the largest numerical
+#    value, within that block, among the set of RR types present at the
+#    original owner name of the NSEC3 RR.  Trailing octets not specified
+#    MUST be interpreted as zero octets.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since bit 0 in window block 0 refers to the non-existing RR type 0,
+it MUST be set to 0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+After verification, the validator MUST ignore
+the value of bit 0 in window block 0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of
+[RFC2929] or within the range reserved for assignment only to QTYPEs
+and Meta-TYPEs MUST be set to 0, since they do not appear in zone
+data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Blocks with no types present MUST NOT be included.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Trailing zero
+octets in the bitmap MUST be omitted.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Trailing octets not specified
+MUST be interpreted as zero octets.
+'''
+

@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc5702#section-8.2"
+
+# Signature Type Downgrade Attacks
+#
+#    Since each RRSet MUST be signed with each algorithm present in the
+#    DNSKEY RRSet at the zone apex (see Section 2.2 of [RFC4035]), a
+#    malicious party cannot filter out the RSA/SHA-2 RRSIG and force the
+#    validator to use the RSA/SHA-1 signature if both are present in the
+#    zone.  This should provide resilience against algorithm downgrade
+#    attacks, if the validator supports RSA/SHA-2.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Since each RRSet MUST be signed with each algorithm present in the
+DNSKEY RRSet at the zone apex (see Section 2.2 of [RFC4035]), a
+malicious party cannot filter out the RSA/SHA-2 RRSIG and force the
+validator to use the RSA/SHA-1 signature if both are present in the
+zone.
+'''
+

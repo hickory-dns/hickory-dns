@@ -1,0 +1,97 @@
+target = "https://www.rfc-editor.org/rfc/rfc8020#section-2"
+
+# Rules
+#
+#    When an iterative caching DNS resolver receives an NXDOMAIN response,
+#    it SHOULD store it in its cache and then all names and resource
+#    record sets (RRsets) at or below that node SHOULD be considered
+#    unreachable.  Subsequent queries for such names SHOULD elicit an
+#    NXDOMAIN response.
+# 
+#    But, if a resolver has cached data under the NXDOMAIN cut, it MAY
+#    continue to send it as a reply (until the TTL of this cached data
+#    expires), since this may avoid additional processing when a query is
+#    received.  Section 6 provides more information about this.
+# 
+#    Another exception is that a validating resolver MAY decide to
+#    implement the "NXDOMAIN cut" behavior (described in the first
+#    paragraph of this section) only when the NXDOMAIN response has been
+#    validated with DNSSEC.  See Section 7 for the rationale.
+# 
+#    The fact that a subtree does not exist is not forever: [RFC2308],
+#    Section 3, already describes the amount of time that an NXDOMAIN
+#    response may be cached (the "negative TTL").
+# 
+#    If the NXDOMAIN response due to a cached nonexistence is from a
+#    DNSSEC-signed zone, then it will have accompanying NSEC or NSEC3
+#    records that authenticate the nonexistence of the name.  For a
+#    descendant name of the original NXDOMAIN name, the same set of NSEC
+#    or NSEC3 records proves the nonexistence of the descendant name.  The
+#    iterative, caching resolver MUST return these NSEC or NSEC3 records
+#    in the response to the triggering query if the query had the DNSSEC
+#    OK (DO) bit set.
+# 
+#    Warning: if there is a chain of CNAME (or DNAME), the name that does
+#    not exist is the last of the chain ([RFC6604]) and not the QNAME.
+#    The NXDOMAIN stored in the cache is for the denied name, not always
+#    for the QNAME.
+# 
+#    As an example of the consequence of these rules, consider two
+#    successive queries to a resolver with a nonexisting domain
+#    'foo.example': the first is for 'foo.example' (which results in an
+#    NXDOMAIN) and the second for 'bar.foo.example' (which also results in
+#    an NXDOMAIN).  Many resolvers today will forward both queries.
+#    However, following the rules in this document ("NXDOMAIN cut"), a
+#    resolver would cache the first NXDOMAIN response, as a sign of
+#    nonexistence, and then immediately return an NXDOMAIN response for
+#    the second query, without transmitting it to an authoritative server.
+# 
+#    If the first request is for 'bar.foo.example' and the second for
+#    'baz.foo.example', then the first NXDOMAIN response won't tell
+#    anything about 'baz.foo.example'; therefore, the second query will be
+#    transmitted as it was before the use of "NXDOMAIN cut" optimization
+#    (see Appendix A).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When an iterative caching DNS resolver receives an NXDOMAIN response,
+it SHOULD store it in its cache and then all names and resource
+record sets (RRsets) at or below that node SHOULD be considered
+unreachable.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Subsequent queries for such names SHOULD elicit an
+NXDOMAIN response.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+But, if a resolver has cached data under the NXDOMAIN cut, it MAY
+continue to send it as a reply (until the TTL of this cached data
+expires), since this may avoid additional processing when a query is
+received.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Another exception is that a validating resolver MAY decide to
+implement the "NXDOMAIN cut" behavior (described in the first
+paragraph of this section) only when the NXDOMAIN response has been
+validated with DNSSEC.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+iterative, caching resolver MUST return these NSEC or NSEC3 records
+in the response to the triggering query if the query had the DNSSEC
+OK (DO) bit set.
+'''
+

@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc7871#section-7.2.2"
+
+# Intermediate Nameserver
+#
+#    When an Intermediate Nameserver uses ECS, whether it passes an ECS
+#    option in its own response to its client is predicated on whether the
+#    client originally included the option.  Because a client that did not
+#    use an ECS option might not be able to understand it, the server MUST
+# 
+#    NOT provide one in its response.  If the client query did include the
+#    option, the server MUST include one in its response, especially as it
+#    could be talking to a Forwarding Resolver, which would need the
+#    information for its own caching.
+# 
+#    If an Intermediate Nameserver receives a response that has a longer
+#    SCOPE PREFIX-LENGTH than SOURCE PREFIX-LENGTH that it provided in its
+#    query, it SHOULD still provide the result as the answer to the
+#    triggering client request even if the client is in a different
+#    address range.  The Intermediate Nameserver MAY instead opt to retry
+#    with a longer SOURCE PREFIX-LENGTH to get a better reply before
+#    responding to its client, as long as it does not exceed a SOURCE
+#    PREFIX-LENGTH specified in the query that triggered resolution, but
+#    this obviously has implications for the latency of the overall
+#    lookup.
+# 
+#    The logic for using the cache to determine whether the Intermediate
+#    Nameserver already knows the response to provide to its client is
+#    covered in the next section.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Because a client that did not
+use an ECS option might not be able to understand it, the server MUST
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the client query did include the
+option, the server MUST include one in its response, especially as it
+could be talking to a Forwarding Resolver, which would need the
+information for its own caching.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If an Intermediate Nameserver receives a response that has a longer
+SCOPE PREFIX-LENGTH than SOURCE PREFIX-LENGTH that it provided in its
+query, it SHOULD still provide the result as the answer to the
+triggering client request even if the client is in a different
+address range.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The Intermediate Nameserver MAY instead opt to retry
+with a longer SOURCE PREFIX-LENGTH to get a better reply before
+responding to its client, as long as it does not exceed a SOURCE
+PREFIX-LENGTH specified in the query that triggered resolution, but
+this obviously has implications for the latency of the overall
+lookup.
+'''
+

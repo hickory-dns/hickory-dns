@@ -1,0 +1,73 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#section-5.11"
+
+# Mandatory Algorithm Rules
+#
+#    The last paragraph of Section 2.2 of [RFC4035] includes rules
+#    describing which algorithms must be used to sign a zone.  Since these
+#    rules have been confusing, they are restated using different language
+#    here:
+# 
+#       The DS RRset and DNSKEY RRset are used to signal which algorithms
+#       are used to sign a zone.  The presence of an algorithm in either a
+#       zone's DS or DNSKEY RRset signals that that algorithm is used to
+#       sign the entire zone.
+# 
+#       A signed zone MUST include a DNSKEY for each algorithm present in
+#       the zone's DS RRset and expected trust anchors for the zone.  The
+#       zone MUST also be signed with each algorithm (though not each key)
+#       present in the DNSKEY RRset.  It is possible to add algorithms at
+#       the DNSKEY that aren't in the DS record, but not vice versa.  If
+#       more than one key of the same algorithm is in the DNSKEY RRset, it
+#       is sufficient to sign each RRset with any subset of these DNSKEYs.
+#       It is acceptable to sign some RRsets with one subset of keys (or
+#       key) and other RRsets with a different subset, so long as at least
+# 
+#       one DNSKEY of each algorithm is used to sign each RRset.
+#       Likewise, if there are DS records for multiple keys of the same
+#       algorithm, any subset of those may appear in the DNSKEY RRset.
+# 
+#    This requirement applies to servers, not validators.  Validators
+#    SHOULD accept any single valid path.  They SHOULD NOT insist that all
+#    algorithms signaled in the DS RRset work, and they MUST NOT insist
+#    that all algorithms signaled in the DNSKEY RRset work.  A validator
+#    MAY have a configuration option to perform a signature completeness
+#    test to support troubleshooting.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A signed zone MUST include a DNSKEY for each algorithm present in
+the zone's DS RRset and expected trust anchors for the zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+zone MUST also be signed with each algorithm (though not each key)
+present in the DNSKEY RRset.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Validators
+SHOULD accept any single valid path.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+They SHOULD NOT insist that all
+algorithms signaled in the DS RRset work, and they MUST NOT insist
+that all algorithms signaled in the DNSKEY RRset work.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A validator
+MAY have a configuration option to perform a signature completeness
+test to support troubleshooting.
+'''
+

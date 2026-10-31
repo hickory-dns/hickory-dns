@@ -1,0 +1,203 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-8.1"
+
+# Probing
+#
+#    The first startup step is that, for all those resource records that a
+#    Multicast DNS responder desires to be unique on the local link, it
+#    MUST send a Multicast DNS query asking for those resource records, to
+#    see if any of them are already in use.  The primary example of this
+#    is a host's address records, which map its unique host name to its
+#    unique IPv4 and/or IPv6 addresses.  All probe queries SHOULD be done
+#    using the desired resource record name and class (usually class 1,
+#    "Internet"), and query type "ANY" (255), to elicit answers for all
+#    types of records with that name.  This allows a single question to be
+#    used in place of several questions, which is more efficient on the
+#    network.  It also allows a host to verify exclusive ownership of a
+#    name for all rrtypes, which is desirable in most cases.  It would be
+#    confusing, for example, if one host owned the "A" record for
+#    "myhost.local.", but a different host owned the "AAAA" record for
+#    that name.
+# 
+#    The ability to place more than one question in a Multicast DNS query
+#    is useful here, because it can allow a host to use a single message
+#    to probe for all of its resource records instead of needing a
+#    separate message for each.  For example, a host can simultaneously
+#    probe for uniqueness of its "A" record and all its SRV records
+#    [RFC6763] in the same query message.
+# 
+#    When ready to send its Multicast DNS probe packet(s) the host should
+#    first wait for a short random delay time, uniformly distributed in
+#    the range 0-250 ms.  This random delay is to guard against the case
+#    where several devices are powered on simultaneously, or several
+#    devices are connected to an Ethernet hub, which is then powered on,
+#    or some other external event happens that might cause a group of
+#    hosts to all send synchronized probes.
+# 
+#    250 ms after the first query, the host should send a second; then,
+#    250 ms after that, a third.  If, by 250 ms after the third probe, no
+#    conflicting Multicast DNS responses have been received, the host may
+#    move to the next step, announcing.  (Note that probing is the one
+#    exception from the normal rule that there should be at least one
+#    second between repetitions of the same question, and the interval
+#    between subsequent repetitions should at least double.)
+# 
+#    When sending probe queries, a host MUST NOT consult its cache for
+#    potential answers.  Only conflicting Multicast DNS responses received
+#    "live" from the network are considered valid for the purposes of
+#    determining whether probing has succeeded or failed.
+# 
+#    In order to allow services to announce their presence without
+#    unreasonable delay, the time window for probing is intentionally set
+#    quite short.  As a result of this, from the time the first probe
+#    packet is sent, another device on the network using that name has
+#    just 750 ms to respond to defend its name.  On networks that are
+#    slow, or busy, or both, it is possible for round-trip latency to
+#    account for a few hundred milliseconds, and software delays in slow
+#    devices can add additional delay.  Hence, it is important that when a
+#    device receives a probe query for a name that it is currently using,
+#    it SHOULD generate its response to defend that name immediately and
+#    send it as quickly as possible.  The usual rules about random delays
+#    before responding, to avoid sudden bursts of simultaneous answers
+#    from different hosts, do not apply here since normally at most one
+#    host should ever respond to a given probe question.  Even when a
+#    single DNS query message contains multiple probe questions, it would
+#    be unusual for that message to elicit a defensive response from more
+#    than one other host.  Because of the mDNS multicast rate-limiting
+# 
+#    rules, the probes SHOULD be sent as "QU" questions with the unicast-
+#    response bit set, to allow a defending host to respond immediately
+#    via unicast, instead of potentially having to wait before replying
+#    via multicast.
+# 
+#    During probing, from the time the first probe packet is sent until
+#    250 ms after the third probe, if any conflicting Multicast DNS
+#    response is received, then the probing host MUST defer to the
+#    existing host, and SHOULD choose new names for some or all of its
+#    resource records as appropriate.  Apparently conflicting Multicast
+#    DNS responses received *before* the first probe packet is sent MUST
+#    be silently ignored (see discussion of stale probe packets in Section
+#    8.2, "Simultaneous Probe Tiebreaking", below).  In the case of a host
+#    probing using query type "ANY" as recommended above, any answer
+#    containing a record with that name, of any type, MUST be considered a
+#    conflicting response and handled accordingly.
+# 
+#    If fifteen conflicts occur within any ten-second period, then the
+#    host MUST wait at least five seconds before each successive
+#    additional probe attempt.  This is to help ensure that, in the event
+#    of software bugs or other unanticipated problems, errant hosts do not
+#    flood the network with a continuous stream of multicast traffic.  For
+#    very simple devices, a valid way to comply with this requirement is
+#    to always wait five seconds after any failed probe attempt before
+#    trying again.
+# 
+#    If a responder knows by other means that its unique resource record
+#    set name, rrtype, and rrclass cannot already be in use by any other
+#    responder on the network, then it SHOULD skip the probing step for
+#    that resource record set.  For example, when creating the reverse
+#    address mapping PTR records, the host can reasonably assume that no
+#    other host will be trying to create those same PTR records, since
+#    that would imply that the two hosts were trying to use the same IP
+#    address, and if that were the case, the two hosts would be suffering
+#    communication problems beyond the scope of what Multicast DNS is
+#    designed to solve.  Similarly, if a responder is acting as a proxy,
+#    taking over from another Multicast DNS responder that has already
+#    verified the uniqueness of the record, then the proxy SHOULD NOT
+#    repeat the probing step for those records.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The first startup step is that, for all those resource records that a
+Multicast DNS responder desires to be unique on the local link, it
+MUST send a Multicast DNS query asking for those resource records, to
+see if any of them are already in use.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+All probe queries SHOULD be done
+using the desired resource record name and class (usually class 1,
+"Internet"), and query type "ANY" (255), to elicit answers for all
+types of records with that name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When sending probe queries, a host MUST NOT consult its cache for
+potential answers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Hence, it is important that when a
+device receives a probe query for a name that it is currently using,
+it SHOULD generate its response to defend that name immediately and
+send it as quickly as possible.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+rules, the probes SHOULD be sent as "QU" questions with the unicast-
+response bit set, to allow a defending host to respond immediately
+via unicast, instead of potentially having to wait before replying
+via multicast.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+During probing, from the time the first probe packet is sent until
+250 ms after the third probe, if any conflicting Multicast DNS
+response is received, then the probing host MUST defer to the
+existing host, and SHOULD choose new names for some or all of its
+resource records as appropriate.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Apparently conflicting Multicast
+DNS responses received *before* the first probe packet is sent MUST
+be silently ignored (see discussion of stale probe packets in Section
+8.2, "Simultaneous Probe Tiebreaking", below).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the case of a host
+probing using query type "ANY" as recommended above, any answer
+containing a record with that name, of any type, MUST be considered a
+conflicting response and handled accordingly.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If fifteen conflicts occur within any ten-second period, then the
+host MUST wait at least five seconds before each successive
+additional probe attempt.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a responder knows by other means that its unique resource record
+set name, rrtype, and rrclass cannot already be in use by any other
+responder on the network, then it SHOULD skip the probing step for
+that resource record set.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Similarly, if a responder is acting as a proxy,
+taking over from another Multicast DNS responder that has already
+verified the uniqueness of the record, then the proxy SHOULD NOT
+repeat the probing step for those records.
+'''
+

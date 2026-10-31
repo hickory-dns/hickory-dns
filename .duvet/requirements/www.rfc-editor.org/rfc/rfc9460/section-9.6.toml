@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9.6"
+
+# Use of HTTPS RRs in Other Protocols
+#
+#    All HTTP connections to named origins are eligible to use HTTPS RRs,
+#    even when HTTP is used as part of another protocol or without an
+#    explicit HTTP-related URI scheme (Section 4.2 of [HTTP]).  For
+#    example, clients that support HTTPS RRs and implement [WebSocket]
+#    using the altered opening handshake from [FETCH-WEBSOCKETS] SHOULD
+#    use HTTPS RRs for the requestURL.
+# 
+#    When HTTP is used in a context where URLs or redirects are not
+#    applicable (e.g., connections to an HTTP proxy), clients that find a
+#    corresponding HTTPS RR SHOULD implement security upgrade behavior
+#    equivalent to that specified in Section 9.5.
+# 
+#    Such protocols MAY define their own SVCB mappings, which MAY be
+#    defined to take precedence over HTTPS RRs.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For
+example, clients that support HTTPS RRs and implement [WebSocket]
+using the altered opening handshake from [FETCH-WEBSOCKETS] SHOULD
+use HTTPS RRs for the requestURL.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When HTTP is used in a context where URLs or redirects are not
+applicable (e.g., connections to an HTTP proxy), clients that find a
+corresponding HTTPS RR SHOULD implement security upgrade behavior
+equivalent to that specified in Section 9.5.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Such protocols MAY define their own SVCB mappings, which MAY be
+defined to take precedence over HTTPS RRs.
+'''
+

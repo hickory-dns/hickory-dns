@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc9606#section-8.2"
+
+# DNS Resolver Information Keys Registration
+#
+#    IANA has created a new registry called "DNS Resolver Information
+#    Keys" under the "Domain Name System (DNS) Parameters" registry group
+#    [IANA-DNS].  This new registry contains definitions of the keys that
+#    can be used to provide the resolver information.
+# 
+#    The registration procedure is Specification Required (Section 4.6 of
+#    [RFC8126]).  Designated experts should carefully consider the
+#    security implications of allowing a resolver to include new keys in
+#    this registry.  Additional considerations are provided in
+#    Section 8.3.
+# 
+#    The structure of the registry is as follows:
+# 
+#    Name:  The key name.  The name MUST conform to the definition in
+#       Section 4 of this document.  The IANA registry MUST NOT register
+#       names that begin with "temp-" so that these names can be used
+#       freely by any implementer.
+# 
+#    Description:  A description of the registered key.
+# 
+#    Reference:  The reference specification for the registered element.
+# 
+#    The initial contents of this registry are provided in Table 1.
+# 
+#       +==========+=====================================+===========+
+#       | Name     | Description                         | Reference |
+#       +==========+=====================================+===========+
+#       | qnamemin | The presence of the key name        |  RFC 9606 |
+#       |          | indicates that QNAME minimisation   |           |
+#       |          | is enabled.                         |           |
+#       +----------+-------------------------------------+-----------+
+#       | exterr   | Lists the set of enabled extended   |  RFC 9606 |
+#       |          | DNS errors.  It must be an INFO-    |           |
+#       |          | CODE decimal value in the "Extended |           |
+#       |          | DNS Error Codes" registry           |           |
+#       |          | <https://www.iana.org/assignments/  |           |
+#       |          | dns-parameters/>.                   |           |
+#       +----------+-------------------------------------+-----------+
+#       | infourl  | Provides a URL that points to       |  RFC 9606 |
+#       |          | unstructured resolver information   |           |
+#       |          | that is used for troubleshooting.   |           |
+#       +----------+-------------------------------------+-----------+
+# 
+#         Table 1: Initial Contents of the DNS Resolver Information
+#                               Keys Registry
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name MUST conform to the definition in
+Section 4 of this document.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The IANA registry MUST NOT register
+names that begin with "temp-" so that these names can be used
+freely by any implementer.
+'''
+

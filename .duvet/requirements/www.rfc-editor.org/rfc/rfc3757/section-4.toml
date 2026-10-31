@@ -1,0 +1,48 @@
+target = "https://www.rfc-editor.org/rfc/rfc3757#section-4"
+
+# Operational Guidelines
+#
+#    The SEP bit is set by the key-pair-generator and MAY be used by the
+#    zone signer to decide whether the public part of the key pair is to
+#    be prepared for input to a DS RR generation function.  The SEP bit is
+#    recommended to be set (to 1) whenever the public key of the key pair
+#    will be distributed to the parent zone to build the authentication
+#    chain or if the public key is to be distributed for static
+#    configuration in verifiers.
+# 
+#    When a key pair is created, the operator needs to indicate whether
+#    the SEP bit is to be set in the DNSKEY RR.  As the SEP bit is within
+#    the data that is used to compute the 'key tag field' in the SIG RR,
+#    changing the SEP bit will change the identity of the key within DNS.
+#    In other words, once a key is used to generate signatures, the
+#    setting of the SEP bit is to remain constant.  If not, a verifier
+#    will not be able to find the relevant KEY RR.
+# 
+#    When signing a zone, it is intended that the key(s) with the SEP bit
+#    set (if such keys exist) are used to sign the KEY RR set of the zone.
+#    The same key can be used to sign the rest of the zone data too.  It
+#    is conceivable that not all keys with a SEP bit set will sign the
+#    DNSKEY RR set, such keys might be pending retirement or not yet in
+#    use.
+# 
+#    When verifying a RR set, the SEP bit is not intended to play a role.
+#    How the key is used by the verifier is not intended to be a
+#    consideration at key creation time.
+# 
+#    Although the SEP flag provides a hint on which public key is to be
+#    used as trusted root, administrators can choose to ignore the fact
+#    that a DNSKEY has its SEP bit set or not when configuring a trusted
+#    root for their resolvers.
+# 
+#    Using the SEP flag a key roll over can be automated.  The parent can
+#    use an existing trust relation to verify DNSKEY RR sets in which a
+#    new DNSKEY RR with the SEP flag appears.
+
+[[spec]]
+level = "MAY"
+quote = '''
+The SEP bit is set by the key-pair-generator and MAY be used by the
+zone signer to decide whether the public part of the key pair is to
+be prepared for input to a DS RR generation function.
+'''
+

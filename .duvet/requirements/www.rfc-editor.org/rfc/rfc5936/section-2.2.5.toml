@@ -1,0 +1,50 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.2.5"
+
+# Additional Section
+#
+#    The contents of this section MUST follow the guidelines for the OPT,
+#    TSIG, and SIG(0) RRs, or whatever other future record is possible
+#    here.  The contents of Section 2.1.5 apply analogously as well.
+# 
+#    The following considerations specifically apply to AXFR responses:
+# 
+#    If the client has supplied an EDNS OPT RR in the AXFR query and if
+#    the server supports EDNS as well, it SHOULD include one OPT RR in the
+#    first response message and MAY do so in subsequent response messages
+#    (see Section 2.2); the specifications of EDNS options to be carried
+#    in the OPT RR may impose stronger requirements.
+# 
+#    If the client has supplied a transaction security resource record
+#    (currently a choice of TSIG and SIG(0)) and the server supports the
+#    method chosen by the client, it MUST place the corresponding resource
+#    record into the AXFR response message(s), according to the rules
+#    specified for that method.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The contents of this section MUST follow the guidelines for the OPT,
+TSIG, and SIG(0) RRs, or whatever other future record is possible
+here.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the client has supplied an EDNS OPT RR in the AXFR query and if
+the server supports EDNS as well, it SHOULD include one OPT RR in the
+first response message and MAY do so in subsequent response messages
+(see Section 2.2); the specifications of EDNS options to be carried
+in the OPT RR may impose stronger requirements.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the client has supplied a transaction security resource record
+(currently a choice of TSIG and SIG(0)) and the server supports the
+method chosen by the client, it MUST place the corresponding resource
+record into the AXFR response message(s), according to the rules
+specified for that method.
+'''
+

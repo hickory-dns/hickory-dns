@@ -1,0 +1,316 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6"
+
+# Responding
+#
+#    When a Multicast DNS responder constructs and sends a Multicast DNS
+#    response message, the Resource Record Sections of that message must
+#    contain only records for which that responder is explicitly
+#    authoritative.  These answers may be generated because the record
+#    answers a question received in a Multicast DNS query message, or at
+#    certain other times that the responder determines than an unsolicited
+#    announcement is warranted.  A Multicast DNS responder MUST NOT place
+#    records from its cache, which have been learned from other responders
+#    on the network, in the Resource Record Sections of outgoing response
+#    messages.  Only an authoritative source for a given record is allowed
+#    to issue responses containing that record.
+# 
+#    The determination of whether a given record answers a given question
+#    is made using the standard DNS rules: the record name must match the
+#    question name, the record rrtype must match the question qtype unless
+#    the qtype is "ANY" (255) or the rrtype is "CNAME" (5), and the record
+#    rrclass must match the question qclass unless the qclass is "ANY"
+#    (255).  As with Unicast DNS, generally only DNS class 1 ("Internet")
+#    is used, but should client software use classes other than 1, the
+#    matching rules described above MUST be used.
+# 
+#    A Multicast DNS responder MUST only respond when it has a positive,
+#    non-null response to send, or it authoritatively knows that a
+#    particular record does not exist.  For unique records, where the host
+#    has already established sole ownership of the name, it MUST return
+#    negative answers to queries for records that it knows not to exist.
+#    For example, a host with no IPv6 address, that has claimed sole
+#    ownership of the name "host.local." for all rrtypes, MUST respond to
+#    AAAA queries for "host.local." by sending a negative answer
+#    indicating that no AAAA records exist for that name.  See Section
+#    6.1, "Negative Responses".  For shared records, which are owned by no
+#    single host, the nonexistence of a given record is ascertained by the
+#    failure of any machine to respond to the Multicast DNS query, not by
+#    any explicit negative response.  For shared records, NXDOMAIN and
+#    other error responses MUST NOT be sent.
+# 
+#    Multicast DNS responses MUST NOT contain any questions in the
+#    Question Section.  Any questions in the Question Section of a
+#    received Multicast DNS response MUST be silently ignored.  Multicast
+#    DNS queriers receiving Multicast DNS responses do not care what
+#    question elicited the response; they care only that the information
+#    in the response is true and accurate.
+# 
+#    A Multicast DNS responder on Ethernet [IEEE.802.3] and similar shared
+#    multiple access networks SHOULD have the capability of delaying its
+#    responses by up to 500 ms, as described below.
+# 
+#    If a large number of Multicast DNS responders were all to respond
+#    immediately to a particular query, a collision would be virtually
+#    guaranteed.  By imposing a small random delay, the number of
+#    collisions is dramatically reduced.  On a full-sized Ethernet using
+#    the maximum cable lengths allowed and the maximum number of repeaters
+#    allowed, an Ethernet frame is vulnerable to collisions during the
+#    transmission of its first 256 bits.  On 10 Mb/s Ethernet, this
+#    equates to a vulnerable time window of 25.6 microseconds.  On higher-
+#    speed variants of Ethernet, the vulnerable time window is shorter.
+# 
+#    In the case where a Multicast DNS responder has good reason to
+#    believe that it will be the only responder on the link that will send
+#    a response (i.e., because it is able to answer every question in the
+#    query message, and for all of those answer records it has previously
+#    verified that the name, rrtype, and rrclass are unique on the link),
+#    it SHOULD NOT impose any random delay before responding, and SHOULD
+#    normally generate its response within at most 10 ms.  In particular,
+#    this applies to responding to probe queries with the unicast-response
+#    bit set.  Since receiving a probe query gives a clear indication that
+#    some other responder is planning to start using this name in the very
+#    near future, answering such probe queries to defend a unique record
+#    is a high priority and needs to be done without delay.  A probe query
+# 
+#    can be distinguished from a normal query by the fact that a probe
+#    query contains a proposed record in the Authority Section that
+#    answers the question in the Question Section (for more details, see
+#    Section 8.2, "Simultaneous Probe Tiebreaking").
+# 
+#    Responding without delay is appropriate for records like the address
+#    record for a particular host name, when the host name has been
+#    previously verified unique.  Responding without delay is *not*
+#    appropriate for things like looking up PTR records used for DNS-Based
+#    Service Discovery [RFC6763], where a large number of responses may be
+#    anticipated.
+# 
+#    In any case where there may be multiple responses, such as queries
+#    where the answer is a member of a shared resource record set, each
+#    responder SHOULD delay its response by a random amount of time
+#    selected with uniform random distribution in the range 20-120 ms.
+#    The reason for requiring that the delay be at least 20 ms is to
+#    accommodate the situation where two or more query packets are sent
+#    back-to-back, because in that case we want a responder with answers
+#    to more than one of those queries to have the opportunity to
+#    aggregate all of its answers into a single response message.
+# 
+#    In the case where the query has the TC (truncated) bit set,
+#    indicating that subsequent Known-Answer packets will follow,
+#    responders SHOULD delay their responses by a random amount of time
+#    selected with uniform random distribution in the range 400-500 ms, to
+#    allow enough time for all the Known-Answer packets to arrive, as
+#    described in Section 7.2, "Multipacket Known-Answer Suppression".
+# 
+#    The source UDP port in all Multicast DNS responses MUST be 5353 (the
+#    well-known port assigned to mDNS).  Multicast DNS implementations
+#    MUST silently ignore any Multicast DNS responses they receive where
+#    the source UDP port is not 5353.
+# 
+#    The destination UDP port in all Multicast DNS responses MUST be 5353,
+#    and the destination address MUST be the mDNS IPv4 link-local
+#    multicast address 224.0.0.251 or its IPv6 equivalent FF02::FB, except
+#    when generating a reply to a query that explicitly requested a
+#    unicast response:
+# 
+#       * via the unicast-response bit,
+#       * by virtue of being a legacy query (Section 6.7), or
+#       * by virtue of being a direct unicast query.
+# 
+#    Except for these three specific cases, responses MUST NOT be sent via
+#    unicast, because then the "Passive Observation of Failures"
+#    mechanisms described in Section 10.5 would not work correctly.  Other
+# 
+#    benefits of sending responses via multicast are discussed in Appendix
+#    D.  A Multicast DNS querier MUST only accept unicast responses if
+#    they answer a recently sent query (e.g., sent within the last two
+#    seconds) that explicitly requested unicast responses.  A Multicast
+#    DNS querier MUST silently ignore all other unicast responses.
+# 
+#    To protect the network against excessive packet flooding due to
+#    software bugs or malicious attack, a Multicast DNS responder MUST NOT
+#    (except in the one special case of answering probe queries) multicast
+#    a record on a given interface until at least one second has elapsed
+#    since the last time that record was multicast on that particular
+#    interface.  A legitimate querier on the network should have seen the
+#    previous transmission and cached it.  A querier that did not receive
+#    and cache the previous transmission will retry its request and
+#    receive a subsequent response.  In the special case of answering
+#    probe queries, because of the limited time before the probing host
+#    will make its decision about whether or not to use the name, a
+#    Multicast DNS responder MUST respond quickly.  In this special case
+#    only, when responding via multicast to a probe, a Multicast DNS
+#    responder is only required to delay its transmission as necessary to
+#    ensure an interval of at least 250 ms since the last time the record
+#    was multicast on that interface.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS responder MUST NOT place
+records from its cache, which have been learned from other responders
+on the network, in the Resource Record Sections of outgoing response
+messages.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As with Unicast DNS, generally only DNS class 1 ("Internet")
+is used, but should client software use classes other than 1, the
+matching rules described above MUST be used.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS responder MUST only respond when it has a positive,
+non-null response to send, or it authoritatively knows that a
+particular record does not exist.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For unique records, where the host
+has already established sole ownership of the name, it MUST return
+negative answers to queries for records that it knows not to exist.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For example, a host with no IPv6 address, that has claimed sole
+ownership of the name "host.local." for all rrtypes, MUST respond to
+AAAA queries for "host.local." by sending a negative answer
+indicating that no AAAA records exist for that name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For shared records, NXDOMAIN and
+other error responses MUST NOT be sent.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS responses MUST NOT contain any questions in the
+Question Section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any questions in the Question Section of a
+received Multicast DNS response MUST be silently ignored.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A Multicast DNS responder on Ethernet [IEEE.802.3] and similar shared
+multiple access networks SHOULD have the capability of delaying its
+responses by up to 500 ms, as described below.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the case where a Multicast DNS responder has good reason to
+believe that it will be the only responder on the link that will send
+a response (i.e., because it is able to answer every question in the
+query message, and for all of those answer records it has previously
+verified that the name, rrtype, and rrclass are unique on the link),
+it SHOULD NOT impose any random delay before responding, and SHOULD
+normally generate its response within at most 10 ms.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In any case where there may be multiple responses, such as queries
+where the answer is a member of a shared resource record set, each
+responder SHOULD delay its response by a random amount of time
+selected with uniform random distribution in the range 20-120 ms.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the case where the query has the TC (truncated) bit set,
+indicating that subsequent Known-Answer packets will follow,
+responders SHOULD delay their responses by a random amount of time
+selected with uniform random distribution in the range 400-500 ms, to
+allow enough time for all the Known-Answer packets to arrive, as
+described in Section 7.2, "Multipacket Known-Answer Suppression".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The source UDP port in all Multicast DNS responses MUST be 5353 (the
+well-known port assigned to mDNS).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS implementations
+MUST silently ignore any Multicast DNS responses they receive where
+the source UDP port is not 5353.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The destination UDP port in all Multicast DNS responses MUST be 5353,
+and the destination address MUST be the mDNS IPv4 link-local
+multicast address 224.0.0.251 or its IPv6 equivalent FF02::FB, except
+when generating a reply to a query that explicitly requested a
+unicast response:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Except for these three specific cases, responses MUST NOT be sent via
+unicast, because then the "Passive Observation of Failures"
+mechanisms described in Section 10.5 would not work correctly.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS querier MUST only accept unicast responses if
+they answer a recently sent query (e.g., sent within the last two
+seconds) that explicitly requested unicast responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast
+DNS querier MUST silently ignore all other unicast responses.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To protect the network against excessive packet flooding due to
+software bugs or malicious attack, a Multicast DNS responder MUST NOT
+(except in the one special case of answering probe queries) multicast
+a record on a given interface until at least one second has elapsed
+since the last time that record was multicast on that particular
+interface.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the special case of answering
+probe queries, because of the limited time before the probing host
+will make its decision about whether or not to use the name, a
+Multicast DNS responder MUST respond quickly.
+'''
+

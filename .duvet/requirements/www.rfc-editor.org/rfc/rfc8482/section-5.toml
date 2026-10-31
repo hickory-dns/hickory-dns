@@ -1,0 +1,49 @@
+target = "https://www.rfc-editor.org/rfc/rfc8482#section-5"
+
+# Behavior of DNS Initiators
+#
+#    A DNS initiator that sends a query with QTYPE=ANY and receives a
+#    response containing an HINFO resource record or a single RRset, as
+#    described in Section 4, MAY cache the response in the normal way.
+#    Such cached resource records SHOULD be retained in the cache
+#    following normal caching semantics, as with any other response
+#    received from a DNS responder.
+# 
+#    A DNS initiator MAY suppress queries with QTYPE=ANY in the event that
+#    the local cache contains a matching HINFO resource record with the
+#    CPU field of the HINFO RDATA, as described in Section 4.  A DNS
+#    initiator MAY instead respond to such queries with the contents of
+#    the local cache in the usual way.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS initiator that sends a query with QTYPE=ANY and receives a
+response containing an HINFO resource record or a single RRset, as
+described in Section 4, MAY cache the response in the normal way.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Such cached resource records SHOULD be retained in the cache
+following normal caching semantics, as with any other response
+received from a DNS responder.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS initiator MAY suppress queries with QTYPE=ANY in the event that
+the local cache contains a matching HINFO resource record with the
+CPU field of the HINFO RDATA, as described in Section 4.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A DNS
+initiator MAY instead respond to such queries with the contents of
+the local cache in the usual way.
+'''
+

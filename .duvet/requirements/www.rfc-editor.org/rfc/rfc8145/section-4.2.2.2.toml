@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-4.2.2.2"
+
+# Non-validating Recursive Resolvers
+#
+#    Recursive resolvers that do not validate responses SHOULD copy the
+#    edns-key-tag option seen in received queries, as they represent the
+#    wishes of the validating downstream resolver that issued the original
+#    query.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Recursive resolvers that do not validate responses SHOULD copy the
+edns-key-tag option seen in received queries, as they represent the
+wishes of the validating downstream resolver that issued the original
+query.
+'''
+

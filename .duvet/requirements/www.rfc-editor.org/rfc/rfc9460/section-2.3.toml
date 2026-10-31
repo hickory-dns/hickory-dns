@@ -1,0 +1,78 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.3"
+
+# SVCB Query Names
+#
+#    When querying the SVCB RR, a service is translated into a QNAME by
+#    prepending the service name with a label indicating the scheme,
+#    prefixed with an underscore, resulting in a domain name like
+#    "_examplescheme.api.example.com.".  This follows the Attrleaf naming
+#    pattern [Attrleaf], so the scheme MUST be registered appropriately
+#    with IANA (see Section 11).
+# 
+#    Protocol mapping documents MAY specify additional underscore-prefixed
+#    labels to be prepended.  For schemes that specify a port
+#    (Section 3.2.3 of [URI]), one reasonable possibility is to prepend
+#    the indicated port number if a non-default port number is specified.
+#    This document terms this behavior "Port Prefix Naming" and uses it in
+#    the examples throughout.
+# 
+#    See Section 9.1 for information regarding HTTPS RR behavior.
+# 
+#    When a prior CNAME or SVCB record has aliased to a SVCB record, each
+#    RR SHALL be returned under its own owner name, as in ordinary CNAME
+#    processing ([RFC1034], Section 3.6.2).  For details, see the
+#    recommendations regarding aliases for clients (Section 3), servers
+#    (Section 4), and zones (Section 10).
+# 
+#    Note that none of these forms alter the origin or authority for
+#    validation purposes.  For example, TLS clients MUST continue to
+#    validate TLS certificates for the original service name.
+# 
+#    As an example, the owner of "example.com" could publish this record:
+# 
+#    _8443._foo.api.example.com. 7200 IN SVCB 0 svc4.example.net.
+# 
+#    This record would indicate that "foo://api.example.com:8443" is
+#    aliased to "svc4.example.net".  The owner of "example.net", in turn,
+#    could publish this record:
+# 
+#    svc4.example.net.  7200  IN SVCB 3 svc4.example.net. (
+#        alpn="bar" port="8004" )
+# 
+#    This record would indicate that these services are served on port
+#    number 8004, which supports the protocol "bar" and its associated
+#    transport in addition to the default transport protocol for "foo://".
+# 
+#    (Parentheses are used to ignore a line break in DNS zone-file
+#    presentation format, per Section 5.1 of [RFC1035].)
+
+[[spec]]
+level = "MUST"
+quote = '''
+This follows the Attrleaf naming
+pattern [Attrleaf], so the scheme MUST be registered appropriately
+with IANA (see Section 11).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Protocol mapping documents MAY specify additional underscore-prefixed
+labels to be prepended.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When a prior CNAME or SVCB record has aliased to a SVCB record, each
+RR SHALL be returned under its own owner name, as in ordinary CNAME
+processing ([RFC1034], Section 3.6.2).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For example, TLS clients MUST continue to
+validate TLS certificates for the original service name.
+'''
+

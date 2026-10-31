@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc8914#section-2"
+
+# Extended DNS Error EDNS0 Option Format
+#
+#    This document uses an Extended Mechanism for DNS (EDNS0) [RFC6891]
+#    option to include Extended DNS Error (EDE) information in DNS
+#    messages.  The option is structured as follows:
+# 
+#                                                 1   1   1   1   1   1
+#         0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    0: |                            OPTION-CODE                        |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    2: |                           OPTION-LENGTH                       |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    4: | INFO-CODE                                                     |
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#    6: / EXTRA-TEXT ...                                                /
+#       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+# 
+#    Field definition details:
+# 
+#    OPTION-CODE:
+#       2 octets / 16 bits (defined in [RFC6891]) contains the value 15
+#       for EDE.
+# 
+#    OPTION-LENGTH:
+#       2 octets / 16 bits (defined in [RFC6891]) contains the length of
+#       the payload (everything after OPTION-LENGTH) in octets and should
+#       be 2 plus the length of the EXTRA-TEXT field (which may be a zero-
+#       length string).
+# 
+#    INFO-CODE:
+#       16 bits, which is the principal contribution of this document.
+#       This 16-bit value, encoded in network most significant bit (MSB)
+#       byte order, provides the additional context for the RESPONSE-CODE
+#       of the DNS message.  The INFO-CODE serves as an index into the
+#       "Extended DNS Errors" registry, defined and created in
+#       Section 5.2.
+# 
+#    EXTRA-TEXT:
+#       a variable-length, UTF-8-encoded [RFC5198] text field that may
+#       hold additional textual information.  This information is intended
+#       for human consumption (not automated parsing).  EDE text may be
+#       null terminated but MUST NOT be assumed to be; the length MUST be
+#       derived from the OPTION-LENGTH field.  The EXTRA-TEXT field may be
+#       zero octets in length, indicating that there is no EXTRA-TEXT
+#       included.  Care should be taken not to include private information
+#       in the EXTRA-TEXT field that an observer would not otherwise have
+#       access to, such as account numbers.
+# 
+#    The Extended DNS Error (EDE) option can be included in any response
+#    (SERVFAIL, NXDOMAIN, REFUSED, even NOERROR, etc.) to a query that
+#    includes an OPT pseudo-RR [RFC6891].  This document includes a set of
+#    initial codepoints but is extensible via the IANA registry defined
+#    and created in Section 5.2.
+
+[[spec]]
+level = "MUST"
+quote = '''
+EDE text may be
+null terminated but MUST NOT be assumed to be; the length MUST be
+derived from the OPTION-LENGTH field.
+'''
+

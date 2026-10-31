@@ -1,0 +1,113 @@
+target = "https://www.rfc-editor.org/rfc/rfc3445#section-4"
+
+# Changes from RFC 2535 KEY RR
+#
+#    The KEY RDATA format is not changed.
+# 
+#    All flags except for the zone key flag are eliminated:
+# 
+#       The A/C bits (bits 0 and 1) are eliminated.  They MUST be set to 0
+#       and MUST be ignored by the receiver.
+# 
+#       The extended flags bit (bit 3) is eliminated.  It MUST be set to 0
+#       and MUST be ignored by the receiver.
+# 
+#       The host/user bit (bit 6) is eliminated.  It MUST be set to 0 and
+#       MUST be ignored by the receiver.
+# 
+#       The zone bit (bit 7) remains unchanged.
+# 
+#       The signatory field (bits 12-15) are eliminated by [5].  They MUST
+#       be set to 0 and MUST be ignored by the receiver.
+# 
+#       Bits 2,4,5,8,9,10,11 remain unchanged.  They are reserved, MUST be
+#       set to zero and MUST be ignored by the receiver.
+# 
+#    Assignment of any future KEY RR Flag values requires a standards
+#    action.
+# 
+#    All Protocol Octet values except DNSSEC (3) are eliminated:
+# 
+#       Value 1 (Email) is renamed to RESERVED.
+# 
+#       Value 2 (IPSEC) is renamed to RESERVED.
+# 
+#       Value 3 (DNSSEC) is unchanged.
+# 
+#       Value 4 (TLS) is renamed to RESERVED.
+# 
+#       Value 5-254 remains unchanged (reserved).
+# 
+#       Value 255 (ANY) is renamed to RESERVED.
+# 
+#    The authoritative data for a zone MUST NOT include any KEY records
+#    with a protocol octet other than 3.  The registry maintained by IANA
+#    for protocol values is closed for new assignments.
+# 
+#    Name servers and resolvers SHOULD accept KEY RR sets that contain KEY
+#    RRs with a value other than 3.  If out of date DNS zones contain
+#    deprecated KEY RRs with a protocol octet value other than 3, then
+#    simply dropping the deprecated KEY RRs from the KEY RR set would
+# 
+#    invalidate any associated SIG record(s) and could create caching
+#    consistency problems.  Note that KEY RRs with a protocol octet value
+#    other than 3 MUST NOT be used to authenticate DNS data.
+# 
+#    The algorithm and public key fields are not changed.
+
+[[spec]]
+level = "MUST"
+quote = '''
+They MUST be set to 0
+and MUST be ignored by the receiver.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It MUST be set to 0
+and MUST be ignored by the receiver.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It MUST be set to 0 and
+MUST be ignored by the receiver.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+They MUST
+be set to 0 and MUST be ignored by the receiver.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+They are reserved, MUST be
+set to zero and MUST be ignored by the receiver.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The authoritative data for a zone MUST NOT include any KEY records
+with a protocol octet other than 3.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name servers and resolvers SHOULD accept KEY RR sets that contain KEY
+RRs with a value other than 3.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Note that KEY RRs with a protocol octet value
+other than 3 MUST NOT be used to authenticate DNS data.
+'''
+

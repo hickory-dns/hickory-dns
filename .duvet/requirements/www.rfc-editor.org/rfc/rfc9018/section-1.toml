@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-1"
+
+# Introduction
+#
+#    DNS Cookies, as specified in [RFC7873], are a lightweight DNS
+#    transaction security mechanism that provide limited protection to DNS
+#    servers and clients against a variety of denial-of-service
+#    amplification, forgery, or cache-poisoning attacks by off-path
+#    attackers.  This document specifies a means of producing
+#    interoperable cookies so that an anycast server set including diverse
+#    implementations can be easily configured to interoperate with
+#    standard clients.  Also, single-implementation or non-anycast
+#    services can benefit from a well-studied standardized algorithm for
+#    which the behavioral and security characteristics are more widely
+#    known.
+# 
+#    The threats considered for DNS Cookies and the properties of the DNS
+#    Security features other than DNS Cookies are discussed in [RFC7873].
+# 
+#    In Section 6 of [RFC7873], for simplicity, it is "RECOMMENDED that
+#    the same Server Secret be used by each DNS server in a set of anycast
+#    servers."  However, how precisely a Server Cookie is calculated from
+#    this Server Secret is left to the implementation.
+# 
+#    This guidance has led to a gallimaufry of DNS Cookie implementations,
+#    calculating the Server Cookie in different ways.  As a result, DNS
+#    Cookies are impractical to deploy on multi-vendor anycast networks
+#    because even when all DNS Software shares the same secret, as
+#    RECOMMENDED in Section 6 of [RFC7873], the Server Cookie constructed
+#    by one implementation cannot generally be validated by another.
+# 
+#    There is no need for DNS client (resolver) Cookies to be
+#    interoperable across different implementations.  Each client need
+#    only be able to recognize its own cookies.  However, this document
+#    does contain recommendations for constructing Client Cookies in a
+#    client-protecting fashion.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In Section 6 of [RFC7873], for simplicity, it is "RECOMMENDED that
+the same Server Secret be used by each DNS server in a set of anycast
+servers."  However, how precisely a Server Cookie is calculated from
+this Server Secret is left to the implementation.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As a result, DNS
+Cookies are impractical to deploy on multi-vendor anycast networks
+because even when all DNS Software shares the same secret, as
+RECOMMENDED in Section 6 of [RFC7873], the Server Cookie constructed
+by one implementation cannot generally be validated by another.
+'''
+

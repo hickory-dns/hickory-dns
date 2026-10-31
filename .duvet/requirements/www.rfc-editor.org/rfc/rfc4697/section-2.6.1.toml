@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc4697#section-2.6.1"
+
+# Recommendation
+#
+#    An authoritative server can detect this situation.  A trailing dot
+#    missing from an NS record's RDATA always results by definition in a
+#    name server name that exists somewhere under the apex of the zone
+#    that the NS record appears in.  Note that further levels of
+#    delegation are possible, so a missing trailing dot could
+#    inadvertently create a name server name that actually exists in a
+#    subzone.
+# 
+#    An authoritative name server SHOULD issue a warning when one of a
+#    zone's NS records references a name server below the zone's apex when
+#    a corresponding address record does not exist in the zone AND there
+#    are no delegated subzones where the address record could exist.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An authoritative name server SHOULD issue a warning when one of a
+zone's NS records references a name server below the zone's apex when
+a corresponding address record does not exist in the zone AND there
+are no delegated subzones where the address record could exist.
+'''
+

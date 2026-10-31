@@ -1,0 +1,43 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-9.1"
+
+# Query Names for HTTPS RRs
+#
+#    The HTTPS RR uses Port Prefix Naming (Section 2.3), with one
+#    modification: if the scheme is "https" and the port is 443, then the
+#    client's original QNAME is equal to the service name (i.e., the
+#    origin's hostname), without any prefix labels.
+# 
+#    By removing the Attrleaf labels [Attrleaf] used in SVCB, this
+#    construction enables offline DNSSEC signing of wildcard domains,
+#    which are commonly used with HTTP.  Using the service name as the
+#    owner name of the HTTPS record, without prefixes, also allows the
+#    targets of existing CNAME chains (e.g., CDN hosts) to start returning
+#    HTTPS RR responses without requiring origin domains to configure and
+#    maintain an additional delegation.
+# 
+#    The procedure for following HTTPS AliasMode RRs and CNAME aliases is
+#    unchanged from SVCB (as described in Sections 2.4.2 and 3).
+# 
+#    Clients always convert "http" URLs to "https" before performing an
+#    HTTPS RR query using the process described in Section 9.5, so domain
+#    owners MUST NOT publish HTTPS RRs with a prefix of "_http".
+# 
+#    Note that none of these forms alter the HTTPS origin or authority.
+#    For example, clients MUST continue to validate TLS certificate
+#    hostnames based on the origin.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients always convert "http" URLs to "https" before performing an
+HTTPS RR query using the process described in Section 9.5, so domain
+owners MUST NOT publish HTTPS RRs with a prefix of "_http".
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+For example, clients MUST continue to validate TLS certificate
+hostnames based on the origin.
+'''
+

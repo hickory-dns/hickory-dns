@@ -1,0 +1,172 @@
+target = "https://www.rfc-editor.org/rfc/rfc2845#section-3"
+
+# - Protocol Operation
+#
+#    3.1. Effects of adding TSIG to outgoing message
+# 
+#    Once the outgoing message has been constructed, the keyed message
+#    digest operation can be performed.  The resulting message digest will
+#    then be stored in a TSIG which is appended to the additional data
+#    section (the ARCOUNT is incremented to reflect this).  If the TSIG
+#    record cannot be added without causing the message to be truncated,
+#    the server MUST alter the response so that a TSIG can be included.
+#    This response consists of only the question and a TSIG record, and
+#    has the TC bit set and RCODE 0 (NOERROR).  The client SHOULD at this
+#    point retry the request using TCP (per [RFC1035 4.2.2]).
+# 
+#    3.2. TSIG processing on incoming messages
+# 
+#    If an incoming message contains a TSIG record, it MUST be the last
+#    record in the additional section.  Multiple TSIG records are not
+#    allowed.  If a TSIG record is present in any other position, the
+#    packet is dropped and a response with RCODE 1 (FORMERR) MUST be
+#    returned.  Upon receipt of a message with a correctly placed TSIG RR,
+#    the TSIG RR is copied to a safe location, removed from the DNS
+# 
+#    Message, and decremented out of the DNS message header's ARCOUNT.  At
+#    this point the keyed message digest operation is performed.  If the
+#    algorithm name or key name is unknown to the recipient, or if the
+#    message digests do not match, the whole DNS message MUST be
+#    discarded.  If the message is a query, a response with RCODE 9
+#    (NOTAUTH) MUST be sent back to the originator with TSIG ERROR 17
+#    (BADKEY) or TSIG ERROR 16 (BADSIG).  If no key is available to sign
+#    this message it MUST be sent unsigned (MAC size == 0 and empty MAC).
+#    A message to the system operations log SHOULD be generated, to warn
+#    the operations staff of a possible security incident in progress.
+#    Care should be taken to ensure that logging of this type of event
+#    does not open the system to a denial of service attack.
+# 
+#    3.3. Time values used in TSIG calculations
+# 
+#    The data digested includes the two timer values in the TSIG header in
+#    order to defend against replay attacks.  If this were not done, an
+#    attacker could replay old messages but update the "Time Signed" and
+#    "Fudge" fields to make the message look new.  This data is named
+#    "TSIG Timers", and for the purpose of digest calculation they are
+#    invoked in their "on the wire" format, in the following order: first
+#    Time Signed, then Fudge.  For example:
+# 
+# Field Name    Value       Wire Format         Meaning
+# ----------------------------------------------------------------------
+# Time Signed   853804800   00 00 32 e4 07 00   Tue Jan 21 00:00:00 1997
+# Fudge         300         01 2C               5 minutes
+# 
+#    3.4. TSIG Variables and Coverage
+# 
+#    When generating or verifying the contents of a TSIG record, the
+#    following data are digested, in network byte order or wire format, as
+#    appropriate:
+# 
+#    3.4.1. DNS Message
+# 
+#    A whole and complete DNS message in wire format, before the TSIG RR
+#    has been added to the additional data section and before the DNS
+#    Message Header's ARCOUNT field has been incremented to contain the
+#    TSIG RR.  If the message ID differs from the original message ID, the
+#    original message ID is substituted for the message ID.  This could
+#    happen when forwarding a dynamic update request, for example.
+# 
+#    3.4.2. TSIG Variables
+# 
+# Source       Field Name       Notes
+# -----------------------------------------------------------------------
+# TSIG RR      NAME             Key name, in canonical wire format
+# TSIG RR      CLASS            (Always ANY in the current specification)
+# TSIG RR      TTL              (Always 0 in the current specification)
+# TSIG RDATA   Algorithm Name   in canonical wire format
+# TSIG RDATA   Time Signed      in network byte order
+# TSIG RDATA   Fudge            in network byte order
+# TSIG RDATA   Error            in network byte order
+# TSIG RDATA   Other Len        in network byte order
+# TSIG RDATA   Other Data       exactly as transmitted
+# 
+#    The RR RDLEN and RDATA MAC Length are not included in the hash since
+#    they are not guaranteed to be knowable before the MAC is generated.
+# 
+#    The Original ID field is not included in this section, as it has
+#    already been substituted for the message ID in the DNS header and
+#    hashed.
+# 
+#    For each label type, there must be a defined "Canonical wire format"
+#    that specifies how to express a label in an unambiguous way.  For
+#    label type 00, this is defined in [RFC2535], for label type 01, this
+#    is defined in [RFC2673].  The use of label types other than 00 and 01
+#    is not defined for this specification.
+# 
+#    3.4.3. Request MAC
+# 
+#    When generating the MAC to be included in a response, the request MAC
+#    must be included in the digest.  The request's MAC is digested in
+#    wire format, including the following fields:
+# 
+#    Field        Type           Description
+#    ---------------------------------------------------
+#    MAC Length   u_int16_t      in network byte order
+#    MAC Data     octet stream   exactly as transmitted
+# 
+#    3.5. Padding
+# 
+#    Digested components are fed into the hashing function as a continuous
+#    octet stream with no interfield padding.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the TSIG
+record cannot be added without causing the message to be truncated,
+the server MUST alter the response so that a TSIG can be included.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The client SHOULD at this
+point retry the request using TCP (per [RFC1035 4.2.2]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an incoming message contains a TSIG record, it MUST be the last
+record in the additional section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a TSIG record is present in any other position, the
+packet is dropped and a response with RCODE 1 (FORMERR) MUST be
+returned.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the
+algorithm name or key name is unknown to the recipient, or if the
+message digests do not match, the whole DNS message MUST be
+discarded.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the message is a query, a response with RCODE 9
+(NOTAUTH) MUST be sent back to the originator with TSIG ERROR 17
+(BADKEY) or TSIG ERROR 16 (BADSIG).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If no key is available to sign
+this message it MUST be sent unsigned (MAC size == 0 and empty MAC).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A message to the system operations log SHOULD be generated, to warn
+the operations staff of a possible security incident in progress.
+'''
+

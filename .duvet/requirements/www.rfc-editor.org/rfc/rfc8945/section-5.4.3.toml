@@ -1,0 +1,26 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.4.3"
+
+# Time Error Handling
+#
+#    If the response RCODE is 9 (NOTAUTH) and the TSIG ERROR is 18
+#    (BADTIME) or the current time does not fall in the range specified in
+#    the TSIG record, then this is a time-related error.  This is an
+#    indication that the client and server clocks are not synchronized.
+#    In this case, the client SHOULD log the event.  DNS resolvers MUST
+#    NOT adjust any clocks in the client based on BADTIME errors, but the
+#    server's time in the Other Data field SHOULD be logged.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this case, the client SHOULD log the event.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS resolvers MUST
+NOT adjust any clocks in the client based on BADTIME errors, but the
+server's time in the Other Data field SHOULD be logged.
+'''
+

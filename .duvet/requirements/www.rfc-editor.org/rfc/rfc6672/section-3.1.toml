@@ -1,0 +1,60 @@
+target = "https://www.rfc-editor.org/rfc/rfc6672#section-3.1"
+
+# CNAME Synthesis
+#
+#    When preparing a response, a server performing a DNAME substitution
+#    will, in all cases, include the relevant DNAME RR in the answer
+#    section.  Relevant cases includes the following:
+# 
+#    1.  The DNAME is being employed as a substitution instruction.
+# 
+#    2.  The DNAME itself matches the QTYPE, and the owner name matches
+#        QNAME.
+# 
+#    When the owner name matches the QNAME and the QTYPE matches another
+#    type owned there, the DNAME is not included in the answer.
+# 
+#    A CNAME RR with Time to Live (TTL) equal to the corresponding DNAME
+#    RR is synthesized and included in the answer section when the DNAME
+#    is employed as a substitution instruction.  The owner name of the
+#    CNAME is the QNAME of the query.  The DNSSEC specification ([RFC4033]
+#    [RFC4034] [RFC4035]) says that the synthesized CNAME does not have to
+#    be signed.  The signed DNAME has an RRSIG, and a validating resolver
+#    can check the CNAME against the DNAME record and validate the
+#    signature over the DNAME RR.
+# 
+#    Servers MUST be able to answer a query for a synthesized CNAME.  Like
+#    other query types, this invokes the DNAME, and then the server
+#    synthesizes the CNAME and places it into the answer section.  If the
+#    server in question is a cache, the synthesized CNAME's TTL SHOULD be
+#    equal to the decremented TTL of the cached DNAME.
+# 
+#    Resolvers MUST be able to handle a synthesized CNAME TTL of zero or a
+#    value equal to the TTL of the corresponding DNAME record (as some
+#    older, authoritative server implementations set the TTL of
+#    synthesized CNAMEs to zero).  A TTL of zero means that the CNAME can
+#    be discarded immediately after processing the answer.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Servers MUST be able to answer a query for a synthesized CNAME.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the
+server in question is a cache, the synthesized CNAME's TTL SHOULD be
+equal to the decremented TTL of the cached DNAME.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Resolvers MUST be able to handle a synthesized CNAME TTL of zero or a
+value equal to the TTL of the corresponding DNAME record (as some
+older, authoritative server implementations set the TTL of
+synthesized CNAMEs to zero).
+'''
+

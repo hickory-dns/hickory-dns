@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-6"
+
+# Definition of the "application/dns-message" Media Type
+#
+#    The data payload for the "application/dns-message" media type is a
+#    single message of the DNS on-the-wire format defined in Section 4.2.1
+#    of [RFC1035], which in turn refers to the full wire format defined in
+#    Section 4.1 of that RFC.
+# 
+#    Although [RFC1035] says "Messages carried by UDP are restricted to
+#    512 bytes", that was later updated by [RFC6891].  This media type
+#    restricts the maximum size of the DNS message to 65535 bytes.
+# 
+#    Note that the wire format used in this media type is different than
+#    the wire format used in [RFC7858] (which uses the format defined in
+#    Section 4.2.2 of [RFC1035] that includes two length bytes).
+# 
+#    DoH clients using this media type MAY have one or more Extension
+#    Mechanisms for DNS (EDNS) options [RFC6891] in the request.  DoH
+#    servers using this media type MUST ignore the value given for the
+#    EDNS UDP payload size in DNS requests.
+# 
+#    When using the GET method, the data payload for this media type MUST
+#    be encoded with base64url [RFC4648] and then provided as a variable
+#    named "dns" to the URI Template expansion.  Padding characters for
+#    base64url MUST NOT be included.
+# 
+#    When using the POST method, the data payload for this media type MUST
+#    NOT be encoded and is used directly as the HTTP message body.
+
+[[spec]]
+level = "MAY"
+quote = '''
+DoH clients using this media type MAY have one or more Extension
+Mechanisms for DNS (EDNS) options [RFC6891] in the request.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DoH
+servers using this media type MUST ignore the value given for the
+EDNS UDP payload size in DNS requests.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When using the GET method, the data payload for this media type MUST
+be encoded with base64url [RFC4648] and then provided as a variable
+named "dns" to the URI Template expansion.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Padding characters for
+base64url MUST NOT be included.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When using the POST method, the data payload for this media type MUST
+NOT be encoded and is used directly as the HTTP message body.
+'''
+

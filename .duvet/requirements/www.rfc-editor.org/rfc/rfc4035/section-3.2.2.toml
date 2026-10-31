@@ -1,0 +1,81 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.2.2"
+
+# The CD Bit
+#
+#    The CD bit exists in order to allow a security-aware resolver to
+#    disable signature validation in a security-aware name server's
+#    processing of a particular query.
+# 
+#    The name server side MUST copy the setting of the CD bit from a query
+#    to the corresponding response.
+# 
+#    The name server side of a security-aware recursive name server MUST
+#    pass the state of the CD bit to the resolver side along with the rest
+# 
+#    of an initiating query, so that the resolver side will know whether
+#    it is required to verify the response data it returns to the name
+#    server side.  If the CD bit is set, it indicates that the originating
+#    resolver is willing to perform whatever authentication its local
+#    policy requires.  Thus, the resolver side of the recursive name
+#    server need not perform authentication on the RRsets in the response.
+#    When the CD bit is set, the recursive name server SHOULD, if
+#    possible, return the requested data to the originating resolver, even
+#    if the recursive name server's local authentication policy would
+#    reject the records in question.  That is, by setting the CD bit, the
+#    originating resolver has indicated that it takes responsibility for
+#    performing its own authentication, and the recursive name server
+#    should not interfere.
+# 
+#    If the resolver side implements a BAD cache (see Section 4.7) and the
+#    name server side receives a query that matches an entry in the
+#    resolver side's BAD cache, the name server side's response depends on
+#    the state of the CD bit in the original query.  If the CD bit is set,
+#    the name server side SHOULD return the data from the BAD cache; if
+#    the CD bit is not set, the name server side MUST return RCODE 2
+#    (server failure).
+# 
+#    The intent of the above rule is to provide the raw data to clients
+#    that are capable of performing their own signature verification
+#    checks while protecting clients that depend on the resolver side of a
+#    security-aware recursive name server to perform such checks.  Several
+#    of the possible reasons why signature validation might fail involve
+#    conditions that may not apply equally to the recursive name server
+#    and the client that invoked it.  For example, the recursive name
+#    server's clock may be set incorrectly, or the client may have
+#    knowledge of a relevant island of security that the recursive name
+#    server does not share.  In such cases, "protecting" a client that is
+#    capable of performing its own signature validation from ever seeing
+#    the "bad" data does not help the client.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name server side MUST copy the setting of the CD bit from a query
+to the corresponding response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name server side of a security-aware recursive name server MUST
+pass the state of the CD bit to the resolver side along with the rest
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When the CD bit is set, the recursive name server SHOULD, if
+possible, return the requested data to the originating resolver, even
+if the recursive name server's local authentication policy would
+reject the records in question.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the CD bit is set,
+the name server side SHOULD return the data from the BAD cache; if
+the CD bit is not set, the name server side MUST return RCODE 2
+(server failure).
+'''
+

@@ -1,0 +1,64 @@
+target = "https://www.rfc-editor.org/rfc/rfc7129#appendix-A"
+
+# Online Signing: Minimally Covering NSEC Records
+#
+#    An NSEC record lists the next existing name in a zone and thus makes
+#    it trivial to retrieve all the names from the zone.  This can also be
+#    done with NSEC3, but an adversary will then retrieve all the hashed
+#    names.  With DNSSEC online signing, zone walking can be prevented by
+#    faking the next owner name.
+# 
+#    To prevent retrieval of the next owner name with NSEC, a different,
+#    non-existing (according to the existence rules in [RFC4592],
+#    Section 2.2) name is used.  However, not just any name can be used
+#    because a validator may make assumptions about the size of the span
+#    the NSEC record covers.  The span must be large enough to cover the
+#    QNAME but not too large that it covers existing names.
+# 
+#    [RFC4470] introduces a scheme for generating minimally covering NSEC
+#    records.  These records use a next owner name that is lexically
+#    closer to the NSEC owner name than the actual next owner name,
+#    ensuring that no existing names are covered.  The next owner name can
+#    be derived from the QNAME with the use of so-called epsilon
+#    functions.
+# 
+#    For example, to deny the existence of "b.example.org" in the zone
+#    from Section 3.2, the following NSEC record could have been
+#    generated:
+# 
+#    a.example.org.      NSEC c.example.org. RRSIG NSEC
+# 
+#    This record also proves that "b.example.org" also does not exist, but
+#    an adversary _cannot_ use the next owner name in a zone-walking
+#    attack.  Note the type bitmap only has the RRSIG and NSEC set because
+#    [RFC4470] states:
+# 
+#       The generated NSEC record's type bitmap MUST have the RRSIG and
+#       NSEC bits set and SHOULD NOT have any other bits set.
+# 
+#    This is because the NSEC records may appear at names that did not
+#    exist before the zone was signed.  In this case, however,
+#    "a.example.org" exists with other RR types, and we could have also
+#    set the A and TXT types in the bitmap.
+# 
+#    Because DNS ordering is very strict, the span should be shortened to
+#    a minimum.  In order to do so, the last character in the leftmost
+#    label of the NSEC owner name needs to be decremented, and the label
+#    must be filled with octets of value 255 until the label length
+#    reaches the maximum of 63 octets.  The next owner name is the QNAME
+#    with a leading label with a single null octet added.  This gives the
+#    following minimally covering record for "b.example.org":
+# 
+#    a\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255
+#     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255
+#     \255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255\255
+#     \255\255\255\255\255\255\255\255\255\255\255.example.org. (
+#       NSEC \000.b.example.org. RRSIG NSEC )
+
+[[spec]]
+level = "MUST"
+quote = '''
+The generated NSEC record's type bitmap MUST have the RRSIG and
+NSEC bits set and SHOULD NOT have any other bits set.
+'''
+

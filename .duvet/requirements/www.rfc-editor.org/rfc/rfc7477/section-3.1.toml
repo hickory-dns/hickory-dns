@@ -1,0 +1,134 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-3.1"
+
+# Processing Procedure
+#
+#    The following shows a sequence of steps that SHOULD be used when
+#    collecting and processing CSYNC records from a child zone.  Because
+#    DNS queries are not allowed to contain more than one "question" at a
+#    time, a sequence of requests is needed.  When processing a CSYNC
+#    transaction request, all DNS queries should be sent to a single
+#    authoritative name server for the child zone.  To ensure a single
+#    host is being addressed, DNS over TCP SHOULD be used to avoid
+#    conversing with multiple nodes at an anycast address.
+# 
+#    1.  Query for the child zone's SOA record
+# 
+#    2.  Query for the child zone's CSYNC record
+# 
+#    3.  Query for the child zone's data records, as required by the CSYNC
+#        record's Type Bit Map field
+# 
+#        *  Note: if any of the resulting records being queried are not
+#           authoritative within the child zone but rather in a grandchild
+#           or deeper, SOA record queries must be made for the
+#           grandchildren.  This will require the parental agent to
+#           determine where the child/grandchild zone cuts occur.  Because
+#           of the additional operational complexity, parental agents MAY
+#           choose not to support this protocol with children making use
+#           of records that are authoritative in the grandchildren.
+# 
+#    4.  Query for the collected SOA records again, starting with the
+#        deepest and ending with the SOA of the child's.
+# 
+#    If the SOA records from the first, middle, and last steps for a given
+#    zone have different serial numbers (for example, because the zone was
+#    edited and republished during the interval between steps 1 and 4),
+#    then the CSYNC record obtained in the second set SHOULD NOT be
+#    processed (rapidly changing child zones may need special
+#    consideration or processing).  The operation MAY be restarted or
+#    retried in the future.
+# 
+#    If the soaminimum flag is set and the SOA serial numbers are equal
+#    but less than the CSYNC record's SOA Serial field [RFC1982], the
+#    record MUST NOT be processed.  If state is being kept by the parental
+#    agent and the SOA serial number is less than the last time a CSYNC
+#    record was processed, this CSYNC record SHOULD NOT be processed.
+#    Similarly, if state is being kept by the parental agent and the SOA
+#    Serial field of the CSYNC record is less than the SOA Serial field of
+#    the CSYNC record from last time, then this CSYNC record SHOULD NOT be
+#    processed.
+# 
+#    If a failure of any kind occurs while trying to obtain any of the
+#    required data, or if DNSSEC fails to validate all of the data
+#    returned for these queries as "secure", then this CSYNC record MUST
+#    NOT be processed.
+# 
+#    See the "Operational Consideration" section (Section 4) for
+#    additional guidance about processing.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The following shows a sequence of steps that SHOULD be used when
+collecting and processing CSYNC records from a child zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+To ensure a single
+host is being addressed, DNS over TCP SHOULD be used to avoid
+conversing with multiple nodes at an anycast address.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Because
+of the additional operational complexity, parental agents MAY
+choose not to support this protocol with children making use
+of records that are authoritative in the grandchildren.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the SOA records from the first, middle, and last steps for a given
+zone have different serial numbers (for example, because the zone was
+edited and republished during the interval between steps 1 and 4),
+then the CSYNC record obtained in the second set SHOULD NOT be
+processed (rapidly changing child zones may need special
+consideration or processing).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+The operation MAY be restarted or
+retried in the future.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the soaminimum flag is set and the SOA serial numbers are equal
+but less than the CSYNC record's SOA Serial field [RFC1982], the
+record MUST NOT be processed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If state is being kept by the parental
+agent and the SOA serial number is less than the last time a CSYNC
+record was processed, this CSYNC record SHOULD NOT be processed.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Similarly, if state is being kept by the parental agent and the SOA
+Serial field of the CSYNC record is less than the SOA Serial field of
+the CSYNC record from last time, then this CSYNC record SHOULD NOT be
+processed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a failure of any kind occurs while trying to obtain any of the
+required data, or if DNSSEC fails to validate all of the data
+returned for these queries as "secure", then this CSYNC record MUST
+NOT be processed.
+'''
+

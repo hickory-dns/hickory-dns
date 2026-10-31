@@ -1,0 +1,68 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-3.1"
+
+# DS Example
+#
+#    To create a chain of trust, a resolver goes from trusted KEY to DS to
+#    KEY.
+# 
+#       Assume the key for domain "example." is trusted.  Zone "example."
+#       contains at least the following records:
+#       example.          SOA     <soa stuff>
+#       example.          NS       ns.example.
+#       example.          KEY     <stuff>
+#       example.          NXT      secure.example. NS SOA KEY SIG NXT
+#       example.          SIG(SOA)
+#       example.          SIG(NS)
+#       example.          SIG(NXT)
+#       example.          SIG(KEY)
+#       secure.example.   NS      ns1.secure.example.
+#       secure.example.   DS      tag=12345 alg=3 digest_type=1 <foofoo>
+#       secure.example.   NXT     unsecure.example. NS SIG NXT DS
+#       secure.example.   SIG(NXT)
+#       secure.example.   SIG(DS)
+#       unsecure.example  NS      ns1.unsecure.example.
+#       unsecure.example. NXT     example. NS SIG NXT
+#       unsecure.example. SIG(NXT)
+# 
+#       In zone "secure.example." following records exist:
+#       secure.example.   SOA      <soa stuff>
+#       secure.example.   NS       ns1.secure.example.
+#       secure.example.   KEY      <tag=12345 alg=3>
+#       secure.example.   KEY      <tag=54321 alg=5>
+#       secure.example.   NXT      <nxt stuff>
+#       secure.example.   SIG(KEY) <key-tag=12345 alg=3>
+#       secure.example.   SIG(SOA) <key-tag=54321 alg=5>
+#       secure.example.   SIG(NS)  <key-tag=54321 alg=5>
+#       secure.example.   SIG(NXT) <key-tag=54321 alg=5>
+# 
+#    In this example, the private key for "example." signs the DS record
+#    for "secure.example.", making that a secure delegation.  The DS
+#    record states which key is expected to sign the KEY RRset at
+#    "secure.example.".  Here "secure.example." signs its KEY RRset with
+#    the KEY identified in the DS RRset, thus the KEY RRset is validated
+#    and trusted.
+# 
+#    This example has only one DS record for the child, but parents MUST
+#    allow multiple DS records to facilitate key roll-over and multiple
+#    KEY algorithms.
+# 
+#    The resolver determines the security status of "unsecure.example." by
+#    examining the parent zone's NXT record for this name.  The absence of
+#    the DS bit indicates an unsecure delegation.  Note the NXT record
+#    SHOULD only be examined after verifying the corresponding signature.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This example has only one DS record for the child, but parents MUST
+allow multiple DS records to facilitate key roll-over and multiple
+KEY algorithms.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Note the NXT record
+SHOULD only be examined after verifying the corresponding signature.
+'''
+

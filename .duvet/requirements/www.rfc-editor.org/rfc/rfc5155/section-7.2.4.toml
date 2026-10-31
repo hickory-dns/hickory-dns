@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.4"
+
+# No Data Responses, QTYPE is DS
+#
+#    If there is an NSEC3 RR that matches QNAME, the server MUST return it
+#    in the response.  The bits corresponding with DS and CNAME MUST NOT
+#    be set in the Type Bit Maps field of this NSEC3 RR.
+# 
+#    If no NSEC3 RR matches QNAME, the server MUST return a closest
+#    provable encloser proof for QNAME.  The NSEC3 RR that covers the
+#    "next closer" name MUST have the Opt-Out bit set (note that this is
+#    true by definition -- if the Opt-Out bit is not set, something has
+#    gone wrong).
+# 
+#    If a server is authoritative for both sides of a zone cut at QNAME,
+#    the server MUST return the proof from the parent side of the zone
+#    cut.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is an NSEC3 RR that matches QNAME, the server MUST return it
+in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The bits corresponding with DS and CNAME MUST NOT
+be set in the Type Bit Maps field of this NSEC3 RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If no NSEC3 RR matches QNAME, the server MUST return a closest
+provable encloser proof for QNAME.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The NSEC3 RR that covers the
+"next closer" name MUST have the Opt-Out bit set (note that this is
+true by definition -- if the Opt-Out bit is not set, something has
+gone wrong).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a server is authoritative for both sides of a zone cut at QNAME,
+the server MUST return the proof from the parent side of the zone
+cut.
+'''
+

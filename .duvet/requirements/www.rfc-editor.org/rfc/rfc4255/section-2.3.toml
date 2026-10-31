@@ -1,0 +1,29 @@
+target = "https://www.rfc-editor.org/rfc/rfc4255#section-2.3"
+
+# Fingerprint Matching
+#
+#    The public key and the SSHFP resource record are matched together by
+#    comparing algorithm number and fingerprint.
+# 
+#       The public key algorithm and the SSHFP algorithm number MUST
+#       match.
+# 
+#       A message digest of the public key, using the message digest
+#       algorithm specified in the SSHFP fingerprint type, MUST match the
+#       SSHFP fingerprint.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The public key algorithm and the SSHFP algorithm number MUST
+match.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A message digest of the public key, using the message digest
+algorithm specified in the SSHFP fingerprint type, MUST match the
+SSHFP fingerprint.
+'''
+

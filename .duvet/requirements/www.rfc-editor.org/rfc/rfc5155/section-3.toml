@@ -1,0 +1,52 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-3"
+
+# The NSEC3 Resource Record
+#
+#    The NSEC3 Resource Record (RR) provides authenticated denial of
+#    existence for DNS Resource Record Sets.
+# 
+#    The NSEC3 RR lists RR types present at the original owner name of the
+#    NSEC3 RR.  It includes the next hashed owner name in the hash order
+#    of the zone.  The complete set of NSEC3 RRs in a zone indicates which
+#    RRSets exist for the original owner name of the RR and form a chain
+#    of hashed owner names in the zone.  This information is used to
+#    provide authenticated denial of existence for DNS data.  To provide
+#    protection against zone enumeration, the owner names used in the
+#    NSEC3 RR are cryptographic hashes of the original owner name
+#    prepended as a single label to the name of the zone.  The NSEC3 RR
+#    indicates which hash function is used to construct the hash, which
+#    salt is used, and how many iterations of the hash function are
+#    performed over the original owner name.  The hashing technique is
+#    described fully in Section 5.
+# 
+#    Hashed owner names of unsigned delegations may be excluded from the
+#    chain.  An NSEC3 RR whose span covers the hash of an owner name or
+#    "next closer" name of an unsigned delegation is referred to as an
+#    Opt-Out NSEC3 RR and is indicated by the presence of a flag.
+# 
+#    The owner name for the NSEC3 RR is the base32 encoding of the hashed
+#    owner name prepended as a single label to the name of the zone.
+# 
+#    The type value for the NSEC3 RR is 50.
+# 
+#    The NSEC3 RR RDATA format is class independent and is described
+#    below.
+# 
+#    The class MUST be the same as the class of the original owner name.
+# 
+#    The NSEC3 RR SHOULD have the same TTL value as the SOA minimum TTL
+#    field.  This is in the spirit of negative caching [RFC2308].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The class MUST be the same as the class of the original owner name.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The NSEC3 RR SHOULD have the same TTL value as the SOA minimum TTL
+field.
+'''
+

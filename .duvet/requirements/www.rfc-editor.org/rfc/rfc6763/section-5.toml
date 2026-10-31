@@ -1,0 +1,61 @@
+target = "https://www.rfc-editor.org/rfc/rfc6763#section-5"
+
+# Service Instance Resolution
+#
+#    When a client needs to contact a particular service, identified by a
+#    Service Instance Name, previously discovered via Service Instance
+#    Enumeration (browsing), it queries for the SRV and TXT records of
+#    that name.  The SRV record for a service gives the port number and
+#    target host name where the service may be found.  The TXT record
+#    gives additional information about the service, as described in
+#    Section 6, "Data Syntax for DNS-SD TXT Records".
+# 
+#    SRV records are extremely useful because they remove the need for
+#    preassigned port numbers.  There are only 65535 TCP port numbers
+#    available.  These port numbers are traditionally allocated one per
+#    application protocol [RFC6335].  Some protocols like the X Window
+#    System have a block of 64 TCP ports allocated (6000-6063).  Using a
+#    different TCP port for each different instance of a given service on
+#    a given machine is entirely sensible, but allocating each application
+#    its own large static range, as was done for the X Window System, is
+#    not a practical way to do that.  On any given host, most TCP ports
+#    are reserved for services that will never run on that particular host
+#    in its lifetime.  This is very poor utilization of the limited port
+#    space.  Using SRV records allows each host to allocate its available
+#    port numbers dynamically to those services actually running on that
+#    host that need them, and then advertise the allocated port numbers
+#    via SRV records.  Allocating the available listening port numbers
+#    locally on a per-host basis as needed allows much better utilization
+#    of the available port space than today's centralized global
+#    allocation.
+# 
+#    In the event that more than one SRV is returned, clients MUST
+#    correctly interpret the priority and weight fields -- i.e., lower-
+#    numbered priority servers should be used in preference to higher-
+#    numbered priority servers, and servers with equal priority should be
+#    selected randomly in proportion to their relative weights.  However,
+#    in the overwhelmingly common case, a single advertised DNS-SD service
+#    instance is described by exactly one SRV record, and in this common
+#    case the priority and weight fields of the SRV record SHOULD both be
+#    set to zero.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the event that more than one SRV is returned, clients MUST
+correctly interpret the priority and weight fields -- i.e., lower-
+numbered priority servers should be used in preference to higher-
+numbered priority servers, and servers with equal priority should be
+selected randomly in proportion to their relative weights.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+However,
+in the overwhelmingly common case, a single advertised DNS-SD service
+instance is described by exactly one SRV record, and in this common
+case the priority and weight fields of the SRV record SHOULD both be
+set to zero.
+'''
+

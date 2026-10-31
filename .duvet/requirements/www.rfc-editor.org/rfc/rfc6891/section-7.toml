@@ -1,0 +1,89 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-7"
+
+# Transport Considerations
+#
+#    The presence of an OPT pseudo-RR in a request should be taken as an
+#    indication that the requestor fully implements the given version of
+#    EDNS and can correctly understand any response that conforms to that
+#    feature's specification.
+# 
+#    Lack of presence of an OPT record in a request MUST be taken as an
+#    indication that the requestor does not implement any part of this
+#    specification and that the responder MUST NOT include an OPT record
+#    in its response.
+# 
+#    Extended agents MUST be prepared for handling interactions with
+#    unextended clients in the face of new protocol elements and fall back
+#    gracefully to unextended DNS when needed.
+# 
+#    Responders that choose not to implement the protocol extensions
+#    defined in this document MUST respond with a return code (RCODE) of
+#    FORMERR to messages containing an OPT record in the additional
+#    section and MUST NOT include an OPT record in the response.
+# 
+#    If there is a problem with processing the OPT record itself, such as
+#    an option value that is badly formatted or that includes out-of-range
+#    values, a FORMERR MUST be returned.  If this occurs, the response
+#    MUST include an OPT record.  This is intended to allow the requestor
+#    to distinguish between servers that do not implement EDNS and format
+#    errors within EDNS.
+# 
+#    The minimal response MUST be the DNS header, question section, and an
+#    OPT record.  This MUST also occur when a truncated response (using
+#    the DNS header's TC bit) is returned.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Lack of presence of an OPT record in a request MUST be taken as an
+indication that the requestor does not implement any part of this
+specification and that the responder MUST NOT include an OPT record
+in its response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Extended agents MUST be prepared for handling interactions with
+unextended clients in the face of new protocol elements and fall back
+gracefully to unextended DNS when needed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Responders that choose not to implement the protocol extensions
+defined in this document MUST respond with a return code (RCODE) of
+FORMERR to messages containing an OPT record in the additional
+section and MUST NOT include an OPT record in the response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If there is a problem with processing the OPT record itself, such as
+an option value that is badly formatted or that includes out-of-range
+values, a FORMERR MUST be returned.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this occurs, the response
+MUST include an OPT record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The minimal response MUST be the DNS header, question section, and an
+OPT record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This MUST also occur when a truncated response (using
+the DNS header's TC bit) is returned.
+'''
+

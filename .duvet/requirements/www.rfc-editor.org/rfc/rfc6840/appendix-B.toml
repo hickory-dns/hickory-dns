@@ -1,0 +1,150 @@
+target = "https://www.rfc-editor.org/rfc/rfc6840#appendix-B"
+
+# Discussion of Setting the CD Bit
+#
+#    [RFC4035] may be read as relying on the implicit assumption that
+#    there is at most one validating system between the stub resolver and
+#    the authoritative server for a given zone.  It is entirely possible,
+#    however, for more than one validator to exist between a stub resolver
+#    and an authoritative server.  If these different validators have
+#    disjoint trust anchors configured, then it is possible that each
+#    would be able to validate some portion of the DNS tree, but neither
+# 
+#    is able to validate all of it.  Accordingly, it might be argued that
+#    it is desirable not to set the CD bit on upstream queries, because
+#    that allows for maximal validation.
+# 
+#    In Section 5.9 of this document, it is recommended to set the CD bit
+#    on an upstream query even when the incoming query arrives with CD=0.
+#    This is for two reasons: it encourages a more predictable validation
+#    experience as only one validator is always doing the validation, and
+#    it ensures that all DNSSEC data that exists may be available from the
+#    local cache should a query with CD=1 arrive.
+# 
+#    As a matter of policy, it is possible to set the CD bit differently
+#    than suggested in Section 5.9.  A different choice will, of course,
+#    not always yield the benefits listed above.  It is beyond the scope
+#    of this document to outline all of the considerations and counter
+#    considerations for all possible policies.  Nevertheless, it is
+#    possible to describe three approaches and their underlying philosophy
+#    of operation.  These are laid out in the tables below.
+# 
+#    The table that describes each model has five columns.  The first
+#    column indicates the value of the CD bit that the resolver receives
+#    (for instance, on the name server side in an iterative resolver, or
+#    as local policy or from the API in the case of a stub).  The second
+#    column indicates whether the query needs to be forwarded for
+#    resolution (F) or can be satisfied from a local cache (C).  The third
+#    column is a line number, so that it can be referred to later in the
+#    table.  The fourth column indicates any relevant conditions at the
+#    resolver, for example, whether the resolver has a covering trust
+#    anchor, and so on.  If there are no parameters here, the column is
+#    empty.  The fifth and final column indicates what action the resolver
+#    takes.
+# 
+#    The tables differentiate between "cached data" and "cached RCODE=2".
+#    This is a shorthand; the point is that one has to treat RCODE=2
+#    (server failure) as special, because it might indicate a validation
+#    failure somewhere upstream.  The distinction is really between
+#    "cached RCODE=2" and "cached everything else".
+# 
+#    The tables are probably easiest to think of in terms of describing
+#    what happens when a stub resolver sends a query to an intermediate
+#    resolver, but they are perfectly general and can be applied to any
+#    validating resolver.
+# 
+#    Model 1: "always set"
+# 
+#    This model is so named because the validating resolver sets the CD
+#    bit on queries it makes regardless of whether it has a covering trust
+#    anchor for the query.  The general philosophy represented by this
+# 
+#    table is that only one resolver should be responsible for validation
+#    irrespective of the possibility that an upstream resolver may be
+#    present with trust anchors that cover different or additional QNAMEs.
+#    It is the model recommended in Section 5.9 of this document.
+# 
+#     CD F/C    line      conditions            action
+#     ====================================================================
+#     1   F      A1                             Set CD=1 on upstream query
+#     0   F      A2                             Set CD=1 on upstream query
+#     1   C      A3                             Return the cache contents
+#                                                (data or RCODE=2)
+#     0   C      A4       no covering TA        Return cache contents
+#                                                (data or RCODE=2)
+#     0   C      A5       covering TA           Validate cached result and
+#                                                return it
+# 
+#    Model 2: "never set when receiving CD=0"
+# 
+#    This model is so named because it sets CD=0 on upstream queries for
+#    all received CD=0 queries, even if it has a covering trust anchor.
+#    The general philosophy represented by this table is that more than
+#    one resolver may take responsibility for validating a QNAME and that
+#    a validation failure for a QNAME by any resolver in the chain is a
+#    validation failure for the query.  Using this model is NOT
+#    RECOMMENDED.
+# 
+#     CD F/C    line       conditions           action
+#     ====================================================================
+#     1  F      N1                              Set CD=1 on upstream query
+#     0  F      N2                              Set CD=0 on upstream query
+#     1  C      N3         cached data          Return cached data
+#     1  C      N4         cached RCODE=2       Treat as line N1
+#     0  C      N5         no covering TA       Return cache contents
+#                                                (data or RCODE=2)
+#     0  C      N6         covering TA &        Treat as line N2
+#                           cached data was
+#                           generated with CD=1
+#     0  C      N7         covering TA &        Validate and return
+#                           cached data was
+#                           generated with CD=0
+# 
+#    Model 3: "sometimes set"
+# 
+#    This model is so named because it sets the CD bit on upstream queries
+#    triggered by received CD=0 queries, based on whether the validator
+#    has a trust anchor configured that covers the query.  If there is no
+#    covering trust anchor, the resolver clears the CD bit in the upstream
+# 
+#    query.  If there is a covering trust anchor, the resolver sets CD=1
+#    and performs validation itself.  The general philosophy represented
+#    by this table is that a resolver should try and validate QNAMEs for
+#    which it has trust anchors and should not preclude validation by
+#    other resolvers for QNAMEs for which it does not have covering trust
+#    anchors.  Using this model is NOT RECOMMENDED.
+# 
+#     CD F/C    line       conditions         action
+#     ====================================================================
+#     1  F      S1                            Set CD=1 on upstream query
+#     0  F      S2         covering TA        Set CD=1 on upstream query
+#     0  F      S3         no covering TA     Set CD=0 on upstream query
+#     1  C      S4         cached data        Return cached data
+#     1  C      S5         cached RCODE=2     Treat as line S1
+#     0  C      S6         cached data was    Return cache contents
+#                           generated with
+#                           CD=0
+#     0  C      S7         cached data was    Validate & return cache
+#                           generated with     contents
+#                           CD=1 &
+#                           covering TA
+#     0  C      S8         cached RCODE=2     Return cache contents
+#     0  C      S9         cached data        Treat as line S3
+#                           was generated
+#                           with CD=1 &
+#                           no covering
+#                           TA
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Using this model is NOT
+RECOMMENDED.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Using this model is NOT RECOMMENDED.
+'''
+

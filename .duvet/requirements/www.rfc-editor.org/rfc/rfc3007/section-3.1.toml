@@ -1,0 +1,55 @@
+target = "https://www.rfc-editor.org/rfc/rfc3007#section-3.1"
+
+# - Standard policies
+#
+#    Implementations SHOULD allow access control policies to use the
+#    principal as an authorization token, and MAY also allow policies to
+#    grant permission to a signed message regardless of principal.
+# 
+#    A common practice would be to restrict the permissions of a principal
+#    by domain name.  That is, a principal could be permitted to add,
+#    delete, or modify entries corresponding to one or more domain names.
+#    Implementations SHOULD allow per-name access control, and SHOULD
+#    provide a concise representation of the principal's own name, its
+#    subdomains, and all names in the zone.
+# 
+#    Additionally, a server SHOULD allow restricting updates by RR type,
+#    so that a principal could add, delete, or modify specific record
+#    types at certain names.  Implementations SHOULD allow per-type access
+#    control, and SHOULD provide concise representations of all types and
+#    all "user" types, where a user type is defined as one that does not
+#    affect the operation of DNS itself.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD allow access control policies to use the
+principal as an authorization token, and MAY also allow policies to
+grant permission to a signed message regardless of principal.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD allow per-name access control, and SHOULD
+provide a concise representation of the principal's own name, its
+subdomains, and all names in the zone.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Additionally, a server SHOULD allow restricting updates by RR type,
+so that a principal could add, delete, or modify specific record
+types at certain names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Implementations SHOULD allow per-type access
+control, and SHOULD provide concise representations of all types and
+all "user" types, where a user type is defined as one that does not
+affect the operation of DNS itself.
+'''
+

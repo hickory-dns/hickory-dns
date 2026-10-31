@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.2.1"
+
+# The DO Bit
+#
+#    The resolver side of a security-aware recursive name server MUST set
+#    the DO bit when sending requests, regardless of the state of the DO
+#    bit in the initiating request received by the name server side.  If
+#    the DO bit in an initiating query is not set, the name server side
+#    MUST strip any authenticating DNSSEC RRs from the response but MUST
+#    NOT strip any DNSSEC RR types that the initiating query explicitly
+#    requested.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The resolver side of a security-aware recursive name server MUST set
+the DO bit when sending requests, regardless of the state of the DO
+bit in the initiating request received by the name server side.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If
+the DO bit in an initiating query is not set, the name server side
+MUST strip any authenticating DNSSEC RRs from the response but MUST
+NOT strip any DNSSEC RR types that the initiating query explicitly
+requested.
+'''
+

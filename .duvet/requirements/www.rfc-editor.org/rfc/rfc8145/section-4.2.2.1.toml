@@ -1,0 +1,88 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-4.2.2.1"
+
+# Validating Recursive Resolvers
+#
+#    A validating recursive resolver is, by definition, configured with at
+#    least one trust anchor.  Thus, a recursive resolver SHOULD include
+#    the edns-key-tag option in its DNSKEY queries as described above.
+# 
+#    In addition, the clients of a validating recursive resolver might be
+#    configured to do their own validation, with their own
+#    trust anchor(s).  When a validating recursive resolver receives a
+#    query that includes the edns-key-tag option with a Key Tag list that
+#    differs from its own, it SHOULD forward both the client's Key Tag
+#    list and its own list.  When doing so, the recursive resolver SHOULD
+#    transmit the two Key Tag lists using separate instances of the
+#    edns-key-tag option code in the OPT RR.  For example, if the
+#    recursive resolver's Key Tag list is (19036, 12345) and the
+#    stub/client's list is (19036, 34567), the recursive resolver
+#    would include the edns-key-tag option twice: once with values
+#    (19036, 12345) and once with values (19036, 34567).
+# 
+#    A validating recursive resolver MAY combine stub/client Key Tag
+#    values from multiple incoming queries into a single outgoing query.
+#    It is RECOMMENDED that implementations place reasonable limits on the
+#    number of Key Tags to include in the outgoing edns-key-tag option.
+# 
+#    If the client included the DNSSEC OK and Checking Disabled (CD) bits
+#    but did not include the edns-key-tag option in the query, the
+#    validating recursive resolver MAY include the option with its own
+#    Key Tag values in full.
+# 
+#    Validating recursive resolvers MUST NOT set the edns-key-tag option
+#    in the final response to the stub client.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Thus, a recursive resolver SHOULD include
+the edns-key-tag option in its DNSKEY queries as described above.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When a validating recursive resolver receives a
+query that includes the edns-key-tag option with a Key Tag list that
+differs from its own, it SHOULD forward both the client's Key Tag
+list and its own list.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When doing so, the recursive resolver SHOULD
+transmit the two Key Tag lists using separate instances of the
+edns-key-tag option code in the OPT RR.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+A validating recursive resolver MAY combine stub/client Key Tag
+values from multiple incoming queries into a single outgoing query.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+It is RECOMMENDED that implementations place reasonable limits on the
+number of Key Tags to include in the outgoing edns-key-tag option.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the client included the DNSSEC OK and Checking Disabled (CD) bits
+but did not include the edns-key-tag option in the query, the
+validating recursive resolver MAY include the option with its own
+Key Tag values in full.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Validating recursive resolvers MUST NOT set the edns-key-tag option
+in the final response to the stub client.
+'''
+

@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-9.3.2"
+
+# Strict TLS
+#
+#    Strict TLS for DoT [RFC8310] requires that a client is configured
+#    with an authentication domain name (and/or Subject Public Key Info
+#    (SPKI) pin set) that MUST be used to authenticate the TLS handshake
+#    with the server.  If authentication of the server fails, the client
+#    will not proceed with the connection.  This provides a defense for
+#    the client against active surveillance, providing client-to-server
+#    authentication and end-to-end channel confidentiality.
+# 
+#    Properties:  Channel confidentiality and channel authentication (of
+#       the server).
+
+[[spec]]
+level = "MUST"
+quote = '''
+Strict TLS for DoT [RFC8310] requires that a client is configured
+with an authentication domain name (and/or Subject Public Key Info
+(SPKI) pin set) that MUST be used to authenticate the TLS handshake
+with the server.
+'''
+

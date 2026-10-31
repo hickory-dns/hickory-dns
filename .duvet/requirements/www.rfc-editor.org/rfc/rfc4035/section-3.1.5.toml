@@ -1,0 +1,100 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.5"
+
+# Responding to Queries for Type AXFR or IXFR
+#
+#    DNSSEC does not change the DNS zone transfer process.  A signed zone
+#    will contain RRSIG, DNSKEY, NSEC, and DS resource records, but these
+#    records have no special meaning with respect to a zone transfer
+#    operation.
+# 
+#    An authoritative name server is not required to verify that a zone is
+#    properly signed before sending or accepting a zone transfer.
+#    However, an authoritative name server MAY choose to reject the entire
+#    zone transfer if the zone fails to meet any of the signing
+#    requirements described in Section 2.  The primary objective of a zone
+#    transfer is to ensure that all authoritative name servers have
+#    identical copies of the zone.  An authoritative name server that
+# 
+#    chooses to perform its own zone validation MUST NOT selectively
+#    reject some RRs and accept others.
+# 
+#    DS RRsets appear only on the parental side of a zone cut and are
+#    authoritative data in the parent zone.  As with any other
+#    authoritative RRset, the DS RRset MUST be included in zone transfers
+#    of the zone in which the RRset is authoritative data.  In the case of
+#    the DS RRset, this is the parent zone.
+# 
+#    NSEC RRs appear in both the parent and child zones at a zone cut and
+#    are authoritative data in both the parent and child zones.  The
+#    parental and child NSEC RRs at a zone cut are never identical to each
+#    other, as the NSEC RR in the child zone's apex will always indicate
+#    the presence of the child zone's SOA RR whereas the parental NSEC RR
+#    at the zone cut will never indicate the presence of an SOA RR.  As
+#    with any other authoritative RRs, NSEC RRs MUST be included in zone
+#    transfers of the zone in which they are authoritative data.  The
+#    parental NSEC RR at a zone cut MUST be included in zone transfers of
+#    the parent zone, and the NSEC at the zone apex of the child zone MUST
+#    be included in zone transfers of the child zone.
+# 
+#    RRSIG RRs appear in both the parent and child zones at a zone cut and
+#    are authoritative in whichever zone contains the authoritative RRset
+#    for which the RRSIG RR provides the signature.  That is, the RRSIG RR
+#    for a DS RRset or a parental NSEC RR at a zone cut will be
+#    authoritative in the parent zone, and the RRSIG for any RRset in the
+#    child zone's apex will be authoritative in the child zone.  Parental
+#    and child RRSIG RRs at a zone cut will never be identical to each
+#    other, as the Signer's Name field of an RRSIG RR in the child zone's
+#    apex will indicate a DNSKEY RR in the child zone's apex whereas the
+#    same field of a parental RRSIG RR at the zone cut will indicate a
+#    DNSKEY RR in the parent zone's apex.  As with any other authoritative
+#    RRs, RRSIG RRs MUST be included in zone transfers of the zone in
+#    which they are authoritative data.
+
+[[spec]]
+level = "MAY"
+quote = '''
+However, an authoritative name server MAY choose to reject the entire
+zone transfer if the zone fails to meet any of the signing
+requirements described in Section 2.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+chooses to perform its own zone validation MUST NOT selectively
+reject some RRs and accept others.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As with any other
+authoritative RRset, the DS RRset MUST be included in zone transfers
+of the zone in which the RRset is authoritative data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As
+with any other authoritative RRs, NSEC RRs MUST be included in zone
+transfers of the zone in which they are authoritative data.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The
+parental NSEC RR at a zone cut MUST be included in zone transfers of
+the parent zone, and the NSEC at the zone apex of the child zone MUST
+be included in zone transfers of the child zone.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+As with any other authoritative
+RRs, RRSIG RRs MUST be included in zone transfers of the zone in
+which they are authoritative data.
+'''
+

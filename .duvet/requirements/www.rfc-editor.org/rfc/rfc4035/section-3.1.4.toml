@@ -1,0 +1,56 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.4"
+
+# Including DS RRs in a Response
+#
+#    When responding to a query that has the DO bit set, a security-aware
+#    authoritative name server returning a referral includes DNSSEC data
+#    along with the NS RRset.
+# 
+#    If a DS RRset is present at the delegation point, the name server
+#    MUST return both the DS RRset and its associated RRSIG RR(s) in the
+#    Authority section along with the NS RRset.
+# 
+#    If no DS RRset is present at the delegation point, the name server
+#    MUST return both the NSEC RR that proves that the DS RRset is not
+#    present and the NSEC RR's associated RRSIG RR(s) along with the NS
+#    RRset.  The name server MUST place the NS RRset before the NSEC RRset
+#    and its associated RRSIG RR(s).
+# 
+#    Including these DS, NSEC, and RRSIG RRs increases the size of
+#    referral messages and may cause some or all glue RRs to be omitted.
+#    If space does not permit inclusion of the DS or NSEC RRset and
+#    associated RRSIG RRs, the name server MUST set the TC bit (see
+#    Section 3.1.1).
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a DS RRset is present at the delegation point, the name server
+MUST return both the DS RRset and its associated RRSIG RR(s) in the
+Authority section along with the NS RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If no DS RRset is present at the delegation point, the name server
+MUST return both the NSEC RR that proves that the DS RRset is not
+present and the NSEC RR's associated RRSIG RR(s) along with the NS
+RRset.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name server MUST place the NS RRset before the NSEC RRset
+and its associated RRSIG RR(s).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does not permit inclusion of the DS or NSEC RRset and
+associated RRSIG RRs, the name server MUST set the TC bit (see
+Section 3.1.1).
+'''
+

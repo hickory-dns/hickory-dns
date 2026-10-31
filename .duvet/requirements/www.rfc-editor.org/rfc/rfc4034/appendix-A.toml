@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc4034#appendix-A"
+
+# DNSSEC Algorithm and Digest Types
+#
+#    The DNS security extensions are designed to be independent of the
+#    underlying cryptographic algorithms.  The DNSKEY, RRSIG, and DS
+#    resource records all use a DNSSEC Algorithm Number to identify the
+#    cryptographic algorithm in use by the resource record.  The DS
+#    resource record also specifies a Digest Algorithm Number to identify
+#    the digest algorithm used to construct the DS record.  The currently
+#    defined Algorithm and Digest Types are listed below.  Additional
+#    Algorithm or Digest Types could be added as advances in cryptography
+#    warrant them.
+# 
+#    A DNSSEC aware resolver or name server MUST implement all MANDATORY
+#    algorithms.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DNSSEC aware resolver or name server MUST implement all MANDATORY
+algorithms.
+'''
+

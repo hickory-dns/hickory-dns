@@ -1,0 +1,15 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#appendix-C.2.1"
+
+# Avoiding Hash Collisions During Generation
+#
+#    During generation of NSEC3 RRs, hash values are supposedly unique.
+#    In the (academic) case of a collision occurring, an alternative salt
+#    MUST be chosen and all hash values MUST be regenerated.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In the (academic) case of a collision occurring, an alternative salt
+MUST be chosen and all hash values MUST be regenerated.
+'''
+

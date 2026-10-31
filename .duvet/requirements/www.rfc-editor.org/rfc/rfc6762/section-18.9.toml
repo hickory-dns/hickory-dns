@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-18.9"
+
+# AD (Authentic Data) Bit
+#
+#    In both multicast query and multicast response messages, the
+#    Authentic Data bit [RFC2535] MUST be zero on transmission, and MUST
+#    be ignored on reception.
+
+[[spec]]
+level = "MUST"
+quote = '''
+In both multicast query and multicast response messages, the
+Authentic Data bit [RFC2535] MUST be zero on transmission, and MUST
+be ignored on reception.
+'''
+

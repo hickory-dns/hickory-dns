@@ -1,0 +1,15 @@
+target = "https://www.rfc-editor.org/rfc/rfc8484#section-5"
+
+# HTTP Integration
+#
+#    This protocol MUST be used with the https URI scheme [RFC7230].
+# 
+#    Sections 8 and 9 discuss additional considerations for the
+#    integration with HTTP.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This protocol MUST be used with the https URI scheme [RFC7230].
+'''
+

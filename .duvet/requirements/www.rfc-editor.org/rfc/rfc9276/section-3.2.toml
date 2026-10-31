@@ -1,0 +1,99 @@
+target = "https://www.rfc-editor.org/rfc/rfc9276#section-3.2"
+
+# Recommendation for Validating Resolvers
+#
+#    Because there has been a large growth of open (public) DNSSEC
+#    validating resolvers that are subject to compute resource constraints
+#    when handling requests from anonymous clients, this document
+#    recommends that validating resolvers reduce their iteration count
+#    limits over time.  Specifically, validating resolver operators and
+#    validating resolver software implementers are encouraged to continue
+#    evaluating NSEC3 iteration count deployment trends and lower their
+#    acceptable iteration limits over time.  Because treating a high
+#    iterations count as insecure leaves zones subject to attack,
+#    validating resolver operators and validating resolver software
+#    implementers are further encouraged to lower their default limit for
+#    returning SERVFAIL when processing NSEC3 parameters containing large
+#    iteration count values.  See Appendix A for measurements taken near
+#    the time of publication of this document and potential starting
+#    points.
+# 
+#    Validating resolvers MAY return an insecure response to their clients
+#    when processing NSEC3 records with iterations larger than 0.  Note
+#    also that a validating resolver returning an insecure response MUST
+#    still validate the signature over the NSEC3 record to ensure the
+#    iteration count was not altered since record publication (see
+#    Section 10.3 of [RFC5155]).
+# 
+#    Validating resolvers MAY also return a SERVFAIL response when
+#    processing NSEC3 records with iterations larger than 0.  Validating
+#    resolvers MAY choose to ignore authoritative server responses with
+#    iteration counts greater than 0, which will likely result in
+#    returning a SERVFAIL to the client when no acceptable responses are
+#    received from authoritative servers.
+# 
+#    Validating resolvers returning an insecure or SERVFAIL answer to
+#    their client after receiving and validating an unsupported NSEC3
+#    parameter from the authoritative server(s) SHOULD return an Extended
+#    DNS Error (EDE) [RFC8914] EDNS0 option of value 27.  Validating
+#    resolvers that choose to ignore a response with an unsupported
+#    iteration count (and that do not validate the signature) MUST NOT
+#    return this EDE option.
+# 
+#    Note that this specification updates [RFC5155] by significantly
+#    decreasing the requirements originally specified in Section 10.3 of
+#    [RFC5155].  See the Security Considerations (Section 4) for arguments
+#    on how to handle responses with non-zero iteration count.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Validating resolvers MAY return an insecure response to their clients
+when processing NSEC3 records with iterations larger than 0.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Note
+also that a validating resolver returning an insecure response MUST
+still validate the signature over the NSEC3 record to ensure the
+iteration count was not altered since record publication (see
+Section 10.3 of [RFC5155]).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Validating resolvers MAY also return a SERVFAIL response when
+processing NSEC3 records with iterations larger than 0.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Validating
+resolvers MAY choose to ignore authoritative server responses with
+iteration counts greater than 0, which will likely result in
+returning a SERVFAIL to the client when no acceptable responses are
+received from authoritative servers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Validating resolvers returning an insecure or SERVFAIL answer to
+their client after receiving and validating an unsupported NSEC3
+parameter from the authoritative server(s) SHOULD return an Extended
+DNS Error (EDE) [RFC8914] EDNS0 option of value 27.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Validating
+resolvers that choose to ignore a response with an unsupported
+iteration count (and that do not validate the signature) MUST NOT
+return this EDE option.
+'''
+

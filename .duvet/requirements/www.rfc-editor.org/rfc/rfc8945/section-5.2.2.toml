@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.2.2"
+
+# MAC Check and Error Handling
+#
+#    Using the information in the TSIG, the server MUST verify the MAC by
+#    doing its own calculation and comparing the result with the MAC
+#    received.  If the MAC fails to verify, the server MUST generate an
+#    error response as specified in Section 5.3.2 with RCODE 9 (NOTAUTH)
+#    and TSIG ERROR 16 (BADSIG).  This response MUST be unsigned, as
+#    specified in Section 5.3.2.  The server SHOULD log the error.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Using the information in the TSIG, the server MUST verify the MAC by
+doing its own calculation and comparing the result with the MAC
+received.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the MAC fails to verify, the server MUST generate an
+error response as specified in Section 5.3.2 with RCODE 9 (NOTAUTH)
+and TSIG ERROR 16 (BADSIG).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This response MUST be unsigned, as
+specified in Section 5.3.2.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The server SHOULD log the error.
+'''
+

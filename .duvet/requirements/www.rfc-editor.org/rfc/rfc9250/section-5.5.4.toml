@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.5.4"
+
+# Controlling Connection Migration for Privacy
+#
+#    DoQ implementations might consider using the connection migration
+#    features defined in Section 9 of [RFC9000].  These features enable
+#    connections to continue operating as the client's connectivity
+#    changes.  As detailed in Section 7.4, these features trade off
+#    privacy for latency.  By default, clients SHOULD be configured to
+#    prioritize privacy and start new sessions if their connectivity
+#    changes.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+By default, clients SHOULD be configured to
+prioritize privacy and start new sessions if their connectivity
+changes.
+'''
+

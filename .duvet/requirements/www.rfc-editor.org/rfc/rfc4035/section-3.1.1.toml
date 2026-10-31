@@ -1,0 +1,96 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.1"
+
+# Including RRSIG RRs in a Response
+#
+#    When responding to a query that has the DO bit set, a security-aware
+#    authoritative name server SHOULD attempt to send RRSIG RRs that a
+#    security-aware resolver can use to authenticate the RRsets in the
+#    response.  A name server SHOULD make every attempt to keep the RRset
+#    and its associated RRSIG(s) together in a response.  Inclusion of
+#    RRSIG RRs in a response is subject to the following rules:
+# 
+#    o  When placing a signed RRset in the Answer section, the name server
+#       MUST also place its RRSIG RRs in the Answer section.  The RRSIG
+#       RRs have a higher priority for inclusion than any other RRsets
+#       that may have to be included.  If space does not permit inclusion
+#       of these RRSIG RRs, the name server MUST set the TC bit.
+# 
+#    o  When placing a signed RRset in the Authority section, the name
+#       server MUST also place its RRSIG RRs in the Authority section.
+#       The RRSIG RRs have a higher priority for inclusion than any other
+#       RRsets that may have to be included.  If space does not permit
+#       inclusion of these RRSIG RRs, the name server MUST set the TC bit.
+# 
+#    o  When placing a signed RRset in the Additional section, the name
+#       server MUST also place its RRSIG RRs in the Additional section.
+#       If space does not permit inclusion of both the RRset and its
+#       associated RRSIG RRs, the name server MAY retain the RRset while
+#       dropping the RRSIG RRs.  If this happens, the name server MUST NOT
+#       set the TC bit solely because these RRSIG RRs didn't fit.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When responding to a query that has the DO bit set, a security-aware
+authoritative name server SHOULD attempt to send RRSIG RRs that a
+security-aware resolver can use to authenticate the RRsets in the
+response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+A name server SHOULD make every attempt to keep the RRset
+and its associated RRSIG(s) together in a response.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  When placing a signed RRset in the Answer section, the name server
+MUST also place its RRSIG RRs in the Answer section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does not permit inclusion
+of these RRSIG RRs, the name server MUST set the TC bit.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  When placing a signed RRset in the Authority section, the name
+server MUST also place its RRSIG RRs in the Authority section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does not permit
+inclusion of these RRSIG RRs, the name server MUST set the TC bit.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  When placing a signed RRset in the Additional section, the name
+server MUST also place its RRSIG RRs in the Additional section.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If space does not permit inclusion of both the RRset and its
+associated RRSIG RRs, the name server MAY retain the RRset while
+dropping the RRSIG RRs.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this happens, the name server MUST NOT
+set the TC bit solely because these RRSIG RRs didn't fit.
+'''
+

@@ -1,0 +1,54 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.4"
+
+# Client Processing of Answer
+#
+#    When a client receives a response from a server and expects to see a
+#    TSIG, it first checks if the TSIG RR is present in the response.  If
+#    not, the response is treated as having a format error and is
+#    discarded.
+# 
+#    If the TSIG RR is present, the client performs the same checks as
+#    described in Section 5.2.  If the TSIG RR is unsigned as specified in
+#    Section 5.3.2 or does not validate, the message MUST be discarded
+#    unless the RCODE is 9 (NOAUTH).  In this case, the client SHOULD
+#    attempt to verify the response as if it were a TSIG error, as
+#    described in the following subsections.
+# 
+#    Regardless of the RCODE, a message containing a TSIG RR that is
+#    unsigned as specified in Section 5.3.2 or that fails verification
+#    SHOULD NOT be considered an acceptable response, as it may have been
+#    spoofed or manipulated.  Instead, the client SHOULD log an error and
+#    continue to wait for a signed response until the request times out.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the TSIG RR is unsigned as specified in
+Section 5.3.2 or does not validate, the message MUST be discarded
+unless the RCODE is 9 (NOAUTH).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this case, the client SHOULD
+attempt to verify the response as if it were a TSIG error, as
+described in the following subsections.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Regardless of the RCODE, a message containing a TSIG RR that is
+unsigned as specified in Section 5.3.2 or that fails verification
+SHOULD NOT be considered an acceptable response, as it may have been
+spoofed or manipulated.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Instead, the client SHOULD log an error and
+continue to wait for a signed response until the request times out.
+'''
+

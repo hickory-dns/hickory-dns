@@ -1,0 +1,112 @@
+target = "https://www.rfc-editor.org/rfc/rfc6761#section-6.3"
+
+# Domain Name Reservation Considerations for "localhost."
+#
+#    The domain "localhost." and any names falling within ".localhost."
+#    are special in the following ways:
+# 
+#    1.  Users are free to use localhost names as they would any other
+#        domain names.  Users may assume that IPv4 and IPv6 address
+#        queries for localhost names will always resolve to the respective
+#        IP loopback address.
+# 
+#    2.  Application software MAY recognize localhost names as special, or
+#        MAY pass them to name resolution APIs as they would for other
+#        domain names.
+# 
+#    3.  Name resolution APIs and libraries SHOULD recognize localhost
+#        names as special and SHOULD always return the IP loopback address
+#        for address queries and negative responses for all other query
+#        types.  Name resolution APIs SHOULD NOT send queries for
+#        localhost names to their configured caching DNS server(s).
+# 
+#    4.  Caching DNS servers SHOULD recognize localhost names as special
+#        and SHOULD NOT attempt to look up NS records for them, or
+#        otherwise query authoritative DNS servers in an attempt to
+#        resolve localhost names.  Instead, caching DNS servers SHOULD,
+#        for all such address queries, generate an immediate positive
+#        response giving the IP loopback address, and for all other query
+#        types, generate an immediate negative response.  This is to avoid
+#        unnecessary load on the root name servers and other name servers.
+# 
+#    5.  Authoritative DNS servers SHOULD recognize localhost names as
+#        special and handle them as described above for caching DNS
+#        servers.
+# 
+#    6.  DNS server operators SHOULD be aware that the effective RDATA for
+#        localhost names is defined by protocol specification and cannot
+#        be modified by local configuration.
+# 
+#    7.  DNS Registries/Registrars MUST NOT grant requests to register
+#        localhost names in the normal way to any person or entity.
+#        Localhost names are defined by protocol specification and fall
+#        outside the set of names available for allocation by registries/
+#        registrars.  Attempting to allocate a localhost name as if it
+#        were a normal DNS domain name will probably not work as desired,
+#        for reasons 2, 3, 4, and 5 above.
+
+[[spec]]
+level = "MAY"
+quote = '''
+Application software MAY recognize localhost names as special, or
+MAY pass them to name resolution APIs as they would for other
+domain names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs and libraries SHOULD recognize localhost
+names as special and SHOULD always return the IP loopback address
+for address queries and negative responses for all other query
+types.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Name resolution APIs SHOULD NOT send queries for
+localhost names to their configured caching DNS server(s).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Caching DNS servers SHOULD recognize localhost names as special
+and SHOULD NOT attempt to look up NS records for them, or
+otherwise query authoritative DNS servers in an attempt to
+resolve localhost names.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Instead, caching DNS servers SHOULD,
+for all such address queries, generate an immediate positive
+response giving the IP loopback address, and for all other query
+types, generate an immediate negative response.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Authoritative DNS servers SHOULD recognize localhost names as
+special and handle them as described above for caching DNS
+servers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNS server operators SHOULD be aware that the effective RDATA for
+localhost names is defined by protocol specification and cannot
+be modified by local configuration.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+DNS Registries/Registrars MUST NOT grant requests to register
+localhost names in the normal way to any person or entity.
+'''
+

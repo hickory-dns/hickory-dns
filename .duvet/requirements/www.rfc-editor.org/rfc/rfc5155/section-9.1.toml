@@ -1,0 +1,21 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-9.1"
+
+# NSEC3 Resource Record Caching
+#
+#    Caching resolvers MUST be able to retrieve the appropriate NSEC3 RRs
+#    when returning responses that contain them.  In DNSSEC [RFC4035], in
+#    many cases it is possible to find the correct NSEC RR to return in a
+#    response by name (e.g., when returning a referral, the NSEC RR will
+#    always have the same owner name as the delegation).  With this
+#    specification, that will not be true, nor will a cache be able to
+#    calculate the name(s) of the appropriate NSEC3 RR(s).
+#    Implementations may need to use new methods for caching and
+#    retrieving NSEC3 RRs.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Caching resolvers MUST be able to retrieve the appropriate NSEC3 RRs
+when returning responses that contain them.
+'''
+

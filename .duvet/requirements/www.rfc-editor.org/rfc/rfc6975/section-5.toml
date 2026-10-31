@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-5"
+
+# Intermediate System Considerations
+#
+#    Intermediate proxies (see Section 4.4.2 of [RFC5625]) that understand
+#    DNS are RECOMMENDED to behave like a comparable recursive resolver
+#    when dealing with the DAU, DHU, and N3U options.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Intermediate proxies (see Section 4.4.2 of [RFC5625]) that understand
+DNS are RECOMMENDED to behave like a comparable recursive resolver
+when dealing with the DAU, DHU, and N3U options.
+'''
+

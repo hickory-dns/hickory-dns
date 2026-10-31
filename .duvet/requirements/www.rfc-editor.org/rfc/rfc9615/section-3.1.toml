@@ -1,0 +1,24 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-3.1"
+
+# Chain of Trust
+#
+#    If a child DNS operator implements this specification, each signaling
+#    zone MUST be signed and be validatable by the parental agent (i.e.,
+#    have a valid publicly resolvable DNSSEC chain of trust).  This is
+#    typically achieved by securely delegating each signaling zone.
+# 
+#    For example, when publishing a signal that relates to a child zone
+#    with NS records ns1.example.net and ns2.example.org, the child DNS
+#    operator needs to ensure that the parental agent has a valid DNSSEC
+#    chain of trust for the zone(s) that are authoritative for the
+#    signaling domains _signal.ns1.example.net and
+#    _signal.ns2.example.org.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a child DNS operator implements this specification, each signaling
+zone MUST be signed and be validatable by the parental agent (i.e.,
+have a valid publicly resolvable DNSSEC chain of trust).
+'''
+

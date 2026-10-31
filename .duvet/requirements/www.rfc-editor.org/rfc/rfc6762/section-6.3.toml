@@ -1,0 +1,36 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6.3"
+
+# Responding to Multiquestion Queries
+#
+#    Multicast DNS responders MUST correctly handle DNS query messages
+#    containing more than one question, by answering any or all of the
+#    questions to which they have answers.  Unlike single-question
+# 
+#    queries, where responding without delay is allowed in appropriate
+#    cases, for query messages containing more than one question, all
+#    (non-defensive) answers SHOULD be randomly delayed in the range
+#    20-120 ms, or 400-500 ms if the TC (truncated) bit is set.  This is
+#    because when a query message contains more than one question, a
+#    Multicast DNS responder cannot generally be certain that other
+#    responders will not also be simultaneously generating answers to
+#    other questions in that query message.  (Answers defending a name, in
+#    response to a probe for that name, are not subject to this delay rule
+#    and are still sent immediately.)
+
+[[spec]]
+level = "MUST"
+quote = '''
+Multicast DNS responders MUST correctly handle DNS query messages
+containing more than one question, by answering any or all of the
+questions to which they have answers.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+queries, where responding without delay is allowed in appropriate
+cases, for query messages containing more than one question, all
+(non-defensive) answers SHOULD be randomly delayed in the range
+20-120 ms, or 400-500 ms if the TC (truncated) bit is set.
+'''
+

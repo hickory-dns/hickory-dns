@@ -1,0 +1,41 @@
+target = "https://www.rfc-editor.org/rfc/rfc9563#section-5"
+
+# Support for NSEC3 Denial of Existence
+#
+#    This document does not define algorithm aliases mentioned in
+#    [RFC5155].
+# 
+#    A DNSSEC validator that implements the signing algorithms defined in
+#    this document MUST be able to validate negative answers in the form
+#    of both NSEC and NSEC3 with hash algorithm SHA-1, as defined in
+#    [RFC5155].  An authoritative server that does not implement NSEC3 MAY
+#    still serve zones that use the signing algorithms defined in this
+#    document with NSEC denial of existence.
+# 
+#    If using NSEC3, the iterations MUST be 0 and salt MUST be an empty
+#    string as recommended in Section 3.1 of [RFC9276].
+
+[[spec]]
+level = "MUST"
+quote = '''
+A DNSSEC validator that implements the signing algorithms defined in
+this document MUST be able to validate negative answers in the form
+of both NSEC and NSEC3 with hash algorithm SHA-1, as defined in
+[RFC5155].
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+An authoritative server that does not implement NSEC3 MAY
+still serve zones that use the signing algorithms defined in this
+document with NSEC denial of existence.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If using NSEC3, the iterations MUST be 0 and salt MUST be an empty
+string as recommended in Section 3.1 of [RFC9276].
+'''
+

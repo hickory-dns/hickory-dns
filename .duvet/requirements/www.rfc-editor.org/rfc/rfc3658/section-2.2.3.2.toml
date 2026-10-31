@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.2.3.2"
+
+# RFC 3090 section 2.1: Globally Secured
+#
+#    Rule 2.1.b is replaced by the following rule:
+# 
+#    2.1.b. The KEY RRset at a zone's apex MUST be self-signed by a
+#    private key whose public counterpart MUST appear in a zone signing
+#    KEY RR (2.a) owned by the zone's apex and specifying a mandatory-to-
+#    implement algorithm.  This KEY RR MUST be identified by a DS RR in a
+#    signed DS RRset in the parent zone.
+# 
+#    If a zone cannot get its parent to advertise a DS record for it, the
+#    child zone cannot be considered globally secured.  The only exception
+#    to this is the root zone, for which there is no parent zone.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The KEY RRset at a zone's apex MUST be self-signed by a
+private key whose public counterpart MUST appear in a zone signing
+KEY RR (2.a) owned by the zone's apex and specifying a mandatory-to-
+implement algorithm.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This KEY RR MUST be identified by a DS RR in a
+signed DS RRset in the parent zone.
+'''
+

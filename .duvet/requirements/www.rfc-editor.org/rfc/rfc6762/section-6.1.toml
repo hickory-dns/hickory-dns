@@ -1,0 +1,257 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-6.1"
+
+# Negative Responses
+#
+#    In the early design of Multicast DNS it was assumed that explicit
+#    negative responses would never be needed.  A host can assert the
+#    existence of the set of records that it claims to exist, and the
+#    union of all such sets on a link is the set of Multicast DNS records
+#    that exist on that link.  Asserting the nonexistence of every record
+#    in the complement of that set -- i.e., all possible Multicast DNS
+#    records that could exist on this link but do not at this moment --
+#    was felt to be impractical and unnecessary.  The nonexistence of a
+#    record would be ascertained by a querier querying for it and failing
+#    to receive a response from any of the hosts currently attached to the
+#    link.
+# 
+#    However, operational experience showed that explicit negative
+#    responses can sometimes be valuable.  One such example is when a
+#    querier is querying for a AAAA record, and the host name in question
+#    has no associated IPv6 addresses.  In this case, the responding host
+#    knows it currently has exclusive ownership of that name, and it knows
+#    that it currently does not have any IPv6 addresses, so an explicit
+#    negative response is preferable to the querier having to retransmit
+#    its query multiple times, and eventually give up with a timeout,
+#    before it can conclude that a given AAAA record does not exist.
+# 
+#    Any time a responder receives a query for a name for which it has
+#    verified exclusive ownership, for a type for which that name has no
+#    records, the responder MUST (except as allowed in (a) below) respond
+#    asserting the nonexistence of that record using a DNS NSEC record
+#    [RFC4034].  In the case of Multicast DNS the NSEC record is not being
+#    used for its usual DNSSEC [RFC4033] security properties, but simply
+#    as a way of expressing which records do or do not exist with a given
+#    name.
+# 
+#    On receipt of a question for a particular name, rrtype, and rrclass,
+#    for which a responder does have one or more unique answers, the
+#    responder MAY also include an NSEC record in the Additional Record
+#    Section indicating the nonexistence of other rrtypes for that name
+#    and rrclass.
+# 
+#    Implementers working with devices with sufficient memory and CPU
+#    resources MAY choose to implement code to handle the full generality
+#    of the DNS NSEC record [RFC4034], including bitmaps up to 65,536 bits
+#    long.  To facilitate use by devices with limited memory and CPU
+#    resources, Multicast DNS queriers are only REQUIRED to be able to
+#    parse a restricted form of the DNS NSEC record.  All compliant
+#    Multicast DNS implementations MUST at least correctly generate and
+#    parse the restricted DNS NSEC record format described below:
+# 
+#       o The 'Next Domain Name' field contains the record's own name.
+#         When used with name compression, this means that the 'Next
+#         Domain Name' field always takes exactly two bytes in the
+#         message.
+# 
+#       o The Type Bit Map block number is 0.
+# 
+#       o The Type Bit Map block length byte is a value in the range 1-32.
+# 
+#       o The Type Bit Map data is 1-32 bytes, as indicated by length
+#         byte.
+# 
+#    Because this restricted form of the DNS NSEC record is limited to
+#    Type Bit Map block number zero, it cannot express the existence of
+#    rrtypes above 255.  Consequently, if a Multicast DNS responder were
+#    to have records with rrtypes above 255, it MUST NOT generate these
+#    restricted-form NSEC records for those names, since to do so would
+#    imply that the name has no records with rrtypes above 255, which
+#    would be false.  In such cases a Multicast DNS responder MUST either
+#    (a) emit no NSEC record for that name, or (b) emit a full NSEC record
+#    containing the appropriate Type Bit Map block(s) with the correct
+#    bits set for all the record types that exist.  In practice this is
+#    not a significant limitation, since rrtypes above 255 are not
+#    currently in widespread use.
+# 
+#    If a Multicast DNS implementation receives an NSEC record where the
+#    'Next Domain Name' field is not the record's own name, then the
+#    implementation SHOULD ignore the 'Next Domain Name' field and process
+#    the remainder of the NSEC record as usual.  In Multicast DNS the
+#    'Next Domain Name' field is not currently used, but it could be used
+#    in a future version of this protocol, which is why a Multicast DNS
+#    implementation MUST NOT reject or ignore an NSEC record it receives
+#    just because it finds an unexpected value in the 'Next Domain Name'
+#    field.
+# 
+#    If a Multicast DNS implementation receives an NSEC record containing
+#    more than one Type Bit Map, or where the Type Bit Map block number is
+#    not zero, or where the block length is not in the range 1-32, then
+#    the Multicast DNS implementation MAY silently ignore the entire NSEC
+#    record.  A Multicast DNS implementation MUST NOT ignore an entire
+#    message just because that message contains one or more NSEC record(s)
+#    that the Multicast DNS implementation cannot parse.  This provision
+#    is to allow future enhancements to the protocol to be introduced in a
+#    backwards-compatible way that does not break compatibility with older
+#    Multicast DNS implementations.
+# 
+#    To help differentiate these synthesized NSEC records (generated
+#    programmatically on-the-fly) from conventional Unicast DNS NSEC
+#    records (which actually exist in a signed DNS zone), the synthesized
+#    Multicast DNS NSEC records MUST NOT have the NSEC bit set in the Type
+#    Bit Map, whereas conventional Unicast DNS NSEC records do have the
+#    NSEC bit set.
+# 
+#    The TTL of the NSEC record indicates the intended lifetime of the
+#    negative cache entry.  In general, the TTL given for an NSEC record
+#    SHOULD be the same as the TTL that the record would have had, had it
+#    existed.  For example, the TTL for address records in Multicast DNS
+#    is typically 120 seconds (see Section 10), so the negative cache
+#    lifetime for an address record that does not exist should also be 120
+#    seconds.
+# 
+#    A responder MUST only generate negative responses to queries for
+#    which it has legitimate ownership of the name, rrtype, and rrclass in
+#    question, and can legitimately assert that no record with that name,
+#    rrtype, and rrclass exists.  A responder can assert that a specified
+#    rrtype does not exist for one of its names if it knows a priori that
+#    it has exclusive ownership of that name (e.g., names of reverse
+#    address mapping PTR records, which are derived from IP addresses,
+#    which should be unique on the local link) or if it previously claimed
+#    unique ownership of that name using probe queries for rrtype "ANY".
+#    (If it were to use probe queries for a specific rrtype, then it would
+#    only own the name for that rrtype, and could not assert that other
+#    rrtypes do not exist.)
+# 
+#    The design rationale for this mechanism for encoding negative
+#    responses is discussed further in Appendix E.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Any time a responder receives a query for a name for which it has
+verified exclusive ownership, for a type for which that name has no
+records, the responder MUST (except as allowed in (a) below) respond
+asserting the nonexistence of that record using a DNS NSEC record
+[RFC4034].
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+On receipt of a question for a particular name, rrtype, and rrclass,
+for which a responder does have one or more unique answers, the
+responder MAY also include an NSEC record in the Additional Record
+Section indicating the nonexistence of other rrtypes for that name
+and rrclass.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Implementers working with devices with sufficient memory and CPU
+resources MAY choose to implement code to handle the full generality
+of the DNS NSEC record [RFC4034], including bitmaps up to 65,536 bits
+long.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To facilitate use by devices with limited memory and CPU
+resources, Multicast DNS queriers are only REQUIRED to be able to
+parse a restricted form of the DNS NSEC record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+All compliant
+Multicast DNS implementations MUST at least correctly generate and
+parse the restricted DNS NSEC record format described below:
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Consequently, if a Multicast DNS responder were
+to have records with rrtypes above 255, it MUST NOT generate these
+restricted-form NSEC records for those names, since to do so would
+imply that the name has no records with rrtypes above 255, which
+would be false.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In such cases a Multicast DNS responder MUST either
+(a) emit no NSEC record for that name, or (b) emit a full NSEC record
+containing the appropriate Type Bit Map block(s) with the correct
+bits set for all the record types that exist.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a Multicast DNS implementation receives an NSEC record where the
+'Next Domain Name' field is not the record's own name, then the
+implementation SHOULD ignore the 'Next Domain Name' field and process
+the remainder of the NSEC record as usual.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+In Multicast DNS the
+'Next Domain Name' field is not currently used, but it could be used
+in a future version of this protocol, which is why a Multicast DNS
+implementation MUST NOT reject or ignore an NSEC record it receives
+just because it finds an unexpected value in the 'Next Domain Name'
+field.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If a Multicast DNS implementation receives an NSEC record containing
+more than one Type Bit Map, or where the Type Bit Map block number is
+not zero, or where the block length is not in the range 1-32, then
+the Multicast DNS implementation MAY silently ignore the entire NSEC
+record.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A Multicast DNS implementation MUST NOT ignore an entire
+message just because that message contains one or more NSEC record(s)
+that the Multicast DNS implementation cannot parse.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To help differentiate these synthesized NSEC records (generated
+programmatically on-the-fly) from conventional Unicast DNS NSEC
+records (which actually exist in a signed DNS zone), the synthesized
+Multicast DNS NSEC records MUST NOT have the NSEC bit set in the Type
+Bit Map, whereas conventional Unicast DNS NSEC records do have the
+NSEC bit set.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In general, the TTL given for an NSEC record
+SHOULD be the same as the TTL that the record would have had, had it
+existed.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+A responder MUST only generate negative responses to queries for
+which it has legitimate ownership of the name, rrtype, and rrclass in
+question, and can legitimately assert that no record with that name,
+rrtype, and rrclass exists.
+'''
+

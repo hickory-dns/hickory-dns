@@ -1,0 +1,25 @@
+target = "https://www.rfc-editor.org/rfc/rfc8764#section-6.3"
+
+# Gratuitous Response Acknowledgments
+#
+#    Upon receiving a gratuitous response ("event"), the client MUST send
+#    an acknowledgment to the server.  This acknowledgment is a DNS
+#    response echoing the OPT pseudo-RR contained in the event, with the
+#    message ID of the gratuitous response echoed in the message header.
+#    The acknowledgment MUST be sent to the source IP address and port
+#    from which the event originated.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Upon receiving a gratuitous response ("event"), the client MUST send
+an acknowledgment to the server.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The acknowledgment MUST be sent to the source IP address and port
+from which the event originated.
+'''
+

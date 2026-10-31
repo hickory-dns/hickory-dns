@@ -1,0 +1,30 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-2.5"
+
+# Changes to the CNAME Resource Record
+#
+#    If a CNAME RRset is present at a name in a signed zone, appropriate
+#    RRSIG and NSEC RRsets are REQUIRED at that name.  A KEY RRset at that
+#    name for secure dynamic update purposes is also allowed ([RFC3007]).
+#    Other types MUST NOT be present at that name.
+# 
+#    This is a modification to the original CNAME definition given in
+#    [RFC1034].  The original definition of the CNAME RR did not allow any
+#    other types to coexist with a CNAME record, but a signed zone
+# 
+#    requires NSEC and RRSIG RRs for every authoritative name.  To resolve
+#    this conflict, this specification modifies the definition of the
+#    CNAME resource record to allow it to coexist with NSEC and RRSIG RRs.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a CNAME RRset is present at a name in a signed zone, appropriate
+RRSIG and NSEC RRsets are REQUIRED at that name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Other types MUST NOT be present at that name.
+'''
+

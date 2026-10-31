@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-7.4"
+
+# Duplicate Answer Suppression
+#
+#    If a host is planning to send an answer, and it sees another host on
+#    the network send a response message containing the same answer
+#    record, and the TTL in that record is not less than the TTL this host
+#    would have given, then this host SHOULD treat its own answer as
+#    having been sent, and not also send an identical answer itself.  When
+#    multiple responders on the network have the same data, there is no
+#    need for all of them to respond.
+# 
+#    The opportunity for duplicate answer suppression occurs when a host
+#    has received a query, and is delaying its response for some pseudo-
+#    random interval up to 500 ms, as described elsewhere in this
+#    document, and then, before the host sends its response, it sees some
+#    other host on the network send a response message containing the same
+#    answer record.
+# 
+#    This feature is particularly useful when Multicast DNS Proxy Servers
+#    are in use, where there could be more than one proxy on the network
+#    giving Multicast DNS answers on behalf of some other host (e.g.,
+#    because that other host is currently asleep and is not itself
+#    responding to queries).
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a host is planning to send an answer, and it sees another host on
+the network send a response message containing the same answer
+record, and the TTL in that record is not less than the TTL this host
+would have given, then this host SHOULD treat its own answer as
+having been sent, and not also send an identical answer itself.
+'''
+

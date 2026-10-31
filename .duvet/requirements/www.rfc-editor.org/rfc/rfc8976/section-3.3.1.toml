@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc8976#section-3.3.1"
+
+# The SIMPLE Scheme
+#
+#    For the SIMPLE scheme, the digest is calculated over the zone as a
+#    whole.  This means that a change to a single RR in the zone requires
+#    iterating over all RRs in the zone to recalculate the digest.  SIMPLE
+#    is a good choice for zones that are small and/or stable, but it is
+#    probably not good for zones that are large and/or dynamic.
+# 
+#    Calculation of a zone digest requires RRs to be processed in a
+#    consistent format and ordering.  This specification uses DNSSEC's
+#    canonical on-the-wire RR format (without name compression) and
+#    ordering as specified in Sections 6.1, 6.2, and 6.3 of [RFC4034] with
+#    the additional provision that RRsets having the same owner name MUST
+#    be numerically ordered, in ascending order, by their numeric RR TYPE.
+
+[[spec]]
+level = "MUST"
+quote = '''
+This specification uses DNSSEC's
+canonical on-the-wire RR format (without name compression) and
+ordering as specified in Sections 6.1, 6.2, and 6.3 of [RFC4034] with
+the additional provision that RRsets having the same owner name MUST
+be numerically ordered, in ascending order, by their numeric RR TYPE.
+'''
+

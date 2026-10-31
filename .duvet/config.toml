@@ -1,0 +1,269 @@
+'$schema' = "https://awslabs.github.io/duvet/config/v0.4.0.json"
+
+[[source]]
+pattern = "crates/*/src/**/*.rs"
+
+[[source]]
+pattern = "conformance/*/src/**/*.rs"
+type = "test"
+
+[[source]]
+pattern = "bin/src/**/*.rs"
+
+# Note: the RFC 1033-1035 series, and others, predate RFC 2119 key words. They
+# will require manual extraction of requirements.
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc1033"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc1034"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc1035"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc1982"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc1995"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc1996"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc2136"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc2181"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc2308"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc2782"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc2845"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3007"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3225"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3445"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3596"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3597"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3658"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc3757"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4033"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4034"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4035"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4255"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4343"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4398"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4509"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4592"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc4697"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc5001"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc5011"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc5155"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc5452"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc5702"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc5936"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6604"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6605"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6672"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6698"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6761"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6762"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6763"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6781"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6840"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6891"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc6975"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7129"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7314"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7344"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7477"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7686"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7766"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7828"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7830"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7858"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc7871"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8020"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8078"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8080"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8145"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8482"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8484"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8659"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8764"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8806"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8906"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8914"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8945"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8945"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc8976"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9018"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9077"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9103"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9156"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9250"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9276"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9460"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9471"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9520"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9558"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9563"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9606"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9615"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9715"
+
+[[specification]]
+source = "https://www.rfc-editor.org/rfc/rfc9904"
+
+[report.html]
+enabled = true
+
+# Enable snapshots to prevent requirement coverage regressions
+[report.snapshot]
+enabled = true

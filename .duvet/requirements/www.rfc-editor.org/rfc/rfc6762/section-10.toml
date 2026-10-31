@@ -1,0 +1,38 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-10"
+
+# Resource Record TTL Values and Cache Coherency
+#
+#    As a general rule, the recommended TTL value for Multicast DNS
+#    resource records with a host name as the resource record's name
+#    (e.g., A, AAAA, HINFO) or a host name contained within the resource
+#    record's rdata (e.g., SRV, reverse mapping PTR record) SHOULD be 120
+#    seconds.
+# 
+#    The recommended TTL value for other Multicast DNS resource records is
+#    75 minutes.
+# 
+#    A querier with an active outstanding query will issue a query message
+#    when one or more of the resource records in its cache are 80% of the
+#    way to expiry.  If the TTL on those records is 75 minutes, this
+#    ongoing cache maintenance process yields a steady-state query rate of
+#    one query every 60 minutes.
+# 
+#    Any distributed cache needs a cache coherency protocol.  If Multicast
+#    DNS resource records follow the recommendation and have a TTL of 75
+#    minutes, that means that stale data could persist in the system for a
+#    little over an hour.  Making the default RR TTL significantly lower
+#    would reduce the lifetime of stale data, but would produce too much
+#    extra traffic on the network.  Various techniques are available to
+#    minimize the impact of such stale data, outlined in the five
+#    subsections below.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As a general rule, the recommended TTL value for Multicast DNS
+resource records with a host name as the resource record's name
+(e.g., A, AAAA, HINFO) or a host name contained within the resource
+record's rdata (e.g., SRV, reverse mapping PTR record) SHOULD be 120
+seconds.
+'''
+

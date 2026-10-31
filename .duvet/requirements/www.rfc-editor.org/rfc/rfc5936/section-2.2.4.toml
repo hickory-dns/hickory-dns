@@ -1,0 +1,12 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.2.4"
+
+# Authority Section
+#
+#    The Authority section MUST be empty.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Authority section MUST be empty.
+'''
+

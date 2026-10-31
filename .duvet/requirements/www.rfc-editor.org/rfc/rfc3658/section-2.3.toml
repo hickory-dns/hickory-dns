@@ -1,0 +1,28 @@
+target = "https://www.rfc-editor.org/rfc/rfc3658#section-2.3"
+
+# Comments on Protocol Changes
+#
+#    Over the years, there have been various discussions surrounding the
+#    DNS delegation model, declaring it to be broken because there is no
+#    good way to assert if a delegation exists.  In the RFC 2535 version
+#    of DNSSEC, the presence of the NS bit in the NXT bit map proves there
+#    is a delegation at this name.  Something more explicit is required
+#    and the DS record addresses this need for secure delegations.
+# 
+#    The DS record is a major change to DNS: it is the first resource
+#    record that can appear only on the upper side of a delegation.
+#    Adding it will cause interoperability problems and requires a flag
+#    day for DNSSEC.  Many old nameservers and resolvers MUST be upgraded
+#    to take advantage of DS.  Some old nameservers will be able to be
+#    authoritative for zones with DS records but will not add the NXT or
+#    DS records to the authority section.  The same is true for caching
+#    nameservers; in fact, some might even refuse to pass on the DS or NXT
+#    records.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Many old nameservers and resolvers MUST be upgraded
+to take advantage of DS.
+'''
+

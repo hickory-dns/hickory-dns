@@ -1,0 +1,18 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-4.2.2"
+
+# Non-validating Recursive Resolvers
+#
+#    Recursive resolvers that do not do validation MUST copy the DAU, DHU,
+#    and/or N3U option(s) seen in received queries as they represent the
+#    wishes of the validating downstream resolver that issued the original
+#    query.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Recursive resolvers that do not do validation MUST copy the DAU, DHU,
+and/or N3U option(s) seen in received queries as they represent the
+wishes of the validating downstream resolver that issued the original
+query.
+'''
+

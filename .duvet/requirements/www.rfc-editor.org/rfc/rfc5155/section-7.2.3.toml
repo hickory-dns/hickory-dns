@@ -1,0 +1,22 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.2.3"
+
+# No Data Responses, QTYPE is not DS
+#
+#    The server MUST include the NSEC3 RR that matches QNAME.  This NSEC3
+#    RR MUST NOT have the bits corresponding to either the QTYPE or CNAME
+#    set in its Type Bit Maps field.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The server MUST include the NSEC3 RR that matches QNAME.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This NSEC3
+RR MUST NOT have the bits corresponding to either the QTYPE or CNAME
+set in its Type Bit Maps field.
+'''
+

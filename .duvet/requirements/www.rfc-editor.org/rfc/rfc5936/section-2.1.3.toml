@@ -1,0 +1,12 @@
+target = "https://www.rfc-editor.org/rfc/rfc5936#section-2.1.3"
+
+# Answer Section
+#
+#    The Answer section MUST be empty.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The Answer section MUST be empty.
+'''
+

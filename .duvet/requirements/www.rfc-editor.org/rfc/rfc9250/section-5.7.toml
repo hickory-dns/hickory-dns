@@ -1,0 +1,58 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.7"
+
+# Zone Transfer
+#
+#    [RFC9103] specifies zone transfer over TLS (XoT) and includes updates
+#    to [RFC1995] (IXFR), [RFC5936] (AXFR), and [RFC7766].  Considerations
+#    relating to the reuse of XoT connections described there apply
+#    analogously to zone transfers performed using DoQ connections.  One
+#    reason for reiterating such specific guidance is the lack of
+#    effective connection reuse in existing TCP/TLS zone transfer
+#    implementations today.  The following recommendations apply:
+# 
+#    *  DoQ servers MUST be able to handle multiple concurrent IXFR
+#       requests on a single QUIC connection.
+# 
+#    *  DoQ servers MUST be able to handle multiple concurrent AXFR
+#       requests on a single QUIC connection.
+# 
+#    *  DoQ implementations SHOULD
+# 
+#       -  use the same QUIC connection for both AXFR and IXFR requests to
+#          the same primary
+# 
+#       -  send those requests in parallel as soon as they are queued,
+#          i.e., do not wait for a response before sending the next query
+#          on the connection (this is analogous to pipelining requests on
+#          a TCP/TLS connection)
+# 
+#       -  send the response(s) for each request as soon as they are
+#          available, i.e., response streams MAY be sent intermingled
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  DoQ servers MUST be able to handle multiple concurrent IXFR
+requests on a single QUIC connection.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  DoQ servers MUST be able to handle multiple concurrent AXFR
+requests on a single QUIC connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+*  DoQ implementations SHOULD
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+-  send the response(s) for each request as soon as they are
+available, i.e., response streams MAY be sent intermingled
+'''
+

@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc7344#section-6.1.1"
+
+# CDS/CDNSKEY Polling
+#
+#    This is the only defined use of CDS/CDNSKEY resource records in this
+#    document.  There are limits to the scalability of polling techniques;
+#    thus, some other mechanism is likely to be specified later that
+#    addresses CDS/CDNSKEY resource record usage in the situation where
+#    polling runs into scaling issues.  Having said that, polling will
+#    work in many important cases such as enterprises, universities, and
+#    smaller TLDs.  In many regulatory environments, the Registry is
+#    prohibited from talking to the Registrant.  In most of these cases,
+#    the Registrant has a business relationship with the Registrar, so the
+#    Registrar can offer this as a service.
+# 
+#    If the CDS/CDNSKEY RRset(s) do not exist, the Parental Agent MUST
+#    take no action.  Specifically, it MUST NOT delete or alter the
+#    existing DS RRset.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the CDS/CDNSKEY RRset(s) do not exist, the Parental Agent MUST
+take no action.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Specifically, it MUST NOT delete or alter the
+existing DS RRset.
+'''
+

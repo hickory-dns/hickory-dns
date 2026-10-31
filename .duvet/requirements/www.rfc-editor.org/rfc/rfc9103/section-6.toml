@@ -1,0 +1,103 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6"
+
+# Updates to Existing Specifications
+#
+#    For convenience, the term 'XFR over TCP' is used in this document to
+#    mean both IXFR over TCP and AXFR over TCP; therefore, statements that
+#    use that term update both [RFC1995] and [RFC5936] and implicitly also
+#    apply to XoT.  Differences in behavior specific to XoT are discussed
+#    in Section 7.
+# 
+#    Both [RFC1995] and [RFC5936] were published sometime before TCP
+#    became a widely supported transport for DNS.  [RFC1995], in fact,
+#    says nothing with respect to optimizing IXFRs over TCP or reusing
+#    already open TCP connections to perform IXFRs or other queries.
+#    Therefore, there arguably is an implicit assumption that a TCP
+#    connection is used for one and only one IXFR request.  Indeed, many
+#    major open-source implementations take this approach (at the time of
+#    this writing).  And whilst [RFC5936] gives guidance on connection
+#    reuse for AXFR, it predates more recent specifications describing
+#    persistent TCP connections (e.g., [RFC7766], [RFC7828]), and AXFR
+#    implementations again often make less-than-optimal use of open
+#    connections.
+# 
+#    Given this, new implementations of XoT will clearly benefit from
+#    specific guidance on TCP/TLS connection usage for XFR, because this
+#    will:
+# 
+#    *  result in more consistent XoT implementations with better
+#       interoperability and
+# 
+#    *  remove any need for XoT implementations to support legacy behavior
+#       for XoT connections that XFR-over-TCP implementations have
+#       historically often supported.
+# 
+#    Therefore, this document updates both the previous specifications for
+#    XFR over TCP ([RFC1995] and [RFC5936]) to clarify that:
+# 
+#    *  Implementations MUST use [RFC7766] ("DNS Transport over TCP -
+#       Implementation Requirements") to optimize the use of TCP
+#       connections.
+# 
+#    *  Whilst [RFC7766] states that "DNS clients SHOULD pipeline their
+#       queries" on TCP connections, it did not distinguish between XFRs
+#       and other queries for this behavior.  It is now recognized that
+#       XFRs are not as latency sensitive as other queries and can be
+#       significantly more complex for clients to handle, both because of
+#       the large amount of state that must be kept and because there may
+#       be multiple messages in the responses.  For these reasons, it is
+#       clarified here that a valid reason for not pipelining queries is
+#       when they are all XFR queries, i.e., clients sending multiple XFRs
+#       MAY choose not to pipeline those queries.  Clients that do not
+#       pipeline XFR queries therefore have no additional requirements to
+#       handle out-of-order or intermingled responses (as described
+#       later), since they will never receive them.
+# 
+#    *  Implementations SHOULD use the edns-tcp-keepalive EDNS(0) option
+#       [RFC7828] to manage persistent connections.  This is more flexible
+#       than the alternative of simply using fixed timeouts.
+# 
+#    The following sections include detailed clarifications on the updates
+#    to XFR behavior implied in [RFC7766] and how the use of [RFC7828]
+#    applies specifically to XFR exchanges.  They also discuss how IXFR
+#    and AXFR can reuse the same TCP connection.
+# 
+#    For completeness, the recent specification of extended DNS error
+#    (EDE) codes [RFC8914] is also mentioned here.  For zone transfers,
+#    when returning REFUSED to a zone transfer request from an
+#    'unauthorized' client (e.g., where the client is not listed in an ACL
+#    for zone transfers or does not sign the request with a valid TSIG
+#    key), the extended DNS error code 18 - Prohibited can also be sent.
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  Implementations MUST use [RFC7766] ("DNS Transport over TCP -
+Implementation Requirements") to optimize the use of TCP
+connections.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+*  Whilst [RFC7766] states that "DNS clients SHOULD pipeline their
+queries" on TCP connections, it did not distinguish between XFRs
+and other queries for this behavior.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+For these reasons, it is
+clarified here that a valid reason for not pipelining queries is
+when they are all XFR queries, i.e., clients sending multiple XFRs
+MAY choose not to pipeline those queries.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+*  Implementations SHOULD use the edns-tcp-keepalive EDNS(0) option
+[RFC7828] to manage persistent connections.
+'''
+

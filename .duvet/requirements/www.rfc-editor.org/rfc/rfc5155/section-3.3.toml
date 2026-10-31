@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-3.3"
+
+# Presentation Format
+#
+#    The presentation format of the RDATA portion is as follows:
+# 
+#    o  The Hash Algorithm field is represented as an unsigned decimal
+#       integer.  The value has a maximum of 255.
+# 
+#    o  The Flags field is represented as an unsigned decimal integer.
+#       The value has a maximum of 255.
+# 
+#    o  The Iterations field is represented as an unsigned decimal
+#       integer.  The value is between 0 and 65535, inclusive.
+# 
+#    o  The Salt Length field is not represented.
+# 
+#    o  The Salt field is represented as a sequence of case-insensitive
+#       hexadecimal digits.  Whitespace is not allowed within the
+#       sequence.  The Salt field is represented as "-" (without the
+#       quotes) when the Salt Length field has a value of 0.
+# 
+#    o  The Hash Length field is not represented.
+# 
+#    o  The Next Hashed Owner Name field is represented as an unpadded
+#       sequence of case-insensitive base32 digits, without whitespace.
+# 
+#    o  The Type Bit Maps field is represented as a sequence of RR type
+#       mnemonics.  When the mnemonic is not known, the TYPE
+#       representation as described in Section 5 of [RFC3597] MUST be
+#       used.
+
+[[spec]]
+level = "MUST"
+quote = '''
+When the mnemonic is not known, the TYPE
+representation as described in Section 5 of [RFC3597] MUST be
+used.
+'''
+

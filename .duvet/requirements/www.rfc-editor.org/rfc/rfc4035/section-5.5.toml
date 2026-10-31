@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-5.5"
+
+# Resolver Behavior When Signatures Do Not Validate
+#
+#    If for whatever reason none of the RRSIGs can be validated, the
+#    response SHOULD be considered BAD.  If the validation was being done
+#    to service a recursive query, the name server MUST return RCODE 2 to
+#    the originating client.  However, it MUST return the full response if
+#    and only if the original query had the CD bit set.  Also see Section
+#    4.7 on caching responses that do not validate.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If for whatever reason none of the RRSIGs can be validated, the
+response SHOULD be considered BAD.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the validation was being done
+to service a recursive query, the name server MUST return RCODE 2 to
+the originating client.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, it MUST return the full response if
+and only if the original query had the CD bit set.
+'''
+

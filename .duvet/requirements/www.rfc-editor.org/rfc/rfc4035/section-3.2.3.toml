@@ -1,0 +1,51 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.2.3"
+
+# The AD Bit
+#
+#    The name server side of a security-aware recursive name server MUST
+#    NOT set the AD bit in a response unless the name server considers all
+#    RRsets in the Answer and Authority sections of the response to be
+#    authentic.  The name server side SHOULD set the AD bit if and only if
+#    the resolver side considers all RRsets in the Answer section and any
+#    relevant negative response RRs in the Authority section to be
+#    authentic.  The resolver side MUST follow the procedure described in
+#    Section 5 to determine whether the RRs in question are authentic.
+#    However, for backward compatibility, a recursive name server MAY set
+#    the AD bit when a response includes unsigned CNAME RRs if those CNAME
+# 
+#    RRs demonstrably could have been synthesized from an authentic DNAME
+#    RR that is also included in the response according to the synthesis
+#    rules described in [RFC2672].
+
+[[spec]]
+level = "MUST"
+quote = '''
+The name server side of a security-aware recursive name server MUST
+NOT set the AD bit in a response unless the name server considers all
+RRsets in the Answer and Authority sections of the response to be
+authentic.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The name server side SHOULD set the AD bit if and only if
+the resolver side considers all RRsets in the Answer section and any
+relevant negative response RRs in the Authority section to be
+authentic.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The resolver side MUST follow the procedure described in
+Section 5 to determine whether the RRs in question are authentic.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+However, for backward compatibility, a recursive name server MAY set
+the AD bit when a response includes unsigned CNAME RRs if those CNAME
+'''
+

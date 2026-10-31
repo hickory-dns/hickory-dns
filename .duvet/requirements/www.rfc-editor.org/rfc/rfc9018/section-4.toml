@@ -1,0 +1,84 @@
+target = "https://www.rfc-editor.org/rfc/rfc9018#section-4"
+
+# Constructing a Server Cookie
+#
+#    The Server Cookie is effectively a Message Authentication Code (MAC).
+#    The Server Cookie, when it occurs in a COOKIE option in a request, is
+#    intended to weakly assure the server that the request came from a
+#    client that is both at the source IP address of the request and using
+#    the Client Cookie included in the option.  This assurance is provided
+#    by the Server Cookie that the server (or any other server from the
+#    anycast set) sent to that client in an earlier response and that
+#    appears as the Server Cookie field in the weakly authenticated
+#    request (see Section 5.2 of [RFC7873]).
+# 
+#    DNS Cookies do not provide protection against "on-path" adversaries
+#    (see Section 9 of [RFC7873]).  An on-path observer that has seen a
+#    Server Cookie for a client can abuse that Server Cookie to spoof
+#    request for that client within the time span a Server Cookie is valid
+#    (see Section 4.3).
+# 
+#    The Server Cookie is calculated from the Client Cookie, a series of
+#    Sub-Fields specified below, the Client IP address, and a Server
+#    Secret that is known only to the server or only to the set of servers
+#    at the same anycast address.
+# 
+#    For calculation of the Server Cookie, a pseudorandom function is
+#    RECOMMENDED with the property that an attacker that does not know the
+#    Server Secret, cannot find (any information about) the Server Secret,
+#    and cannot create a Server Cookie for any combination of the Client
+#    Cookie, the series of Sub-Fields specified below, and the client IP
+#    address, for which it has not seen a Server Cookie before.  Because
+#    DNS servers need to use the pseudorandom function in order to verify
+#    Server Cookies, it is RECOMMENDED that it be efficient to calculate.
+#    The pseudorandom function described in [SipHash-2-4] and introduced
+#    in Section 4.4 of this document fits these recommendations.
+# 
+#    Changing the Server Secret regularly is RECOMMENDED but, when a
+#    secure pseudorandom function is used, it need not be changed too
+#    frequently.  Once a month, for example, would be adequate.  See
+#    Section 5 on operator and implementation guidelines for updating a
+#    Server Secret.
+# 
+#    The 128-bit Server Cookie consists of the following Sub-Fields: a
+#    1-octet Version Sub-Field, a 3-octet Reserved Sub-Field, a 4-octet
+#    Timestamp Sub-Field, and an 8-octet Hash Sub-Field.
+# 
+#     0                   1                   2                   3
+#     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |    Version    |                   Reserved                    |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                           Timestamp                           |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#    |                             Hash                              |
+#    |                                                               |
+#    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+For calculation of the Server Cookie, a pseudorandom function is
+RECOMMENDED with the property that an attacker that does not know the
+Server Secret, cannot find (any information about) the Server Secret,
+and cannot create a Server Cookie for any combination of the Client
+Cookie, the series of Sub-Fields specified below, and the client IP
+address, for which it has not seen a Server Cookie before.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Because
+DNS servers need to use the pseudorandom function in order to verify
+Server Cookies, it is RECOMMENDED that it be efficient to calculate.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Changing the Server Secret regularly is RECOMMENDED but, when a
+secure pseudorandom function is used, it need not be changed too
+frequently.
+'''
+

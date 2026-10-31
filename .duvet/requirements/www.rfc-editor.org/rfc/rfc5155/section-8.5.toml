@@ -1,0 +1,20 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-8.5"
+
+# Validating No Data Responses, QTYPE is not DS
+#
+#    The validator MUST verify that an NSEC3 RR that matches QNAME is
+#    present and that both the QTYPE and the CNAME type are not set in its
+#    Type Bit Maps field.
+# 
+#    Note that this test also covers the case where the NSEC3 RR exists
+#    because it corresponds to an empty non-terminal, in which case the
+#    NSEC3 RR will have an empty Type Bit Maps field.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The validator MUST verify that an NSEC3 RR that matches QNAME is
+present and that both the QTYPE and the CNAME type are not set in its
+Type Bit Maps field.
+'''
+

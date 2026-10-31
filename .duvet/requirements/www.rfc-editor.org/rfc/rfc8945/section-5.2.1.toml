@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.2.1"
+
+# Key Check and Error Handling
+#
+#    If a non-forwarding server does not recognize the key or algorithm
+#    used by the client (or recognizes the algorithm but does not
+#    implement it), the server MUST generate an error response with RCODE
+#    9 (NOTAUTH) and TSIG ERROR 17 (BADKEY).  This response MUST be
+#    unsigned as specified in Section 5.3.2.  The server SHOULD log the
+#    error.  (Special considerations apply to forwarding servers; see
+#    Section 5.5.)
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a non-forwarding server does not recognize the key or algorithm
+used by the client (or recognizes the algorithm but does not
+implement it), the server MUST generate an error response with RCODE
+9 (NOTAUTH) and TSIG ERROR 17 (BADKEY).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+This response MUST be
+unsigned as specified in Section 5.3.2.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The server SHOULD log the
+error.
+'''
+

@@ -1,0 +1,44 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-2.4.1"
+
+# SvcPriority
+#
+#    When SvcPriority is 0, the SVCB record is in AliasMode
+#    (Section 2.4.2).  Otherwise, it is in ServiceMode (Section 2.4.3).
+# 
+#    Within a SVCB RRset, all RRs SHOULD have the same mode.  If an RRset
+#    contains a record in AliasMode, the recipient MUST ignore any
+#    ServiceMode records in the set.
+# 
+#    RRsets are explicitly unordered collections, so the SvcPriority field
+#    is used to impose an ordering on SVCB RRs.  A smaller SvcPriority
+#    indicates that the domain owner recommends the use of this record
+#    over ServiceMode RRs with a larger SvcPriority value.
+# 
+#    When receiving an RRset containing multiple SVCB records with the
+#    same SvcPriority value, clients SHOULD apply a random shuffle within
+#    a priority level to the records before using them, to ensure uniform
+#    load balancing.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Within a SVCB RRset, all RRs SHOULD have the same mode.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an RRset
+contains a record in AliasMode, the recipient MUST ignore any
+ServiceMode records in the set.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+When receiving an RRset containing multiple SVCB records with the
+same SvcPriority value, clients SHOULD apply a random shuffle within
+a priority level to the records before using them, to ensure uniform
+load balancing.
+'''
+

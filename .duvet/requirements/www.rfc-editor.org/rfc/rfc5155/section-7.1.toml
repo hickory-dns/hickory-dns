@@ -1,0 +1,139 @@
+target = "https://www.rfc-editor.org/rfc/rfc5155#section-7.1"
+
+# Zone Signing
+#
+#    Zones using NSEC3 must satisfy the following properties:
+# 
+#    o  Each owner name within the zone that owns authoritative RRSets
+#       MUST have a corresponding NSEC3 RR.  Owner names that correspond
+#       to unsigned delegations MAY have a corresponding NSEC3 RR.
+#       However, if there is not a corresponding NSEC3 RR, there MUST be
+#       an Opt-Out NSEC3 RR that covers the "next closer" name to the
+#       delegation.  Other non-authoritative RRs are not represented by
+#       NSEC3 RRs.
+# 
+#    o  Each empty non-terminal MUST have a corresponding NSEC3 RR, unless
+#       the empty non-terminal is only derived from an insecure delegation
+#       covered by an Opt-Out NSEC3 RR.
+# 
+#    o  The TTL value for any NSEC3 RR SHOULD be the same as the minimum
+#       TTL value field in the zone SOA RR.
+# 
+#    o  The Type Bit Maps field of every NSEC3 RR in a signed zone MUST
+#       indicate the presence of all types present at the original owner
+#       name, except for the types solely contributed by an NSEC3 RR
+#       itself.  Note that this means that the NSEC3 type itself will
+#       never be present in the Type Bit Maps.
+# 
+#    The following steps describe a method of proper construction of NSEC3
+#    RRs.  This is not the only such possible method.
+# 
+#    1.  Select the hash algorithm and the values for salt and iterations.
+# 
+#    2.  For each unique original owner name in the zone add an NSEC3 RR.
+# 
+#        *  If Opt-Out is being used, owner names of unsigned delegations
+#           MAY be excluded.
+# 
+#        *  The owner name of the NSEC3 RR is the hash of the original
+#           owner name, prepended as a single label to the zone name.
+# 
+#        *  The Next Hashed Owner Name field is left blank for the moment.
+# 
+#        *  If Opt-Out is being used, set the Opt-Out bit to one.
+# 
+#        *  For collision detection purposes, optionally keep track of the
+#           original owner name with the NSEC3 RR.
+# 
+#        *  Additionally, for collision detection purposes, optionally
+#           create an additional NSEC3 RR corresponding to the original
+#           owner name with the asterisk label prepended (i.e., as if a
+#           wildcard existed as a child of this owner name) and keep track
+#           of this original owner name.  Mark this NSEC3 RR as temporary.
+# 
+#    3.  For each RRSet at the original owner name, set the corresponding
+#        bit in the Type Bit Maps field.
+# 
+#    4.  If the difference in number of labels between the apex and the
+#        original owner name is greater than 1, additional NSEC3 RRs need
+#        to be added for every empty non-terminal between the apex and the
+#        original owner name.  This process may generate NSEC3 RRs with
+#        duplicate hashed owner names.  Optionally, for collision
+#        detection, track the original owner names of these NSEC3 RRs and
+#        create temporary NSEC3 RRs for wildcard collisions in a similar
+#        fashion to step 1.
+# 
+#    5.  Sort the set of NSEC3 RRs into hash order.
+# 
+#    6.  Combine NSEC3 RRs with identical hashed owner names by replacing
+#        them with a single NSEC3 RR with the Type Bit Maps field
+#        consisting of the union of the types represented by the set of
+#        NSEC3 RRs.  If the original owner name was tracked, then
+#        collisions may be detected when combining, as all of the matching
+#        NSEC3 RRs should have the same original owner name.  Discard any
+#        possible temporary NSEC3 RRs.
+# 
+#    7.  In each NSEC3 RR, insert the next hashed owner name by using the
+#        value of the next NSEC3 RR in hash order.  The next hashed owner
+#        name of the last NSEC3 RR in the zone contains the value of the
+#        hashed owner name of the first NSEC3 RR in the hash order.
+# 
+#    8.  Finally, add an NSEC3PARAM RR with the same Hash Algorithm,
+#        Iterations, and Salt fields to the zone apex.
+# 
+#    If a hash collision is detected, then a new salt has to be chosen,
+#    and the signing process restarted.
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Each owner name within the zone that owns authoritative RRSets
+MUST have a corresponding NSEC3 RR.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Owner names that correspond
+to unsigned delegations MAY have a corresponding NSEC3 RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+However, if there is not a corresponding NSEC3 RR, there MUST be
+an Opt-Out NSEC3 RR that covers the "next closer" name to the
+delegation.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  Each empty non-terminal MUST have a corresponding NSEC3 RR, unless
+the empty non-terminal is only derived from an insecure delegation
+covered by an Opt-Out NSEC3 RR.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+o  The TTL value for any NSEC3 RR SHOULD be the same as the minimum
+TTL value field in the zone SOA RR.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  The Type Bit Maps field of every NSEC3 RR in a signed zone MUST
+indicate the presence of all types present at the original owner
+name, except for the types solely contributed by an NSEC3 RR
+itself.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+*  If Opt-Out is being used, owner names of unsigned delegations
+MAY be excluded.
+'''
+

@@ -1,0 +1,32 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#appendix-A.1"
+
+# Creating TLSA Records
+#
+#    When creating TLSA records, care must be taken to avoid
+#    misconfigurations.  Section 4 of this document states that a TLSA
+#    RRSet whose validation state is secure MUST be used.  This means that
+#    the existence of such a RRSet effectively disables other forms of
+#    name and path validation.  A misconfigured TLSA RRSet will
+#    effectively disable access to the TLS server for all conforming
+#    clients, and this document does not provide any means of making a
+#    gradual transition to using TLSA.
+# 
+#    When creating TLSA records with certificate usage 0 (CA certificate)
+#    or usage 2 (trust anchor), one needs to understand the implications
+#    when choosing between selector type 0 (Full certificate) and 1
+#    (SubjectPublicKeyInfo).  A careful choice is required because
+#    different methods for building trust chains are used by different TLS
+#    clients.  The following outlines the cases that one ought to be aware
+#    of and discusses the implications of the choice of selector type.
+# 
+#    Certificate usage 2 is not affected by the different types of chain
+#    building when the end entity certificate is the same as the trust
+#    anchor certificate.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Section 4 of this document states that a TLSA
+RRSet whose validation state is secure MUST be used.
+'''
+

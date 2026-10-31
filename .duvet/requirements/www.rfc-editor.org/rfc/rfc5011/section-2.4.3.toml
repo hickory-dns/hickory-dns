@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc5011#section-2.4.3"
+
+# Minimum Trust Anchors per Trust Point
+#
+#    A compliant resolver MUST be able to manage at least five SEP keys
+#    per trust point.
+
+[[spec]]
+level = "MUST"
+quote = '''
+A compliant resolver MUST be able to manage at least five SEP keys
+per trust point.
+'''
+

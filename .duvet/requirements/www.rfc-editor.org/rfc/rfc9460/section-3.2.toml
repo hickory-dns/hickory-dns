@@ -1,0 +1,79 @@
+target = "https://www.rfc-editor.org/rfc/rfc9460#section-3.2"
+
+# Clients Using a Proxy
+#
+#    Clients using a domain-oriented transport proxy like HTTP CONNECT
+#    ([RFC7231], Section 4.3.6) or SOCKS5 [RFC1928] have the option of
+#    using named destinations, in which case the client does not perform
+#    any A or AAAA queries for destination domains.  If the client is
+#    configured to use named destinations with a proxy that does not
+#    provide SVCB query capability (e.g., through an affiliated DNS
+#    resolver), the client would have to perform SVCB resolution
+#    separately, likely disclosing the destinations to additional parties
+#    and not just the proxy.  Clients in this configuration SHOULD arrange
+#    for a separate SVCB resolution procedure with appropriate privacy
+#    properties.  If this is not possible, SVCB-optional clients MUST
+#    disable SVCB resolution entirely, and SVCB-reliant clients MUST treat
+#    the configuration as invalid.
+# 
+#    If the client does use SVCB and named destinations, the client SHOULD
+#    follow the standard SVCB resolution process, selecting the smallest-
+#    SvcPriority option that is compatible with the client and the proxy.
+#    When connecting using a SVCB record, clients MUST provide the final
+#    TargetName and port to the proxy, which will perform any required A
+#    and AAAA lookups.
+# 
+#    This arrangement has several benefits:
+# 
+#    *  Compared to disabling SVCB:
+# 
+#       -  It allows the client to use the SvcParams, if present, which
+#          are only usable with a specific TargetName.  The SvcParams may
+#          include information that enhances performance (e.g., supported
+#          protocols) and privacy.
+# 
+#       -  It allows a service on an apex domain to use aliasing.
+# 
+#    *  Compared to providing the proxy with an IP address:
+# 
+#       -  It allows the proxy to select between IPv4 and IPv6 addresses
+#          for the server according to its configuration.
+# 
+#       -  It ensures that the proxy receives addresses based on its
+#          network geolocation, not the client's.
+# 
+#       -  It enables faster fallback for TCP destinations with multiple
+#          addresses of the same family.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Clients in this configuration SHOULD arrange
+for a separate SVCB resolution procedure with appropriate privacy
+properties.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If this is not possible, SVCB-optional clients MUST
+disable SVCB resolution entirely, and SVCB-reliant clients MUST treat
+the configuration as invalid.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the client does use SVCB and named destinations, the client SHOULD
+follow the standard SVCB resolution process, selecting the smallest-
+SvcPriority option that is compatible with the client and the proxy.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+When connecting using a SVCB record, clients MUST provide the final
+TargetName and port to the proxy, which will perform any required A
+and AAAA lookups.
+'''
+

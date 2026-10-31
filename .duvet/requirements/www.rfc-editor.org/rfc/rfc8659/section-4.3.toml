@@ -1,0 +1,62 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-4.3"
+
+# CAA issuewild Property
+#
+#    The issuewild Property Tag has the same syntax and semantics as the
+#    issue Property Tag except that it only grants authorization to issue
+#    certificates that specify a Wildcard Domain Name and each issuewild
+#    Property takes precedence over each issue Property when specified.
+#    Specifically:
+# 
+#    Each issuewild Property MUST be ignored when processing a request for
+#    an FQDN that is not a Wildcard Domain Name.
+# 
+#    If at least one issuewild Property is specified in the Relevant RRset
+#    for a Wildcard Domain Name, each issue Property MUST be ignored when
+#    processing a request for that Wildcard Domain Name.
+# 
+#    For example, the following RRset requests that _only_ ca1.example.net
+#    issue certificates for "wild.example.com" or "sub.wild.example.com",
+#    and that _only_ ca2.example.org issue certificates for
+#    "*.wild.example.com" or "*.sub.wild.example.com".  Note that this
+#    presumes that there are no CAA RRs for sub.wild.example.com.
+# 
+#    wild.example.com          CAA 0 issue "ca1.example.net"
+#    wild.example.com          CAA 0 issuewild "ca2.example.org"
+# 
+#    The following RRset requests that _only_ ca1.example.net issue
+#    certificates for "wild2.example.com", "*.wild2.example.com", or
+#    "*.sub.wild2.example.com".
+# 
+#    wild2.example.com         CAA 0 issue "ca1.example.net"
+# 
+#    The following RRset requests that _only_ ca2.example.org issue
+#    certificates for "*.wild3.example.com" or "*.sub.wild3.example.com".
+#    It does not permit any Issuer to issue for "wild3.example.com" or
+#    "sub.wild3.example.com".
+# 
+#    wild3.example.com         CAA 0 issuewild "ca2.example.org"
+#    wild3.example.com         CAA 0 issue ";"
+# 
+#    The following RRset requests that _only_ ca2.example.org issue
+#    certificates for "*.wild3.example.com" or "*.sub.wild3.example.com".
+#    It permits any Issuer to issue for "wild3.example.com" or
+#    "sub.wild3.example.com".
+# 
+#    wild3.example.com         CAA 0 issuewild "ca2.example.org"
+
+[[spec]]
+level = "MUST"
+quote = '''
+Each issuewild Property MUST be ignored when processing a request for
+an FQDN that is not a Wildcard Domain Name.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If at least one issuewild Property is specified in the Relevant RRset
+for a Wildcard Domain Name, each issue Property MUST be ignored when
+processing a request for that Wildcard Domain Name.
+'''
+

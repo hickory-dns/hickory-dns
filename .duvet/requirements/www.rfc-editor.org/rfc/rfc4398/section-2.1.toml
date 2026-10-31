@@ -1,0 +1,144 @@
+target = "https://www.rfc-editor.org/rfc/rfc4398#section-2.1"
+
+# Certificate Type Values
+#
+#    The following values are defined or reserved:
+# 
+#          Value  Mnemonic  Certificate Type
+#          -----  --------  ----------------
+#              0            Reserved
+#              1  PKIX      X.509 as per PKIX
+#              2  SPKI      SPKI certificate
+#              3  PGP       OpenPGP packet
+#              4  IPKIX     The URL of an X.509 data object
+#              5  ISPKI     The URL of an SPKI certificate
+#              6  IPGP      The fingerprint and URL of an OpenPGP packet
+#              7  ACPKIX    Attribute Certificate
+#              8  IACPKIX   The URL of an Attribute Certificate
+#          9-252            Available for IANA assignment
+#            253  URI       URI private
+#            254  OID       OID private
+#            255            Reserved
+#      256-65279            Available for IANA assignment
+#    65280-65534            Experimental
+#          65535            Reserved
+# 
+#    These values represent the initial content of the IANA registry; see
+#    Section 8.
+# 
+#    The PKIX type is reserved to indicate an X.509 certificate conforming
+#    to the profile defined by the IETF PKIX working group [8].  The
+#    certificate section will start with a one-octet unsigned OID length
+#    and then an X.500 OID indicating the nature of the remainder of the
+# 
+#    certificate section (see Section 2.3, below).  (NOTE: X.509
+#    certificates do not include their X.500 directory-type-designating
+#    OID as a prefix.)
+# 
+#    The SPKI and ISPKI types are reserved to indicate the SPKI
+#    certificate format [15], for use when the SPKI documents are moved
+#    from experimental status.  The format for these two CERT RR types
+#    will need to be specified later.
+# 
+#    The PGP type indicates an OpenPGP packet as described in [5] and its
+#    extensions and successors.  This is used to transfer public key
+#    material and revocation signatures.  The data is binary and MUST NOT
+#    be encoded into an ASCII armor.  An implementation SHOULD process
+#    transferable public keys as described in Section 10.1 of [5], but it
+#    MAY handle additional OpenPGP packets.
+# 
+#    The ACPKIX type indicates an Attribute Certificate format [9].
+# 
+#    The IPKIX and IACPKIX types indicate a URL that will serve the
+#    content that would have been in the "certificate, CRL, or URL" field
+#    of the corresponding type (PKIX or ACPKIX, respectively).
+# 
+#    The IPGP type contains both an OpenPGP fingerprint for the key in
+#    question, as well as a URL.  The certificate portion of the IPGP CERT
+#    RR is defined as a one-octet fingerprint length, followed by the
+#    OpenPGP fingerprint, followed by the URL.  The OpenPGP fingerprint is
+#    calculated as defined in RFC 2440 [5].  A zero-length fingerprint or
+#    a zero-length URL are legal, and indicate URL-only IPGP data or
+#    fingerprint-only IPGP data, respectively.  A zero-length fingerprint
+#    and a zero-length URL are meaningless and invalid.
+# 
+#    The IPKIX, ISPKI, IPGP, and IACPKIX types are known as "indirect".
+#    These types MUST be used when the content is too large to fit in the
+#    CERT RR and MAY be used at the implementer's discretion.  They SHOULD
+#    NOT be used where the DNS message is 512 octets or smaller and could
+#    thus be expected to fit a UDP packet.
+# 
+#    The URI private type indicates a certificate format defined by an
+#    absolute URI.  The certificate portion of the CERT RR MUST begin with
+#    a null-terminated URI [10], and the data after the null is the
+#    private format certificate itself.  The URI SHOULD be such that a
+#    retrieval from it will lead to documentation on the format of the
+#    certificate.  Recognition of private certificate types need not be
+#    based on URI equality but can use various forms of pattern matching
+#    so that, for example, subtype or version information can also be
+#    encoded into the URI.
+# 
+#    The OID private type indicates a private format certificate specified
+#    by an ISO OID prefix.  The certificate section will start with a
+#    one-octet unsigned OID length and then a BER-encoded OID indicating
+#    the nature of the remainder of the certificate section.  This can be
+#    an X.509 certificate format or some other format.  X.509 certificates
+#    that conform to the IETF PKIX profile SHOULD be indicated by the PKIX
+#    type, not the OID private type.  Recognition of private certificate
+#    types need not be based on OID equality but can use various forms of
+#    pattern matching such as OID prefix.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The data is binary and MUST NOT
+be encoded into an ASCII armor.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+An implementation SHOULD process
+transferable public keys as described in Section 10.1 of [5], but it
+MAY handle additional OpenPGP packets.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+These types MUST be used when the content is too large to fit in the
+CERT RR and MAY be used at the implementer's discretion.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+They SHOULD
+NOT be used where the DNS message is 512 octets or smaller and could
+thus be expected to fit a UDP packet.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The certificate portion of the CERT RR MUST begin with
+a null-terminated URI [10], and the data after the null is the
+private format certificate itself.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The URI SHOULD be such that a
+retrieval from it will lead to documentation on the format of the
+certificate.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+X.509 certificates
+that conform to the IETF PKIX profile SHOULD be indicated by the PKIX
+type, not the OID private type.
+'''
+

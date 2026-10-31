@@ -1,0 +1,60 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.2.2.1"
+
+# MAC Truncation
+#
+#    When space is at a premium and the strength of the full length of a
+#    MAC is not needed, it is reasonable to truncate the keyed hash and
+#    use the truncated value for authentication.  HMAC SHA-1 truncated to
+#    96 bits is an option available in several IETF protocols, including
+#    IPsec and TLS.  However, while this option is kept for backwards
+#    compatibility, it may not provide a security level appropriate for
+#    all cases in the modern environment.  In these cases, it is
+#    preferable to use a hashing algorithm such as SHA-256-128, SHA-
+#    384-192, or SHA-512-256 [RFC4868].
+# 
+#    Processing of a truncated MAC follows these rules:
+# 
+#    If the MAC Size field is greater than the keyed hash output
+#    length:  This case MUST NOT be generated and, if received, MUST cause
+#       the DNS message to be dropped and RCODE 1 (FORMERR) to be
+#       returned.
+# 
+#    If the MAC Size field equals the keyed hash output length:  The
+#       entire keyed hash output is present and used.
+# 
+#    If the MAC Size field is less than the larger of 10 (octets) and
+#    half the length of the hash function in use:  With the exception of
+#       certain TSIG error messages described in Section 5.3.2, where it
+#       is permitted that the MAC Size be zero, this case MUST NOT be
+#       generated and, if received, MUST cause the DNS message to be
+#       dropped and RCODE 1 (FORMERR) to be returned.
+# 
+#    Otherwise:  This is sent when the signer has truncated the keyed hash
+#       output to an allowable length, as described in [RFC2104], taking
+#       initial octets and discarding trailing octets.  TSIG truncation
+#       can only be to an integral number of octets.  On receipt of a DNS
+#       message with truncation thus indicated, the locally calculated MAC
+#       is similarly truncated, and only the truncated values are compared
+#       for authentication.  The request MAC used when calculating the
+#       TSIG MAC for a reply is the truncated request MAC.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the MAC Size field is greater than the keyed hash output
+length:  This case MUST NOT be generated and, if received, MUST cause
+the DNS message to be dropped and RCODE 1 (FORMERR) to be
+returned.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the MAC Size field is less than the larger of 10 (octets) and
+half the length of the hash function in use:  With the exception of
+certain TSIG error messages described in Section 5.3.2, where it
+is permitted that the MAC Size be zero, this case MUST NOT be
+generated and, if received, MUST cause the DNS message to be
+dropped and RCODE 1 (FORMERR) to be returned.
+'''
+

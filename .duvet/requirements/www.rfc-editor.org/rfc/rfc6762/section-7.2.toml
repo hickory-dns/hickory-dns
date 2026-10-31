@@ -1,0 +1,76 @@
+target = "https://www.rfc-editor.org/rfc/rfc6762#section-7.2"
+
+# Multipacket Known-Answer Suppression
+#
+#    Sometimes a Multicast DNS querier will already have too many answers
+#    to fit in the Known-Answer Section of its query packets.  In this
+#    case, it should issue a Multicast DNS query containing a question and
+#    as many Known-Answer records as will fit.  It MUST then set the TC
+#    (Truncated) bit in the header before sending the query.  It MUST
+#    immediately follow the packet with another query packet containing no
+#    questions and as many more Known-Answer records as will fit.  If
+#    there are still too many records remaining to fit in the packet, it
+#    again sets the TC bit and continues until all the Known-Answer
+#    records have been sent.
+# 
+#    A Multicast DNS responder seeing a Multicast DNS query with the TC
+#    bit set defers its response for a time period randomly selected in
+#    the interval 400-500 ms.  This gives the Multicast DNS querier time
+#    to send additional Known-Answer packets before the responder
+# 
+#    responds.  If the responder sees any of its answers listed in the
+#    Known-Answer lists of subsequent packets from the querying host, it
+#    MUST delete that answer from the list of answers it is planning to
+#    give (provided that no other host on the network has also issued a
+#    query for that record and is waiting to receive an answer).
+# 
+#    If the responder receives additional Known-Answer packets with the TC
+#    bit set, it SHOULD extend the delay as necessary to ensure a pause of
+#    400-500 ms after the last such packet before it sends its answer.
+#    This opens the potential risk that a continuous stream of Known-
+#    Answer packets could, theoretically, prevent a responder from
+#    answering indefinitely.  In practice, answers are never actually
+#    delayed significantly, and should a situation arise where significant
+#    delays did happen, that would be a scenario where the network is so
+#    overloaded that it would be desirable to err on the side of caution.
+#    The consequence of delaying an answer may be that it takes a user
+#    longer than usual to discover all the services on the local network;
+#    in contrast, the consequence of incorrectly answering before all the
+#    Known-Answer packets have been received would be wasted capacity
+#    sending unnecessary answers on an already overloaded network.  In
+#    this (rare) situation, sacrificing speed to preserve reliable network
+#    operation is the right trade-off.
+
+[[spec]]
+level = "MUST"
+quote = '''
+It MUST then set the TC
+(Truncated) bit in the header before sending the query.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+It MUST
+immediately follow the packet with another query packet containing no
+questions and as many more Known-Answer records as will fit.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the responder sees any of its answers listed in the
+Known-Answer lists of subsequent packets from the querying host, it
+MUST delete that answer from the list of answers it is planning to
+give (provided that no other host on the network has also issued a
+query for that record and is waiting to receive an answer).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If the responder receives additional Known-Answer packets with the TC
+bit set, it SHOULD extend the delay as necessary to ensure a pause of
+400-500 ms after the last such packet before it sends its answer.
+'''
+

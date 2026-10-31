@@ -1,0 +1,61 @@
+target = "https://www.rfc-editor.org/rfc/rfc6891#section-6.1.3"
+
+# OPT Record TTL Field Use
+#
+#    The extended RCODE and flags, which OPT stores in the RR Time to Live
+#    (TTL) field, are structured as follows:
+# 
+#                   +0 (MSB)                            +1 (LSB)
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#     0: |         EXTENDED-RCODE        |            VERSION            |
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+#     2: | DO|                           Z                               |
+#        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+# 
+#    EXTENDED-RCODE
+#       Forms the upper 8 bits of extended 12-bit RCODE (together with the
+#       4 bits defined in [RFC1035].  Note that EXTENDED-RCODE value 0
+#       indicates that an unextended RCODE is in use (values 0 through
+#       15).
+# 
+#    VERSION
+#       Indicates the implementation level of the setter.  Full
+#       conformance with this specification is indicated by version '0'.
+#       Requestors are encouraged to set this to the lowest implemented
+#       level capable of expressing a transaction, to minimise the
+#       responder and network load of discovering the greatest common
+#       implementation level between requestor and responder.  A
+#       requestor's version numbering strategy MAY ideally be a run-time
+#       configuration option.
+#       If a responder does not implement the VERSION level of the
+#       request, then it MUST respond with RCODE=BADVERS.  All responses
+#       MUST be limited in format to the VERSION level of the request, but
+#       the VERSION of each response SHOULD be the highest implementation
+#       level of the responder.  In this way, a requestor will learn the
+#       implementation level of a responder as a side effect of every
+#       response, including error responses and including RCODE=BADVERS.
+
+[[spec]]
+level = "MAY"
+quote = '''
+A
+requestor's version numbering strategy MAY ideally be a run-time
+configuration option.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a responder does not implement the VERSION level of the
+request, then it MUST respond with RCODE=BADVERS.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+All responses
+MUST be limited in format to the VERSION level of the request, but
+the VERSION of each response SHOULD be the highest implementation
+level of the responder.
+'''
+

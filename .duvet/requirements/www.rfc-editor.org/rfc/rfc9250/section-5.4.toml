@@ -1,0 +1,71 @@
+target = "https://www.rfc-editor.org/rfc/rfc9250#section-5.4"
+
+# Padding
+#
+#    Implementations MUST protect against the traffic analysis attacks
+#    described in Section 7.5 by the judicious injection of padding.  This
+#    could be done either by padding individual DNS messages using the
+#    EDNS(0) Padding Option [RFC7830] or by padding QUIC packets (see
+#    Section 19.1 of [RFC9000]).
+# 
+#    In theory, padding at the QUIC packet level could result in better
+#    performance for the equivalent protection, because the amount of
+#    padding can take into account non-DNS frames such as acknowledgements
+#    or flow control updates, and also because QUIC packets can carry
+#    multiple DNS messages.  However, applications can only control the
+#    amount of padding in QUIC packets if the implementation of QUIC
+#    exposes adequate APIs.  This leads to the following recommendations:
+# 
+#    *  If the implementation of QUIC exposes APIs to set a padding
+#       policy, DoQ SHOULD use that API to align the packet length to a
+#       small set of fixed sizes.
+# 
+#    *  If padding at the QUIC packet level is not available or not used,
+#       DoQ MUST ensure that all DNS queries and responses are padded to a
+#       small set of fixed sizes, using the EDNS(0) padding extension as
+#       specified in [RFC7830].
+# 
+#    Implementations might choose not to use a QUIC API for padding if it
+#    is significantly simpler to reuse existing DNS message padding logic
+#    that is applied to other encrypted transports.
+# 
+#    In the absence of a standard policy for padding sizes,
+#    implementations SHOULD follow the recommendations of the Experimental
+#    status "Padding Policies for Extension Mechanisms for DNS (EDNS(0))"
+#    [RFC8467].  While Experimental, these recommendations are referenced
+#    because they are implemented and deployed for DoT and provide a way
+#    for implementations to be fully compliant with this specification.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Implementations MUST protect against the traffic analysis attacks
+described in Section 7.5 by the judicious injection of padding.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+*  If the implementation of QUIC exposes APIs to set a padding
+policy, DoQ SHOULD use that API to align the packet length to a
+small set of fixed sizes.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+*  If padding at the QUIC packet level is not available or not used,
+DoQ MUST ensure that all DNS queries and responses are padded to a
+small set of fixed sizes, using the EDNS(0) padding extension as
+specified in [RFC7830].
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In the absence of a standard policy for padding sizes,
+implementations SHOULD follow the recommendations of the Experimental
+status "Padding Policies for Extension Mechanisms for DNS (EDNS(0))"
+[RFC8467].
+'''
+

@@ -1,0 +1,94 @@
+target = "https://www.rfc-editor.org/rfc/rfc7477#section-2"
+
+# Definition of the CSYNC RRType
+#
+#    The CSYNC RRType contains, in its RDATA component, these parts: an
+#    SOA serial number, a set of flags, and a simple bit-list indicating
+#    the DNS RRTypes in the child that should be processed by the parental
+#    agent in order to modify the DNS delegation records within the
+#    parent's zone for the child DNS operator.  Child DNS operators
+#    wanting a parental agent to perform the synchronization steps
+#    outlined in this document MUST publish a CSYNC record at the apex of
+#    the child zone.  Parental agent implementations MAY choose to query
+# 
+#    child zones for this record and process DNS record data as indicated
+#    by the Type Bit Map field in the RDATA of the CSYNC record.  How the
+#    data is processed is described in Section 3.
+# 
+#    Parental agents MUST process the entire set of child data indicated
+#    by the Type Bit Map field (i.e., all record types indicated along
+#    with all of the necessary records to support processing of that type)
+#    or else parental agents MUST NOT make any changes to parental records
+#    at all.  Errors due to unsupported Type Bit Map bits, or otherwise
+#    nonpunishable data, SHALL result in no change to the parent zone's
+#    delegation information for the child.  Parental agents MUST ignore a
+#    child's CSYNC RDATA set if multiple CSYNC resource records are found;
+#    only a single CSYNC record should ever be present.
+# 
+#    The parental agent MUST perform DNSSEC validation ([RFC4033]
+#    [RFC4034] [RFC4035]), of the CSYNC RRType data and MUST perform
+#    DNSSEC validation of any data to be copied from the child to the
+#    parent.  Parents MUST NOT process any data from any of these records
+#    if any of the validation results indicate anything other than
+#    "Secure" [RFC4034] or if any the required data cannot be successfully
+#    retrieved.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Child DNS operators
+wanting a parental agent to perform the synchronization steps
+outlined in this document MUST publish a CSYNC record at the apex of
+the child zone.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+Parental agent implementations MAY choose to query
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Parental agents MUST process the entire set of child data indicated
+by the Type Bit Map field (i.e., all record types indicated along
+with all of the necessary records to support processing of that type)
+or else parental agents MUST NOT make any changes to parental records
+at all.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Errors due to unsupported Type Bit Map bits, or otherwise
+nonpunishable data, SHALL result in no change to the parent zone's
+delegation information for the child.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Parental agents MUST ignore a
+child's CSYNC RDATA set if multiple CSYNC resource records are found;
+only a single CSYNC record should ever be present.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The parental agent MUST perform DNSSEC validation ([RFC4033]
+[RFC4034] [RFC4035]), of the CSYNC RRType data and MUST perform
+DNSSEC validation of any data to be copied from the child to the
+parent.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Parents MUST NOT process any data from any of these records
+if any of the validation results indicate anything other than
+"Secure" [RFC4034] or if any the required data cannot be successfully
+retrieved.
+'''
+

@@ -1,0 +1,35 @@
+target = "https://www.rfc-editor.org/rfc/rfc9520#section-3.4"
+
+# DNSSEC Validation Failures
+#
+#    Section 4.7 of [RFC4035] states:
+# 
+#    |  To prevent such unnecessary DNS traffic, security-aware resolvers
+#    |  MAY cache data with invalid signatures, with some restrictions.
+# 
+#    This document updates [RFC4035] with the following, stronger,
+#    requirement:
+# 
+#    |  To prevent such unnecessary DNS traffic, security-aware resolvers
+#    |  MUST cache DNSSEC validation failures, with some restrictions.
+# 
+#    One of the restrictions mentioned in [RFC4035] is to use a small TTL
+#    when caching data that fails DNSSEC validation.  This is, in part,
+#    because the provided TTL cannot be trusted.  The advice from
+#    Section 3.2 herein can be used as guidance on TTLs for caching DNSSEC
+#    validation failures.
+
+[[spec]]
+level = "MAY"
+quote = '''
+|  To prevent such unnecessary DNS traffic, security-aware resolvers
+|  MAY cache data with invalid signatures, with some restrictions.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+|  To prevent such unnecessary DNS traffic, security-aware resolvers
+|  MUST cache DNSSEC validation failures, with some restrictions.
+'''
+

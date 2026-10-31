@@ -1,0 +1,65 @@
+target = "https://www.rfc-editor.org/rfc/rfc9615#section-4.1"
+
+# Signaling Consent to Act as the Child's Signer
+#
+#    To confirm its willingness to act as the child's delegated signer and
+#    authenticate the child's CDS/CDNSKEY RRsets, the child DNS operator
+#    MUST copublish them at the corresponding signaling name under each
+#    signaling domain, excluding those that would fall within the child
+#    domain (Section 3.2).  For simplicity, the child DNS operator MAY
+#    also copublish the child's CDS/CDNSKEY RRsets under signaling domains
+#    within the child domain, although those signaling domains are not
+#    used for validation (Section 4.2).
+# 
+#    Unlike the CDS/CDNSKEY RRsets at the child's apex, a signaling RRset
+#    MUST be signed with the corresponding signaling zone's key(s).  Its
+#    contents MUST be identical to the corresponding RRset published at
+#    the child's apex.
+# 
+#    Existing use of CDS/CDNSKEY records was specified at the child apex
+#    only (Section 4.1 of [RFC7344]).  This protocol extends the use of
+#    these record types to non-apex owner names for the purpose of DNSSEC
+#    bootstrapping.  To exclude the possibility of semantic collision,
+#    there MUST NOT be a zone cut at a signaling name.
+
+[[spec]]
+level = "MUST"
+quote = '''
+To confirm its willingness to act as the child's delegated signer and
+authenticate the child's CDS/CDNSKEY RRsets, the child DNS operator
+MUST copublish them at the corresponding signaling name under each
+signaling domain, excluding those that would fall within the child
+domain (Section 3.2).
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+For simplicity, the child DNS operator MAY
+also copublish the child's CDS/CDNSKEY RRsets under signaling domains
+within the child domain, although those signaling domains are not
+used for validation (Section 4.2).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Unlike the CDS/CDNSKEY RRsets at the child's apex, a signaling RRset
+MUST be signed with the corresponding signaling zone's key(s).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Its
+contents MUST be identical to the corresponding RRset published at
+the child's apex.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+To exclude the possibility of semantic collision,
+there MUST NOT be a zone cut at a signaling name.
+'''
+

@@ -1,0 +1,66 @@
+target = "https://www.rfc-editor.org/rfc/rfc9103#section-6.3.1"
+
+# Connection Reuse
+#
+#    As specified, XFR-over-TCP clients SHOULD reuse any existing open TCP
+#    connection when starting any new XFR request to the same primary, and
+#    for issuing SOA queries, instead of opening a new connection.  The
+#    number of TCP connections between a secondary and primary SHOULD be
+#    minimized (also see Section 6.4).
+# 
+#    Valid reasons for not reusing existing connections might include:
+# 
+#    *  As already noted in [RFC7766], separate connections for different
+#       zones might be preferred for operational reasons.  In this case,
+#       the number of concurrent connections for zone transfers SHOULD be
+#       limited to the total number of zones transferred between the
+#       client and server.
+# 
+#    *  A configured limit for the number of outstanding queries or XFR
+#       requests allowed on a single TCP connection has been reached.
+# 
+#    *  The message ID pool has already been exhausted on an open
+#       connection.
+# 
+#    *  A large number of timeouts or slow responses have occurred on an
+#       open connection.
+# 
+#    *  An edns-tcp-keepalive EDNS(0) option with a timeout of 0 has been
+#       received from the server, and the client is in the process of
+#       closing the connection (see Section 6.3.4).
+# 
+#    If no TCP connections are currently open, XFR clients MAY send SOA
+#    queries over UDP or a new TCP connection.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+As specified, XFR-over-TCP clients SHOULD reuse any existing open TCP
+connection when starting any new XFR request to the same primary, and
+for issuing SOA queries, instead of opening a new connection.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+The
+number of TCP connections between a secondary and primary SHOULD be
+minimized (also see Section 6.4).
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+In this case,
+the number of concurrent connections for zone transfers SHOULD be
+limited to the total number of zones transferred between the
+client and server.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If no TCP connections are currently open, XFR clients MAY send SOA
+queries over UDP or a new TCP connection.
+'''
+

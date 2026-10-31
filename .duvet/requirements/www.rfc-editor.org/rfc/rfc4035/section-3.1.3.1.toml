@@ -1,0 +1,34 @@
+target = "https://www.rfc-editor.org/rfc/rfc4035#section-3.1.3.1"
+
+# Including NSEC RRs: No Data Response
+#
+#    If the zone contains RRsets matching <SNAME, SCLASS> but contains no
+#    RRset matching <SNAME, SCLASS, STYPE>, then the name server MUST
+#    include the NSEC RR for <SNAME, SCLASS> along with its associated
+#    RRSIG RR(s) in the Authority section of the response (see Section
+#    3.1.1).  If space does not permit inclusion of the NSEC RR or its
+#    associated RRSIG RR(s), the name server MUST set the TC bit (see
+#    Section 3.1.1).
+# 
+#    Since the search name exists, wildcard name expansion does not apply
+#    to this query, and a single signed NSEC RR suffices to prove that the
+#    requested RR type does not exist.
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the zone contains RRsets matching <SNAME, SCLASS> but contains no
+RRset matching <SNAME, SCLASS, STYPE>, then the name server MUST
+include the NSEC RR for <SNAME, SCLASS> along with its associated
+RRSIG RR(s) in the Authority section of the response (see Section
+3.1.1).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If space does not permit inclusion of the NSEC RR or its
+associated RRSIG RR(s), the name server MUST set the TC bit (see
+Section 3.1.1).
+'''
+

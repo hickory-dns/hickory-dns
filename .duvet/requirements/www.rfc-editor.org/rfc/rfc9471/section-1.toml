@@ -1,0 +1,53 @@
+target = "https://www.rfc-editor.org/rfc/rfc9471#section-1"
+
+# Introduction
+#
+#    The Domain Name System (DNS) [RFC1034] [RFC1035] uses glue records to
+#    allow iterative clients to find the addresses of name servers that
+#    are contained within a delegated zone.  Glue records are added to the
+#    parent zone as part of the delegation process and returned in
+#    referral responses; otherwise, a resolver following the referral has
+#    no way of finding these addresses.  Authoritative servers are
+#    expected to return all available glue records for in-domain name
+#    servers in a referral response.  If message size constraints prevent
+#    the inclusion of all glue records for in-domain name servers over the
+#    chosen transport, the server MUST set the TC (Truncated) flag to
+#    inform the client that the response is incomplete and that the client
+#    SHOULD use another transport to retrieve the full response.  This
+#    document clarifies that expectation.
+# 
+#    DNS responses sometimes contain optional data in the additional
+#    section.  In-domain glue records, however, are not optional.  Several
+#    other protocol extensions, when used, are also not optional.  This
+#    includes TSIG [RFC8945], OPT [RFC6891], and SIG(0) [RFC2931].
+# 
+#    At the time of this writing, addresses (A or AAAA records) for a
+#    delegation's authoritative name servers are the only type of glue
+#    defined for the DNS.
+# 
+#    Note that this document only clarifies requirements for name server
+#    software implementations.  It does not introduce or change any
+#    requirements regarding data placed in DNS zones or registries.  In
+#    other words, this document only makes requirements regarding
+#    "available glue records" (i.e., those given in a zone) but does not
+#    make requirements regarding their presence in a zone.  If some glue
+#    records are absent from a given zone, an authoritative name server
+#    may be unable to return a useful referral response for the
+#    corresponding domain.  The IETF may want to consider a separate
+#    update to the requirements for including glue in zone data, beyond
+#    those given in [RFC1034] and [RFC1035].
+# 
+#    This document assumes a reasonable level of familiarity with DNS
+#    operations and protocol terms.  Much of the terminology is explained
+#    in further detail in "DNS Terminology" [RFC8499].
+
+[[spec]]
+level = "MUST"
+quote = '''
+If message size constraints prevent
+the inclusion of all glue records for in-domain name servers over the
+chosen transport, the server MUST set the TC (Truncated) flag to
+inform the client that the response is incomplete and that the client
+SHOULD use another transport to retrieve the full response.
+'''
+

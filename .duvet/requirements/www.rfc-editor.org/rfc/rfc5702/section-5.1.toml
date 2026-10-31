@@ -1,0 +1,16 @@
+target = "https://www.rfc-editor.org/rfc/rfc5702#section-5.1"
+
+# Support for SHA-2 Signatures
+#
+#    DNSSEC-aware implementations SHOULD be able to support RRSIG and
+#    DNSKEY resource records created with the RSA/SHA-2 algorithms as
+#    defined in this document.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+DNSSEC-aware implementations SHOULD be able to support RRSIG and
+DNSKEY resource records created with the RSA/SHA-2 algorithms as
+defined in this document.
+'''
+

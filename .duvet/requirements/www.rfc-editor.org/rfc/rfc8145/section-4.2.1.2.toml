@@ -1,0 +1,14 @@
+target = "https://www.rfc-editor.org/rfc/rfc8145#section-4.2.1.2"
+
+# Non-validating Stub Resolvers
+#
+#    The edns-key-tag option MUST NOT be included by non-validating stub
+#    resolvers.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The edns-key-tag option MUST NOT be included by non-validating stub
+resolvers.
+'''
+

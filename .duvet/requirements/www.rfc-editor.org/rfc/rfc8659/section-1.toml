@@ -1,0 +1,67 @@
+target = "https://www.rfc-editor.org/rfc/rfc8659#section-1"
+
+# Introduction
+#
+#    The Certification Authority Authorization (CAA) DNS Resource Record
+#    allows a DNS domain name holder to specify the Certification
+#    Authorities (CAs) authorized to issue certificates for that domain
+#    name.  Publication of CAA Resource Records allows a public CA to
+#    implement additional controls to reduce the risk of unintended
+#    certificate mis-issue.
+# 
+#    Like the TLSA record defined in DNS-Based Authentication of Named
+#    Entities (DANE) [RFC6698], CAA records are used as a part of a
+#    mechanism for checking PKIX [RFC6698] certificate data.  The
+#    distinction between CAA and TLSA is that CAA records specify an
+#    authorization control to be performed by a CA before issuing a
+#    certificate and TLSA records specify a verification control to be
+#    performed by a Relying Party after the certificate is issued.
+# 
+#    Conformance with a published CAA record is a necessary, but not
+#    sufficient, condition for the issuance of a certificate.
+# 
+#    Criteria for the inclusion of embedded trust anchor certificates in
+#    applications are outside the scope of this document.  Typically, such
+#    criteria require the CA to publish a Certification Practices
+#    Statement (CPS) that specifies how the requirements of the
+#    Certificate Policy (CP) are achieved.  It is also common for a CA to
+#    engage an independent third-party auditor to prepare an annual audit
+#    statement of its performance against its CPS.
+# 
+#    A set of CAA records describes only current grants of authority to
+#    issue certificates for the corresponding DNS domain name.  Since
+#    certificates are valid for a period of time, it is possible that a
+#    certificate that is not conformant with the CAA records currently
+#    published was conformant with the CAA records published at the time
+#    that the certificate was issued.  Relying Parties MUST NOT use CAA
+#    records as part of certificate validation.
+# 
+#    CAA records MAY be used by Certificate Evaluators as a possible
+#    indicator of a security policy violation.  Such use SHOULD take into
+#    account the possibility that published CAA records changed between
+#    the time a certificate was issued and the time at which the
+#    certificate was observed by the Certificate Evaluator.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Relying Parties MUST NOT use CAA
+records as part of certificate validation.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+CAA records MAY be used by Certificate Evaluators as a possible
+indicator of a security policy violation.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+Such use SHOULD take into
+account the possibility that published CAA records changed between
+the time a certificate was issued and the time at which the
+certificate was observed by the Certificate Evaluator.
+'''
+

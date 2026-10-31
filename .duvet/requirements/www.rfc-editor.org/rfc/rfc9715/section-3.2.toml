@@ -1,0 +1,27 @@
+target = "https://www.rfc-editor.org/rfc/rfc9715#section-3.2"
+
+# Proposed Recommendations for UDP Requestors
+#
+#    R5.    UDP requestors should limit the requestor's maximum UDP
+#           payload size to fit in the minimum of the interface MTU, the
+#           network MTU value configured by the network operators, and the
+#           RECOMMENDED maximum DNS/UDP payload size 1400.  A smaller
+#           limit may be allowed.  For more details, see Appendix A.
+# 
+#    R6.    UDP requestors should drop fragmented DNS/UDP responses
+#           without IP reassembly to avoid cache poisoning attacks (at the
+#           firewall function).
+# 
+#    R7.    DNS responses may be dropped by IP fragmentation.  It is
+#           recommended that requestors eventually try alternative
+#           transport protocols.
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+UDP requestors should limit the requestor's maximum UDP
+payload size to fit in the minimum of the interface MTU, the
+network MTU value configured by the network operators, and the
+RECOMMENDED maximum DNS/UDP payload size 1400.
+'''
+

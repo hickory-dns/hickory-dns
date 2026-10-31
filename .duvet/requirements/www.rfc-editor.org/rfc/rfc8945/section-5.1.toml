@@ -1,0 +1,33 @@
+target = "https://www.rfc-editor.org/rfc/rfc8945#section-5.1"
+
+# Generation of TSIG on Requests
+#
+#    Once the outgoing record has been constructed, the client performs
+#    the keyed hash (Hashed Message Authentication Code (HMAC))
+#    computation, appends a TSIG record with the calculated MAC to the
+#    additional section (incrementing the ARCOUNT to reflect the
+#    additional RR), and transmits the request to the server.  This TSIG
+#    record MUST be the only TSIG RR in the message and MUST be the last
+#    record in the additional data section.  The client MUST store the MAC
+#    and the key name from the request while awaiting an answer.
+# 
+#    The digest components for a request are:
+# 
+#       DNS Message (request)
+#       TSIG Variables (request)
+
+[[spec]]
+level = "MUST"
+quote = '''
+This TSIG
+record MUST be the only TSIG RR in the message and MUST be the last
+record in the additional data section.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+The client MUST store the MAC
+and the key name from the request while awaiting an answer.
+'''
+

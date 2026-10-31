@@ -1,0 +1,48 @@
+target = "https://www.rfc-editor.org/rfc/rfc6781#section-4.1.4.3"
+
+# Single Signing Type Algorithm Rollover, RFC 5011 Style
+#
+#    If a decision is made to perform an RFC 5011 style rollover with a
+#    Single Signing Scheme key, it should be noted that Section 2.1 of
+#    RFC 5011 states:
+# 
+#       Once the resolver sees the REVOKE bit, it MUST NOT use this key
+#       as a trust anchor or for any other purpose except to validate
+#       the RRSIG it signed over the DNSKEY RRset specifically for the
+#       purpose of validating the revocation.
+# 
+#    This means that once DNSKEY_S_1 is revoked, it cannot be used to
+#    validate its signatures over non-DNSKEY RRsets.  Thus, those RRsets
+#    should be signed with a shadow key, DNSKEY_Z_10, during the algorithm
+#    rollover.  The shadow key can be removed at the same time the revoked
+#    DNSKEY_S_1 is removed from the zone.  In other words, the zone must
+#    temporarily fall back to a KSK/ZSK split model during the rollover.
+# 
+#    In other words, the rule that at every RRset there must be at least
+#    one signature for each algorithm used in the DNSKEY RRset still
+#    applies.  This means that a different key with the same algorithm,
+#    other than the revoked key, must sign the entire zone.  Thus, more
+#    operations are needed if the Single-Type Signing Scheme is used.
+#    Before rolling the algorithm, a new key must be introduced with the
+#    same algorithm as the key that is a candidate for revocation.  That
+#    key can than temporarily act as a ZSK during the algorithm rollover.
+# 
+#    As with algorithm rollover RFC 5011 style, while all zone data must
+#    be signed with an unrevoked key, it is permissible to sign the key
+#    set with a revoked key using the same esoteric argument given in
+#    Section 4.1.4.2.
+# 
+#    The lesson of all of this is that a Single-Type Signing Scheme
+#    algorithm rollover using RFC 5011 is as complicated as the name of
+#    the rollover implies: Reverting to a split-key scheme for the
+#    duration of the rollover may be preferable.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Once the resolver sees the REVOKE bit, it MUST NOT use this key
+as a trust anchor or for any other purpose except to validate
+the RRSIG it signed over the DNSKEY RRset specifically for the
+purpose of validating the revocation.
+'''
+

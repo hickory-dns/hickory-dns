@@ -1,0 +1,177 @@
+target = "https://www.rfc-editor.org/rfc/rfc6698#section-4.1"
+
+# Usable Certificate Associations
+#
+#    An implementation of this protocol makes a DNS query for TLSA
+#    records, validates these records using DNSSEC, and uses the resulting
+#    TLSA records and validation status to modify its responses to the TLS
+#    server.
+# 
+#    Determining whether a TLSA RRSet can be used MUST be based on the
+#    DNSSEC validation state (as defined in [RFC4033]).
+# 
+#    o  A TLSA RRSet whose DNSSEC validation state is secure MUST be used
+#       as a certificate association for TLS unless a local policy would
+#       prohibit the use of the specific certificate association in the
+#       secure TLSA RRSet.
+# 
+#    o  If the DNSSEC validation state on the response to the request for
+#       the TLSA RRSet is bogus, this MUST cause TLS not to be started or,
+#       if the TLS negotiation is already in progress, MUST cause the
+#       connection to be aborted.
+# 
+#    o  A TLSA RRSet whose DNSSEC validation state is indeterminate or
+#       insecure cannot be used for TLS and MUST be considered unusable.
+# 
+#    Clients that validate the DNSSEC signatures themselves MUST use
+#    standard DNSSEC validation procedures.  Clients that rely on another
+#    entity to perform the DNSSEC signature validation MUST use a secure
+#    mechanism between themselves and the validator.  Examples of secure
+#    transports to other hosts include TSIG [RFC2845], SIG(0) [RFC2931],
+#    and IPsec [RFC6071].  Note that it is not sufficient to use secure
+#    transport to a DNS resolver that does not do DNSSEC signature
+#    validation.  See Section 8.3 for more security considerations related
+#    to external validators.
+# 
+#    If a certificate association contains a certificate usage, selector,
+#    or matching type that is not understood by the TLS client, that
+#    certificate association MUST be considered unusable.  If the
+#    comparison data for a certificate is malformed, the certificate
+#    association MUST be considered unusable.
+# 
+#    If a certificate association contains a matching type or certificate
+#    association data that uses a cryptographic algorithm that is
+#    considered too weak for the TLS client's policy, the certificate
+#    association MUST be considered unusable.
+# 
+#    If an application receives zero usable certificate associations from
+#    a DNS request or from its cache, it processes TLS in the normal
+#    fashion without any input from the TLSA records.  If an application
+#    receives one or more usable certificate associations, it attempts to
+#    match each certificate association with the TLS server's end entity
+#    certificate until a successful match is found.  During the TLS
+#    handshake, if none of the certificate associations matches the
+#    certificate given by the TLS server, the TLS client MUST abort the
+#    handshake.
+# 
+#    An attacker who is able to divert a user to a server under his
+#    control is also likely to be able to block DNS requests from the user
+#    or DNS responses being sent to the user.  Thus, in order to achieve
+#    any security benefit from certificate usage 0 or 1, an application
+#    that sends a request for TLSA records needs to get either a valid
+#    signed response containing TLSA records or verification that the
+#    domain is insecure or indeterminate.  If a request for a TLSA record
+#    does not meet one of those two criteria but the application continues
+#    with the TLS handshake anyway, the application has gotten no benefit
+#    from TLSA and SHOULD NOT make any internal or external indication
+#    that TLSA was applied.  If an application has a configuration setting
+#    that has turned on TLSA use, or has any indication that TLSA is in
+#    use (regardless of whether or not this is configurable), that
+#    application either MUST NOT start a TLS connection or it MUST abort a
+#    TLS handshake if both of the two criteria above are not met.
+# 
+#    The application can perform the TLSA lookup before initiating the TLS
+#    handshake, or do it during the TLS handshake: the choice is up to the
+#    client.
+
+[[spec]]
+level = "MUST"
+quote = '''
+Determining whether a TLSA RRSet can be used MUST be based on the
+DNSSEC validation state (as defined in [RFC4033]).
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  A TLSA RRSet whose DNSSEC validation state is secure MUST be used
+as a certificate association for TLS unless a local policy would
+prohibit the use of the specific certificate association in the
+secure TLSA RRSet.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  If the DNSSEC validation state on the response to the request for
+the TLSA RRSet is bogus, this MUST cause TLS not to be started or,
+if the TLS negotiation is already in progress, MUST cause the
+connection to be aborted.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+o  A TLSA RRSet whose DNSSEC validation state is indeterminate or
+insecure cannot be used for TLS and MUST be considered unusable.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients that validate the DNSSEC signatures themselves MUST use
+standard DNSSEC validation procedures.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Clients that rely on another
+entity to perform the DNSSEC signature validation MUST use a secure
+mechanism between themselves and the validator.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a certificate association contains a certificate usage, selector,
+or matching type that is not understood by the TLS client, that
+certificate association MUST be considered unusable.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If the
+comparison data for a certificate is malformed, the certificate
+association MUST be considered unusable.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If a certificate association contains a matching type or certificate
+association data that uses a cryptographic algorithm that is
+considered too weak for the TLS client's policy, the certificate
+association MUST be considered unusable.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+During the TLS
+handshake, if none of the certificate associations matches the
+certificate given by the TLS server, the TLS client MUST abort the
+handshake.
+'''
+
+[[spec]]
+level = "SHOULD"
+quote = '''
+If a request for a TLSA record
+does not meet one of those two criteria but the application continues
+with the TLS handshake anyway, the application has gotten no benefit
+from TLSA and SHOULD NOT make any internal or external indication
+that TLSA was applied.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+If an application has a configuration setting
+that has turned on TLSA use, or has any indication that TLSA is in
+use (regardless of whether or not this is configurable), that
+application either MUST NOT start a TLS connection or it MUST abort a
+TLS handshake if both of the two criteria above are not met.
+'''
+

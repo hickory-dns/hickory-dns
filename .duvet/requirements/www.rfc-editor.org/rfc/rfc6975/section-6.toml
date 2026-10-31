@@ -1,0 +1,40 @@
+target = "https://www.rfc-editor.org/rfc/rfc6975#section-6"
+
+# Server Considerations
+#
+#    When an authoritative server sees the DAU, DHU, and/or N3U option(s)
+#    in the OPT meta-RR in a request, the normal algorithm for servicing
+#    requests is followed.  The options MUST NOT trigger any special
+#    processing (e.g., RRSIG filtering in responses) on the server side.
+# 
+#    If the options are present but the DO bit is not set, the server does
+#    not do any DNSSEC processing, which includes any recording of the
+#    option(s).
+# 
+#    If the server sees one (or more) of the options set with RESERVED
+#    values, the server MAY ignore recoding of those values.
+# 
+#    Authoritative servers MUST NOT set the DAU, DHU, and/or N3U option(s)
+#    on any responses.  These values are only set in queries.
+
+[[spec]]
+level = "MUST"
+quote = '''
+The options MUST NOT trigger any special
+processing (e.g., RRSIG filtering in responses) on the server side.
+'''
+
+[[spec]]
+level = "MAY"
+quote = '''
+If the server sees one (or more) of the options set with RESERVED
+values, the server MAY ignore recoding of those values.
+'''
+
+[[spec]]
+level = "MUST"
+quote = '''
+Authoritative servers MUST NOT set the DAU, DHU, and/or N3U option(s)
+on any responses.
+'''
+
