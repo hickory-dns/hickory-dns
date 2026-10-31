@@ -1,0 +1,4 @@
+; Included by the `$INCLUDE` tests in `serialize::txt::zone`.
+www     IN A 192.0.2.1
+$ORIGIN other.example.net.
+mail    IN A 192.0.2.2
