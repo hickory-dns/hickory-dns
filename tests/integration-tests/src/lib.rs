@@ -130,9 +130,9 @@ impl ResponseHandler for TestResponseHandler {
         let buf = &mut self.buf.lock().unwrap();
         buf.clear();
         let mut encoder = BinEncoder::new(buf);
-        let info = response.destructive_emit(&mut encoder)?;
+        let (header, cache_ttl) = response.destructive_emit(&mut encoder)?;
         self.message_ready.store(true, Ordering::Release);
-        Ok(info)
+        Ok(ResponseInfo::new(header, cache_ttl))
     }
 }
 
