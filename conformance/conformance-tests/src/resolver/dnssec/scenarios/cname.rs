@@ -777,15 +777,15 @@ fn insecure_cname_secure_nodata(sign_settings: SignSettings) -> Result<(), Error
     let client = Client::new(&network)?;
 
     let settings = *DigSettings::default().recurse().dnssec().authentic_data();
-    let output = client.dig(
+    let output = match client.dig(
         settings,
         resolver.ipv4_addr(),
         RecordType::CAA,
         &alias_name_fqdn,
-    )?;
-
-    let logs = resolver.logs().unwrap();
-    println!("Logs:\n{logs}");
+    ) {
+        Ok(output) => output,
+        Err(e) => panic!("error {e:?}; resolver logs: {}", resolver.logs().unwrap()),
+    };
 
     assert_eq!(output.status, DigStatus::NOERROR);
     assert!(
