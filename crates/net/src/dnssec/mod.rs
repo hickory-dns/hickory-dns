@@ -313,24 +313,47 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             })
             .collect::<Vec<_>>();
 
+        // When a response includes CNAME records (like from CNAME chasing across
+        // zones), the NSEC/NSEC3 records in the authority section prove properties
+        // about the final target name in the CNAME chain, not the original query
+        // name. Follow the CNAME chain to find the appropriate name.
+        let (nsec_query, target_answers);
+        let nsec_answers = {
+            let name = cname_chain_target(&message.answers, &query.name);
+
+            if name != &query.name {
+                nsec_query = Query::new(name.clone(), query.query_type);
+                target_answers = message
+                    .answers
+                    .iter()
+                    .filter(|r| r.name == nsec_query.name)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                &target_answers
+            } else {
+                nsec_query = query.clone();
+                &message.answers
+            }
+        };
+
         // Both NSEC and NSEC3 records cannot coexist during
         // transition periods, as per RFC 5515 10.4.3 and
         // 10.5.2
         let nsec_proof = match (!nsec3s.is_empty(), !nsecs.is_empty(), must_validate_nsec) {
             (true, false, _) => verify_nsec3(
-                &query,
+                &nsec_query,
                 find_soa_name(&message),
                 message.response_code,
-                &message.answers,
+                nsec_answers,
                 &nsec3s,
                 self.nsec3_soft_iteration_limit,
                 self.nsec3_hard_iteration_limit,
             ),
             (false, true, _) => verify_nsec(
-                &query,
+                &nsec_query,
                 find_soa_name(&message),
                 message.response_code,
-                &message.answers,
+                nsec_answers,
                 &nsecs,
             ),
             (true, true, _) => {
@@ -1242,6 +1265,46 @@ fn find_soa_name(verified_message: &DnsResponse) -> Option<&Name> {
     }
 
     None
+}
+
+/// The maximum number of CNAME records to follow when locating the name that
+/// NSEC/NSEC3 records in a response apply to.
+///
+/// Matches the limit used by the in-memory zone store when chasing CNAME chains.
+const MAX_CNAME_DEPTH: usize = 8;
+
+/// Find the CNAME record in `answers` whose owner name is `name`.
+fn find_cname_target<'a>(answers: &'a [Record], name: &Name) -> Option<&'a Name> {
+    answers.iter().find_map(|record| {
+        if &record.name != name {
+            return None;
+        }
+        match &record.data {
+            RData::CNAME(cname) => Some(&cname.0),
+            _ => None,
+        }
+    })
+}
+
+/// Follow the CNAME chain starting at `query_name` and return its final target.
+///
+/// At most `MAX_CNAME_DEPTH` records are followed. If the chain is longer, or
+/// contains a cycle, the name reached after the last allowed hop is returned;
+/// this may be a name in the middle of the chain.
+fn cname_chain_target<'a>(answers: &'a [Record], query_name: &'a Name) -> &'a Name {
+    let mut name = query_name;
+    for _ in 0..MAX_CNAME_DEPTH {
+        let Some(target) = find_cname_target(answers, name) else {
+            return name;
+        };
+        name = target;
+    }
+
+    if find_cname_target(answers, name).is_some() {
+        debug!("CNAME chain exceeds MAX_CNAME_DEPTH, stopping at {name}");
+    }
+
+    name
 }
 
 /// This verifies a DNSKEY record against DS records from a secure delegation.
@@ -2200,7 +2263,10 @@ mod test {
         time::{Duration, Instant},
     };
 
-    use super::{Rrset, RrsigValidity, find_nsec_covering_record, no_closer_matches, verify_nsec};
+    use super::{
+        MAX_CNAME_DEPTH, Rrset, RrsigValidity, cname_chain_target, find_nsec_covering_record,
+        no_closer_matches, verify_nsec,
+    };
     use crate::{
         dnssec::{
             DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
@@ -3482,6 +3548,42 @@ mod test {
         assert_eq!(result, Proof::Bogus);
 
         Ok(())
+    }
+
+    #[test]
+    fn cname_chain_length_is_bounded() {
+        let names = (0..=MAX_CNAME_DEPTH + 1)
+            .map(|i| Name::from_ascii(format!("n{i}.example.")).unwrap())
+            .collect::<Vec<_>>();
+        let answers = names
+            .windows(2)
+            .map(|pair| {
+                Record::from_rdata(
+                    pair[0].clone(),
+                    300,
+                    RData::CNAME(rdata::CNAME(pair[1].clone())),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            cname_chain_target(&answers, &names[0]),
+            &names[MAX_CNAME_DEPTH]
+        );
+    }
+
+    #[test]
+    fn cname_chain_cycle_terminates() {
+        let a = Name::from_ascii("a.example.").unwrap();
+        let b = Name::from_ascii("b.example.").unwrap();
+        let c = Name::from_ascii("c.example.").unwrap();
+        let answers = [
+            Record::from_rdata(a.clone(), 300, RData::CNAME(rdata::CNAME(b.clone()))),
+            Record::from_rdata(b.clone(), 300, RData::CNAME(rdata::CNAME(c.clone()))),
+            Record::from_rdata(c.clone(), 300, RData::CNAME(rdata::CNAME(a.clone()))),
+        ];
+
+        assert_eq!(cname_chain_target(&answers, &a), &c);
     }
 
     /// Set the proof on a record to Secure and return it.
