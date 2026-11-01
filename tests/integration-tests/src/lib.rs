@@ -42,7 +42,7 @@ use hickory_proto::{
 use hickory_proto::{
     op::{DnsResponse, Message, SerialMessage},
     rr::Record,
-    serialize::binary::{BinDecodable, BinDecoder, BinEncoder},
+    serialize::binary::{BinDecodable, BinDecoder},
 };
 #[cfg(feature = "__dnssec")]
 use hickory_server::Server;
@@ -126,10 +126,10 @@ impl ResponseHandler for TestResponseHandler {
             impl Iterator<Item = &'a Record> + Send + 'a,
         >,
     ) -> Result<ResponseInfo, NetError> {
+        // TCP, so that the response is not subject to a 512 byte limit.
+        let (info, bytes) = response.encode(Protocol::Tcp)?;
         let buf = &mut self.buf.lock().unwrap();
-        buf.clear();
-        let mut encoder = BinEncoder::new(buf);
-        let info = response.destructive_emit(&mut encoder)?;
+        **buf = bytes;
         self.message_ready.store(true, Ordering::Release);
         Ok(info)
     }
