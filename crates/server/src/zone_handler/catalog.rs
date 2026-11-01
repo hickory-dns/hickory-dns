@@ -24,7 +24,6 @@ use crate::{
     proto::{
         dnssec::{DnssecSummary, Proof, rdata::DNSSECRData},
         rr::RData,
-        serialize::binary::BinEncoder,
     },
     zone_handler::Nsec3QueryInfo,
 };
@@ -226,38 +225,7 @@ impl Catalog {
 
                 #[cfg(feature = "__dnssec")]
                 if let Some(signer) = signer {
-                    let mut tbs_response_buf = Vec::with_capacity(512);
-                    let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-                    let mut response_meta =
-                        Metadata::new(update.metadata.id, MessageType::Response, OpCode::Update);
-                    response_meta.response_code = response_code;
-                    let tbs_response = MessageResponseBuilder::new(
-                        &update.queries,
-                        update.response_edns.as_ref(),
-                        Some(update.max_payload()),
-                    )
-                    .build_no_records(response_meta);
-                    if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
-                        error!(%error, "error encoding response");
-                        return send_error_response(
-                            update,
-                            ResponseCode::ServFail,
-                            response_handle,
-                        )
-                        .await;
-                    }
-                    match signer.sign(&tbs_response_buf) {
-                        Ok(signature) => response.set_signature(signature),
-                        Err(error) => {
-                            error!(%error, "error signing response");
-                            return send_error_response(
-                                update,
-                                ResponseCode::ServFail,
-                                response_handle,
-                            )
-                            .await;
-                        }
-                    }
+                    response.set_signer(signer);
                 }
 
                 match response_handle.send_response(response).await {
@@ -436,32 +404,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
 
         #[cfg(feature = "__dnssec")]
         if let Some(signer) = signer {
-            let mut tbs_response_buf = Vec::with_capacity(512);
-            let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-            let tbs_response = MessageResponseBuilder::new(
-                &request.queries,
-                request.response_edns.as_ref(),
-                request.max_payload_size(),
-            )
-            .build(
-                response_message.metadata,
-                response_message.answers.iter(),
-                response_message.authorities.iter(),
-                iter::empty(),
-                response_message.additionals.iter(),
-            );
-            if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
-                error!(%error, "error encoding response");
-                return send_error_response(request, ResponseCode::ServFail, response_handle).await;
-            }
-            match signer.sign(&tbs_response_buf) {
-                Ok(signature) => message_response.set_signature(signature),
-                Err(error) => {
-                    error!(%error, "error signing response");
-                    return send_error_response(request, ResponseCode::ServFail, response_handle)
-                        .await;
-                }
-            }
+            message_response.set_signer(signer);
         }
 
         #[cfg(feature = "metrics")]
@@ -556,34 +499,7 @@ async fn zone_transfer(
 
         #[cfg(feature = "__dnssec")]
         if let Some(signer) = signer {
-            let mut tbs_response_buf = Vec::with_capacity(512);
-            let mut encoder = BinEncoder::new(&mut tbs_response_buf);
-            let tbs_response = MessageResponseBuilder::new(
-                &request.queries,
-                request.response_edns.as_ref(),
-                request.max_payload_size(),
-            )
-            .build(
-                response_meta,
-                zone_transfer
-                    .iter()
-                    .flat_map(|zone_transfer| zone_transfer.iter()),
-                iter::empty(),
-                iter::empty(),
-                iter::empty(),
-            );
-            if let Err(error) = tbs_response.destructive_emit(&mut encoder) {
-                error!(%error, "error encoding response");
-                return send_error_response(request, ResponseCode::ServFail, response_handle).await;
-            }
-            match signer.sign(&tbs_response_buf) {
-                Ok(signature) => message_response.set_signature(signature),
-                Err(error) => {
-                    error!(%error, "error signing response");
-                    return send_error_response(request, ResponseCode::ServFail, response_handle)
-                        .await;
-                }
-            }
+            message_response.set_signer(signer);
         }
 
         match response_handle.send_response(message_response).await {
