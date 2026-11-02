@@ -513,7 +513,17 @@ pub enum DnsError {
 
 impl DnsError {
     /// A conversion to determine if the response is an error
-    pub fn from_response(response: DnsResponse) -> Result<DnsResponse, Self> {
+    ///
+    /// # Arguments
+    ///
+    /// * `response` - The response message.
+    /// * `recursion_desired` - Whether a recursive answer was requested. This affects
+    ///   classification of responses, particularly for referral responses from authoritative
+    ///   servers.
+    pub fn from_response(
+        response: DnsResponse,
+        recursion_desired: bool,
+    ) -> Result<DnsResponse, Self> {
         use ResponseCode::*;
         debug!("response: {}", *response);
 
@@ -545,6 +555,18 @@ impl DnsError {
             }
             NXDomain | NoError | Unknown(_) => return Ok(response),
         };
+
+        // If we are looking for an authoritative response and got a referral, do not try to
+        // transform it into an error.
+        if !recursion_desired
+            && !response.authoritative
+            && response
+                .authorities
+                .iter()
+                .any(|r| r.record_type() == RecordType::NS)
+        {
+            return Ok(response);
+        }
 
         // Collect any referral nameservers and associated glue records
         let mut referral_name_servers = vec![];
