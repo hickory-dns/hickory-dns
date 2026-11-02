@@ -57,7 +57,7 @@ fn dont_retry_on_negative_response() {
     subscribe();
     let mut response = Message::response(10, OpCode::Update);
     response.metadata.response_code = ResponseCode::NoError;
-    let error = DnsError::from_response(DnsResponse::from_message(response).unwrap())
+    let error = DnsError::from_response(DnsResponse::from_message(response).unwrap(), true)
         .expect_err("NODATA should be an error");
     let client = RetryDnsHandle::new(
         TestClient {

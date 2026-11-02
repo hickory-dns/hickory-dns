@@ -494,7 +494,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
         if response.response_code == ResponseCode::NXDomain {
             use crate::recursor::RecursorError;
 
-            let Err(dns_error) = DnsError::from_response(response) else {
+            let Err(dns_error) = DnsError::from_response(response, true) else {
                 return Err(RecursorError::from(
                     "unable to build ProtoError from response {response:?}",
                 ));

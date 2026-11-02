@@ -1329,7 +1329,7 @@ mod tests {
         // Confirm that this response goes down the positive response code path.
         // This test may need to be updated or deleted when referral response handling is changed.
         let response = DnsResponse::from_message(message.clone()).unwrap();
-        let result = DnsError::from_response(response);
+        let result = DnsError::from_response(response, false);
         assert!(
             result.is_ok(),
             "expected referral response to be returned in Ok: {result:?}"

@@ -396,7 +396,7 @@ fn test_tcp_fallback_on_io_error() {
 
     let tcp_nameserver = mock_nameserver(
         vec![
-            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap())
+            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap(), true)
                 .map_err(NetError::from),
         ],
         ProtocolConfig::Tcp,
@@ -437,7 +437,7 @@ fn test_tcp_fallback_on_no_connections() {
 
     let tcp_nameserver = mock_nameserver(
         vec![
-            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap())
+            DnsError::from_response(DnsResponse::from_message(tcp_message).unwrap(), true)
                 .map_err(NetError::from),
         ],
         ProtocolConfig::Tcp,
@@ -680,7 +680,7 @@ fn test_return_first_terminal_error_after_servfail() {
             let mut error_message = message(query.clone(), vec![], vec![], vec![]);
             error_message.metadata.response_code = *response_code;
             let response =
-                DnsError::from_response(DnsResponse::from_message(error_message).unwrap())
+                DnsError::from_response(DnsResponse::from_message(error_message).unwrap(), true)
                     .expect_err("error code should result in resolve error");
             mock_nameserver(
                 vec![Err(response.into())],

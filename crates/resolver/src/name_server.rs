@@ -200,7 +200,8 @@ impl<P: ConnectionProvider> NameServer<P> {
             match response {
                 Ok(response) => {
                     meta.set_status(Status::Established);
-                    let result = DnsError::from_response(response);
+                    let result =
+                        DnsError::from_response(response, request.options().recursion_desired);
                     let error = match result {
                         Ok(response) => {
                             meta.srtt.record(rtt);

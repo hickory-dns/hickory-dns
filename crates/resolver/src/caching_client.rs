@@ -177,7 +177,7 @@ where
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
         let response_message = if let Ok(response) = response_message {
-            DnsError::from_response(response).map_err(NetError::from)
+            DnsError::from_response(response, true).map_err(NetError::from)
         } else {
             response_message
         };
