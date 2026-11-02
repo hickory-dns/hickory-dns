@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, subscribe};
+use test_support::{MockNetworkHandler, MockProvider, MockResponse, subscribe};
 use tokio::time as TokioTime;
 
 use super::{
@@ -31,7 +31,7 @@ async fn recursor_connection_deduplication() -> Result<(), NetError> {
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
     let (provider, options) = test_fixture()?;
-    let recursor = Recursor::with_options(&[ROOT_IP], options, provider.clone())?;
+    let recursor = Recursor::with_options(&[ROOT_IP.into()], options, provider.clone())?;
 
     // This test is inspecting the number of new TCP connection calls for each nameserver.
     // If deduplication is working correctly, there should be one for each after the
@@ -46,15 +46,15 @@ async fn recursor_connection_deduplication() -> Result<(), NetError> {
         assert_eq!(response.response_code, ResponseCode::NoError);
 
         assert_eq!(
-            provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
+            provider.count_new_connection_calls(ROOT_IP.into(), Protocol::Tcp),
             1
         );
         assert_eq!(
-            provider.count_new_connection_calls(TLD_IP, Protocol::Tcp),
+            provider.count_new_connection_calls(TLD_IP.into(), Protocol::Tcp),
             1
         );
         assert_eq!(
-            provider.count_new_connection_calls(LEAF_IP, Protocol::Tcp),
+            provider.count_new_connection_calls(LEAF_IP.into(), Protocol::Tcp),
             1
         );
     }
@@ -70,7 +70,7 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
     let dup_query_name = Name::from_ascii("host.hickory-dns-dup.testing.")?;
     let (provider, options) = test_fixture()?;
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             ns_cache_size: 1,
             ..options
@@ -84,15 +84,15 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
 
     assert_eq!(response.response_code, ResponseCode::NoError);
     assert_eq!(
-        provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
+        provider.count_new_connection_calls(ROOT_IP.into(), Protocol::Tcp),
         1
     );
     assert_eq!(
-        provider.count_new_connection_calls(TLD_IP, Protocol::Tcp),
+        provider.count_new_connection_calls(TLD_IP.into(), Protocol::Tcp),
         1
     );
     assert_eq!(
-        provider.count_new_connection_calls(LEAF_IP, Protocol::Tcp),
+        provider.count_new_connection_calls(LEAF_IP.into(), Protocol::Tcp),
         1
     );
 
@@ -111,15 +111,15 @@ async fn recursor_connection_deduplication_non_cached() -> Result<(), NetError> 
     assert_eq!(response.response_code, ResponseCode::NoError);
     // Roots aren't subject to cache expiration
     assert_eq!(
-        provider.count_new_connection_calls(ROOT_IP, Protocol::Tcp),
+        provider.count_new_connection_calls(ROOT_IP.into(), Protocol::Tcp),
         1
     );
     assert_eq!(
-        provider.count_new_connection_calls(TLD_IP, Protocol::Tcp),
+        provider.count_new_connection_calls(TLD_IP.into(), Protocol::Tcp),
         2
     );
     assert_eq!(
-        provider.count_new_connection_calls(LEAF_IP, Protocol::Tcp),
+        provider.count_new_connection_calls(LEAF_IP.into(), Protocol::Tcp),
         2
     );
 
@@ -351,38 +351,32 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
     let ent_delegated_leaf_ns = Name::from_ascii("ns.delegated.ent.hickory-dns.testing.")?;
 
     let responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(LEAF_IP, &delegated_leaf_zone, &delegated_leaf_ns),
-        MockRecord::a(LEAF_IP, &delegated_leaf_ns, DELEGATED_LEAF_IP)
-            .with_query_name(&delegated_leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(LEAF_IP, &ent_delegated_leaf_zone, &ent_delegated_leaf_ns),
-        MockRecord::a(LEAF_IP, &ent_delegated_leaf_ns, ENT_DELEGATED_LEAF_IP)
-            .with_query_name(&ent_delegated_leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
-        MockRecord::a(LEAF_IP, &ent_query_name, LEAF_IP),
-        MockRecord::a(DELEGATED_LEAF_IP, &delegated_query_name, DELEGATED_LEAF_IP),
-        MockRecord::a(
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP),
+        MockResponse::new(LEAF_IP, &delegated_leaf_zone, RecordType::NS)
+            .ns_referral(&delegated_leaf_zone, &delegated_leaf_ns)
+            .a_glue(&delegated_leaf_ns, DELEGATED_LEAF_IP),
+        MockResponse::new(LEAF_IP, &ent_delegated_leaf_zone, RecordType::NS)
+            .ns_referral(&ent_delegated_leaf_zone, &ent_delegated_leaf_ns)
+            .a_glue(&ent_delegated_leaf_ns, ENT_DELEGATED_LEAF_IP),
+        MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
+        MockResponse::new(LEAF_IP, &ent_query_name, RecordType::A).a(&ent_query_name, LEAF_IP),
+        MockResponse::new(DELEGATED_LEAF_IP, &delegated_query_name, RecordType::A)
+            .a(&delegated_query_name, DELEGATED_LEAF_IP),
+        MockResponse::new(
             ENT_DELEGATED_LEAF_IP,
             &ent_delegated_query_name,
-            ENT_DELEGATED_LEAF_IP,
-        ),
+            RecordType::A,
+        )
+        .a(&ent_delegated_query_name, ENT_DELEGATED_LEAF_IP),
     ];
 
     let recursor_no_cache = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ns_cache_size: 1,
@@ -392,7 +386,7 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
     )?;
 
     let recursor_cache = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ns_cache_size: 1024,
@@ -431,17 +425,17 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
         assert!(validate_response(
             ttl_lookup(&recursor, &query_name).await?,
             &query_name,
-            LEAF_IP
+            LEAF_IP.into()
         ));
         assert!(validate_response(
             ttl_lookup(&recursor, &delegated_query_name).await?,
             &delegated_query_name,
-            DELEGATED_LEAF_IP
+            DELEGATED_LEAF_IP.into()
         ));
         assert!(validate_response(
             ttl_lookup(&recursor, &ent_delegated_query_name).await?,
             &ent_delegated_query_name,
-            ENT_DELEGATED_LEAF_IP
+            ENT_DELEGATED_LEAF_IP.into()
         ));
     }
 
@@ -461,25 +455,17 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
     let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
 
     let responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::soa(LEAF_IP, &leaf_zone, &leaf_ns, &leaf_ns)
-            .with_query_name(&ent_name)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Authority),
-        MockRecord::soa(LEAF_IP, &leaf_zone, &leaf_ns, &leaf_ns)
-            .with_query_name(&query_name)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Authority),
-        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP),
+        MockResponse::new(LEAF_IP, &ent_name, RecordType::NS)
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_ns),
+        MockResponse::new(LEAF_IP, &query_name, RecordType::NS)
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_ns),
+        MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
     ];
 
     let nxdomain_at_ent = Box::new(move |_, _, message: &mut Message| {
@@ -492,7 +478,7 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
     });
 
     let recursor_no_cache = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ns_cache_size: 1,
@@ -505,7 +491,7 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
     )?;
 
     let recursor_cache = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ns_cache_size: 1024,
@@ -527,7 +513,7 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
         assert!(validate_response(
             ttl_lookup(&recursor, &query_name).await?,
             &query_name,
-            LEAF_IP
+            LEAF_IP.into()
         ));
     }
 
@@ -570,30 +556,22 @@ async fn cache_negative_responses() -> Result<(), NetError> {
     let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
 
     let responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::a(LEAF_IP, &exists_name, LEAF_IP),
-        MockRecord::soa(LEAF_IP, &leaf_ns, &leaf_zone, &leaf_ns)
-            .with_query_name(&no_exist_name)
-            .with_query_type(RecordType::A)
-            .with_ttl(3600),
-        MockRecord::soa(LEAF_IP, &leaf_ns, &leaf_zone, &leaf_ns)
-            .with_query_name(&no_exist_name)
-            .with_query_type(RecordType::NS)
-            .with_ttl(3600),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP),
+        MockResponse::new(LEAF_IP, &exists_name, RecordType::A).a(&exists_name, LEAF_IP),
+        MockResponse::new(LEAF_IP, &no_exist_name, RecordType::A)
+            .soa_authority(&leaf_ns, &leaf_zone, &leaf_ns),
+        MockResponse::new(LEAF_IP, &no_exist_name, RecordType::NS)
+            .soa_authority(&leaf_ns, &leaf_zone, &leaf_ns),
     ];
 
     let provider = MockProvider::new(MockNetworkHandler::new(responses));
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(), // We use addresses in the default deny filters.
             ..RecursorOptions::default()
@@ -613,7 +591,7 @@ async fn cache_negative_responses() -> Result<(), NetError> {
 
         assert_eq!(
             provider
-                .queries(&LEAF_IP)
+                .queries(&LEAF_IP.into())
                 .iter()
                 .filter(|x| x.name == no_exist_name && x.query_type == RecordType::A)
                 .count(),
@@ -638,26 +616,18 @@ async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
     let bogus_ns = Name::from_ascii("ns.doesnotexist.hickory-dns.testing.")?;
 
     let responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP),
         // The zone cut probe gets an NXDOMAIN whose authority section carries NS records
         // alongside the SOA.
-        MockRecord::soa(LEAF_IP, &leaf_ns, &leaf_zone, &leaf_ns)
-            .with_query_name(&no_exist_cut)
-            .with_query_type(RecordType::NS)
-            .with_ttl(3600),
-        MockRecord::ns(LEAF_IP, &leaf_zone, &bogus_ns)
-            .with_query_name(&no_exist_cut)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Authority),
+        MockResponse::new(LEAF_IP, &no_exist_cut, RecordType::NS)
+            .with_ttl(3600)
+            .soa_authority(&leaf_ns, &leaf_zone, &leaf_ns)
+            .ns_referral(&leaf_zone, &bogus_ns),
     ];
 
     let cut = no_exist_cut.clone();
@@ -671,7 +641,7 @@ async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
 
     let provider = MockProvider::new(handler);
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(), // We use addresses in the default deny filters.
             ..RecursorOptions::default()
@@ -692,7 +662,7 @@ async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
     // Per RFC 8020 nothing below the NXDOMAIN name exists, so no further probe is made.
     assert_eq!(
         provider
-            .queries(&LEAF_IP)
+            .queries(&LEAF_IP.into())
             .iter()
             .filter(|x| x.name == no_exist_name)
             .count(),
@@ -773,23 +743,29 @@ fn ns_cache_test_fixture(
     let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
     let off_domain_zone = Name::from_ascii("otherdomain.testing.")?;
     let off_domain_ns = Name::from_ascii("ns.otherdomain.testing.")?;
-    let off_domain_ip = IpAddr::V4(Ipv4Addr::new(10, 0, 5, 1));
-    let leaf_2_ip = IpAddr::V4(Ipv4Addr::new(10, 0, 4, 1));
-    let target_1_ip_1 = IpAddr::V4(Ipv4Addr::new(10, 1, 0, 1));
-    let target_1_ip_2 = IpAddr::V4(Ipv4Addr::new(10, 1, 0, 2));
-    let target_2_ip_1 = IpAddr::V4(Ipv4Addr::new(10, 1, 0, 1));
-    let target_2_ip_2 = IpAddr::V4(Ipv4Addr::new(10, 1, 0, 2));
+    let off_domain_ip = Ipv4Addr::new(10, 0, 5, 1);
+    let leaf_2_ip = Ipv4Addr::new(10, 0, 4, 1);
+    let target_1_ip_1 = Ipv4Addr::new(10, 1, 0, 1);
+    let target_1_ip_2 = Ipv4Addr::new(10, 1, 0, 2);
+    let target_2_ip_1 = Ipv4Addr::new(10, 1, 0, 1);
+    let target_2_ip_2 = Ipv4Addr::new(10, 1, 0, 2);
 
     let mut responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::a(LEAF_IP, &query_1_name, target_1_ip_1).with_ttl(0),
-        MockRecord::a(leaf_2_ip, &query_1_name, target_1_ip_2).with_ttl(0),
-        MockRecord::a(LEAF_IP, &query_2_name, target_2_ip_1).with_ttl(0),
-        MockRecord::a(leaf_2_ip, &query_2_name, target_2_ip_2).with_ttl(0),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(LEAF_IP, &query_1_name, RecordType::A)
+            .with_ttl(0)
+            .a(&query_1_name, target_1_ip_1),
+        MockResponse::new(leaf_2_ip, &query_1_name, RecordType::A)
+            .with_ttl(0)
+            .a(&query_1_name, target_1_ip_2),
+        MockResponse::new(LEAF_IP, &query_2_name, RecordType::A)
+            .with_ttl(0)
+            .a(&query_2_name, target_2_ip_1),
+        MockResponse::new(leaf_2_ip, &query_2_name, RecordType::A)
+            .with_ttl(0)
+            .a(&query_2_name, target_2_ip_2),
     ];
 
     // Off domain here refers to a zone (hickory-dns.testing.) with an authoritative name server
@@ -797,40 +773,29 @@ fn ns_cache_test_fixture(
     // addresses differently, so we need a separate test to ensure the TTL tracking code is
     // working in all cases.
     if off_domain {
-        responses.append(
-            &mut [
-                MockRecord::ns(TLD_IP, &leaf_zone, &off_domain_ns).with_ttl(zone_ttl),
-                MockRecord::ns(TLD_IP, &off_domain_zone, &off_domain_ns).with_ttl(zone_ttl),
-                MockRecord::a(TLD_IP, &off_domain_ns, off_domain_ip)
-                    .with_query_name(&off_domain_zone)
-                    .with_query_type(RecordType::NS)
-                    .with_section(MockResponseSection::Additional)
-                    .with_ttl(zone_ttl),
-                MockRecord::soa(
-                    off_domain_ip,
-                    &off_domain_ns,
-                    &off_domain_zone,
-                    &off_domain_ns,
-                )
-                .with_query_name(&off_domain_ns)
-                .with_query_type(RecordType::NS),
-                MockRecord::a(off_domain_ip, &off_domain_ns, LEAF_IP).with_ttl(ns_ttl),
-            ]
-            .into_iter()
-            .collect::<Vec<MockRecord>>(),
-        );
+        responses.extend_from_slice(&[
+            MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+                .with_ttl(zone_ttl)
+                .ns_referral(&leaf_zone, &off_domain_ns),
+            MockResponse::new(TLD_IP, &off_domain_zone, RecordType::NS)
+                .with_ttl(zone_ttl)
+                .ns_referral(&off_domain_zone, &off_domain_ns)
+                .a_glue(&off_domain_ns, off_domain_ip),
+            MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::NS).soa_authority(
+                &off_domain_ns,
+                &off_domain_zone,
+                &off_domain_ns,
+            ),
+            MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::A)
+                .with_ttl(ns_ttl)
+                .a(&off_domain_ns, LEAF_IP),
+        ]);
     } else {
-        responses.append(
-            &mut [
-                MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns).with_ttl(zone_ttl),
-                MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-                    .with_query_name(&leaf_zone)
-                    .with_query_type(RecordType::NS)
-                    .with_section(MockResponseSection::Additional)
-                    .with_ttl(ns_ttl),
-            ]
-            .into_iter()
-            .collect::<Vec<MockRecord>>(),
+        responses.push(
+            MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+                .with_ttl(zone_ttl)
+                .ns_referral(&leaf_zone, &leaf_ns)
+                .a_glue(&leaf_ns, LEAF_IP),
         );
     }
 
@@ -865,7 +830,7 @@ fn ns_cache_test_fixture(
     ));
 
     Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             cache_policy: ttl_config,
@@ -907,30 +872,27 @@ async fn self_referential_cname_returns_servfail() -> Result<(), NetError> {
     let target = Name::from_ascii("target.testing.")?;
 
     let mut responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::cname(TLD_IP, &direct, &direct),
-        MockRecord::cname(TLD_IP, &alias, &target),
-        MockRecord::cname(TLD_IP, &target, &target),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &direct, RecordType::A).cname(&direct, &direct),
+        MockResponse::new(TLD_IP, &alias, RecordType::A).cname(&alias, &target),
+        MockResponse::new(TLD_IP, &target, RecordType::A).cname(&target, &target),
     ];
 
     // The QNAME minimization probes for each name are answered with a no-data SOA, so the
     // zone cut stays at `testing.`.
     for name in [&direct, &alias, &target] {
         responses.push(
-            MockRecord::soa(TLD_IP, &tld_zone, &tld_ns, &tld_ns)
-                .with_query_name(name)
-                .with_query_type(RecordType::NS)
-                .with_ttl(3600),
+            MockResponse::new(TLD_IP, name, RecordType::NS)
+                .with_ttl(3600)
+                .soa_authority(&tld_zone, &tld_ns, &tld_ns),
         );
     }
 
     let provider = MockProvider::new(MockNetworkHandler::new(responses));
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ..RecursorOptions::default()
@@ -987,36 +949,28 @@ async fn cross_zone_cname_loop_returns_servfail() -> Result<(), NetError> {
     let b = Name::from_ascii("b.zone2.testing.")?;
 
     let responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &zone1, &zone1_ns),
-        MockRecord::a(TLD_IP, &zone1_ns, LEAF_IP)
-            .with_query_name(&zone1)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &zone2, &zone2_ns),
-        MockRecord::a(TLD_IP, &zone2_ns, DELEGATED_LEAF_IP)
-            .with_query_name(&zone2)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::cname(LEAF_IP, &a, &b),
-        MockRecord::soa(LEAF_IP, &zone1, &zone1_ns, &zone1_ns)
-            .with_query_name(&a)
-            .with_query_type(RecordType::NS)
-            .with_ttl(3600),
-        MockRecord::cname(DELEGATED_LEAF_IP, &b, &a),
-        MockRecord::soa(DELEGATED_LEAF_IP, &zone2, &zone2_ns, &zone2_ns)
-            .with_query_name(&b)
-            .with_query_type(RecordType::NS)
-            .with_ttl(3600),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &zone1, RecordType::NS)
+            .ns_referral(&zone1, &zone1_ns)
+            .a_glue(&zone1_ns, LEAF_IP),
+        MockResponse::new(TLD_IP, &zone2, RecordType::NS)
+            .ns_referral(&zone2, &zone2_ns)
+            .a_glue(&zone2_ns, DELEGATED_LEAF_IP),
+        MockResponse::new(LEAF_IP, &a, RecordType::A).cname(&a, &b),
+        MockResponse::new(LEAF_IP, &a, RecordType::NS)
+            .with_ttl(3600)
+            .soa_authority(&zone1, &zone1_ns, &zone1_ns),
+        MockResponse::new(DELEGATED_LEAF_IP, &b, RecordType::A).cname(&b, &a),
+        MockResponse::new(DELEGATED_LEAF_IP, &b, RecordType::NS)
+            .with_ttl(3600)
+            .soa_authority(&zone2, &zone2_ns, &zone2_ns),
     ];
 
     let provider = MockProvider::new(MockNetworkHandler::new(responses));
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             // Disable the response cache so that an undetected loop is visible as repeated
@@ -1052,7 +1006,7 @@ async fn cross_zone_cname_loop_returns_servfail() -> Result<(), NetError> {
     for (ns, name) in [(LEAF_IP, &a), (DELEGATED_LEAF_IP, &b)] {
         assert_eq!(
             provider
-                .queries(&ns)
+                .queries(&ns.into())
                 .iter()
                 .filter(|q| q.name == *name && q.query_type == RecordType::A)
                 .count(),
@@ -1076,23 +1030,17 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let dup_leaf_ns = Name::from_ascii("ns.hickory-dns-dup.testing.")?;
 
     let responses = vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &dup_leaf_zone, &dup_leaf_ns),
-        MockRecord::a(TLD_IP, &dup_leaf_ns, LEAF_IP)
-            .with_query_name(&dup_leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
-        MockRecord::a(LEAF_IP, &dup_query_name, LEAF_IP),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP),
+        MockResponse::new(TLD_IP, &dup_leaf_zone, RecordType::NS)
+            .ns_referral(&dup_leaf_zone, &dup_leaf_ns)
+            .a_glue(&dup_leaf_ns, LEAF_IP),
+        MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
+        MockResponse::new(LEAF_IP, &dup_query_name, RecordType::A).a(&dup_query_name, LEAF_IP),
     ];
 
     let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
@@ -1151,17 +1099,13 @@ mod metrics {
             let leaf_ns = Name::from_ascii("leaf.testing.").unwrap();
 
             let handler = MockNetworkHandler::new(vec![
-                MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-                MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-                    .with_query_name(&tld_zone)
-                    .with_query_type(RecordType::NS)
-                    .with_section(MockResponseSection::Additional),
-                MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-                MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-                    .with_query_name(&leaf_zone)
-                    .with_query_type(RecordType::NS)
-                    .with_section(MockResponseSection::Additional),
-                MockRecord::a(LEAF_IP, &leaf_zone, A_RR_IP),
+                MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+                    .ns_referral(&tld_zone, &tld_ns)
+                    .a_glue(&tld_ns, TLD_IP),
+                MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+                    .ns_referral(&leaf_zone, &leaf_ns)
+                    .a_glue(&leaf_ns, LEAF_IP),
+                MockResponse::new(LEAF_IP, &leaf_zone, RecordType::A).a(&leaf_zone, A_RR_IP),
             ]);
 
             let provider = MockProvider::new(handler);
@@ -1172,7 +1116,7 @@ mod metrics {
             let policy = DnssecPolicy::ValidateWithStaticKey(DnssecConfig::default());
 
             let recursor = Recursor::new(
-                &[ROOT_IP],
+                &[ROOT_IP.into()],
                 policy,
                 None,
                 RecursorOptions {
@@ -1245,7 +1189,7 @@ mod metrics {
         }
     }
 
-    const A_RR_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
+    const A_RR_IP: Ipv4Addr = Ipv4Addr::new(192, 168, 1, 1);
 }
 
 #[cfg(all(
@@ -1345,36 +1289,30 @@ async fn empty_ns_pool_not_cached_on_glueless_failure() -> Result<(), NetError> 
     // Glueless: NS hostname is in a different zone (otherdomain.testing.)
     let off_domain_zone = Name::from_ascii("otherdomain.testing.")?;
     let off_domain_ns = Name::from_ascii("ns.otherdomain.testing.")?;
-    let off_domain_ip = IpAddr::V4(Ipv4Addr::new(10, 0, 5, 1));
+    let off_domain_ip = Ipv4Addr::new(10, 0, 5, 1);
 
     let responses = vec![
         // Root -> TLD delegation (with glue)
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
         // TLD -> leaf zone delegation, glueless NS in otherdomain.testing.
-        MockRecord::ns(TLD_IP, &leaf_zone, &off_domain_ns),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &off_domain_ns),
         // TLD -> otherdomain.testing. delegation (with glue)
-        MockRecord::ns(TLD_IP, &off_domain_zone, &off_domain_ns),
-        MockRecord::a(TLD_IP, &off_domain_ns, off_domain_ip)
-            .with_query_name(&off_domain_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
+        MockResponse::new(TLD_IP, &off_domain_zone, RecordType::NS)
+            .ns_referral(&off_domain_zone, &off_domain_ns)
+            .a_glue(&off_domain_ns, off_domain_ip),
         // otherdomain.testing. SOA for NS query that has no zone cut
-        MockRecord::soa(
-            off_domain_ip,
+        MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::NS).soa_authority(
             &off_domain_ns,
             &off_domain_zone,
             &off_domain_ns,
-        )
-        .with_query_name(&off_domain_ns)
-        .with_query_type(RecordType::NS),
+        ),
         // otherdomain.testing. authoritative: ns.otherdomain.testing. A record
-        MockRecord::a(off_domain_ip, &off_domain_ns, LEAF_IP),
+        MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::A).a(&off_domain_ns, LEAF_IP),
         // Leaf zone authoritative answer
-        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
+        MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
     ];
 
     // Use a counter to make the first A lookup for ns.otherdomain.testing. fail
@@ -1400,7 +1338,7 @@ async fn empty_ns_pool_not_cached_on_glueless_failure() -> Result<(), NetError> 
 
     let provider = MockProvider::new(handler);
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ..RecursorOptions::default()
@@ -1437,23 +1375,19 @@ async fn empty_ns_pool_not_cached_on_glueless_failure() -> Result<(), NetError> 
     Ok(())
 }
 
-fn chain_delegation() -> Result<Vec<MockRecord>, NetError> {
+fn chain_delegation() -> Result<Vec<MockResponse>, NetError> {
     let tld_zone = Name::from_ascii("testing.")?;
     let tld_ns = Name::from_ascii("testing.testing.")?;
     let leaf_zone = Name::from_ascii("hickory-dns.testing.")?;
     let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.")?;
 
     Ok(vec![
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a_glue(&leaf_ns, LEAF_IP),
     ])
 }
 
@@ -1467,34 +1401,30 @@ async fn cname_chain_answer_order() -> Result<(), NetError> {
 
     let delegation = chain_delegation()?;
 
-    let alias_cname = MockRecord::cname(LEAF_IP, &alias, &intermediate).with_query_name(&alias);
-    let intermediate_cname =
-        MockRecord::cname(LEAF_IP, &intermediate, &canonical).with_query_name(&alias);
-    let canonical_a = MockRecord::a(LEAF_IP, &canonical, LEAF_IP).with_query_name(&alias);
-
     // The authoritative server returns the whole chain in all three cases: the address record
     // ahead of the aliases that lead to it, the aliases themselves reversed, and already
     // unrolled.
     let answer_orders = [
-        vec![
-            canonical_a.clone(),
-            alias_cname.clone(),
-            intermediate_cname.clone(),
-        ],
-        vec![
-            intermediate_cname.clone(),
-            alias_cname.clone(),
-            canonical_a.clone(),
-        ],
-        vec![alias_cname, intermediate_cname, canonical_a],
+        MockResponse::new(LEAF_IP, &alias, RecordType::A)
+            .a(&canonical, LEAF_IP)
+            .cname(&alias, &intermediate)
+            .cname(&intermediate, &canonical),
+        MockResponse::new(LEAF_IP, &alias, RecordType::A)
+            .cname(&intermediate, &canonical)
+            .cname(&alias, &intermediate)
+            .a(&canonical, LEAF_IP),
+        MockResponse::new(LEAF_IP, &alias, RecordType::A)
+            .cname(&alias, &intermediate)
+            .cname(&intermediate, &canonical)
+            .a(&canonical, LEAF_IP),
     ];
 
-    for answers in answer_orders {
+    for answer_response in answer_orders {
         let mut responses = delegation.clone();
-        responses.extend(answers);
+        responses.push(answer_response);
 
         let recursor = Recursor::with_options(
-            &[ROOT_IP],
+            &[ROOT_IP.into()],
             RecursorOptions {
                 deny_server: Vec::new(),
                 ..RecursorOptions::default()
@@ -1538,17 +1468,14 @@ async fn cname_chain_answer_order_for_cname_query() -> Result<(), NetError> {
 
     // A CNAME query does not resolve the chain, so the upstream order is all there is.
     let mut responses = chain_delegation()?;
-    responses.extend([
-        MockRecord::cname(LEAF_IP, &intermediate, &canonical)
-            .with_query_name(&alias)
-            .with_query_type(RecordType::CNAME),
-        MockRecord::cname(LEAF_IP, &alias, &intermediate)
-            .with_query_name(&alias)
-            .with_query_type(RecordType::CNAME),
-    ]);
+    responses.push(
+        MockResponse::new(LEAF_IP, &alias, RecordType::CNAME)
+            .cname(&intermediate, &canonical)
+            .cname(&alias, &intermediate),
+    );
 
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ..RecursorOptions::default()
@@ -1576,8 +1503,8 @@ async fn cname_chain_answer_order_for_cname_query() -> Result<(), NetError> {
 
 mod ghost_domain;
 
-const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
-const TLD_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 2, 1));
-const LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 3, 1));
-const DELEGATED_LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 4, 1));
-const ENT_DELEGATED_LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 5, 1));
+const ROOT_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 1, 1);
+const TLD_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 2, 1);
+const LEAF_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 3, 1);
+const DELEGATED_LEAF_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 4, 1);
+const ENT_DELEGATED_LEAF_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 5, 1);

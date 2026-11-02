@@ -1,10 +1,10 @@
 use std::{
     cmp,
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, VecDeque, hash_map::Entry},
     future::{Future, ready},
-    io,
-    io::Write,
-    net::{IpAddr, SocketAddr},
+    io::{self, Write},
+    iter,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     pin::Pin,
     sync::{Arc, Mutex, Once},
     task::{Context, Poll, Waker},
@@ -74,124 +74,110 @@ impl Write for LogWriter {
     }
 }
 
-/// A mock response to be returned by the [`MockHandler`].
+/// A builder for a mock response message to be returned by the [`MockHandler`].
 #[derive(Clone)]
-pub struct MockRecord {
-    /// The name server IP.  This is matched by the [`MockHandler`] against the destination address
-    /// when deciding which response to return to the client.
-    ns: IpAddr,
-    /// The query name to match against
-    query_name: Name,
-    /// Query type
-    query_type: RecordType,
-    /// record-level TTL
+pub struct MockResponse {
+    /// The IP address of the mock name server that sends this response.
+    ///
+    /// This is used when matching queries against mock responses.
+    server_ip: IpAddr,
+    /// The mock response message to be sent in reply to queries.
+    ///
+    /// The question section of the message is used when matching queries against mock responses.
+    message: Message,
+
+    /// TTL to be used in records added by convenience methods.
     ttl: u32,
-    /// record name
-    record_name: Name,
-    /// record data
-    record_data: RData,
-    /// The response section to place the record in
-    section: MockResponseSection,
 }
 
-/// The section to place the record
-#[derive(Clone)]
-pub enum MockResponseSection {
-    Answer,
-    Additional,
-    Authority,
-}
-
-/// Convenience functions for [`MockRecord`].  These should create records of the
-/// specified type with a sensible TTL and section defaults.
-impl MockRecord {
-    pub fn a(server: IpAddr, rr_name: &Name, record_data: IpAddr) -> Self {
-        let v4 = match record_data {
-            IpAddr::V4(addr) => addr,
-            IpAddr::V6(_) => panic!("a record does not support v6 address"),
-        };
-
+impl MockResponse {
+    pub fn new(server_ip: impl Into<IpAddr>, query_name: &Name, query_type: RecordType) -> Self {
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::new(query_name.clone(), query_type));
+        message.metadata.authoritative = true;
         Self {
-            ns: server,
-            ttl: 3600,
-            query_name: rr_name.clone(),
-            query_type: RecordType::A,
-            record_name: rr_name.clone(),
-            record_data: RData::A(A(v4)),
-            section: MockResponseSection::Answer,
+            server_ip: server_ip.into(),
+            message,
+            ttl: Self::DEFAULT_TTL,
         }
     }
 
-    /// A CNAME record answering an A query for `rr_name`, aliasing it to `target`.
-    pub fn cname(server: IpAddr, rr_name: &Name, target: &Name) -> Self {
-        Self {
-            ns: server,
-            ttl: 3600,
-            query_name: rr_name.clone(),
-            query_type: RecordType::A,
-            record_name: rr_name.clone(),
-            record_data: RData::CNAME(CNAME(target.clone())),
-            section: MockResponseSection::Answer,
-        }
+    /// Set the TTL of records added by subsequent method calls.
+    pub fn with_ttl(self, ttl: u32) -> Self {
+        Self { ttl, ..self }
     }
 
-    pub fn ns(server: IpAddr, rr_name: &Name, ns_name: &Name) -> Self {
-        Self {
-            ns: server,
-            ttl: 3600,
-            query_name: rr_name.clone(),
-            query_type: RecordType::NS,
-            record_name: rr_name.clone(),
-            record_data: RData::NS(NS(ns_name.clone())),
-            section: MockResponseSection::Authority,
-        }
+    /// Add an A record to the answer section.
+    pub fn a(self, name: &Name, ip_address: Ipv4Addr) -> Self {
+        self.add_answer(name, RData::A(A(ip_address)))
     }
 
-    pub fn soa(server: IpAddr, rr_name: &Name, mname: &Name, rname: &Name) -> Self {
-        Self {
-            ns: server,
-            ttl: 0,
-            query_name: rr_name.clone(),
-            query_type: RecordType::SOA,
-            record_name: rr_name.clone(),
-            record_data: RData::SOA(SOA::new(mname.clone(), rname.clone(), 1, 1, 1, 1, 1)),
-            section: MockResponseSection::Authority,
-        }
+    /// Add an A record to the additional section.
+    pub fn a_glue(self, name: &Name, ip_address: Ipv4Addr) -> Self {
+        self.add_additional(name, RData::A(A(ip_address)))
     }
 
-    pub fn txt(server: IpAddr, rr_name: &Name, txt_data: Vec<String>) -> Self {
-        Self {
-            ns: server,
-            query_name: rr_name.clone(),
-            query_type: RecordType::TXT,
-            ttl: 0,
-            record_name: rr_name.clone(),
-            record_data: RData::TXT(
-                TXT::new(txt_data.into_iter().map(|s| s.into_boxed_str())).unwrap(),
-            ),
-            section: MockResponseSection::Answer,
-        }
+    /// Add a CNAME record to the answer section.
+    pub fn cname(self, name: &Name, target: &Name) -> Self {
+        self.add_answer(name, RData::CNAME(CNAME(target.clone())))
     }
 
-    pub fn with_query_name(mut self, query_name: &Name) -> Self {
-        self.query_name = query_name.clone();
+    /// Add an NS record to the answer section.
+    pub fn ns_answer(self, name: &Name, nameserver: &Name) -> Self {
+        self.add_answer(name, RData::NS(NS(nameserver.clone())))
+    }
+
+    /// Add an NS record to the authority section.
+    pub fn ns_referral(self, name: &Name, nameserver: &Name) -> Self {
+        self.add_authority(name, RData::NS(NS(nameserver.clone())))
+    }
+
+    /// Add an SOA record to the answer section.
+    pub fn soa_answer(self, name: &Name, mname: &Name, rname: &Name) -> Self {
+        self.add_answer(
+            name,
+            RData::SOA(SOA::new(mname.clone(), rname.clone(), 1, 1, 1, 1, 1)),
+        )
+    }
+
+    /// Add an SOA record to the authority section.
+    pub fn soa_authority(self, name: &Name, mname: &Name, rname: &Name) -> Self {
+        self.add_authority(
+            name,
+            RData::SOA(SOA::new(mname.clone(), rname.clone(), 1, 1, 1, 1, 1)),
+        )
+    }
+
+    /// Add a TXT record to the answer section.
+    pub fn txt(self, name: &Name, string: String) -> Self {
+        self.add_answer(
+            name,
+            RData::TXT(TXT::new(iter::once(string.into_boxed_str())).unwrap()),
+        )
+    }
+
+    /// Add a record to the answer section.
+    pub fn add_answer(mut self, name: &Name, rdata: RData) -> Self {
+        self.message
+            .add_answer(Record::from_rdata(name.clone(), self.ttl, rdata));
         self
     }
 
-    pub fn with_query_type(mut self, query_type: RecordType) -> Self {
-        self.query_type = query_type;
+    /// Add a record to the authority section.
+    pub fn add_authority(mut self, name: &Name, rdata: RData) -> Self {
+        self.message
+            .add_authority(Record::from_rdata(name.clone(), self.ttl, rdata));
         self
     }
 
-    pub fn with_section(mut self, section: MockResponseSection) -> Self {
-        self.section = section;
+    /// Add a record to the additional section.
+    pub fn add_additional(mut self, name: &Name, rdata: RData) -> Self {
+        self.message
+            .add_additional(Record::from_rdata(name.clone(), self.ttl, rdata));
         self
     }
 
-    pub fn with_ttl(mut self, ttl: u32) -> Self {
-        self.ttl = ttl;
-        self
-    }
+    const DEFAULT_TTL: u32 = 3600;
 }
 
 /// Request handling functionality that can be plugged into [`MockProvider`].
@@ -210,41 +196,23 @@ pub struct MockNetworkHandler {
 }
 
 impl MockNetworkHandler {
-    /// Return a [`MockNetworkHandler`] that will respond to queries with [`MockRecord`] answers
-    /// from responses.
-    pub fn new(responses: Vec<MockRecord>) -> Self {
+    /// Return a [`MockNetworkHandler`] that will respond to queries with answers from the provided
+    /// mock responses.
+    pub fn new(responses: Vec<MockResponse>) -> Self {
         let mut hashed_responses = HashMap::<IpAddr, HashMap<Query, Message>>::new();
         for response in responses {
-            let query = Query::new(response.query_name.clone(), response.query_type);
-            let mut message = Message::response(0, OpCode::Query);
-            message.add_query(query.clone());
-            message.metadata.authoritative = true;
-
-            if let Some(ns) = hashed_responses.get(&response.ns) {
-                if let Some(existing_message) = ns.get(&query) {
-                    message = existing_message.clone();
+            let server_map = hashed_responses.entry(response.server_ip).or_default();
+            let query = response.message.queries[0].clone();
+            match server_map.entry(query) {
+                Entry::Occupied(_) => {
+                    panic!(
+                        "duplicate mock responses provided for {:?}",
+                        response.message.queries[0]
+                    );
                 }
-            }
-
-            let record = Record::from_rdata(
-                response.record_name.clone(),
-                response.ttl,
-                response.record_data,
-            );
-
-            match response.section {
-                MockResponseSection::Additional => message.add_additional(record),
-                MockResponseSection::Answer => message.add_answer(record),
-                MockResponseSection::Authority => message.add_authority(record),
-            };
-
-            let query = message.queries[0].clone();
-            if let Some(ns) = hashed_responses.get_mut(&response.ns) {
-                ns.insert(query, message);
-            } else {
-                let mut new_map = HashMap::new();
-                new_map.insert(query, message);
-                hashed_responses.insert(response.ns, new_map);
+                Entry::Vacant(vacant_entry) => {
+                    vacant_entry.insert(response.message);
+                }
             }
         }
 

@@ -1,5 +1,5 @@
 use std::{
-    net::IpAddr,
+    net::{IpAddr, Ipv4Addr},
     sync::{
         Arc,
         atomic::{AtomicU8, Ordering},
@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures_util::stream::{FuturesUnordered, StreamExt};
-use test_support::{MockNetworkHandler, MockProvider, MockRecord, subscribe};
+use test_support::{MockNetworkHandler, MockProvider, MockResponse, subscribe};
 
 use hickory_net::xfer::{DnsHandle, Protocol};
 use hickory_proto::{
@@ -27,9 +27,10 @@ async fn test_shared_lookup() -> Result<(), ProtoError> {
     subscribe();
 
     let query_name = Name::from_ascii("host.hickory-dns.testing.")?;
-    let query_ip = IpAddr::from([10, 0, 0, 1]);
+    let query_ip = Ipv4Addr::new(10, 0, 0, 1);
 
-    let responses = vec![MockRecord::a(query_ip, &query_name, query_ip)];
+    let responses =
+        vec![MockResponse::new(query_ip, &query_name, RecordType::A).a(&query_name, query_ip)];
 
     let counter = Arc::new(AtomicU8::new(0));
     let counter_copy = counter.clone();
@@ -48,7 +49,7 @@ async fn test_shared_lookup() -> Result<(), ProtoError> {
     opts.case_randomization = true;
     let name_server = Arc::new(NameServer::new(
         [],
-        NameServerConfig::udp(query_ip),
+        NameServerConfig::udp(query_ip.into()),
         &opts,
         provider,
     ));
