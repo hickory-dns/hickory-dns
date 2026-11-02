@@ -502,27 +502,13 @@ impl DnsError {
         use ResponseCode::*;
         debug!("response: {}", *response);
 
-        let response_code = match response.response_code {
-            Refused => return Err(Self::ResponseCode(Refused)),
-            code @ ServFail
-            | code @ FormErr
-            | code @ NotImp
-            | code @ YXDomain
-            | code @ YXRRSet
-            | code @ NXRRSet
-            | code @ NotAuth
-            | code @ NotZone
-            | code @ BADVERS
-            | code @ BADSIG
-            | code @ BADKEY
-            | code @ BADTIME
-            | code @ BADMODE
-            | code @ BADNAME
-            | code @ BADALG
-            | code @ BADTRUNC
-            | code @ BADCOOKIE => return Err(Self::ResponseCode(code)),
-            code @ NXDomain | code @ NoError => code,
+        let response_code = response.response_code;
+        match response_code {
+            Refused | ServFail | FormErr | NotImp | YXDomain | YXRRSet | NXRRSet | NotAuth
+            | NotZone | BADVERS | BADSIG | BADKEY | BADTIME | BADMODE | BADNAME | BADALG
+            | BADTRUNC | BADCOOKIE => return Err(Self::ResponseCode(response.response_code)),
             Unknown(_) => return Ok(response),
+            NXDomain | NoError => {}
         };
 
         // Do not transform truncated negative responses into an error, as this could lose the TC
