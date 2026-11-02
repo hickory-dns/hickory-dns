@@ -138,22 +138,11 @@ impl DnsResponse {
     pub fn contains_answer(&self) -> bool {
         for q in &self.queries {
             let found = match q.query_type {
-                RecordType::ANY => self.all_sections().any(|r| r.name == q.name),
-                RecordType::SOA => {
-                    // for SOA name must be part of the SOA zone
-                    self.all_sections()
-                        .filter(|r| r.record_type().is_soa())
-                        .any(|r| r.name.zone_of(&q.name))
-                }
-                q_type => {
-                    if !self.answers.is_empty() {
-                        true
-                    } else {
-                        self.all_sections()
-                            .filter(|r| r.record_type() == q_type)
-                            .any(|r| r.name == q.name)
-                    }
-                }
+                RecordType::ANY => self.answers.iter().any(|r| r.name == q.name),
+                _ => self.answers.iter().any(|r| {
+                    (r.record_type() == q.query_type || r.record_type() == RecordType::CNAME)
+                        && r.name == q.name
+                }),
             };
 
             if found {
@@ -267,11 +256,11 @@ mod tests {
     }
 
     #[test]
-    fn contains_soa() {
+    fn contains_soa_answer() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NoError;
-        message.add_query(Query::new(an_example(), RecordType::SOA));
-        message.add_authority(soa());
+        message.add_query(Query::new(example(), RecordType::SOA));
+        message.add_answer(soa());
 
         let response = DnsResponse::from_message(message.into_response()).unwrap();
 
@@ -279,7 +268,43 @@ mod tests {
     }
 
     #[test]
-    fn contains_any() {
+    fn contains_soa_wrong_rrset() {
+        let mut message = Message::query();
+        message.metadata.response_code = ResponseCode::NoError;
+        message.add_query(Query::new(an_example(), RecordType::SOA));
+        message.add_answer(soa());
+
+        let response = DnsResponse::from_message(message.into_response()).unwrap();
+
+        assert!(!response.contains_answer());
+    }
+
+    #[test]
+    fn contains_soa_auth() {
+        let mut message = Message::query();
+        message.metadata.response_code = ResponseCode::NoError;
+        message.add_query(Query::new(an_example(), RecordType::SOA));
+        message.add_authority(soa());
+
+        let response = DnsResponse::from_message(message.into_response()).unwrap();
+
+        assert!(!response.contains_answer());
+    }
+
+    #[test]
+    fn contains_any_answer() {
+        let mut message = Message::query();
+        message.metadata.response_code = ResponseCode::NoError;
+        message.add_query(Query::new(xx(), RecordType::ANY));
+        message.add_answer(ns1_record());
+
+        let response = DnsResponse::from_message(message.into_response()).unwrap();
+
+        assert!(response.contains_answer());
+    }
+
+    #[test]
+    fn contains_any_referral() {
         let mut message = Message::query();
         message.metadata.response_code = ResponseCode::NoError;
         message.add_query(Query::new(xx(), RecordType::ANY));
@@ -288,7 +313,7 @@ mod tests {
 
         let response = DnsResponse::from_message(message.into_response()).unwrap();
 
-        assert!(response.contains_answer());
+        assert!(!response.contains_answer());
     }
 
     #[test]
