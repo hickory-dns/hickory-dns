@@ -521,15 +521,21 @@ impl DnsError {
             | code @ BADALG
             | code @ BADTRUNC
             | code @ BADCOOKIE => return Err(Self::ResponseCode(code)),
-            // Note that some NXDOMAIN and NOERROR responses contain CNAME records in the answer
-            // section, those will not be treated as an error.
-            code @ NXDomain | code @ NoError
-                if !response.contains_answer() && !response.truncation =>
-            {
-                code
-            }
-            NXDomain | NoError | Unknown(_) => return Ok(response),
+            code @ NXDomain | code @ NoError => code,
+            Unknown(_) => return Ok(response),
         };
+
+        // Do not transform truncated negative responses into an error, as this could lose the TC
+        // flag.
+        if response.truncation {
+            return Ok(response);
+        }
+
+        // Return `Ok` for positive responses. Note that some NXDOMAIN and NODATA responses contain
+        // CNAME records in the answer section. We will return `Ok` for those as well.
+        if response.contains_answer() {
+            return Ok(response);
+        }
 
         // If we are looking for an authoritative response and got a referral, do not try to
         // transform it into an error.
