@@ -7,12 +7,7 @@
 // Each benchmark creates a small in-process mock DNS hierarchy using
 // `test_support::MockProvider`, so no real network access is required.
 
-use std::{
-    hint::black_box,
-    net::{IpAddr, Ipv4Addr},
-    sync::Arc,
-    time::Instant,
-};
+use std::{hint::black_box, net::Ipv4Addr, sync::Arc, time::Instant};
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use hickory_resolver::{
@@ -22,7 +17,7 @@ use hickory_resolver::{
     },
     recursor::{Recursor, RecursorOptions},
 };
-use test_support::{MockNetworkHandler, MockProvider, MockRecord, MockResponseSection};
+use test_support::{MockNetworkHandler, MockProvider, MockResponse};
 use tokio::runtime::Runtime;
 
 /// Cold-cache resolution: a fresh `Recursor` with empty NS and response caches
@@ -89,24 +84,20 @@ fn make_recursor() -> (Recursor<MockProvider>, Name) {
     let leaf_ns = Name::from_ascii("ns.hickory-dns.testing.").unwrap();
 
     let provider = MockProvider::new(MockNetworkHandler::new(vec![
-        // Root → TLD delegation
-        MockRecord::ns(ROOT_IP, &tld_zone, &tld_ns),
-        MockRecord::a(ROOT_IP, &tld_ns, TLD_IP)
-            .with_query_name(&tld_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        // TLD → leaf delegation
-        MockRecord::ns(TLD_IP, &leaf_zone, &leaf_ns),
-        MockRecord::a(TLD_IP, &leaf_ns, LEAF_IP)
-            .with_query_name(&leaf_zone)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional),
-        // Leaf answer
-        MockRecord::a(LEAF_IP, &query_name, LEAF_IP),
+        // Referral from root zone to TLD
+        MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
+            .ns_referral(&tld_zone, &tld_ns)
+            .a_glue(&tld_ns, TLD_IP),
+        // Referral from TLD to leaf zone
+        MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
+            .ns_referral(&leaf_zone, &leaf_ns)
+            .a(&leaf_ns, LEAF_IP),
+        // Answer from leaf zone
+        MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
     ]));
 
     let recursor = Recursor::with_options(
-        &[ROOT_IP],
+        &[ROOT_IP.into()],
         RecursorOptions {
             deny_server: Vec::new(),
             ..RecursorOptions::default()
@@ -118,6 +109,6 @@ fn make_recursor() -> (Recursor<MockProvider>, Name) {
     (recursor, query_name)
 }
 
-const ROOT_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
-const TLD_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 2, 1));
-const LEAF_IP: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 0, 3, 1));
+const ROOT_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 1, 1);
+const TLD_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 2, 1);
+const LEAF_IP: Ipv4Addr = Ipv4Addr::new(10, 0, 3, 1);

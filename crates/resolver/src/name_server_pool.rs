@@ -1076,7 +1076,7 @@ mod tests {
     use std::collections::HashSet;
     use std::future::Future;
     use std::io;
-    use std::net::{IpAddr, SocketAddr};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::pin::Pin;
     use std::str::FromStr;
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -1085,7 +1085,7 @@ mod tests {
 
     use futures_util::future;
     use test_support::{
-        MockNetworkHandler, MockProvider, MockRecord, MockTcpStream, MockUdpSocket, subscribe,
+        MockNetworkHandler, MockProvider, MockResponse, MockTcpStream, MockUdpSocket, subscribe,
     };
     use tokio::runtime::Runtime;
 
@@ -1289,15 +1289,16 @@ mod tests {
     async fn diversify_skips_user_provided_order() {
         subscribe();
 
-        let v4a = IpAddr::from([10, 0, 0, 1]);
-        let v4b = IpAddr::from([10, 0, 0, 2]);
-        let v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let v4a = Ipv4Addr::new(10, 0, 0, 1);
+        let v4b = Ipv4Addr::new(10, 0, 0, 2);
+        let v6 = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = [v4a, v4b, v6]
-            .into_iter()
-            .map(|ip| MockRecord::a(ip, &query_name, v4a))
-            .collect();
+        let responses = vec![
+            MockResponse::new(v4a, &query_name, RecordType::A).a(&query_name, v4a),
+            MockResponse::new(v4b, &query_name, RecordType::A).a(&query_name, v4a),
+            MockResponse::new(v6, &query_name, RecordType::A).a(&query_name, v4a),
+        ];
         let provider = DelayedBindProvider::new(
             MockProvider::new(MockNetworkHandler::new(responses)),
             Duration::from_millis(20),
@@ -1309,7 +1310,7 @@ mod tests {
             ..ResolverOpts::default()
         };
         let pool = NameServerPool::from_nameservers(
-            [v4a, v4b, v6]
+            [v4a.into(), v4b.into(), v6.into()]
                 .into_iter()
                 .map(|ip| {
                     Arc::new(NameServer::new(
@@ -1347,15 +1348,16 @@ mod tests {
     async fn diversify_applies_through_pool_selection() {
         subscribe();
 
-        let v4a = IpAddr::from([10, 0, 0, 1]);
-        let v4b = IpAddr::from([10, 0, 0, 2]);
-        let v6 = IpAddr::from([0x2001, 0xdb8, 0, 0, 0, 0, 0, 1]);
+        let v4a = Ipv4Addr::new(10, 0, 0, 1);
+        let v4b = Ipv4Addr::new(10, 0, 0, 2);
+        let v6 = Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = [v4a, v4b, v6]
-            .into_iter()
-            .map(|ip| MockRecord::a(ip, &query_name, v4a))
-            .collect();
+        let responses = vec![
+            MockResponse::new(v4a, &query_name, RecordType::A).a(&query_name, v4a),
+            MockResponse::new(v4b, &query_name, RecordType::A).a(&query_name, v4a),
+            MockResponse::new(v6, &query_name, RecordType::A).a(&query_name, v4a),
+        ];
         let provider = DelayedBindProvider::new(
             MockProvider::new(MockNetworkHandler::new(responses)),
             Duration::from_millis(20),
@@ -1366,7 +1368,7 @@ mod tests {
             ..ResolverOpts::default()
         };
         let pool = NameServerPool::from_nameservers(
-            [v4a, v4b, v6]
+            [v4a.into(), v4b.into(), v6.into()]
                 .into_iter()
                 .map(|ip| {
                     Arc::new(NameServer::new(
@@ -1563,17 +1565,18 @@ mod tests {
     async fn test_pool_retries_on_timeout() {
         subscribe();
 
-        let timeout_ip = IpAddr::from([10, 0, 0, 1]);
-        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let timeout_ip = Ipv4Addr::new(10, 0, 0, 1);
+        let good_ip = Ipv4Addr::new(10, 0, 0, 2);
         let query_name = Name::from_str("example.com.").unwrap();
 
         // Set up a mock handler where the good server returns a valid A record.
-        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let responses =
+            vec![MockResponse::new(good_ip, &query_name, RecordType::A).a(&query_name, good_ip)];
         let handler = MockNetworkHandler::new(responses);
         let mock_provider = MockProvider::new(handler);
 
         // Wrap in TimeoutProvider so that the timeout_ip always fails with TimedOut.
-        let provider = TimeoutProvider::new(mock_provider, vec![timeout_ip]);
+        let provider = TimeoutProvider::new(mock_provider, vec![timeout_ip.into()]);
 
         let opts = ResolverOpts {
             num_concurrent_reqs: 1,
@@ -1585,13 +1588,13 @@ mod tests {
             vec![
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp(timeout_ip),
+                    NameServerConfig::udp(timeout_ip.into()),
                     &opts,
                     provider.clone(),
                 )),
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp(good_ip),
+                    NameServerConfig::udp(good_ip.into()),
                     &opts,
                     provider.clone(),
                 )),
@@ -1621,14 +1624,15 @@ mod tests {
     async fn test_timeout_penalizes_server_srtt() {
         subscribe();
 
-        let timeout_ip = IpAddr::from([10, 0, 0, 1]);
-        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let timeout_ip = Ipv4Addr::new(10, 0, 0, 1);
+        let good_ip = Ipv4Addr::new(10, 0, 0, 2);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let responses =
+            vec![MockResponse::new(good_ip, &query_name, RecordType::A).a(&query_name, good_ip)];
         let handler = MockNetworkHandler::new(responses);
         let mock_provider = MockProvider::new(handler);
-        let provider = TimeoutProvider::new(mock_provider, vec![timeout_ip]);
+        let provider = TimeoutProvider::new(mock_provider, vec![timeout_ip.into()]);
 
         let opts = ResolverOpts {
             num_concurrent_reqs: 1,
@@ -1638,13 +1642,13 @@ mod tests {
 
         let ns_timeout = Arc::new(NameServer::new(
             [].into_iter(),
-            NameServerConfig::udp(timeout_ip),
+            NameServerConfig::udp(timeout_ip.into()),
             &opts,
             provider.clone(),
         ));
         let ns_good = Arc::new(NameServer::new(
             [].into_iter(),
-            NameServerConfig::udp(good_ip),
+            NameServerConfig::udp(good_ip.into()),
             &opts,
             provider.clone(),
         ));
@@ -1798,14 +1802,15 @@ mod tests {
     async fn test_cancelled_parallel_server_is_penalized() {
         subscribe();
 
-        let unreachable_ip = IpAddr::from([10, 0, 0, 1]);
-        let good_ip = IpAddr::from([10, 0, 0, 2]);
+        let unreachable_ip = Ipv4Addr::new(10, 0, 0, 1);
+        let good_ip = Ipv4Addr::new(10, 0, 0, 2);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let responses =
+            vec![MockResponse::new(good_ip, &query_name, RecordType::A).a(&query_name, good_ip)];
         let handler = MockNetworkHandler::new(responses);
         let mock_provider = MockProvider::new(handler);
-        let provider = PendingProvider::new(mock_provider, vec![unreachable_ip]);
+        let provider = PendingProvider::new(mock_provider, vec![unreachable_ip.into()]);
 
         let opts = ResolverOpts {
             // Both servers are queried in parallel — the key condition for this bug.
@@ -1816,13 +1821,13 @@ mod tests {
 
         let ns_unreachable = Arc::new(NameServer::new(
             [].into_iter(),
-            NameServerConfig::udp(unreachable_ip),
+            NameServerConfig::udp(unreachable_ip.into()),
             &opts,
             provider.clone(),
         ));
         let ns_good = Arc::new(NameServer::new(
             [].into_iter(),
-            NameServerConfig::udp(good_ip),
+            NameServerConfig::udp(good_ip.into()),
             &opts,
             provider.clone(),
         ));
@@ -1926,12 +1931,13 @@ mod tests {
     async fn test_connect_timeout_leaves_budget_for_remaining_servers() {
         subscribe();
 
-        let slow_ip_1 = IpAddr::from([10, 0, 0, 1]);
-        let slow_ip_2 = IpAddr::from([10, 0, 0, 2]);
-        let good_ip = IpAddr::from([10, 0, 0, 3]);
+        let slow_ip_1 = Ipv4Addr::new(10, 0, 0, 1);
+        let slow_ip_2 = Ipv4Addr::new(10, 0, 0, 2);
+        let good_ip = Ipv4Addr::new(10, 0, 0, 3);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = vec![MockRecord::a(good_ip, &query_name, good_ip)];
+        let responses =
+            vec![MockResponse::new(good_ip, &query_name, RecordType::A).a(&query_name, good_ip)];
         let handler = MockNetworkHandler::new(responses);
         let mock_provider = MockProvider::new(handler);
 
@@ -1941,7 +1947,7 @@ mod tests {
         // the slow servers consume ~1.5s, leaving ~3.5s for the good server.
         let provider = SlowTimeoutProvider::new(
             mock_provider,
-            vec![slow_ip_1, slow_ip_2],
+            vec![slow_ip_1.into(), slow_ip_2.into()],
             Duration::from_millis(1500),
         );
 
@@ -1955,19 +1961,19 @@ mod tests {
             vec![
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp(slow_ip_1),
+                    NameServerConfig::udp(slow_ip_1.into()),
                     &opts,
                     provider.clone(),
                 )),
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp(slow_ip_2),
+                    NameServerConfig::udp(slow_ip_2.into()),
                     &opts,
                     provider.clone(),
                 )),
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp(good_ip),
+                    NameServerConfig::udp(good_ip.into()),
                     &opts,
                     provider.clone(),
                 )),
@@ -2195,43 +2201,43 @@ mod tests {
         section: ForeignSection,
         class: Option<DNSClass>,
     ) -> Result<DnsResponse, NetError> {
-        let server_ip = IpAddr::from([10, 0, 0, 1]);
+        let server_ip = Ipv4Addr::new(10, 0, 0, 1);
         let query_name = Name::from_str("example.com.")?;
         let target_name = query_name.clone();
 
-        let handler =
-            MockNetworkHandler::new(vec![MockRecord::a(server_ip, &query_name, server_ip)])
-                .with_mutation(Box::new(
-                    move |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                        let Some(class) = class else { return };
-                        if msg.queries.first().map(|q| &q.name) != Some(&target_name) {
-                            return;
-                        }
-                        let mut record = Record::from_rdata(
-                            target_name.clone(),
-                            300,
-                            RData::A(A([6, 6, 6, 6].into())),
-                        );
-                        record.dns_class = class;
-                        match section {
-                            ForeignSection::Answer => {
-                                msg.add_answer(record);
-                            }
-                            ForeignSection::Authority => {
-                                msg.add_authority(record);
-                            }
-                            ForeignSection::Additional => {
-                                msg.add_additional(record);
-                            }
-                            ForeignSection::None => {}
-                        }
-                    },
-                ));
+        let responses = vec![
+            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+        ];
+        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
+            move |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
+                // TODO: This mutation callback could be replaced with the new builder methods that
+                // take a `Message` directly, `MockResponse::add_answer()`, etc.
+                let Some(class) = class else { return };
+                if msg.queries.first().map(|q| &q.name) != Some(&target_name) {
+                    return;
+                }
+                let mut record =
+                    Record::from_rdata(target_name.clone(), 300, RData::A(A([6, 6, 6, 6].into())));
+                record.dns_class = class;
+                match section {
+                    ForeignSection::Answer => {
+                        msg.add_answer(record);
+                    }
+                    ForeignSection::Authority => {
+                        msg.add_authority(record);
+                    }
+                    ForeignSection::Additional => {
+                        msg.add_additional(record);
+                    }
+                    ForeignSection::None => {}
+                }
+            },
+        ));
 
         let pool = NameServerPool::from_nameservers(
             vec![Arc::new(NameServer::new(
                 [].into_iter(),
-                NameServerConfig::udp(server_ip),
+                NameServerConfig::udp(server_ip.into()),
                 &ResolverOpts::default(),
                 MockProvider::new(handler),
             ))],
@@ -2263,10 +2269,12 @@ mod tests {
     async fn test_truncated_tcp_only_no_infinite_retry() {
         subscribe();
 
-        let server_ip = IpAddr::from([10, 0, 0, 1]);
+        let server_ip = Ipv4Addr::new(10, 0, 0, 1);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = vec![MockRecord::a(server_ip, &query_name, server_ip)];
+        let responses = vec![
+            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+        ];
         let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
             |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
                 msg.metadata.truncation = true;
@@ -2283,7 +2291,7 @@ mod tests {
         let pool = NameServerPool::from_nameservers(
             vec![Arc::new(NameServer::new(
                 [].into_iter(),
-                NameServerConfig::tcp(server_ip),
+                NameServerConfig::tcp(server_ip.into()),
                 &opts,
                 provider.clone(),
             ))],
@@ -2305,7 +2313,7 @@ mod tests {
         // The server should have been queried at most twice: once to discover
         // truncation and once more after disabling UDP (which is a no-op for
         // a TCP-only server, but triggers the truncation-after-retry path).
-        let queries = provider.queries(&server_ip);
+        let queries = provider.queries(&server_ip.into());
         assert!(
             queries.len() <= 2,
             "TCP-only server should not be retried more than once, got {} queries",
@@ -2320,10 +2328,12 @@ mod tests {
     async fn test_truncated_udp_then_tcp_no_infinite_retry() {
         subscribe();
 
-        let server_ip = IpAddr::from([10, 0, 0, 1]);
+        let server_ip = Ipv4Addr::new(10, 0, 0, 1);
         let query_name = Name::from_str("example.com.").unwrap();
 
-        let responses = vec![MockRecord::a(server_ip, &query_name, server_ip)];
+        let responses = vec![
+            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+        ];
         // Always set truncation regardless of protocol.
         let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
             |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
@@ -2341,7 +2351,7 @@ mod tests {
         let pool = NameServerPool::from_nameservers(
             vec![Arc::new(NameServer::new(
                 [].into_iter(),
-                NameServerConfig::udp_and_tcp(server_ip),
+                NameServerConfig::udp_and_tcp(server_ip.into()),
                 &opts,
                 provider.clone(),
             ))],
@@ -2361,7 +2371,7 @@ mod tests {
         );
 
         // Exactly 2 queries: one over UDP (truncated), one over TCP (truncated).
-        let queries = provider.queries(&server_ip);
+        let queries = provider.queries(&server_ip.into());
         assert!(
             queries.len() <= 2,
             "server should not be retried more than once after TCP truncation, got {} queries",
@@ -2376,13 +2386,13 @@ mod tests {
     async fn test_truncated_multiple_servers_no_retry_storm() {
         subscribe();
 
-        let server1_ip = IpAddr::from([10, 0, 0, 1]);
-        let server2_ip = IpAddr::from([10, 0, 0, 2]);
+        let server1_ip = Ipv4Addr::new(10, 0, 0, 1);
+        let server2_ip = Ipv4Addr::new(10, 0, 0, 2);
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockRecord::a(server1_ip, &query_name, server1_ip),
-            MockRecord::a(server2_ip, &query_name, server2_ip),
+            MockResponse::new(server1_ip, &query_name, RecordType::A).a(&query_name, server1_ip),
+            MockResponse::new(server2_ip, &query_name, RecordType::A).a(&query_name, server2_ip),
         ];
         let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
             |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
@@ -2401,13 +2411,13 @@ mod tests {
             vec![
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp_and_tcp(server1_ip),
+                    NameServerConfig::udp_and_tcp(server1_ip.into()),
                     &opts,
                     provider.clone(),
                 )),
                 Arc::new(NameServer::new(
                     [].into_iter(),
-                    NameServerConfig::udp_and_tcp(server2_ip),
+                    NameServerConfig::udp_and_tcp(server2_ip.into()),
                     &opts,
                     provider.clone(),
                 )),
@@ -2428,7 +2438,7 @@ mod tests {
         );
 
         let total_queries =
-            provider.queries(&server1_ip).len() + provider.queries(&server2_ip).len();
+            provider.queries(&server1_ip.into()).len() + provider.queries(&server2_ip.into()).len();
         assert!(
             total_queries <= 3,
             "total queries across all servers should be bounded, got {total_queries}"

@@ -1211,7 +1211,7 @@ mod tests {
 
     use test_support::subscribe;
     #[cfg(feature = "__dnssec")]
-    use test_support::{MockNetworkHandler, MockProvider, MockRecord};
+    use test_support::{MockNetworkHandler, MockProvider, MockResponse};
 
     #[cfg(all(unix, feature = "system-config"))]
     use super::testing::hosts_lookup_test;
@@ -1564,31 +1564,29 @@ mod tests {
 
         let mock_records = vec![
             // Positive response for A query.
-            MockRecord::a(
-                resolver_ip,
-                &query_name,
-                Ipv4Addr::new(203, 0, 113, 2).into(),
-            ),
+            MockResponse::new(resolver_ip, &query_name, RecordType::A)
+                .a(&query_name, Ipv4Addr::new(203, 0, 113, 2)),
             // Negative response for AAAA query.
-            MockRecord::soa(resolver_ip, &zone_name, &mname, &rname)
-                .with_query_name(&query_name)
-                .with_query_type(RecordType::AAAA),
+            MockResponse::new(resolver_ip, &query_name, RecordType::AAAA)
+                .soa_authority(&zone_name, &mname, &rname),
             // Negative response when checking for zone cut at QNAME.
-            MockRecord::soa(resolver_ip, &zone_name, &mname, &rname)
-                .with_query_name(&query_name)
-                .with_query_type(RecordType::NS),
+            MockResponse::new(resolver_ip, &query_name, RecordType::NS)
+                .soa_authority(&zone_name, &mname, &rname),
             // Return NS RRset when checking for zone cut.
-            MockRecord::ns(resolver_ip, &zone_name, &mname),
-            MockRecord::ns(resolver_ip, &tld_name, &mname),
+            MockResponse::new(resolver_ip, &zone_name, RecordType::NS)
+                .ns_referral(&zone_name, &mname),
+            MockResponse::new(resolver_ip, &tld_name, RecordType::NS)
+                .ns_referral(&tld_name, &mname),
             // Negative response when querying any DS RRset. This should cause DNSSEC validation to
             // fail. (Plus, synthesizing records would be hard without moving tests to the
             // hickory-integration crate.)
-            MockRecord::soa(resolver_ip, &tld_name, &mname, &rname)
-                .with_query_name(&zone_name)
-                .with_query_type(RecordType::DS),
-            MockRecord::soa(resolver_ip, &Name::root(), &mname, &rname)
-                .with_query_name(&tld_name)
-                .with_query_type(RecordType::DS),
+            MockResponse::new(resolver_ip, &zone_name, RecordType::DS)
+                .soa_authority(&tld_name, &mname, &rname),
+            MockResponse::new(resolver_ip, &tld_name, RecordType::DS).soa_authority(
+                &Name::root(),
+                &mname,
+                &rname,
+            ),
         ];
         let handler = MockNetworkHandler::new(mock_records);
         let provider = MockProvider::new(handler);

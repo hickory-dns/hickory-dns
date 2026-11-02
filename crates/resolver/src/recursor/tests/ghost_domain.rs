@@ -38,8 +38,7 @@ use hickory_proto::{
     },
 };
 use test_support::{
-    MockNetworkHandler, MockProvider, MockRecord, MockResponseSection, MockTcpStream,
-    MockUdpSocket, subscribe,
+    MockNetworkHandler, MockProvider, MockResponse, MockTcpStream, MockUdpSocket, subscribe,
 };
 
 use crate::recursor::{DnssecPolicy, Recursor, RecursorOptions};
@@ -64,53 +63,55 @@ async fn test_ghost_domain() {
     let ttl = 1000;
     let handler = MockNetworkHandler::new(vec![
         // Original referral (this gets overridden partway through the test)
-        MockRecord::ns(root_ns_ip.into(), &zone_name, &old_ns_name).with_ttl(ttl),
-        MockRecord::a(root_ns_ip.into(), &old_ns_name, old_ns_ip.into())
-            .with_query_name(&zone_name)
-            .with_query_type(RecordType::NS)
-            .with_section(MockResponseSection::Additional)
-            .with_ttl(ttl),
+        MockResponse::new(root_ns_ip, &zone_name, RecordType::NS)
+            .with_ttl(ttl)
+            .ns_referral(&zone_name, &old_ns_name)
+            .a_glue(&old_ns_name, old_ns_ip),
         // Addresses of name servers
-        MockRecord::a(root_ns_ip.into(), &old_ns_name, old_ns_ip.into()).with_ttl(ttl),
-        MockRecord::a(root_ns_ip.into(), &new_ns_name, new_ns_ip.into()).with_ttl(ttl),
+        MockResponse::new(root_ns_ip, &old_ns_name, RecordType::A)
+            .with_ttl(ttl)
+            .a(&old_ns_name, old_ns_ip),
+        MockResponse::new(root_ns_ip, &new_ns_name, RecordType::A)
+            .with_ttl(ttl)
+            .a(&new_ns_name, new_ns_ip),
         // Apex NS RRset query, according to old name server
-        MockRecord::ns(old_ns_ip.into(), &zone_name, &old_ns_name)
-            .with_section(MockResponseSection::Answer)
-            .with_ttl(ttl),
+        MockResponse::new(old_ns_ip, &zone_name, RecordType::NS)
+            .with_ttl(ttl)
+            .ns_answer(&zone_name, &old_ns_name),
         // Apex NS RRset query, according to new name server
-        MockRecord::ns(new_ns_ip.into(), &zone_name, &new_ns_name)
-            .with_section(MockResponseSection::Answer)
-            .with_ttl(ttl),
+        MockResponse::new(new_ns_ip, &zone_name, RecordType::NS)
+            .with_ttl(ttl)
+            .ns_answer(&zone_name, &new_ns_name),
         // Record in victim zone according to old name server
-        MockRecord::txt(old_ns_ip.into(), &query_name, vec!["old".to_string()]).with_ttl(ttl),
+        MockResponse::new(old_ns_ip, &query_name, RecordType::TXT)
+            .with_ttl(ttl)
+            .txt(&query_name, "old".to_string()),
         // Record in victim zone according to new name server
-        MockRecord::txt(new_ns_ip.into(), &query_name, vec!["new".to_string()]).with_ttl(ttl),
+        MockResponse::new(new_ns_ip, &query_name, RecordType::TXT)
+            .with_ttl(ttl)
+            .txt(&query_name, "new".to_string()),
         // Provide an SOA record in response to QNAME minimzation queries. (Without this, the mock
         // handler would return a SERVFAIL response, due to the lack of a canned response for the
         // query).
-        MockRecord::soa(old_ns_ip.into(), &query_name, &old_ns_name, &rname)
-            .with_query_type(RecordType::NS)
-            .with_ttl(ttl),
-        MockRecord::soa(new_ns_ip.into(), &query_name, &new_ns_name, &rname)
-            .with_query_type(RecordType::NS)
-            .with_ttl(ttl),
-        MockRecord::soa(root_ns_ip.into(), &Name::root(), &root_ns_name, &rname)
-            .with_query_name(&old_ns_name)
-            .with_query_type(RecordType::NS)
-            .with_ttl(ttl),
-        MockRecord::soa(root_ns_ip.into(), &Name::root(), &root_ns_name, &rname)
-            .with_query_name(&new_ns_name)
-            .with_query_type(RecordType::NS)
-            .with_ttl(ttl),
+        MockResponse::new(old_ns_ip, &query_name, RecordType::NS)
+            .with_ttl(ttl)
+            .soa_authority(&query_name, &old_ns_name, &rname),
+        MockResponse::new(new_ns_ip, &query_name, RecordType::NS)
+            .with_ttl(ttl)
+            .soa_authority(&query_name, &new_ns_name, &rname),
+        MockResponse::new(root_ns_ip, &old_ns_name, RecordType::NS)
+            .with_ttl(ttl)
+            .soa_authority(&Name::root(), &root_ns_name, &rname),
+        MockResponse::new(root_ns_ip, &new_ns_name, RecordType::NS)
+            .with_ttl(ttl)
+            .soa_authority(&Name::root(), &root_ns_name, &rname),
         // Provide an SOA record in response to AAAA queries.
-        MockRecord::soa(root_ns_ip.into(), &Name::root(), &root_ns_name, &rname)
-            .with_query_name(&old_ns_name)
-            .with_query_type(RecordType::AAAA)
-            .with_ttl(ttl),
-        MockRecord::soa(root_ns_ip.into(), &Name::root(), &root_ns_name, &rname)
-            .with_query_name(&new_ns_name)
-            .with_query_type(RecordType::AAAA)
-            .with_ttl(ttl),
+        MockResponse::new(root_ns_ip, &old_ns_name, RecordType::AAAA)
+            .with_ttl(ttl)
+            .soa_authority(&Name::root(), &root_ns_name, &rname),
+        MockResponse::new(root_ns_ip, &new_ns_name, RecordType::AAAA)
+            .with_ttl(ttl)
+            .soa_authority(&Name::root(), &root_ns_name, &rname),
     ])
     .with_mutation(Box::new({
         let zone_name = zone_name.clone();
