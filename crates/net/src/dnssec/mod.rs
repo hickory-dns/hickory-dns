@@ -508,7 +508,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let RrsetVerificationContext {
             key,
             rrset,
-            current_time,
             options,
             ..
         } = *context;
@@ -604,7 +603,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         .map(|r| (r, proof))
                 })
                 .find_map(|(dnskey, proof)| {
-                    verify_rrset_with_dnskey(dnskey, *proof, &rrsig, key, rrset, current_time).ok()
+                    context.verify_with_dnskey(dnskey, *proof, &rrsig).ok()
                 });
 
             if let Some(rrset_proof) = rrset_proof {
@@ -1242,129 +1241,6 @@ fn verify_dnskey(
     ))
 }
 
-/// Verifies the given signature over the RRset with the given DNSKEY.
-fn verify_rrset_with_dnskey(
-    dnskey: RecordRef<'_, DNSKEY>,
-    dnskey_proof: Proof,
-    rrsig: &RecordRef<'_, RRSIG>,
-    key: &RrKey,
-    rrset: &Rrset<'_>,
-    current_time: u32,
-) -> Result<(Proof, Option<u32>), ProofError> {
-    match dnskey_proof {
-        Proof::Secure => (),
-        proof => {
-            debug!("insecure dnskey {} {}", dnskey.name(), dnskey.data());
-            return Err(ProofError::new(
-                proof,
-                ProofErrorKind::InsecureDnsKey {
-                    name: dnskey.name().clone(),
-                    key_tag: rrsig.data().input().key_tag,
-                },
-            ));
-        }
-    }
-
-    if dnskey.data().revoke() {
-        debug!("revoked dnskey {} {}", dnskey.name(), dnskey.data());
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::DnsKeyRevoked {
-                name: dnskey.name().clone(),
-                key_tag: rrsig.data().input().key_tag,
-            },
-        ));
-    } // TODO: does this need to be validated? RFC 5011
-    if !dnskey.data().zone_key() {
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::NotZoneDnsKey {
-                name: dnskey.name().clone(),
-                key_tag: rrsig.data().input().key_tag,
-            },
-        ));
-    }
-    if dnskey.data().algorithm() != rrsig.data().input().algorithm {
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::AlgorithmMismatch {
-                rrsig: rrsig.data().input().algorithm,
-                dnskey: dnskey.data().algorithm(),
-            },
-        ));
-    }
-
-    let validity = RrsigValidity::check(*rrsig, key, rrset, dnskey, current_time);
-    if !matches!(validity, RrsigValidity::ValidRrsig) {
-        // TODO better error handling when the error payload is not immediately discarded by
-        // the caller
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::Msg(format!("{validity:?}")),
-        ));
-    }
-
-    let Some(first_record) = rrset.records.first() else {
-        debug!(
-            rrset_name = ?key.name,
-            rrset_type = ?key.record_type,
-            "unable to validate record: no record in rrset",
-        );
-        return Ok((Proof::Bogus, None));
-    };
-
-    if rrsig.dns_class() != DNSClass::IN {
-        debug!(
-            rrset_name = ?key.name,
-            rrset_type = ?key.record_type,
-            class = ?rrsig.dns_class(),
-            "ignoring RRSIG with class other than IN"
-        );
-        return Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::Msg("RRSIG record has unsupported class".to_string()),
-        ));
-    }
-    let result = dnskey.data().verify_rrsig(
-        &key.name,
-        DNSClass::IN,
-        rrsig.data(),
-        rrset.records.iter().map(|record| &**record),
-    );
-    match result {
-        Ok(_) => {
-            debug!(
-                rrset_name = ?key.name,
-                rrset_type = ?key.record_type,
-                dnskey_name = ?dnskey.name(),
-                dnskey_data = ?dnskey.data(),
-                "validated rrset with dnskey",
-            );
-            Ok((
-                Proof::Secure,
-                Some(rrsig.data().authenticated_ttl(first_record, current_time)),
-            ))
-        }
-        Err(e) => {
-            debug!(
-                rrset_name = ?key.name,
-                rrset_type = ?key.record_type,
-                dnskey_name = ?dnskey.name(),
-                dnskey_data = ?dnskey.data(),
-                "failed rrset validation",
-            );
-            Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::DnsKeyVerifyRrsig {
-                    name: dnskey.name().clone(),
-                    key_tag: rrsig.data().input().key_tag,
-                    error: e,
-                },
-            ))
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 enum RrsigValidity {
     /// RRSIG has already expired
@@ -1773,14 +1649,7 @@ impl<'a> RrsetVerificationContext<'a> {
             match dnskey.proof() {
                 Proof::Secure => {
                     all_insecure = Some(false);
-                    if let Ok(proof) = verify_rrset_with_dnskey(
-                        dnskey,
-                        dnskey.proof(),
-                        rrsig,
-                        self.key,
-                        self.rrset,
-                        self.current_time,
-                    ) {
+                    if let Ok(proof) = self.verify_with_dnskey(dnskey, dnskey.proof(), rrsig) {
                         return Some((proof.0, proof.1));
                     }
                 }
@@ -1796,6 +1665,132 @@ impl<'a> RrsetVerificationContext<'a> {
             Some((Proof::Insecure, None))
         } else {
             None
+        }
+    }
+
+    /// Verifies the given signature over the RRset with the given DNSKEY.
+    fn verify_with_dnskey(
+        &self,
+        dnskey: RecordRef<'_, DNSKEY>,
+        dnskey_proof: Proof,
+        rrsig: &RecordRef<'_, RRSIG>,
+    ) -> Result<(Proof, Option<u32>), ProofError> {
+        match dnskey_proof {
+            Proof::Secure => (),
+            proof => {
+                debug!("insecure dnskey {} {}", dnskey.name(), dnskey.data());
+                return Err(ProofError::new(
+                    proof,
+                    ProofErrorKind::InsecureDnsKey {
+                        name: dnskey.name().clone(),
+                        key_tag: rrsig.data().input().key_tag,
+                    },
+                ));
+            }
+        }
+
+        if dnskey.data().revoke() {
+            debug!("revoked dnskey {} {}", dnskey.name(), dnskey.data());
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::DnsKeyRevoked {
+                    name: dnskey.name().clone(),
+                    key_tag: rrsig.data().input().key_tag,
+                },
+            ));
+        } // TODO: does this need to be validated? RFC 5011
+        if !dnskey.data().zone_key() {
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::NotZoneDnsKey {
+                    name: dnskey.name().clone(),
+                    key_tag: rrsig.data().input().key_tag,
+                },
+            ));
+        }
+        if dnskey.data().algorithm() != rrsig.data().input().algorithm {
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::AlgorithmMismatch {
+                    rrsig: rrsig.data().input().algorithm,
+                    dnskey: dnskey.data().algorithm(),
+                },
+            ));
+        }
+
+        let validity =
+            RrsigValidity::check(*rrsig, self.key, self.rrset, dnskey, self.current_time);
+        if !matches!(validity, RrsigValidity::ValidRrsig) {
+            // TODO better error handling when the error payload is not immediately discarded by
+            // the caller
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::Msg(format!("{validity:?}")),
+            ));
+        }
+
+        let Some(first_record) = self.rrset.records.first() else {
+            debug!(
+                rrset_name = ?self.key.name,
+                rrset_type = ?self.key.record_type,
+                "unable to validate record: no record in rrset",
+            );
+            return Ok((Proof::Bogus, None));
+        };
+
+        if rrsig.dns_class() != DNSClass::IN {
+            debug!(
+                rrset_name = ?self.key.name,
+                rrset_type = ?self.key.record_type,
+                class = ?rrsig.dns_class(),
+                "ignoring RRSIG with class other than IN"
+            );
+            return Err(ProofError::new(
+                Proof::Bogus,
+                ProofErrorKind::Msg("RRSIG record has unsupported class".to_string()),
+            ));
+        }
+        let result = dnskey.data().verify_rrsig(
+            &self.key.name,
+            DNSClass::IN,
+            rrsig.data(),
+            self.rrset.records.iter().map(|record| &**record),
+        );
+        match result {
+            Ok(_) => {
+                debug!(
+                    rrset_name = ?self.key.name,
+                    rrset_type = ?self.key.record_type,
+                    dnskey_name = ?dnskey.name(),
+                    dnskey_data = ?dnskey.data(),
+                    "validated rrset with dnskey",
+                );
+                Ok((
+                    Proof::Secure,
+                    Some(
+                        rrsig
+                            .data()
+                            .authenticated_ttl(first_record, self.current_time),
+                    ),
+                ))
+            }
+            Err(e) => {
+                debug!(
+                    rrset_name = ?self.key.name,
+                    rrset_type = ?self.key.record_type,
+                    dnskey_name = ?dnskey.name(),
+                    dnskey_data = ?dnskey.data(),
+                    "failed rrset validation",
+                );
+                Err(ProofError::new(
+                    Proof::Bogus,
+                    ProofErrorKind::DnsKeyVerifyRrsig {
+                        name: dnskey.name().clone(),
+                        key_tag: rrsig.data().input().key_tag,
+                        error: e,
+                    },
+                ))
+            }
         }
     }
 
