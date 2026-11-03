@@ -1253,77 +1253,6 @@ enum RrsigValidity {
     WrongRrsig,
 }
 
-impl RrsigValidity {
-    // see section 5.3.1 of RFC4035 "Checking the RRSIG RR Validity"
-    fn check(
-        rrsig: RecordRef<'_, RRSIG>,
-        key: &RrKey,
-        rrset: &Rrset<'_>,
-        dnskey: RecordRef<'_, DNSKEY>,
-        current_time: u32,
-    ) -> Self {
-        let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
-            return Self::WrongDnskey;
-        };
-
-        // "The RRSIG RR and the RRset MUST have the same owner name and the same class"
-        for record in rrset.records.iter() {
-            if record.dns_class != DNSClass::IN {
-                return Self::WrongRrsig;
-            }
-        }
-
-        let current_time = SerialNumber::new(current_time);
-        let sig_input = rrsig.data().input();
-        if !(
-            // "The RRSIG RR and the RRset MUST have the same owner name and the same class"
-            *rrsig.name() == **key.name() &&
-
-            // "The RRSIG RR's Signer's Name field MUST be the name of the zone that contains the
-            // RRset"
-            sig_input.signer_name.zone_of(key.name()) &&
-
-            // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
-            sig_input.type_covered == key.record_type &&
-
-            // "The number of labels in the RRset owner name MUST be greater than or equal to the
-            // value in the RRSIG RR's Labels field"
-            key.name.num_labels() >= sig_input.num_labels
-        ) {
-            return Self::WrongRrsig;
-        }
-
-        // Section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
-        // "Serial number arithmetic", as defined in RFC1982'
-        if !(
-            // "The validator's notion of the current time MUST be less than or equal to the time
-            // listed in the RRSIG RR's Expiration field"
-            current_time <= sig_input.sig_expiration &&
-
-            // "The validator's notion of the current time MUST be greater than or equal to the
-            // time listed in the RRSIG RR's Inception field"
-            current_time >= sig_input.sig_inception
-        ) {
-            return Self::ExpiredRrsig;
-        }
-
-        if !(
-            // "The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST match the owner name,
-            // algorithm, and key tag for some DNSKEY RR in the zone's apex DNSKEY RRset"
-            &sig_input.signer_name == dnskey.name() &&
-            sig_input.algorithm == dnskey.data().algorithm() &&
-            sig_input.key_tag == dnskey_key_tag &&
-            // "The matching DNSKEY RR MUST be present in the zone's apex DNSKEY RRset, and MUST have the
-            // Zone Flag bit (DNSKEY RDATA Flag bit 7) set"
-            dnskey.data().zone_key()
-        ) {
-            return Self::WrongDnskey;
-        }
-
-        Self::ValidRrsig
-    }
-}
-
 #[derive(Clone)]
 struct RrsetProof {
     proof: Proof,
@@ -1718,8 +1647,7 @@ impl<'a> RrsetVerificationContext<'a> {
             ));
         }
 
-        let validity =
-            RrsigValidity::check(*rrsig, self.key, self.rrset, dnskey, self.current_time);
+        let validity = self.validity(*rrsig, dnskey);
         if !matches!(validity, RrsigValidity::ValidRrsig) {
             // TODO better error handling when the error payload is not immediately discarded by
             // the caller
@@ -1792,6 +1720,73 @@ impl<'a> RrsetVerificationContext<'a> {
                 ))
             }
         }
+    }
+
+    // see section 5.3.1 of RFC4035 "Checking the RRSIG RR Validity"
+    fn validity(
+        &self,
+        rrsig: RecordRef<'_, RRSIG>,
+        dnskey: RecordRef<'_, DNSKEY>,
+    ) -> RrsigValidity {
+        let Ok(dnskey_key_tag) = dnskey.data().calculate_key_tag() else {
+            return RrsigValidity::WrongDnskey;
+        };
+
+        // "The RRSIG RR and the RRset MUST have the same owner name and the same class"
+        for record in self.rrset.records.iter() {
+            if record.dns_class != DNSClass::IN {
+                return RrsigValidity::WrongRrsig;
+            }
+        }
+
+        let current_time = SerialNumber::new(self.current_time);
+        let sig_input = rrsig.data().input();
+        if !(
+            // "The RRSIG RR and the RRset MUST have the same owner name and the same class"
+            *rrsig.name() == **self.key.name() &&
+
+            // "The RRSIG RR's Signer's Name field MUST be the name of the zone that contains the
+            // RRset"
+            sig_input.signer_name.zone_of(self.key.name()) &&
+
+            // "The RRSIG RR's Type Covered field MUST equal the RRset's type"
+            sig_input.type_covered == self.key.record_type &&
+
+            // "The number of labels in the RRset owner name MUST be greater than or equal to the
+            // value in the RRSIG RR's Labels field"
+            self.key.name.num_labels() >= sig_input.num_labels
+        ) {
+            return RrsigValidity::WrongRrsig;
+        }
+
+        // Section 3.1.5 of RFC4034 states that 'all comparisons involving these fields MUST use
+        // "Serial number arithmetic", as defined in RFC1982'
+        if !(
+            // "The validator's notion of the current time MUST be less than or equal to the time
+            // listed in the RRSIG RR's Expiration field"
+            current_time <= sig_input.sig_expiration &&
+
+            // "The validator's notion of the current time MUST be greater than or equal to the
+            // time listed in the RRSIG RR's Inception field"
+            current_time >= sig_input.sig_inception
+        ) {
+            return RrsigValidity::ExpiredRrsig;
+        }
+
+        if !(
+            // "The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST match the owner name,
+            // algorithm, and key tag for some DNSKEY RR in the zone's apex DNSKEY RRset"
+            &sig_input.signer_name == dnskey.name() &&
+            sig_input.algorithm == dnskey.data().algorithm() &&
+            sig_input.key_tag == dnskey_key_tag &&
+            // "The matching DNSKEY RR MUST be present in the zone's apex DNSKEY RRset, and MUST have the
+            // Zone Flag bit (DNSKEY RDATA Flag bit 7) set"
+            dnskey.data().zone_key()
+        ) {
+            return RrsigValidity::WrongDnskey;
+        }
+
+        RrsigValidity::ValidRrsig
     }
 
     // Build a cache lookup key based on the query, rrset, and rrsigs contents, minus the TTLs
@@ -1890,8 +1885,11 @@ mod test {
             make_rrsig_check_inputs("www.victim.hack.", "evil.hack.");
         let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
         let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+
+        let query = Query::root();
+        let context = validity_context(&query, &key, &rrset);
         assert!(matches!(
-            RrsigValidity::check(rrsig_ref, &key, &rrset, dnskey_ref, 1000),
+            context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::WrongRrsig
         ));
     }
@@ -1903,8 +1901,11 @@ mod test {
             make_rrsig_check_inputs("www.victim.hack.", "victim.hack.");
         let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
         let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+
+        let query = Query::root();
+        let context = validity_context(&query, &key, &rrset);
         assert!(matches!(
-            RrsigValidity::check(rrsig_ref, &key, &rrset, dnskey_ref, 1000),
+            context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::ValidRrsig
         ));
     }
@@ -1916,8 +1917,11 @@ mod test {
             make_rrsig_check_inputs("victim.hack.", "victim.hack.");
         let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
         let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+
+        let query = Query::root();
+        let context = validity_context(&query, &key, &rrset);
         assert!(matches!(
-            RrsigValidity::check(rrsig_ref, &key, &rrset, dnskey_ref, 1000),
+            context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::ValidRrsig
         ));
     }
@@ -1928,8 +1932,11 @@ mod test {
         let (key, rrset, rrsig_rec, dnskey_rec) = make_rrsig_check_inputs("victim.hack.", "hack.");
         let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
         let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+
+        let query = Query::root();
+        let context = validity_context(&query, &key, &rrset);
         assert!(matches!(
-            RrsigValidity::check(rrsig_ref, &key, &rrset, dnskey_ref, 1000),
+            context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::ValidRrsig
         ));
     }
@@ -1940,10 +1947,27 @@ mod test {
         let (key, rrset, rrsig_rec, dnskey_rec) = make_rrsig_check_inputs("hack.", "victim.hack.");
         let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
         let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+
+        let query = Query::root();
+        let context = validity_context(&query, &key, &rrset);
         assert!(matches!(
-            RrsigValidity::check(rrsig_ref, &key, &rrset, dnskey_ref, 1000),
+            context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::WrongRrsig
         ));
+    }
+
+    fn validity_context<'a>(
+        query: &'a Query,
+        key: &'a RrKey,
+        rrset: &'a Rrset<'static>,
+    ) -> RrsetVerificationContext<'a> {
+        RrsetVerificationContext {
+            query,
+            key,
+            rrset,
+            options: DnsRequestOptions::default(),
+            current_time: 1000,
+        }
     }
 
     /// Build inputs for testing `RrsigValidity::check()`. The RRSIG and DNSKEY have consistent key
