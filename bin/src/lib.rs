@@ -321,7 +321,7 @@ impl DnsServer {
             allow_networks,
             udp_socket: udp_socket_config,
             tcp_socket: tcp_socket_config,
-            udp_receive_buffer_size,
+            udp_max_payload_size,
         } = config;
 
         #[cfg(unix)]
@@ -351,8 +351,8 @@ impl DnsServer {
             return Ok(());
         }
 
-        if udp_receive_buffer_size < 512 {
-            return Err("udp_receive_buffer_size is smaller than 512 bytes".to_owned());
+        if udp_max_payload_size < 512 {
+            return Err("udp_max_payload_size is smaller than 512 bytes".to_owned());
         }
 
         if nsid_hostname {
@@ -369,7 +369,7 @@ impl DnsServer {
             catalog,
             deny_networks,
             allow_networks,
-            udp_receive_buffer_size,
+            udp_max_payload_size,
             nsid,
         );
 
