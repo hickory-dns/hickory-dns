@@ -477,7 +477,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
             };
 
-            let verified = VerifiedRrset::update_rrset(result, name, record_type, rrset);
+            let verified = rrset.verified(result, name, record_type);
             map.insert(key, verified);
         }
 
@@ -1671,38 +1671,14 @@ struct Rrset<'a> {
     signatures: Vec<&'a mut Record>,
 }
 
-/// A collection of RRsets that have had their signatures verified.
-struct VerifiedRrsetMap<'a>(HashMap<RrKey, VerifiedRrset<'a>>);
-
-impl<'a> Deref for VerifiedRrsetMap<'a> {
-    type Target = HashMap<RrKey, VerifiedRrset<'a>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a> DerefMut for VerifiedRrsetMap<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-/// An RRset, along with the results of signature verification.
-struct VerifiedRrset<'a> {
-    records: Vec<&'a mut Record>,
-    signatures: Vec<&'a Record>,
-    outcome: RrsigVerificationOutcome<'a>,
-}
-
-impl<'a> VerifiedRrset<'a> {
+impl<'a> Rrset<'a> {
     /// Updates the RRset with verification results and produces a `VerifiedRrset`.
-    fn update_rrset(
+    fn verified(
+        mut self,
         result: Result<RrsetProof, ProofError>,
         name: &LowerName,
         record_type: RecordType,
-        mut rrset: Rrset<'a>,
-    ) -> Self {
+    ) -> VerifiedRrset<'a> {
         let proof = match result {
             Ok(proof) => {
                 debug!("verified: {name} record_type: {record_type}");
@@ -1731,7 +1707,7 @@ impl<'a> VerifiedRrset<'a> {
             rrsig_index: rrsig_idx,
         } = proof;
 
-        for record in rrset.records.iter_mut() {
+        for record in self.records.iter_mut() {
             record.proof = proof;
             if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
                 record.ttl = ttl;
@@ -1740,7 +1716,7 @@ impl<'a> VerifiedRrset<'a> {
 
         // only mark the RRSIG used for the proof
         if let Some(rrsig_idx) = rrsig_idx {
-            if let Some(rrsig) = rrset.signatures.get_mut(rrsig_idx) {
+            if let Some(rrsig) = self.signatures.get_mut(rrsig_idx) {
                 rrsig.proof = proof;
                 if let (Proof::Secure, Some(ttl)) = (proof, adjusted_ttl) {
                     rrsig.ttl = ttl;
@@ -1748,18 +1724,18 @@ impl<'a> VerifiedRrset<'a> {
             } else {
                 warn!(
                     "bad rrsig index {rrsig_idx} rrsigs.len = {}",
-                    rrset.signatures.len()
+                    self.signatures.len()
                 );
             }
         }
 
         // Change from mutable references to immutable references. (This should be cheap due to
         // specialization and optimization)
-        let signatures: Vec<&Record> = rrset
+        let signatures = self
             .signatures
             .into_iter()
             .map(|record| &*record)
-            .collect();
+            .collect::<Vec<_>>();
 
         // Combine the `Proof` from the signature verification with the RRSIG record, if it was
         // successful.
@@ -1778,12 +1754,36 @@ impl<'a> VerifiedRrset<'a> {
             }
         };
 
-        Self {
-            records: rrset.records,
+        VerifiedRrset {
+            records: self.records,
             signatures,
             outcome,
         }
     }
+}
+
+/// A collection of RRsets that have had their signatures verified.
+struct VerifiedRrsetMap<'a>(HashMap<RrKey, VerifiedRrset<'a>>);
+
+impl<'a> Deref for VerifiedRrsetMap<'a> {
+    type Target = HashMap<RrKey, VerifiedRrset<'a>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> DerefMut for VerifiedRrsetMap<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+/// An RRset, along with the results of signature verification.
+struct VerifiedRrset<'a> {
+    records: Vec<&'a mut Record>,
+    signatures: Vec<&'a Record>,
+    outcome: RrsigVerificationOutcome<'a>,
 }
 
 /// Signature verification result for an RRset.
