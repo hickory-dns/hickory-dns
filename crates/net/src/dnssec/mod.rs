@@ -929,8 +929,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             query: original_query,
             key,
             rrset,
-            current_time,
             options,
+            ..
         } = *context;
 
         // Ensure that this method is not misused
@@ -1040,8 +1040,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         Ok(message) => {
                             // Report a failed signature as an error, so that select_ok()
                             // below tries the remaining RRSIGs.
-                            match verify_rrsig_with_keys(message, &rrsig, key, rrset, current_time)
-                            {
+                            match context.verify_rrsig_with_keys(message, &rrsig) {
                                 Some((proof, adjusted_ttl)) => Ok(RrsetProof {
                                     proof,
                                     adjusted_ttl,
@@ -1140,93 +1139,6 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         self.clone_with_context()
             .verify_response(result, query, options)
             .await
-    }
-}
-
-fn verify_rrsig_with_keys(
-    dnskey_message: DnsResponse,
-    rrsig: &RecordRef<'_, RRSIG>,
-    key: &RrKey,
-    rrset: &Rrset<'_>,
-    current_time: u32,
-) -> Option<(Proof, Option<u32>)> {
-    let mut tag_count = HashMap::<u16, usize>::new();
-
-    if (key.record_type == RecordType::NSEC || key.record_type == RecordType::NSEC3)
-        && key.name.num_labels() != rrsig.data().input().num_labels
-    {
-        warn!(
-            rrset_name = ?key.name,
-            rrset_type = ?key.record_type,
-            "record signature claims to be expanded from a wildcard",
-        );
-        return None;
-    }
-    if key.record_type == RecordType::NSEC3
-        && key.name.base_name().deref() != &rrsig.data().input().signer_name
-    {
-        warn!(
-            name = %key.name,
-            signer_name = %rrsig.data().input().signer_name,
-            "NSEC3 record name is malformed"
-        );
-        return None;
-    }
-
-    // DNSKEYs were already validated by the inner query in the above lookup
-    let dnskeys = dnskey_message.answers.iter().filter_map(|r| {
-        let dnskey = r.try_borrow::<DNSKEY>()?;
-
-        let tag = match dnskey.data().calculate_key_tag() {
-            Ok(tag) => tag,
-            Err(e) => {
-                warn!("unable to calculate key tag: {e:?}; skipping key");
-                return None;
-            }
-        };
-
-        match tag_count.get_mut(&tag) {
-            Some(n_keys) => {
-                *n_keys += 1;
-                if *n_keys > MAX_KEY_TAG_COLLISIONS {
-                    warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
-                    return None;
-                }
-            }
-            None => _ = tag_count.insert(tag, 1),
-        }
-
-        Some(dnskey)
-    });
-
-    let mut all_insecure = None;
-    for dnskey in dnskeys {
-        match dnskey.proof() {
-            Proof::Secure => {
-                all_insecure = Some(false);
-                if let Ok(proof) = verify_rrset_with_dnskey(
-                    dnskey,
-                    dnskey.proof(),
-                    rrsig,
-                    key,
-                    rrset,
-                    current_time,
-                ) {
-                    return Some((proof.0, proof.1));
-                }
-            }
-            Proof::Insecure => {
-                all_insecure.get_or_insert(true);
-            }
-            _ => all_insecure = Some(false),
-        }
-    }
-
-    if all_insecure.unwrap_or(false) {
-        // inherit Insecure state
-        Some((Proof::Insecure, None))
-    } else {
-        None
     }
 }
 
@@ -1802,6 +1714,91 @@ struct RrsetVerificationContext<'a> {
 }
 
 impl<'a> RrsetVerificationContext<'a> {
+    fn verify_rrsig_with_keys(
+        &self,
+        dnskey_message: DnsResponse,
+        rrsig: &RecordRef<'_, RRSIG>,
+    ) -> Option<(Proof, Option<u32>)> {
+        let mut tag_count = HashMap::<u16, usize>::new();
+
+        if (self.key.record_type == RecordType::NSEC || self.key.record_type == RecordType::NSEC3)
+            && self.key.name.num_labels() != rrsig.data().input().num_labels
+        {
+            warn!(
+                rrset_name = ?self.key.name,
+                rrset_type = ?self.key.record_type,
+                "record signature claims to be expanded from a wildcard",
+            );
+            return None;
+        }
+        if self.key.record_type == RecordType::NSEC3
+            && self.key.name.base_name().deref() != &rrsig.data().input().signer_name
+        {
+            warn!(
+                name = %self.key.name,
+                signer_name = %rrsig.data().input().signer_name,
+                "NSEC3 record name is malformed"
+            );
+            return None;
+        }
+
+        // DNSKEYs were already validated by the inner query in the above lookup
+        let dnskeys = dnskey_message.answers.iter().filter_map(|r| {
+            let dnskey = r.try_borrow::<DNSKEY>()?;
+
+            let tag = match dnskey.data().calculate_key_tag() {
+                Ok(tag) => tag,
+                Err(e) => {
+                    warn!("unable to calculate key tag: {e:?}; skipping key");
+                    return None;
+                }
+            };
+
+            match tag_count.get_mut(&tag) {
+                Some(n_keys) => {
+                    *n_keys += 1;
+                    if *n_keys > MAX_KEY_TAG_COLLISIONS {
+                        warn!("too many ({n_keys}) DNSKEYs with key tag {tag}; skipping");
+                        return None;
+                    }
+                }
+                None => _ = tag_count.insert(tag, 1),
+            }
+
+            Some(dnskey)
+        });
+
+        let mut all_insecure = None;
+        for dnskey in dnskeys {
+            match dnskey.proof() {
+                Proof::Secure => {
+                    all_insecure = Some(false);
+                    if let Ok(proof) = verify_rrset_with_dnskey(
+                        dnskey,
+                        dnskey.proof(),
+                        rrsig,
+                        self.key,
+                        self.rrset,
+                        self.current_time,
+                    ) {
+                        return Some((proof.0, proof.1));
+                    }
+                }
+                Proof::Insecure => {
+                    all_insecure.get_or_insert(true);
+                }
+                _ => all_insecure = Some(false),
+            }
+        }
+
+        if all_insecure.unwrap_or(false) {
+            // inherit Insecure state
+            Some((Proof::Insecure, None))
+        } else {
+            None
+        }
+    }
+
     // Build a cache lookup key based on the query, rrset, and rrsigs contents, minus the TTLs
     // for each, since the recursor cache will return an adjusted TTL for each request and
     // cause cache misses.
