@@ -190,8 +190,7 @@ pub(crate) async fn h2_handler(
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
-            let message_future =
-                http::message_from(request, http_endpoint, dns_hostname, Version::Http2);
+            let message_future = http::message_from(request, http_endpoint, dns_hostname, Version::Http2);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };
@@ -211,7 +210,7 @@ pub(crate) async fn h2_handler(
             };
 
             let bytes = Bytes::from(info.bytes);
-            let response = match http::response(Version::Http2, bytes.len(), info.cache_ttl) {
+            let response = match Version::Http2.response(bytes.len(), info.cache_ttl) {
                 Ok(response) => response,
                 Err(error) => {
                     warn!(%error, "failed to build response");

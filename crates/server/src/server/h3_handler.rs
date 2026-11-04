@@ -221,7 +221,7 @@ pub(crate) async fn h3_handler(
             };
 
             let bytes = Bytes::from(info.bytes);
-            let response = match http::response(Version::Http3, bytes.len(), info.cache_ttl) {
+            let response = match Version::Http3.response(bytes.len(), info.cache_ttl) {
                 Ok(response) => response,
                 Err(error) => {
                     warn!(%error, "failed to build response");
