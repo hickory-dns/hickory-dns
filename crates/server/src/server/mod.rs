@@ -89,12 +89,12 @@ pub struct Server<T: RequestHandler> {
 }
 
 impl<T: RequestHandler> Server<T> {
-    /// Creates a new ServerFuture with the specified Handler.
+    /// Creates a new Server with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self::with_access(handler, [], [], DEFAULT_MAX_PAYLOAD_LEN, None)
     }
 
-    /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
+    /// Creates a new Server with the specified Handler and denied/allowed networks.
     pub fn with_access(
         handler: T,
         denied_networks: impl IntoIterator<Item = IpNet>,
@@ -102,18 +102,14 @@ impl<T: RequestHandler> Server<T> {
         max_payload_size: u16,
         nsid: Option<NSIDPayload>,
     ) -> Self {
-        let mut access = AccessControl::default();
-        access.insert_deny(denied_networks);
-        access.insert_allow(allowed_networks);
-
         Self {
-            context: Arc::new(ServerContext {
+            context: Arc::new(ServerContext::new(
                 handler,
+                denied_networks,
+                allowed_networks,
                 max_payload_size,
                 nsid,
-                access,
-                shutdown: CancellationToken::new(),
-            }),
+            )),
             join_set: JoinSet::new(),
         }
     }
@@ -753,6 +749,28 @@ struct ServerContext<T> {
     max_payload_size: u16,
     access: AccessControl,
     shutdown: CancellationToken,
+}
+
+impl<T> ServerContext<T> {
+    fn new(
+        handler: T,
+        denied_networks: impl IntoIterator<Item = IpNet>,
+        allowed_networks: impl IntoIterator<Item = IpNet>,
+        max_payload_size: u16,
+        nsid: Option<NSIDPayload>,
+    ) -> Self {
+        let mut access = AccessControl::default();
+        access.insert_deny(denied_networks);
+        access.insert_allow(allowed_networks);
+
+        Self {
+            handler,
+            nsid,
+            max_payload_size,
+            access,
+            shutdown: CancellationToken::new(),
+        }
+    }
 }
 
 impl<T: RequestHandler> ServerContext<T> {
