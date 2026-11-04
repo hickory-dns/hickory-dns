@@ -27,7 +27,7 @@ use tokio_rustls::TlsConnector;
 use tracing::{debug, warn};
 
 use crate::error::NetError;
-use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
+use crate::http::{HttpSender, RequestContext, SetHeaders, Version, fetch_body};
 use crate::proto::op::DnsRequest;
 use crate::runtime::iocompat::AsyncIoStdAsTokio;
 use crate::runtime::{DnsTcpStream, RuntimeProvider, Spawn};
@@ -73,12 +73,10 @@ impl HttpSender for HttpsClientStream {
         }
 
         let (parts, body) = response_future.await?.into_parts();
-
-        // get the length of packet
-        let content_length = content_length(&parts.headers)?;
-
         // read the response body
-        Ok((parts, fetch_body(body, content_length).await?))
+        let body = fetch_body(body, &parts.headers).await?;
+
+        Ok((parts, body))
     }
 
     fn context(&self) -> &RequestContext {

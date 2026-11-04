@@ -26,7 +26,7 @@ use tracing::{debug, warn};
 
 use super::{ALPN_H3, BodyStream};
 use crate::error::NetError;
-use crate::http::{HttpSender, RequestContext, SetHeaders, Version, content_length, fetch_body};
+use crate::http::{HttpSender, RequestContext, SetHeaders, Version, fetch_body};
 use crate::proto::ProtoError;
 use crate::proto::op::DnsRequest;
 use crate::quic::connect_quic;
@@ -76,13 +76,10 @@ impl HttpSender for H3ClientStream {
 
         let (parts, ()) = stream.recv_response().await?.into_parts();
 
-        // get the length of packet
-        let content_length = content_length(&parts.headers)?;
-
         // read the response body
         let response_bytes = fetch_body(
             BodyStream::from(|cx: &mut Context<'_>| stream.poll_recv_data(cx)),
-            content_length,
+            &parts.headers,
         )
         .await?;
 
