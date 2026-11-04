@@ -23,6 +23,7 @@ use std::{
 };
 
 use bytes::Bytes;
+#[cfg(feature = "__tls")]
 use futures_util::StreamExt;
 use hickory_proto::{
     op::{DEFAULT_MAX_PAYLOAD_LEN, Edns},
@@ -51,15 +52,12 @@ use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicServer;
 #[cfg(feature = "__tls")]
+use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
+#[cfg(feature = "__tls")]
 use crate::net::tls::{default_provider, tls_from_stream};
 use crate::{
     access::AccessControl,
-    net::{
-        BufDnsStreamHandle, DnsStreamHandle, NetError,
-        runtime::{TokioTime, iocompat::AsyncIoTokioAsStd},
-        tcp::TcpStream,
-        xfer::Protocol,
-    },
+    net::{BufDnsStreamHandle, DnsStreamHandle, NetError, runtime::TokioTime, xfer::Protocol},
     proto::{
         op::{
             Header, LowerQuery, MessageRequest, MessageType, Metadata, OpCode, Queries,
@@ -142,7 +140,7 @@ impl<T: RequestHandler> Server<T> {
         stream_timeout: Option<Duration>,
         response_buffer_size: usize,
     ) {
-        self.join_set.spawn(handle_tcp(
+        self.join_set.spawn(transport::handle_tcp(
             listener,
             stream_timeout,
             response_buffer_size,
@@ -500,16 +498,22 @@ impl<T: transport::Transport> Transport for T {}
 pub mod transport {
     //! Transport protocol abstractions and builders for server registration.
 
-    use std::{future::Future, sync::Arc};
+    use std::{future::Future, sync::Arc, time::Duration};
 
     use futures_util::StreamExt;
-    use tokio::task::JoinSet;
+    use tokio::{net, task::JoinSet};
     use tracing::{debug, warn};
 
     use crate::{
-        net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
+        net::{
+            NetError,
+            runtime::{DnsUdpSocket, iocompat::AsyncIoTokioAsStd},
+            tcp::TcpStream,
+            udp::UdpStream,
+            xfer::Protocol,
+        },
         server::{
-            ServerContext, is_unrecoverable_socket_error, reap_tasks,
+            ServerContext, TimeoutStream, is_unrecoverable_socket_error, reap_tasks,
             request_handler::RequestHandler, sanitize_src_address,
         },
     };
@@ -618,76 +622,76 @@ pub mod transport {
             Err(NetError::from("unexpected close of UDP socket"))
         }
     }
-}
 
-async fn handle_tcp(
-    listener: net::TcpListener,
-    stream_timeout: Option<Duration>,
-    response_buffer_size: usize,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!("register tcp: {listener:?}");
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
-            // A graceful shutdown was initiated. Break out of the loop.
-            break;
-        };
-        let (tcp_stream, src_addr) = match result {
-            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
-            Err(error) => {
-                debug!(%error, "error receiving TCP tcp_stream error");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
+    pub(super) async fn handle_tcp(
+        listener: net::TcpListener,
+        stream_timeout: Option<Duration>,
+        response_buffer_size: usize,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        debug!("register tcp: {listener:?}");
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            };
+            let (tcp_stream, src_addr) = match result {
+                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+                Err(error) => {
+                    debug!(%error, "error receiving TCP tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
                 }
+            };
+
+            // verify that the src address is safe for responses
+            if let Err(error) = sanitize_src_address(src_addr) {
+                warn!(
+                    %src_addr, %error,
+                    "address can not be responded to (TCP)",
+                );
                 continue;
             }
-        };
 
-        // verify that the src address is safe for responses
-        if let Err(error) = sanitize_src_address(src_addr) {
-            warn!(
-                %src_addr, %error,
-                "address can not be responded to (TCP)",
-            );
-            continue;
+            // and spawn to the io_loop
+            let cx = cx.clone();
+            inner_join_set.spawn(async move {
+                debug!(%src_addr, "accepted TCP request");
+                // take the created stream...
+                let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
+                    AsyncIoTokioAsStd(tcp_stream),
+                    src_addr,
+                    response_buffer_size,
+                );
+                let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
+
+                while let Some(message) = timeout_stream.next().await {
+                    let message = match message {
+                        Ok(message) => message,
+                        Err(error) => {
+                            debug!(%src_addr, %error, "error in TCP request stream");
+                            // we're going to bail on this connection...
+                            return;
+                        }
+                    };
+
+                    // we don't spawn here to limit clients from getting too many resources
+                    cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                        .await;
+                }
+            });
+
+            reap_tasks(&mut inner_join_set);
         }
 
-        // and spawn to the io_loop
-        let cx = cx.clone();
-        inner_join_set.spawn(async move {
-            debug!(%src_addr, "accepted TCP request");
-            // take the created stream...
-            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                AsyncIoTokioAsStd(tcp_stream),
-                src_addr,
-                response_buffer_size,
-            );
-            let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
-
-            while let Some(message) = timeout_stream.next().await {
-                let message = match message {
-                    Ok(message) => message,
-                    Err(error) => {
-                        debug!(%src_addr, %error, "error in TCP request stream");
-                        // we're going to bail on this connection...
-                        return;
-                    }
-                };
-
-                // we don't spawn here to limit clients from getting too many resources
-                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
-                    .await;
-            }
-        });
-
-        reap_tasks(&mut inner_join_set);
-    }
-
-    if cx.shutdown.is_cancelled() {
-        Ok(())
-    } else {
-        Err(NetError::from("unexpected close of socket"))
+        if cx.shutdown.is_cancelled() {
+            Ok(())
+        } else {
+            Err(NetError::from("unexpected close of socket"))
+        }
     }
 }
 
