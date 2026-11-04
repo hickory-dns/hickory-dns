@@ -29,10 +29,6 @@ use hickory_proto::{
     rr::rdata::opt::NSIDPayload,
 };
 use ipnet::IpNet;
-#[cfg(feature = "__h3")]
-use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(feature = "__h3")]
-use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
     feature = "__tls",
@@ -46,8 +42,6 @@ use tracing::{debug, info, warn};
 
 #[cfg(feature = "metrics")]
 use crate::metrics::ResponseHandlerMetrics;
-#[cfg(feature = "__h3")]
-use crate::net::h3::h3_server::H3Server;
 use crate::{
     access::AccessControl,
     net::{BufDnsStreamHandle, DnsStreamHandle, NetError, runtime::TokioTime, xfer::Protocol},
@@ -117,83 +111,6 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(transport.run(self.context.clone()));
     }
 
-    /// Register a UdpSocket to the Server for supporting DoH3 (DNS-over-HTTP/3). The UdpSocket should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout for performing QUIC handshakes
-    /// * `idle_timeout` - timeout before closing an idle connection
-    /// * `request_timeout` - timeout for receiving a complete request over a stream
-    /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
-    #[cfg(feature = "__h3")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn register_h3_listener(
-        &mut self,
-        socket: net::UdpSocket,
-        handshake_timeout: Option<Duration>,
-        idle_timeout: Option<Duration>,
-        request_timeout: Option<Duration>,
-        server_cert_resolver: Arc<dyn ResolvesServerCert>,
-        dns_hostname: Option<String>,
-        http_endpoint: String,
-    ) -> io::Result<()> {
-        self.join_set.spawn(h3_handler::handle_h3(
-            socket,
-            handshake_timeout,
-            idle_timeout,
-            request_timeout,
-            server_cert_resolver,
-            dns_hostname,
-            http_endpoint,
-            self.context.clone(),
-        ));
-        Ok(())
-    }
-
-    /// Register a UdpSocket for supporting DoH3 (DNS-over-HTTP/3) with the specified TLS config.
-    ///
-    /// The UdpSocket should already be bound to either an IPv6 or an IPv4 address.
-    ///
-    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoH3 ALPN protocol
-    /// enabled.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout for performing QUIC handshakes
-    /// * `idle_timeout` - timeout before closing an idle connection
-    /// * `request_timeout` - timeout for receiving a complete request over a stream
-    /// * `tls_config` - a customized ServerConfig to use for TLS.
-    #[cfg(feature = "__h3")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn register_h3_listener_with_tls_config(
-        &mut self,
-        socket: net::UdpSocket,
-        handshake_timeout: Option<Duration>,
-        idle_timeout: Option<Duration>,
-        request_timeout: Option<Duration>,
-        tls_config: Arc<ServerConfig>,
-        dns_hostname: Option<String>,
-        http_endpoint: String,
-    ) -> Result<(), NetError> {
-        self.join_set.spawn(h3_handler::handle_h3_with_server(
-            H3Server::with_socket_and_tls_config(socket, tls_config)?,
-            handshake_timeout,
-            idle_timeout,
-            request_timeout,
-            dns_hostname,
-            http_endpoint,
-            self.context.clone(),
-        ));
-        Ok(())
-    }
-
     /// Triggers a shutdown and waits for the registered transport tasks to finish.
     ///
     /// Transports stop accepting new work. Their local task sets are dropped,
@@ -250,18 +167,22 @@ pub mod transport {
     use std::{future::Future, sync::Arc, time::Duration};
 
     use futures_util::StreamExt;
-    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    #[cfg(any(feature = "__tls", feature = "__quic", feature = "__h3"))]
     use rustls::{ServerConfig, server::ResolvesServerCert};
     use tokio::task::JoinSet;
     #[cfg(feature = "__tls")]
     use tokio_rustls::TlsAcceptor;
     use tracing::{debug, warn};
 
+    #[cfg(feature = "__h3")]
+    use crate::net::h3::h3_server::H3Server;
+    #[cfg(any(feature = "__quic", feature = "__h3"))]
+    use crate::net::quic::IntoQuicSocket;
     #[cfg(feature = "__quic")]
-    use crate::net::quic::{IntoQuicSocket, QuicServer};
+    use crate::net::quic::QuicServer;
     #[cfg(feature = "__tls")]
     use crate::net::runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    #[cfg(any(feature = "__tls", feature = "__quic", feature = "__h3"))]
     use crate::net::tls::tls_config;
     #[cfg(feature = "__tls")]
     use crate::{net::tls::tls_from_stream, server::optional_timeout};
@@ -919,6 +840,137 @@ pub mod transport {
             .await
         }
     }
+
+    /// Builder and transport implementation for DNS-over-HTTP/3 (DoH3).
+    ///
+    /// Wraps an already-bound UDP socket and a TLS configuration to accept HTTP/3 connections.
+    #[cfg(feature = "__h3")]
+    #[derive(Debug)]
+    pub struct H3 {
+        listener: H3Server,
+        handshake_timeout: Option<Duration>,
+        idle_timeout: Option<Duration>,
+        request_timeout: Option<Duration>,
+        dns_hostname: Option<String>,
+        http_endpoint: String,
+    }
+
+    #[cfg(feature = "__h3")]
+    impl H3 {
+        /// Constructs a new HTTP/3 transport with the provided [`ServerConfig`].
+        ///
+        /// The `socket` must be already bound to the desired local address, and the configuration
+        /// must enable the H3 ALPN protocol. Default timeouts are `None`.
+        ///
+        /// Initializes the QUIC endpoint immediately and requires a Tokio runtime.
+        /// Returns errors from TLS configuration conversion, socket conversion, or endpoint creation.
+        pub fn with_tls_config(
+            socket: impl IntoQuicSocket,
+            tls_config: Arc<ServerConfig>,
+        ) -> Result<Self, NetError> {
+            Ok(Self {
+                listener: H3Server::with_socket_and_tls_config(socket, tls_config)?,
+                handshake_timeout: None,
+                idle_timeout: None,
+                request_timeout: None,
+                dns_hostname: None,
+                http_endpoint: "/dns-query".to_string(),
+            })
+        }
+
+        /// Constructs a new HTTP/3 transport with a certificate resolver.
+        ///
+        /// A default TLS 1.3 configuration with ALPN `h3` and the QUIC endpoint are constructed
+        /// immediately. Requires a Tokio runtime and returns listener initialization errors.
+        pub fn new(
+            socket: impl IntoQuicSocket,
+            cert_resolver: Arc<dyn ResolvesServerCert>,
+        ) -> Result<Self, NetError> {
+            Self::with_tls_config(
+                socket,
+                Arc::new(tls_config::server_quic(b"h3", cert_resolver)),
+            )
+        }
+
+        /// Sets the timeout for the QUIC handshake and HTTP/3 initialization together.
+        pub fn handshake_timeout(self, handshake_timeout: Duration) -> Self {
+            self.maybe_handshake_timeout(Some(handshake_timeout))
+        }
+
+        /// Sets the handshake timeout; pass `None` to disable it.
+        pub fn maybe_handshake_timeout(self, handshake_timeout: Option<Duration>) -> Self {
+            Self {
+                handshake_timeout,
+                ..self
+            }
+        }
+
+        /// Sets the timeout before closing an idle connection.
+        pub fn idle_timeout(self, idle_timeout: Duration) -> Self {
+            self.maybe_idle_timeout(Some(idle_timeout))
+        }
+
+        /// Sets the idle timeout; pass `None` to disable it.
+        pub fn maybe_idle_timeout(self, idle_timeout: Option<Duration>) -> Self {
+            Self {
+                idle_timeout,
+                ..self
+            }
+        }
+
+        /// Sets the timeout for receiving a complete request over a stream.
+        pub fn request_timeout(self, request_timeout: Duration) -> Self {
+            self.maybe_request_timeout(Some(request_timeout))
+        }
+
+        /// Sets the request timeout; pass `None` to disable it.
+        pub fn maybe_request_timeout(self, request_timeout: Option<Duration>) -> Self {
+            Self {
+                request_timeout,
+                ..self
+            }
+        }
+
+        /// Sets the DNS hostname for this HTTP/3 server.
+        pub fn dns_hostname(self, dns_hostname: String) -> Self {
+            Self {
+                dns_hostname: Some(dns_hostname),
+                ..self
+            }
+        }
+
+        /// Optionally sets the DNS hostname for this HTTP/3 server.
+        pub fn maybe_dns_hostname(self, dns_hostname: Option<String>) -> Self {
+            Self {
+                dns_hostname,
+                ..self
+            }
+        }
+
+        /// Sets the HTTP query endpoint path (defaults to `/dns-query`).
+        pub fn http_endpoint(self, http_endpoint: String) -> Self {
+            Self {
+                http_endpoint,
+                ..self
+            }
+        }
+    }
+
+    #[cfg(feature = "__h3")]
+    impl Transport for H3 {
+        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+            super::h3_handler::handle_h3_with_server(
+                self.listener,
+                self.handshake_timeout,
+                self.idle_timeout,
+                self.request_timeout,
+                self.dns_hostname,
+                self.http_endpoint,
+                cx,
+            )
+            .await
+        }
+    }
 }
 
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
@@ -1321,6 +1373,8 @@ mod tests {
     use super::*;
     #[cfg(feature = "__https")]
     use crate::server::transport::H2;
+    #[cfg(feature = "__h3")]
+    use crate::server::transport::H3;
     #[cfg(feature = "__quic")]
     use crate::server::transport::Quic;
     #[cfg(feature = "__tls")]
@@ -1537,17 +1591,12 @@ mod tests {
             #[cfg(feature = "__h3")]
             {
                 let cert_key = rustls_cert_key();
-                server
-                    .register_h3_listener(
-                        UdpSocket::bind(self.h3_addr).await.unwrap(),
-                        Some(Duration::from_secs(1)),
-                        Some(Duration::from_secs(1)),
-                        Some(Duration::from_secs(1)),
-                        cert_key,
-                        None,
-                        "/dns-query".into(),
-                    )
-                    .unwrap();
+                let h3 = H3::new(UdpSocket::bind(self.h3_addr).await.unwrap(), cert_key)
+                    .unwrap()
+                    .handshake_timeout(Duration::from_secs(1))
+                    .idle_timeout(Duration::from_secs(1))
+                    .request_timeout(Duration::from_secs(1));
+                server.register(h3);
             }
         }
 
