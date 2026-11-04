@@ -29,9 +29,9 @@ use hickory_proto::{
     rr::rdata::opt::NSIDPayload,
 };
 use ipnet::IpNet;
-#[cfg(feature = "__tls")]
+#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(feature = "__tls")]
+#[cfg(feature = "__https")]
 use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
@@ -119,72 +119,6 @@ impl<T: RequestHandler> Server<T> {
     pub fn register(&mut self, transport: impl Transport + Debug) {
         debug!(?transport, "registering transport");
         self.join_set.spawn(transport.run(self.context.clone()));
-    }
-
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoT ALPN protocol
-    /// enabled.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout for performing TLS handshakes
-    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
-    ///   send requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    /// * `tls_config` - rustls server config
-    #[cfg(feature = "__tls")]
-    pub fn register_tls_listener_with_tls_config(
-        &mut self,
-        listener: net::TcpListener,
-        handshake_timeout: Option<Duration>,
-        stream_timeout: Option<Duration>,
-        tls_config: Arc<ServerConfig>,
-    ) -> io::Result<()> {
-        self.join_set.spawn(transport::handle_tls(
-            listener,
-            tls_config,
-            handshake_timeout,
-            stream_timeout,
-            self.context.clone(),
-        ));
-        Ok(())
-    }
-
-    /// Register a TlsListener to the Server by providing a rustls `ResolvesServerCert`. The
-    /// TlsListener should already be bound to either an IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout for performing TLS handshakes
-    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
-    ///   send requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
-    #[cfg(feature = "__tls")]
-    pub fn register_tls_listener(
-        &mut self,
-        listener: net::TcpListener,
-        handshake_timeout: Option<Duration>,
-        stream_timeout: Option<Duration>,
-        server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> io::Result<()> {
-        Self::register_tls_listener_with_tls_config(
-            self,
-            listener,
-            handshake_timeout,
-            stream_timeout,
-            Arc::new(tls_config::server_tcp(b"dot", server_cert_resolver)?),
-        )
     }
 
     /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (DNS-over-HTTPS). The TcpListener should already be bound to either an
@@ -475,9 +409,7 @@ pub mod transport {
 
     use futures_util::StreamExt;
     #[cfg(feature = "__tls")]
-    use rustls::ServerConfig;
-    #[cfg(feature = "__tls")]
-    use tokio::net;
+    use rustls::{ServerConfig, server::ResolvesServerCert};
     use tokio::task::JoinSet;
     #[cfg(feature = "__tls")]
     use tokio_rustls::TlsAcceptor;
@@ -498,7 +430,10 @@ pub mod transport {
     };
     #[cfg(feature = "__tls")]
     use crate::{
-        net::{runtime::iocompat::AsyncIoTokioAsStd, tls::tls_from_stream},
+        net::{
+            runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd},
+            tls::{tls_config, tls_from_stream},
+        },
         server::optional_timeout,
     };
 
@@ -739,25 +674,107 @@ pub mod transport {
         }
     }
 
+    /// Builder and transport implementation for DNS-over-TLS (DoT).
+    ///
+    /// Wraps an already-bound TCP listener and a TLS configuration to accept encrypted DNS queries.
     #[cfg(feature = "__tls")]
-    pub(super) async fn handle_tls(
-        listener: net::TcpListener,
+    #[derive(Debug)]
+    pub struct Tls<L: DnsTcpListener> {
+        listener: L,
+        tls_config: Arc<ServerConfig>,
+        handshake_timeout: Option<Duration>,
+        stream_timeout: Option<Duration>,
+    }
+
+    #[cfg(feature = "__tls")]
+    impl<L: DnsTcpListener> Tls<L> {
+        /// Constructs a new TLS transport with the provided [`ServerConfig`].
+        ///
+        /// The `listener` must be already bound to the desired local address.
+        /// Default handshake and stream timeouts are `None`.
+        pub fn with_tls_config(listener: L, tls_config: Arc<ServerConfig>) -> Self {
+            Self {
+                listener,
+                tls_config,
+                handshake_timeout: None,
+                stream_timeout: None,
+            }
+        }
+
+        /// Constructs a new TLS transport with a certificate resolver.
+        ///
+        /// A default configuration using the safe default protocol versions and ALPN `dot` is
+        /// constructed immediately.
+        pub fn new(
+            listener: L,
+            server_cert_resolver: Arc<dyn ResolvesServerCert>,
+        ) -> Result<Self, NetError> {
+            Ok(Self::with_tls_config(
+                listener,
+                Arc::new(tls_config::server_tcp(b"dot", server_cert_resolver)?),
+            ))
+        }
+
+        /// Sets the timeout duration for performing TLS handshakes.
+        pub fn handshake_timeout(self, handshake_timeout: Duration) -> Self {
+            self.maybe_handshake_timeout(Some(handshake_timeout))
+        }
+
+        /// Sets the handshake timeout; pass `None` to disable it.
+        pub fn maybe_handshake_timeout(self, handshake_timeout: Option<Duration>) -> Self {
+            Self {
+                handshake_timeout,
+                ..self
+            }
+        }
+
+        /// Sets the timeout duration for incoming request streams.
+        pub fn stream_timeout(self, stream_timeout: Duration) -> Self {
+            self.maybe_stream_timeout(Some(stream_timeout))
+        }
+
+        /// Sets the stream timeout; pass `None` to disable it.
+        pub fn maybe_stream_timeout(self, stream_timeout: Option<Duration>) -> Self {
+            Self {
+                stream_timeout,
+                ..self
+            }
+        }
+    }
+
+    #[cfg(feature = "__tls")]
+    impl<L: DnsTcpListener> Transport for Tls<L> {
+        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+            handle_tls(
+                self.listener,
+                self.tls_config,
+                self.handshake_timeout,
+                self.stream_timeout,
+                cx,
+            )
+            .await
+        }
+    }
+
+    #[cfg(feature = "__tls")]
+    async fn handle_tls<L: DnsTcpListener>(
+        mut listener: L,
         tls_config: Arc<ServerConfig>,
         handshake_timeout: Option<Duration>,
         stream_timeout: Option<Duration>,
         cx: Arc<ServerContext<impl RequestHandler>>,
     ) -> Result<(), NetError> {
-        debug!(?listener, "registered tls");
         let tls_acceptor = TlsAcceptor::from(tls_config);
 
         let mut inner_join_set = JoinSet::new();
         loop {
-            let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+            let accept = futures_util::future::poll_fn(|cx| listener.poll_accept(cx));
+            let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
                 // A graceful shutdown was initiated. Break out of the loop.
                 break;
             };
             let (tcp_stream, src_addr) = match result {
-                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+                Ok(accepted) => (accepted.connection, accepted.src_addr),
                 Err(error) => {
                     debug!(%error, "error receiving TLS tcp_stream error");
                     if is_unrecoverable_socket_error(&error) {
@@ -783,8 +800,11 @@ pub mod transport {
                 debug!(%src_addr, "starting TLS request");
 
                 // perform the TLS
-                let Ok(tls_stream) =
-                    optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+                let Ok(tls_stream) = optional_timeout(
+                    handshake_timeout,
+                    tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
+                )
+                .await
                 else {
                     warn!("tls timeout expired during handshake");
                     return;
@@ -1218,7 +1238,7 @@ mod tests {
 
     use futures_util::future;
     #[cfg(feature = "__tls")]
-    use rustls::sign::SingleCertAndKey;
+    use rustls::{server::ResolvesServerCert, sign::SingleCertAndKey};
     #[cfg(feature = "__tls")]
     use test_support::TestCertificates;
     use test_support::subscribe;
@@ -1228,6 +1248,8 @@ mod tests {
     };
 
     use super::*;
+    #[cfg(feature = "__tls")]
+    use crate::server::transport::Tls;
     use crate::{
         net::runtime::{Accepted, DnsTcpListener, iocompat::AsyncIoTokioAsStd},
         server::transport::{Tcp, Udp},
@@ -1370,14 +1392,11 @@ mod tests {
             #[cfg(feature = "__tls")]
             {
                 let cert_key = rustls_cert_key();
-                server
-                    .register_tls_listener(
-                        TcpListener::bind(self.rustls_addr).await.unwrap(),
-                        Some(Duration::from_secs(30)),
-                        Some(Duration::from_secs(30)),
-                        cert_key,
-                    )
-                    .unwrap();
+                let tls = Tls::new(TcpListener::bind(self.rustls_addr).await.unwrap(), cert_key)
+                    .unwrap()
+                    .handshake_timeout(Duration::from_secs(30))
+                    .stream_timeout(Duration::from_secs(30));
+                server.register(tls);
             }
 
             #[cfg(feature = "__https")]
