@@ -226,9 +226,9 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
 /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
 ///   perform a conversion to a Message, only collects all the bytes.
 pub async fn message_from<R, E, B>(
-    http_version: Version,
-    this_server_name: Option<Arc<str>>,
-    this_server_endpoint: Arc<str>,
+    version: Version,
+    server_name: Option<Arc<str>>,
+    path: Arc<str>,
     request: Request<R>,
 ) -> Result<BytesMut, NetError>
 where
@@ -236,14 +236,9 @@ where
     E: Into<NetError>,
     B: Buf,
 {
-    let this_server_name = this_server_name.as_deref();
-    match verify(
-        http_version,
-        this_server_name,
-        &this_server_endpoint,
-        &request,
-    ) {
-        Ok(_) => {
+    let server_name = server_name.as_deref();
+    match verify(version, server_name, &path, &request) {
+        Ok(()) => {
             debug!(
                 agent = request
                     .headers()
