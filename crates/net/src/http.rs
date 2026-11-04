@@ -237,7 +237,7 @@ where
     B: Buf,
 {
     let server_name = server_name.as_deref();
-    match verify(&request, &path, server_name, version) {
+    match version.verify(&request, &path, server_name) {
         Ok(()) => {
             debug!(
                 agent = request
@@ -289,91 +289,6 @@ where
     }
 }
 
-/// Verifies the request is well-formed for the name-server and supported protocols
-pub fn verify<T>(
-    request: &Request<T>,
-    query_path: &str,
-    server_name: Option<&str>,
-    version: Version,
-) -> Result<(), NetError> {
-    // Verify all HTTP parameters
-    let uri = request.uri();
-
-    // validate path
-    if uri.path() != query_path {
-        return Err(format!("bad path: {}, expected: {}", uri.path(), query_path).into());
-    }
-
-    // we only accept HTTPS
-    if Some(&uri::Scheme::HTTPS) != uri.scheme() {
-        return Err("must be HTTPS scheme".into());
-    }
-
-    // the authority must match our nameserver name
-    if let Some(name_server) = server_name {
-        if let Some(authority) = uri.authority() {
-            if authority.host() != name_server {
-                return Err("incorrect authority".into());
-            }
-        } else {
-            return Err("no authority in HTTPS request".into());
-        }
-    }
-
-    // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    match request.headers().get(ACCEPT).map(|v| v.to_str()) {
-        Some(Ok(ctype)) => {
-            let mut found = false;
-            for mime_and_quality in ctype.split(',') {
-                let mut parts = mime_and_quality.splitn(2, ';');
-                match parts.next() {
-                    Some(mime) if mime.trim() == MIME_APPLICATION_DNS => {
-                        found = true;
-                        break;
-                    }
-                    Some(mime) if mime.trim() == "application/*" => {
-                        found = true;
-                        break;
-                    }
-                    Some(mime) if mime.trim() == "*/*" => {
-                        found = true;
-                        break;
-                    }
-                    _ => continue,
-                }
-            }
-
-            if !found {
-                return Err("does not accept content type".into());
-            }
-        }
-        Some(Err(e)) => return Err(e.into()),
-        None => return Err("Accept is unspecified".into()),
-    };
-
-    if request.version() != version.to_http() {
-        let message = match version {
-            #[cfg(feature = "__https")]
-            Version::Http2 => "only HTTP/2 supported",
-            #[cfg(feature = "__h3")]
-            Version::Http3 => "only HTTP/3 supported",
-        };
-        return Err(message.into());
-    }
-
-    match *request.method() {
-        Method::POST => {
-            // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-            match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-                Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => Ok(()),
-                _ => Err("unsupported content type".into()),
-            }
-        }
-        Method::GET => Ok(()),
-        _ => Err(format!("unsupported method: {}", request.method()).into()),
-    }
-}
-
 /// Fetch the body of the request from the stream
 pub async fn fetch_body<E: Into<NetError>>(
     mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
@@ -419,6 +334,91 @@ pub enum Version {
 }
 
 impl Version {
+    /// Verifies the request is well-formed for the name-server and supported protocols
+    pub fn verify<T>(
+        self,
+        request: &Request<T>,
+        query_path: &str,
+        server_name: Option<&str>,
+    ) -> Result<(), NetError> {
+        // Verify all HTTP parameters
+        let uri = request.uri();
+
+        // validate path
+        if uri.path() != query_path {
+            return Err(format!("bad path: {}, expected: {}", uri.path(), query_path).into());
+        }
+
+        // we only accept HTTPS
+        if Some(&uri::Scheme::HTTPS) != uri.scheme() {
+            return Err("must be HTTPS scheme".into());
+        }
+
+        // the authority must match our nameserver name
+        if let Some(name_server) = server_name {
+            if let Some(authority) = uri.authority() {
+                if authority.host() != name_server {
+                    return Err("incorrect authority".into());
+                }
+            } else {
+                return Err("no authority in HTTPS request".into());
+            }
+        }
+
+        // TODO: switch to mime::APPLICATION_DNS when that stabilizes
+        match request.headers().get(ACCEPT).map(|v| v.to_str()) {
+            Some(Ok(ctype)) => {
+                let mut found = false;
+                for mime_and_quality in ctype.split(',') {
+                    let mut parts = mime_and_quality.splitn(2, ';');
+                    match parts.next() {
+                        Some(mime) if mime.trim() == MIME_APPLICATION_DNS => {
+                            found = true;
+                            break;
+                        }
+                        Some(mime) if mime.trim() == "application/*" => {
+                            found = true;
+                            break;
+                        }
+                        Some(mime) if mime.trim() == "*/*" => {
+                            found = true;
+                            break;
+                        }
+                        _ => continue,
+                    }
+                }
+
+                if !found {
+                    return Err("does not accept content type".into());
+                }
+            }
+            Some(Err(e)) => return Err(e.into()),
+            None => return Err("Accept is unspecified".into()),
+        };
+
+        if request.version() != self.to_http() {
+            let message = match self {
+                #[cfg(feature = "__https")]
+                Self::Http2 => "only HTTP/2 supported",
+                #[cfg(feature = "__h3")]
+                Self::Http3 => "only HTTP/3 supported",
+            };
+            return Err(message.into());
+        }
+
+        match *request.method() {
+            Method::POST => {
+                // TODO: switch to mime::APPLICATION_DNS when that stabilizes
+                match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
+                    Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => Ok(()),
+                    _ => Err("unsupported content type".into()),
+                }
+            }
+            Method::GET => Ok(()),
+            _ => Err(format!("unsupported method: {}", request.method()).into()),
+        }
+    }
+
     /// Create a new Response for an http dns-message request
     pub fn response(
         self,
@@ -501,13 +501,9 @@ mod tests {
             .build(&Method::POST, &query_bytes())
             .expect("error converting to http");
         assert!(
-            verify(
-                &request,
-                "/dns-query",
-                Some("ns.example.com"),
-                Version::Http2,
-            )
-            .is_ok()
+            Version::Http2
+                .verify(&request, "/dns-query", Some("ns.example.com"))
+                .is_ok()
         );
     }
 
@@ -528,13 +524,9 @@ mod tests {
             .build(&Method::POST, &query_bytes())
             .expect("error converting to http");
         assert!(
-            verify(
-                &request,
-                "/dns-query",
-                Some("ns.example.com"),
-                Version::Http2,
-            )
-            .is_ok()
+            Version::Http2
+                .verify(&request, "/dns-query", Some("ns.example.com"))
+                .is_ok()
         );
 
         assert_eq!(
@@ -560,13 +552,9 @@ mod tests {
             .build(&Method::POST, &query_bytes())
             .expect("error converting to http");
         assert!(
-            verify(
-                &request,
-                "/dns-query",
-                Some("ns.example.com"),
-                Version::Http3,
-            )
-            .is_ok()
+            Version::Http3
+                .verify(&request, "/dns-query", Some("ns.example.com"))
+                .is_ok()
         );
     }
 
