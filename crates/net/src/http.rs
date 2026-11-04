@@ -335,7 +335,7 @@ pub enum Version {
 
 impl Version {
     /// Verifies the request is well-formed for the name-server and supported protocols
-    pub fn verify<T>(
+    fn verify<T>(
         self,
         request: &Request<T>,
         query_path: &str,
