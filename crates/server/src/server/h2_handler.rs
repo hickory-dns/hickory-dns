@@ -7,12 +7,10 @@
 
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use ::h2::server;
 use bytes::Bytes;
-use rustls::server::ResolvesServerCert;
+use h2::server;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::TcpListener,
     task::JoinSet,
 };
 use tokio_rustls::TlsAcceptor;
@@ -22,45 +20,17 @@ use super::{
     ServerContext, is_unrecoverable_socket_error, optional_timeout, reap_tasks,
     request_handler::RequestHandler, sanitize_src_address,
 };
-use crate::net::tls::tls_config;
 use crate::net::{
     NetError,
     http::{self, Version},
+    runtime::{DnsTcpListener, iocompat::AsyncIoStdAsTokio},
     xfer::Protocol,
 };
 
-/// handle h2 using the default TLS server config.
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h2(
-    listener: TcpListener,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    dns_hostname: Option<String>,
-    http_endpoint: String,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    handle_h2_with_acceptor(
-        listener,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        TlsAcceptor::from(Arc::new(tls_config::server_tcp(
-            b"h2",
-            server_cert_resolver,
-        )?)),
-        dns_hostname,
-        http_endpoint,
-        cx,
-    )
-    .await
-}
-
 /// handle h2 using a specific TlsAcceptor.
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h2_with_acceptor(
-    listener: TcpListener,
+pub(super) async fn handle_h2_with_acceptor<L: DnsTcpListener>(
+    mut listener: L,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
@@ -71,17 +41,17 @@ pub(super) async fn handle_h2_with_acceptor(
 ) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
     let http_endpoint: Arc<str> = Arc::from(http_endpoint);
-    debug!("registered https: {listener:?}");
 
     let mut inner_join_set = JoinSet::new();
     loop {
         let shutdown = &cx.shutdown;
-        let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
+        let accept = futures_util::future::poll_fn(|cx| listener.poll_accept(cx));
+        let Some(result) = shutdown.run_until_cancelled(accept).await else {
             // A graceful shutdown was initiated. Break out of the loop.
             break;
         };
         let (tcp_stream, src_addr) = match result {
-            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            Ok(accepted) => (accepted.connection, accepted.src_addr),
             Err(error) => {
                 debug!(%error, "error receiving HTTPS tcp_stream error");
                 if is_unrecoverable_socket_error(&error) {
@@ -104,8 +74,11 @@ pub(super) async fn handle_h2_with_acceptor(
         inner_join_set.spawn(async move {
             debug!("starting HTTPS request from: {src_addr}");
 
-            let Ok(tls_stream) =
-                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+            let Ok(tls_stream) = optional_timeout(
+                handshake_timeout,
+                tls_acceptor.accept(AsyncIoStdAsTokio(tcp_stream)),
+            )
+            .await
             else {
                 warn!("https timeout expired during handshake");
                 return;
