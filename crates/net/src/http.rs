@@ -282,14 +282,8 @@ where
             }
         }
         Method::POST => {
-            // attempt to get the content length
-            let mut content_length = None;
-            if let Some(length) = request.headers().get(CONTENT_LENGTH) {
-                let length = usize::from_str(length.to_str()?)?;
-                debug!(length, "got message length");
-                content_length = Some(length);
-            }
-            fetch_body(request.into_body(), content_length).await
+            let (parts, body) = request.into_parts();
+            fetch_body(body, &parts.headers).await
         }
         _ => Err(format!("bad method: {}", request.method()).into()),
     }
@@ -383,8 +377,17 @@ pub fn verify<T>(
 /// Fetch the body of the request from the stream
 pub async fn fetch_body<E: Into<NetError>>(
     mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
-    length: Option<usize>,
+    headers: &HeaderMap,
 ) -> Result<BytesMut, NetError> {
+    let length = headers
+        .get(CONTENT_LENGTH)
+        .map(|v| v.to_str())
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
+        .map(usize::from_str)
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
+
     let mut bytes = BytesMut::with_capacity(512);
     loop {
         match stream.next().await {
@@ -403,18 +406,6 @@ pub async fn fetch_body<E: Into<NetError>>(
 }
 
 const MAX_REQUEST_SIZE: usize = u16::MAX as usize;
-
-/// Get the length of the body announced by the `content-length` header, if any
-pub(crate) fn content_length(headers: &HeaderMap) -> Result<Option<usize>, NetError> {
-    headers
-        .get(CONTENT_LENGTH)
-        .map(|v| v.to_str())
-        .transpose()
-        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
-        .map(usize::from_str)
-        .transpose()
-        .map_err(|e| NetError::from(format!("bad headers received: {e}")))
-}
 
 /// Create a new Response for an http dns-message request
 pub fn response(
@@ -676,20 +667,30 @@ mod tests {
     #[tokio::test]
     async fn fetch_body_accumulates_chunks() {
         let mut body = chunks(&[512, 512, 200]);
-        let bytes = fetch_body(&mut body, None).await.unwrap();
+        let bytes = fetch_body(&mut body, &content_length_header_map(None))
+            .await
+            .unwrap();
         assert_eq!(bytes.len(), 1224);
     }
 
     #[tokio::test]
     async fn fetch_body_stops_at_content_length() {
         let mut body = chunks(&[512, 512]);
-        assert!(fetch_body(&mut body, Some(512)).await.is_err());
+        assert!(
+            fetch_body(&mut body, &content_length_header_map(Some(512)))
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
     async fn fetch_body_short_body_errors() {
         let mut body = chunks(&[512]);
-        assert!(fetch_body(&mut body, Some(1024)).await.is_err());
+        assert!(
+            fetch_body(&mut body, &content_length_header_map(Some(1024)))
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
@@ -697,7 +698,7 @@ mod tests {
         // a single chunk exceeding the limit is rejected without being buffered
         let mut body = chunks(&[MAX_REQUEST_SIZE + 1]);
         assert!(matches!(
-            fetch_body(&mut body, None).await,
+            fetch_body(&mut body, &content_length_header_map(None)).await,
             Err(NetError::RequestTooLarge)
         ));
     }
@@ -708,7 +709,7 @@ mod tests {
         let half = MAX_REQUEST_SIZE / 2 + 1;
         let mut body = chunks(&[half, half]);
         assert!(matches!(
-            fetch_body(&mut body, None).await,
+            fetch_body(&mut body, &content_length_header_map(None)).await,
             Err(NetError::RequestTooLarge)
         ));
     }
@@ -717,8 +718,18 @@ mod tests {
     async fn fetch_body_at_limit_ok() {
         // a body exactly at the limit is still accepted
         let mut body = chunks(&[MAX_REQUEST_SIZE]);
-        let bytes = fetch_body(&mut body, None).await.unwrap();
+        let bytes = fetch_body(&mut body, &content_length_header_map(None))
+            .await
+            .unwrap();
         assert_eq!(bytes.len(), MAX_REQUEST_SIZE);
+    }
+
+    fn content_length_header_map(len: Option<usize>) -> HeaderMap<HeaderValue> {
+        let mut map = HeaderMap::new();
+        if let Some(len) = len {
+            map.insert(CONTENT_LENGTH, HeaderValue::from(len));
+        }
+        map
     }
 
     fn chunks(lengths: &[usize]) -> impl Stream<Item = Result<Bytes, NetError>> + Unpin {
