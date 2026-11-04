@@ -32,7 +32,6 @@ use hickory_net::{
 #[cfg(feature = "__dnssec")]
 use hickory_proto::{
     dnssec::{PublicKeyBuf, SigningKey, TrustAnchors, crypto::Ed25519SigningKey},
-    op::DEFAULT_MAX_PAYLOAD_LEN,
     rr::LowerName,
 };
 use hickory_proto::{
@@ -40,7 +39,7 @@ use hickory_proto::{
     serialize::binary::{BinDecodable, BinDecoder},
 };
 #[cfg(feature = "__dnssec")]
-use hickory_server::Server;
+use hickory_server::{Server, server::transport::Udp};
 use hickory_server::{
     server::{Request, RequestHandler, ResponseInfo},
     zone_handler::Catalog,
@@ -211,7 +210,7 @@ where
     let udp_socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let local_addr = udp_socket.local_addr().unwrap();
     let mut server = Server::new(handler);
-    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
+    server.register(Udp::new(udp_socket));
 
     // Client setup
     let mut trust_anchor = TrustAnchors::empty();

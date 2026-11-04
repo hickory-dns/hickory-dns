@@ -8,6 +8,7 @@ use hickory_proto::rr::{Name, RData, Record, RecordSet, RecordType, RrKey};
 use hickory_server::Server;
 #[cfg(feature = "__dnssec")]
 use hickory_server::dnssec::NxProofKind;
+use hickory_server::server::transport::Udp;
 use hickory_server::store::in_memory::InMemoryZoneHandler;
 use hickory_server::zone_handler::{AxfrPolicy, Catalog};
 use std::collections::BTreeMap;
@@ -29,7 +30,7 @@ async fn test_truncation() {
 
     // Create and start the server.
     let mut server = Server::new(new_large_catalog(128));
-    server.register_socket(udp_socket, DEFAULT_MAX_PAYLOAD_LEN);
+    server.register(Udp::new(udp_socket));
 
     // Create the UDP client.
     let stream = UdpClientStream::builder(nameserver, TokioRuntimeProvider::new()).build();

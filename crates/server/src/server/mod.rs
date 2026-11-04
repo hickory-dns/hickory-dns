@@ -123,15 +123,6 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(transport.run(self.context.clone()));
     }
 
-    /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket, receive_buffer_size: u16) {
-        self.join_set.spawn(transport::handle_udp(
-            socket,
-            receive_buffer_size,
-            self.context.clone(),
-        ));
-    }
-
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
     ///  IPv4 address.
     ///
@@ -512,11 +503,11 @@ pub mod transport {
     use std::{future::Future, sync::Arc};
 
     use futures_util::StreamExt;
-    use tokio::{net, task::JoinSet};
+    use tokio::task::JoinSet;
     use tracing::{debug, warn};
 
     use crate::{
-        net::{NetError, udp::UdpStream, xfer::Protocol},
+        net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
         server::{
             ServerContext, is_unrecoverable_socket_error, reap_tasks,
             request_handler::RequestHandler, sanitize_src_address,
@@ -542,20 +533,38 @@ pub mod transport {
         ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
     }
 
-    pub(super) async fn handle_udp(
-        socket: net::UdpSocket,
-        receive_buffer_size: u16,
+    /// Builder and transport implementation for UDP.
+    ///
+    /// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
+    #[derive(Debug)]
+    pub struct Udp<S: DnsUdpSocket> {
+        socket: S,
+    }
+
+    impl<S: DnsUdpSocket> Udp<S> {
+        /// Constructs a new UDP transport.
+        ///
+        /// The `socket` must be already bound to the desired local address.
+        pub fn new(socket: S) -> Self {
+            Self { socket }
+        }
+    }
+
+    impl<S: DnsUdpSocket + 'static> Transport for Udp<S> {
+        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+            handle_udp(self.socket, cx.max_payload_size, cx).await
+        }
+    }
+
+    async fn handle_udp<S: DnsUdpSocket>(
+        socket: S,
+        max_payload_size: u16,
         cx: Arc<ServerContext<impl RequestHandler>>,
     ) -> Result<(), NetError> {
-        debug!("registering udp: {:?}", socket);
-
         // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
         //   the address used is acquired from the inbound queries
-        let (mut stream, stream_handle) = UdpStream::with_bound(
-            socket,
-            ([127, 255, 255, 254], 0).into(),
-            receive_buffer_size,
-        );
+        let (mut stream, stream_handle) =
+            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into(), max_payload_size);
 
         let mut inner_join_set = JoinSet::new();
         loop {
@@ -1169,7 +1178,7 @@ async fn optional_timeout<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
+    use crate::server::transport::Udp;
     use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
@@ -1281,10 +1290,7 @@ mod tests {
         }
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
-            server.register_socket(
-                UdpSocket::bind(self.udp_addr).await.unwrap(),
-                DEFAULT_MAX_PAYLOAD_LEN,
-            );
+            server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Some(Duration::from_secs(1)),

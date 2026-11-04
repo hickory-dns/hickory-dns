@@ -33,7 +33,10 @@ use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
 use hickory_server::server::default_tls_server_config;
-use hickory_server::{server::Server, zone_handler::Catalog};
+use hickory_server::{
+    server::{Server, transport::Udp},
+    zone_handler::Catalog,
+};
 
 mod config;
 use config::{Config, TcpSocketConfig, UdpSocketConfig};
@@ -400,7 +403,7 @@ impl DnsServer {
         let listen_port = port.unwrap_or(listen_port);
         match disable_udp {
             true => info!("UDP protocol is disabled"),
-            false => setup.udp(listen_port, udp_receive_buffer_size)?,
+            false => setup.udp(listen_port)?,
         }
 
         match disable_tcp {
@@ -550,7 +553,7 @@ struct ServerSetup<'a> {
 }
 
 impl ServerSetup<'_> {
-    fn udp(&mut self, port: u16, receive_buffer_size: u16) -> Result<(), String> {
+    fn udp(&mut self, port: u16) -> Result<(), String> {
         #[cfg(unix)]
         let num_sockets = self.udp_socket_config.sockets.unwrap_or(1);
         #[cfg(not(unix))]
@@ -565,17 +568,15 @@ impl ServerSetup<'_> {
             let bound_addr = first_socket
                 .local_addr()
                 .map_err(|err| format!("failed to lookup local address: {err}"))?;
-            self.server
-                .register_socket(first_socket, receive_buffer_size);
+            self.server.register(Udp::new(first_socket));
 
             // Afterward, bind any additional sockets.
             for _ in 1..num_sockets {
-                self.server.register_socket(
+                self.server.register(Udp::new(
                     build_udp_socket(*addr, port, self.udp_socket_config).map_err(|err| {
                         format!("failed to bind to UDP socket address {addr:?}: {err}")
                     })?,
-                    receive_buffer_size,
-                );
+                ));
             }
 
             info!("listening for UDP on {bound_addr:?}");
