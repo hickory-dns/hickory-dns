@@ -407,28 +407,6 @@ pub async fn fetch_body<E: Into<NetError>>(
 
 const MAX_REQUEST_SIZE: usize = u16::MAX as usize;
 
-/// Create a new Response for an http dns-message request
-pub fn response(
-    version: Version,
-    message_len: usize,
-    cache_max_age: Option<u32>,
-) -> Result<Response<()>, NetError> {
-    Response::builder()
-        .status(StatusCode::OK)
-        .version(version.to_http())
-        .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
-        .header(CONTENT_LENGTH, message_len)
-        .header(
-            CACHE_CONTROL,
-            match cache_max_age {
-                None => "no-store".into(),
-                Some(n) => format!("max-age={n}"),
-            },
-        )
-        .body(())
-        .map_err(|e| NetError::from(format!("invalid response: {e}")))
-}
-
 /// Represents a version of the HTTP spec.
 #[derive(Clone, Copy, Debug)]
 pub enum Version {
@@ -441,6 +419,28 @@ pub enum Version {
 }
 
 impl Version {
+    /// Create a new Response for an http dns-message request
+    pub fn response(
+        self,
+        message_len: usize,
+        cache_max_age: Option<u32>,
+    ) -> Result<Response<()>, NetError> {
+        Response::builder()
+            .status(StatusCode::OK)
+            .version(self.to_http())
+            .header(CONTENT_TYPE, MIME_APPLICATION_DNS)
+            .header(CONTENT_LENGTH, message_len)
+            .header(
+                CACHE_CONTROL,
+                match cache_max_age {
+                    None => "no-store".into(),
+                    Some(n) => format!("max-age={n}"),
+                },
+            )
+            .body(())
+            .map_err(|e| NetError::from(format!("invalid response: {e}")))
+    }
+
     fn to_http(self) -> http::Version {
         match self {
             #[cfg(feature = "__https")]
