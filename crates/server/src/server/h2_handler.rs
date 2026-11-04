@@ -22,11 +22,7 @@ use super::{
     ServerContext, default_tls_server_config, is_unrecoverable_socket_error, optional_timeout,
     reap_tasks, request_handler::RequestHandler, sanitize_src_address,
 };
-use crate::net::{
-    NetError,
-    http::{self, Version},
-    xfer::Protocol,
-};
+use crate::net::{NetError, http::Version, xfer::Protocol};
 
 /// handle h2 using the default TLS server config.
 #[allow(clippy::too_many_arguments)]
@@ -190,7 +186,7 @@ pub(crate) async fn h2_handler(
         let dns_hostname = dns_hostname.clone();
         let http_endpoint = http_endpoint.clone();
         tokio::spawn(async move {
-            let message_future = http::message_from(request, http_endpoint, dns_hostname, Version::Http2);
+            let message_future = Version::Http2.message_from(request, http_endpoint, dns_hostname);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };

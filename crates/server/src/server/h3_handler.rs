@@ -22,7 +22,7 @@ use crate::net::{
         BodyStream,
         h3_server::{H3Connection, H3Server},
     },
-    http::{self, Version},
+    http::Version,
     xfer::Protocol,
 };
 
@@ -193,8 +193,7 @@ pub(crate) async fn h3_handler(
 
             let body_stream = BodyStream::from(move |cx: &mut Context<'_>| recv.poll_recv_data(cx));
             let request = request.map(|()| body_stream);
-            let message_future =
-                http::message_from(request, http_endpoint, dns_hostname, Version::Http3);
+            let message_future = Version::Http3.message_from(request, http_endpoint, dns_hostname);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };
