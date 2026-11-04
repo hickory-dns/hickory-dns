@@ -221,12 +221,6 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
     fn context(&self) -> &RequestContext;
 }
 
-// RFC 7230 section 3.1.1's recommended 8000-octet minimum, halved for headroom
-// against stricter intermediaries (any HTTP proxy or CDN in between client
-// and server)
-const MAX_CLIENT_GET_URI_LEN: usize = 4000;
-const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len()
-
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
 ///
 /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
@@ -505,6 +499,12 @@ pub trait SetHeaders: Send + Sync + 'static {
     /// Get a set of headers to add to the query
     fn set_headers(&self, headers: &mut HeaderMap<HeaderValue>) -> Result<(), NetError>;
 }
+
+// RFC 7230 section 3.1.1's recommended 8000-octet minimum, halved for headroom
+// against stricter intermediaries (any HTTP proxy or CDN in between client
+// and server)
+const MAX_CLIENT_GET_URI_LEN: usize = 4000;
+const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len()
 
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 
