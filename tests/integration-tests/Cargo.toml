@@ -101,8 +101,10 @@ hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }
 
 [dev-dependencies]
+bytes.workspace = true
 data-encoding.workspace = true
 futures = { workspace = true, features = ["thread-pool"] }
+futures-io.workspace = true
 pretty_assertions = "1"
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
