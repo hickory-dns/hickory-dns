@@ -161,10 +161,10 @@ where
         // the TTLs are ours to read again once the two closures above are gone
         drop((answers, authorities));
 
-        Ok(ResponseInfo::new(
+        Ok(ResponseInfo {
             header,
-            cache_ttl(&header.metadata, min_answer_ttl, soa_ttl),
-        ))
+            cache_ttl: cache_ttl(&header.metadata, min_answer_ttl, soa_ttl),
+        })
     }
 }
 
@@ -664,7 +664,7 @@ mod tests {
             .encode(Protocol::Tcp)
             .expect("failed to encode");
 
-        info.cache_ttl()
+        info.cache_ttl
     }
 
     /// An answer-section record with the given TTL. The name and address are irrelevant.

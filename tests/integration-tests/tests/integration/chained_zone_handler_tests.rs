@@ -368,5 +368,5 @@ async fn error_test(catalog: &Catalog, query_name: &str, r_code: ResponseCode) {
     let (res, _) = do_query(catalog, query_name).await;
 
     assert_eq!(res.response_code, r_code);
-    assert_eq!(res.counts().answers, 0);
+    assert_eq!(res.header.counts.answers, 0);
 }

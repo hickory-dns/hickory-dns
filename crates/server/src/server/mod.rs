@@ -1029,11 +1029,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
         }
 
         let rflags = response_info.flags();
-        let answer_count = response_info.counts().answers;
-        let authority_count = response_info.counts().authorities;
-        let additional_count = response_info.counts().additionals;
-        let response_code = response_info.response_code;
-
+        let counts = response_info.header.counts;
         info!(
             "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
             id = rid,
@@ -1042,10 +1038,10 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
             port = self.src_addr.port(),
             op = self.request_meta.op_code,
             qflags = self.request_meta.flags(),
-            code = response_code,
-            answers = answer_count,
-            authorities = authority_count,
-            additionals = additional_count,
+            code = response_info.header.response_code,
+            answers = counts.answers,
+            authorities = counts.authorities,
+            additionals = counts.additionals,
             rflags = rflags
         );
 
