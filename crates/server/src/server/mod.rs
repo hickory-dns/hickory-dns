@@ -15,7 +15,8 @@
 ))]
 use std::future::Future;
 use std::{
-    fmt, io,
+    fmt::{self, Debug},
+    io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
     time::Duration,
@@ -112,6 +113,15 @@ impl<T: RequestHandler> Server<T> {
             )),
             join_set: JoinSet::new(),
         }
+    }
+
+    /// Registers a transport on this server.
+    ///
+    /// The transport's constructor initializes its listener and reports initialization errors.
+    /// The transport is logged using its [`Debug`] implementation.
+    pub fn register(&mut self, transport: impl Transport + Debug) {
+        debug!(?transport, "registering transport");
+        self.join_set.spawn(transport.run(self.context.clone()));
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
@@ -488,6 +498,43 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
+/// Common interface for server transports.
+///
+/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
+/// a TCP listener) together with protocol-specific configurations.
+/// Transport implementations are sealed to keep the server's execution interface internal.
+#[expect(private_bounds)]
+pub trait Transport: transport::Transport {}
+impl<T: transport::Transport> Transport for T {}
+
+pub mod transport {
+    //! Transport protocol abstractions and builders for server registration.
+
+    use std::{future::Future, sync::Arc};
+
+    use crate::net::NetError;
+    use crate::server::{ServerContext, request_handler::RequestHandler};
+
+    /// # Task ownership
+    ///
+    /// The returned future owns the listening resource:
+    ///
+    /// * The cancellation signal is obtained from the [`ServerContext`] it is given.
+    /// * Built-in transports own UDP requests or accepted connections in a local
+    ///   `JoinSet`, which cancels those tasks when the returned future is dropped.
+    /// * Protocols may spawn requests independently of the connection task. The transport
+    ///   chooses how to finish accepted work when it stops.
+    /// * The server waits for the registered transport futures. It does not separately
+    ///   wait for child tasks to finish cancellation.
+    pub(super) trait Transport: Send + 'static {
+        /// Runs a transport whose listener was initialized by its constructor.
+        fn run<H: RequestHandler>(
+            self,
+            cx: Arc<ServerContext<H>>,
+        ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
+    }
+}
+
 async fn handle_udp(
     socket: net::UdpSocket,
     receive_buffer_size: u16,
@@ -739,7 +786,8 @@ pub fn default_tls_server_config(
     Ok(config)
 }
 
-struct ServerContext<T> {
+/// Shared request handling and shutdown state for registered transports.
+pub(super) struct ServerContext<T> {
     handler: T,
     nsid: Option<NSIDPayload>,
     /// The server's UDP payload size.
