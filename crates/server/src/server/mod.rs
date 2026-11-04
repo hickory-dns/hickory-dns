@@ -14,12 +14,13 @@
     feature = "__h3"
 ))]
 use std::future::Future;
+#[cfg(feature = "__tls")]
+use std::time::Duration;
 use std::{
     fmt::{self, Debug},
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
-    time::Duration,
 };
 
 use bytes::Bytes;
@@ -32,6 +33,9 @@ use hickory_proto::{
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
+#[cfg(feature = "__tls")]
+use tokio::net;
+use tokio::task::JoinSet;
 #[cfg(any(
     feature = "__tls",
     feature = "__quic",
@@ -39,7 +43,6 @@ use rustls::{ServerConfig, server::ResolvesServerCert};
     feature = "__h3"
 ))]
 use tokio::time::{error::Elapsed, timeout};
-use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
@@ -119,33 +122,6 @@ impl<T: RequestHandler> Server<T> {
     pub fn register(&mut self, transport: impl Transport + Debug) {
         debug!(?transport, "registering transport");
         self.join_set.spawn(transport.run(self.context.clone()));
-    }
-
-    /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
-    ///  IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP socket
-    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
-    ///   send requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    /// * `response_buffer_size` - size of the buffer for outgoing responses per connection
-    pub fn register_listener(
-        &mut self,
-        listener: net::TcpListener,
-        stream_timeout: Option<Duration>,
-        response_buffer_size: usize,
-    ) {
-        self.join_set.spawn(transport::handle_tcp(
-            listener,
-            stream_timeout,
-            response_buffer_size,
-            self.context.clone(),
-        ));
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -501,16 +477,16 @@ pub mod transport {
     use std::{future::Future, sync::Arc, time::Duration};
 
     use futures_util::StreamExt;
-    use tokio::{net, task::JoinSet};
+    use tokio::task::JoinSet;
     use tracing::{debug, warn};
 
     use crate::{
         net::{
             NetError,
-            runtime::{DnsUdpSocket, iocompat::AsyncIoTokioAsStd},
+            runtime::{DnsTcpListener, DnsUdpSocket},
             tcp::TcpStream,
             udp::UdpStream,
-            xfer::Protocol,
+            xfer::{DEFAULT_STREAM_BUFFER_SIZE, Protocol},
         },
         server::{
             ServerContext, TimeoutStream, is_unrecoverable_socket_error, reap_tasks,
@@ -623,21 +599,82 @@ pub mod transport {
         }
     }
 
-    pub(super) async fn handle_tcp(
-        listener: net::TcpListener,
+    /// Builder and transport implementation for TCP.
+    ///
+    /// Wraps an already-bound TCP listener and handles incoming connections.
+    #[derive(Debug)]
+    pub struct Tcp<L: DnsTcpListener> {
+        listener: L,
+        stream_timeout: Option<Duration>,
+        response_buffer_size: usize,
+    }
+
+    impl<L: DnsTcpListener> Tcp<L> {
+        /// Constructs a new TCP transport.
+        ///
+        /// The `listener` must be already bound to the desired local address.
+        /// Default `stream_timeout` is `None` (no timeout).
+        /// The response buffer defaults to [`DEFAULT_STREAM_BUFFER_SIZE`].
+        pub fn new(listener: L) -> Self {
+            Self {
+                listener,
+                stream_timeout: None,
+                response_buffer_size: DEFAULT_STREAM_BUFFER_SIZE,
+            }
+        }
+
+        /// Sets the maximum number of responses that can be queued for sending on a
+        /// single connection.
+        pub fn response_buffer_size(self, response_buffer_size: usize) -> Self {
+            Self {
+                response_buffer_size,
+                ..self
+            }
+        }
+
+        /// Sets the timeout duration for inactive streams.
+        ///
+        /// Use [`Self::maybe_stream_timeout`] to disable the stream timeout.
+        pub fn stream_timeout(self, stream_timeout: Duration) -> Self {
+            self.maybe_stream_timeout(Some(stream_timeout))
+        }
+
+        /// Sets the stream timeout; pass `None` to disable it.
+        pub fn maybe_stream_timeout(self, stream_timeout: Option<Duration>) -> Self {
+            Self {
+                stream_timeout,
+                ..self
+            }
+        }
+    }
+
+    impl<L: DnsTcpListener> Transport for Tcp<L> {
+        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+            handle_tcp(
+                self.listener,
+                self.stream_timeout,
+                self.response_buffer_size,
+                cx,
+            )
+            .await
+        }
+    }
+
+    async fn handle_tcp<L: DnsTcpListener>(
+        mut listener: L,
         stream_timeout: Option<Duration>,
         response_buffer_size: usize,
         cx: Arc<ServerContext<impl RequestHandler>>,
     ) -> Result<(), NetError> {
-        debug!("register tcp: {listener:?}");
         let mut inner_join_set = JoinSet::new();
         loop {
-            let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+            let accept = futures_util::future::poll_fn(|cx| listener.poll_accept(cx));
+            let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
                 // A graceful shutdown was initiated. Break out of the loop.
                 break;
             };
             let (tcp_stream, src_addr) = match result {
-                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+                Ok(accepted) => (accepted.connection, accepted.src_addr),
                 Err(error) => {
                     debug!(%error, "error receiving TCP tcp_stream error");
                     if is_unrecoverable_socket_error(&error) {
@@ -662,7 +699,7 @@ pub mod transport {
                 debug!(%src_addr, "accepted TCP request");
                 // take the created stream...
                 let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                    AsyncIoTokioAsStd(tcp_stream),
+                    tcp_stream,
                     src_addr,
                     response_buffer_size,
                 );
@@ -691,6 +728,32 @@ pub mod transport {
             Ok(())
         } else {
             Err(NetError::from("unexpected close of socket"))
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use tokio::net::TcpListener;
+
+        use super::Tcp;
+        use crate::net::xfer::DEFAULT_STREAM_BUFFER_SIZE;
+
+        #[tokio::test]
+        async fn test_tcp_builder_default_response_buffer_size() {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+
+            let tcp = Tcp::new(listener);
+
+            assert_eq!(tcp.response_buffer_size, DEFAULT_STREAM_BUFFER_SIZE);
+        }
+
+        #[tokio::test]
+        async fn test_tcp_builder_response_buffer_size() {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+
+            let tcp = Tcp::new(listener).response_buffer_size(64);
+
+            assert_eq!(tcp.response_buffer_size, 64);
         }
     }
 }
@@ -1182,12 +1245,14 @@ async fn optional_timeout<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::transport::Udp;
-    use crate::zone_handler::Catalog;
+    use crate::{
+        server::transport::{Tcp, Udp},
+        zone_handler::Catalog,
+    };
     use futures_util::future;
     #[cfg(feature = "__tls")]
     use rustls::sign::SingleCertAndKey;
-    use std::net::SocketAddr;
+    use std::{net::SocketAddr, time::Duration};
     #[cfg(feature = "__tls")]
     use test_support::TestCertificates;
     use test_support::subscribe;
@@ -1295,10 +1360,9 @@ mod tests {
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
             server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
-            server.register_listener(
-                TcpListener::bind(self.tcp_addr).await.unwrap(),
-                Some(Duration::from_secs(1)),
-                32,
+            server.register(
+                Tcp::new(TcpListener::bind(self.tcp_addr).await.unwrap())
+                    .stream_timeout(Duration::from_secs(1)),
             );
 
             #[cfg(feature = "__tls")]
