@@ -194,7 +194,7 @@ pub(crate) async fn h3_handler(
             let body_stream = BodyStream::from(move |cx: &mut Context<'_>| recv.poll_recv_data(cx));
             let request = request.map(|()| body_stream);
             let message_future =
-                http::message_from(Version::Http3, dns_hostname, http_endpoint, request);
+                http::message_from(request, http_endpoint, dns_hostname, Version::Http3);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };

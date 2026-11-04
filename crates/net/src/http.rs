@@ -226,10 +226,10 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
 /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
 ///   perform a conversion to a Message, only collects all the bytes.
 pub async fn message_from<R, E, B>(
-    version: Version,
-    server_name: Option<Arc<str>>,
-    path: Arc<str>,
     request: Request<R>,
+    path: Arc<str>,
+    server_name: Option<Arc<str>>,
+    version: Version,
 ) -> Result<BytesMut, NetError>
 where
     R: Stream<Item = Result<B, E>> + 'static + Send + Unpin,
@@ -237,7 +237,7 @@ where
     B: Buf,
 {
     let server_name = server_name.as_deref();
-    match verify(version, server_name, &path, &request) {
+    match verify(&request, &path, server_name, version) {
         Ok(()) => {
             debug!(
                 agent = request
@@ -297,10 +297,10 @@ where
 
 /// Verifies the request is well-formed for the name-server and supported protocols
 pub fn verify<T>(
-    version: Version,
-    name_server: Option<&str>,
-    query_path: &str,
     request: &Request<T>,
+    query_path: &str,
+    server_name: Option<&str>,
+    version: Version,
 ) -> Result<(), NetError> {
     // Verify all HTTP parameters
     let uri = request.uri();
@@ -316,7 +316,7 @@ pub fn verify<T>(
     }
 
     // the authority must match our nameserver name
-    if let Some(name_server) = name_server {
+    if let Some(name_server) = server_name {
         if let Some(authority) = uri.authority() {
             if authority.host() != name_server {
                 return Err("incorrect authority".into());
@@ -537,10 +537,10 @@ mod tests {
             .expect("error converting to http");
         assert!(
             verify(
-                Version::Http2,
-                Some("ns.example.com"),
+                &request,
                 "/dns-query",
-                &request
+                Some("ns.example.com"),
+                Version::Http2,
             )
             .is_ok()
         );
@@ -564,10 +564,10 @@ mod tests {
             .expect("error converting to http");
         assert!(
             verify(
-                Version::Http2,
-                Some("ns.example.com"),
+                &request,
                 "/dns-query",
-                &request
+                Some("ns.example.com"),
+                Version::Http2,
             )
             .is_ok()
         );
@@ -596,10 +596,10 @@ mod tests {
             .expect("error converting to http");
         assert!(
             verify(
-                Version::Http3,
-                Some("ns.example.com"),
+                &request,
                 "/dns-query",
-                &request
+                Some("ns.example.com"),
+                Version::Http3,
             )
             .is_ok()
         );
@@ -655,10 +655,10 @@ mod tests {
         };
 
         let bytes = message_from(
-            version,
-            Some(Arc::from("ns.example.com")),
-            "/dns-query".into(),
             request,
+            "/dns-query".into(),
+            Some(Arc::from("ns.example.com")),
+            version,
         )
         .await
         .unwrap();
