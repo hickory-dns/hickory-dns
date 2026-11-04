@@ -104,156 +104,6 @@ impl RequestContext {
     }
 }
 
-/// The HTTP half of a DNS-over-HTTP client
-///
-/// A type implementing this trait owns the HTTP version-specific connection to a
-/// DoH server and knows how to send a request and receive a response over it. Everything
-/// above that, such as building the request from the `RequestContext`, and validating
-/// and parsing the response will be implemented in the `http` module.
-pub(crate) trait HttpSender: Clone + Send + 'static {
-    /// Send `message`, and return the response head in `Parts` along with the complete response body
-    ///
-    /// `body` is `None` for GET requests, which carry the message in the URI instead.
-    ///
-    /// Collects the body Bytes rather than handing back a stream. An HTTP/3 connection
-    /// shares the same stream for send and recv, so this avoids having to split it there
-    /// and simplifies the type signature of this method.
-    fn send_http_request(
-        &mut self,
-        request: Request<()>,
-        body: Option<Bytes>,
-    ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
-
-    /// Serialize `request` and send it to the DoH server `sender` is connected to
-    ///
-    /// This is the shared implementation of [`crate::xfer::DnsRequestSender::send_message`] for every
-    /// HTTP client; `is_shutdown` is the caller's own shutdown flag.
-    fn send_request(&self, mut request: DnsRequest) -> DnsResponseStream {
-        // per the RFC, a zero id allows for the HTTP packet to be cached better
-        request.metadata.id = 0;
-        let op_code = request.op_code;
-
-        let bytes = match request.to_vec() {
-            Ok(bytes) => Bytes::from(bytes),
-            Err(err) => return NetError::from(err).into(),
-        };
-
-        let mut method = Method::POST;
-        if op_code == OpCode::Query {
-            let total_len = data_encoding::BASE64URL_NOPAD.encode_len(bytes.len())
-                + self.context().query_path.len()
-                + self.context().server_name.len()
-                + CLIENT_GET_URI_LEN_PADDING;
-            if total_len <= MAX_CLIENT_GET_URI_LEN {
-                method = Method::GET;
-            }
-        };
-
-        let mut sender = self.clone();
-        Box::pin(async move {
-            let mut try_method = method;
-            let (parts, response_bytes) = loop {
-                // build up the http request
-                let (request, body) = sender.context().build(&try_method, &bytes)?;
-
-                debug!(
-                    method = %request.method(),
-                    uri = %request.uri(),
-                    headers = ?request.headers(),
-                    "sending request"
-                );
-
-                let (parts, response_bytes) = sender.send_http_request(request, body).await?;
-
-                debug!(status = %parts.status, headers = ?parts.headers, "got response");
-
-                let next_method = match (&try_method, parts.status) {
-                    (&Method::GET, StatusCode::URI_TOO_LONG) => Method::POST,
-                    _ => break (parts, response_bytes),
-                };
-
-                warn!(
-                    method = %try_method,
-                    status = %parts.status,
-                    retry_method = %next_method,
-                    "rejected"
-                );
-                try_method = next_method;
-            };
-
-            // Was it a successful request?
-            if !parts.status.is_success() {
-                let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-                // TODO: make explicit error type
-                return Err(NetError::from(format!(
-                    "http unsuccessful code: {}, message: {}",
-                    parts.status, error_string
-                )));
-            }
-
-            // in the case that the ContentType is not specified, we assume it's the standard DNS format
-            let content_type = parts
-                .headers
-                .get(CONTENT_TYPE)
-                .map(|h| {
-                    h.to_str().map_err(|err| {
-                        // TODO: make explicit error type
-                        NetError::from(format!("ContentType header not a string: {err}"))
-                    })
-                })
-                .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
-
-            if content_type != MIME_APPLICATION_DNS {
-                return Err(NetError::from(format!(
-                    "ContentType unsupported (must be '{}'): '{}'",
-                    MIME_APPLICATION_DNS, content_type
-                )));
-            }
-
-            // and finally convert the bytes into a DNS message
-            DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
-        })
-        .into()
-    }
-
-    /// The context describing the DoH server this client is connected to
-    fn context(&self) -> &RequestContext;
-}
-
-/// Fetch the body of the request from the stream
-pub async fn fetch_body<E: Into<NetError>>(
-    mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
-    headers: &HeaderMap,
-) -> Result<BytesMut, NetError> {
-    let length = headers
-        .get(CONTENT_LENGTH)
-        .map(|v| v.to_str())
-        .transpose()
-        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
-        .map(usize::from_str)
-        .transpose()
-        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
-
-    let mut bytes = BytesMut::with_capacity(512);
-    loop {
-        match stream.next().await {
-            Some(Ok(frame)) => match bytes.len() + frame.remaining() > MAX_REQUEST_SIZE {
-                true => return Err(NetError::RequestTooLarge),
-                false => bytes.put(frame),
-            },
-            Some(Err(err)) => return Err(err.into()),
-            None => match length {
-                Some(length) if bytes.len() == length => return Ok(bytes),
-                Some(_) => return Err("body size does not match expected content-length".into()),
-                None => return Ok(bytes),
-            },
-        };
-    }
-}
-
-const MAX_REQUEST_SIZE: usize = u16::MAX as usize;
-
 /// Represents a version of the HTTP spec.
 #[derive(Clone, Copy, Debug)]
 pub enum Version {
@@ -450,6 +300,156 @@ impl Version {
         }
     }
 }
+
+/// The HTTP half of a DNS-over-HTTP client
+///
+/// A type implementing this trait owns the HTTP version-specific connection to a
+/// DoH server and knows how to send a request and receive a response over it. Everything
+/// above that, such as building the request from the `RequestContext`, and validating
+/// and parsing the response will be implemented in the `http` module.
+pub(crate) trait HttpSender: Clone + Send + 'static {
+    /// Send `message`, and return the response head in `Parts` along with the complete response body
+    ///
+    /// `body` is `None` for GET requests, which carry the message in the URI instead.
+    ///
+    /// Collects the body Bytes rather than handing back a stream. An HTTP/3 connection
+    /// shares the same stream for send and recv, so this avoids having to split it there
+    /// and simplifies the type signature of this method.
+    fn send_http_request(
+        &mut self,
+        request: Request<()>,
+        body: Option<Bytes>,
+    ) -> impl Future<Output = Result<(Parts, BytesMut), NetError>> + Send;
+
+    /// Serialize `request` and send it to the DoH server `sender` is connected to
+    ///
+    /// This is the shared implementation of [`crate::xfer::DnsRequestSender::send_message`] for every
+    /// HTTP client; `is_shutdown` is the caller's own shutdown flag.
+    fn send_request(&self, mut request: DnsRequest) -> DnsResponseStream {
+        // per the RFC, a zero id allows for the HTTP packet to be cached better
+        request.metadata.id = 0;
+        let op_code = request.op_code;
+
+        let bytes = match request.to_vec() {
+            Ok(bytes) => Bytes::from(bytes),
+            Err(err) => return NetError::from(err).into(),
+        };
+
+        let mut method = Method::POST;
+        if op_code == OpCode::Query {
+            let total_len = data_encoding::BASE64URL_NOPAD.encode_len(bytes.len())
+                + self.context().query_path.len()
+                + self.context().server_name.len()
+                + CLIENT_GET_URI_LEN_PADDING;
+            if total_len <= MAX_CLIENT_GET_URI_LEN {
+                method = Method::GET;
+            }
+        };
+
+        let mut sender = self.clone();
+        Box::pin(async move {
+            let mut try_method = method;
+            let (parts, response_bytes) = loop {
+                // build up the http request
+                let (request, body) = sender.context().build(&try_method, &bytes)?;
+
+                debug!(
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    headers = ?request.headers(),
+                    "sending request"
+                );
+
+                let (parts, response_bytes) = sender.send_http_request(request, body).await?;
+
+                debug!(status = %parts.status, headers = ?parts.headers, "got response");
+
+                let next_method = match (&try_method, parts.status) {
+                    (&Method::GET, StatusCode::URI_TOO_LONG) => Method::POST,
+                    _ => break (parts, response_bytes),
+                };
+
+                warn!(
+                    method = %try_method,
+                    status = %parts.status,
+                    retry_method = %next_method,
+                    "rejected"
+                );
+                try_method = next_method;
+            };
+
+            // Was it a successful request?
+            if !parts.status.is_success() {
+                let error_string = String::from_utf8_lossy(response_bytes.as_ref());
+
+                // TODO: make explicit error type
+                return Err(NetError::from(format!(
+                    "http unsuccessful code: {}, message: {}",
+                    parts.status, error_string
+                )));
+            }
+
+            // in the case that the ContentType is not specified, we assume it's the standard DNS format
+            let content_type = parts
+                .headers
+                .get(CONTENT_TYPE)
+                .map(|h| {
+                    h.to_str().map_err(|err| {
+                        // TODO: make explicit error type
+                        NetError::from(format!("ContentType header not a string: {err}"))
+                    })
+                })
+                .unwrap_or(Ok(MIME_APPLICATION_DNS))?;
+
+            if content_type != MIME_APPLICATION_DNS {
+                return Err(NetError::from(format!(
+                    "ContentType unsupported (must be '{}'): '{}'",
+                    MIME_APPLICATION_DNS, content_type
+                )));
+            }
+
+            // and finally convert the bytes into a DNS message
+            DnsResponse::from_buffer(response_bytes.to_vec()).map_err(NetError::from)
+        })
+        .into()
+    }
+
+    /// The context describing the DoH server this client is connected to
+    fn context(&self) -> &RequestContext;
+}
+
+/// Fetch the body of the request from the stream
+pub async fn fetch_body<E: Into<NetError>>(
+    mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
+    headers: &HeaderMap,
+) -> Result<BytesMut, NetError> {
+    let length = headers
+        .get(CONTENT_LENGTH)
+        .map(|v| v.to_str())
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?
+        .map(usize::from_str)
+        .transpose()
+        .map_err(|e| NetError::from(format!("bad headers received: {e}")))?;
+
+    let mut bytes = BytesMut::with_capacity(512);
+    loop {
+        match stream.next().await {
+            Some(Ok(frame)) => match bytes.len() + frame.remaining() > MAX_REQUEST_SIZE {
+                true => return Err(NetError::RequestTooLarge),
+                false => bytes.put(frame),
+            },
+            Some(Err(err)) => return Err(err.into()),
+            None => match length {
+                Some(length) if bytes.len() == length => return Ok(bytes),
+                Some(_) => return Err("body size does not match expected content-length".into()),
+                None => return Ok(bytes),
+            },
+        };
+    }
+}
+
+const MAX_REQUEST_SIZE: usize = u16::MAX as usize;
 
 /// Helper trait to update HTTP headers on requests
 ///
