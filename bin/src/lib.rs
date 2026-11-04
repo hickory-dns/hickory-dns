@@ -32,7 +32,7 @@ use tracing::{error, info};
 use hickory_server::proto::ProtoError;
 use hickory_server::proto::rr::rdata::opt::NSIDPayload;
 #[cfg(feature = "__tls")]
-use hickory_server::server::default_tls_server_config;
+use hickory_server::server::tls_config;
 use hickory_server::{
     server::{
         Server,
@@ -645,7 +645,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = default_tls_server_config(b"dot", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(b"dot", cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoT SSL_KEYLOG_FILE support enabled");
@@ -688,7 +688,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = default_tls_server_config(b"h2", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(b"h2", cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoH SSL_KEYLOG_FILE support enabled");
@@ -730,7 +730,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = default_tls_server_config(b"doq", cert_resolver.clone())
+            let mut tls_config = tls_config::server_tcp(b"doq", cert_resolver.clone())
                 .map_err(|err| format!("failed to build default TLS config: {err}"))?;
             if self.ssl_keylog_enabled {
                 warn!("DoQ SSL_KEYLOG_FILE support enabled");
