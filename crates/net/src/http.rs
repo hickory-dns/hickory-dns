@@ -221,74 +221,6 @@ pub(crate) trait HttpSender: Clone + Send + 'static {
     fn context(&self) -> &RequestContext;
 }
 
-/// Given an HTTP request, return a future that will result in the next sequence of bytes.
-///
-/// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
-///   perform a conversion to a Message, only collects all the bytes.
-pub async fn message_from<R, E, B>(
-    request: Request<R>,
-    path: Arc<str>,
-    server_name: Option<Arc<str>>,
-    version: Version,
-) -> Result<BytesMut, NetError>
-where
-    R: Stream<Item = Result<B, E>> + 'static + Send + Unpin,
-    E: Into<NetError>,
-    B: Buf,
-{
-    let server_name = server_name.as_deref();
-    match version.verify(&request, &path, server_name) {
-        Ok(()) => {
-            debug!(
-                agent = request
-                    .headers()
-                    .get(header::USER_AGENT)
-                    .map(|h| h.to_str().unwrap_or("bad user agent"))
-                    .unwrap_or("unknown user agent"),
-                "verified request"
-            );
-        }
-        Err(err) => return Err(err),
-    }
-
-    match *request.method() {
-        Method::GET => {
-            // Fetch the dns query from the request Uri
-            let query_str = request
-                .uri()
-                .query()
-                .ok_or_else(|| NetError::from("no query string"))?;
-            let mut query = form_urlencoded::parse(query_str.as_bytes());
-            // find() iterates over items until it finds a "dns" key (if any)
-            // it leaves the iterator positioned after the first occurrence
-            let (_, v) = query
-                .by_ref()
-                .find(|(k, _)| k == "dns")
-                .ok_or_else(|| NetError::from("missing required dns parameter"))?;
-
-            // resume the iterator and test if there is any item with the "dns" key
-            if query.any(|(k, _)| k == "dns") {
-                return Err("only one dns parameter is allowed in the query string".into());
-            }
-
-            match data_encoding::BASE64URL_NOPAD.decode(v.as_bytes()) {
-                Ok(decoded_value) => {
-                    if decoded_value.len() > MAX_REQUEST_SIZE {
-                        return Err(NetError::RequestTooLarge);
-                    }
-                    Ok(BytesMut::from(decoded_value.as_slice()))
-                }
-                Err(e) => Err(format!("Error decoding dns parameter: {}", e).into()),
-            }
-        }
-        Method::POST => {
-            let (parts, body) = request.into_parts();
-            fetch_body(body, &parts.headers).await
-        }
-        _ => Err(format!("bad method: {}", request.method()).into()),
-    }
-}
-
 /// Fetch the body of the request from the stream
 pub async fn fetch_body<E: Into<NetError>>(
     mut stream: impl Stream<Item = Result<impl Buf, E>> + Unpin,
@@ -334,6 +266,74 @@ pub enum Version {
 }
 
 impl Version {
+    /// Given an HTTP request, return a future that will result in the next sequence of bytes.
+    ///
+    /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
+    ///   perform a conversion to a Message, only collects all the bytes.
+    pub async fn message_from<R, E, B>(
+        self,
+        request: Request<R>,
+        path: Arc<str>,
+        server_name: Option<Arc<str>>,
+    ) -> Result<BytesMut, NetError>
+    where
+        R: Stream<Item = Result<B, E>> + 'static + Send + Unpin,
+        E: Into<NetError>,
+        B: Buf,
+    {
+        let server_name = server_name.as_deref();
+        match self.verify(&request, &path, server_name) {
+            Ok(()) => {
+                debug!(
+                    agent = request
+                        .headers()
+                        .get(header::USER_AGENT)
+                        .map(|h| h.to_str().unwrap_or("bad user agent"))
+                        .unwrap_or("unknown user agent"),
+                    "verified request"
+                );
+            }
+            Err(err) => return Err(err),
+        }
+
+        match *request.method() {
+            Method::GET => {
+                // Fetch the dns query from the request Uri
+                let query_str = request
+                    .uri()
+                    .query()
+                    .ok_or_else(|| NetError::from("no query string"))?;
+                let mut query = form_urlencoded::parse(query_str.as_bytes());
+                // find() iterates over items until it finds a "dns" key (if any)
+                // it leaves the iterator positioned after the first occurrence
+                let (_, v) = query
+                    .by_ref()
+                    .find(|(k, _)| k == "dns")
+                    .ok_or_else(|| NetError::from("missing required dns parameter"))?;
+
+                // resume the iterator and test if there is any item with the "dns" key
+                if query.any(|(k, _)| k == "dns") {
+                    return Err("only one dns parameter is allowed in the query string".into());
+                }
+
+                match data_encoding::BASE64URL_NOPAD.decode(v.as_bytes()) {
+                    Ok(decoded_value) => {
+                        if decoded_value.len() > MAX_REQUEST_SIZE {
+                            return Err(NetError::RequestTooLarge);
+                        }
+                        Ok(BytesMut::from(decoded_value.as_slice()))
+                    }
+                    Err(e) => Err(format!("Error decoding dns parameter: {}", e).into()),
+                }
+            }
+            Method::POST => {
+                let (parts, body) = request.into_parts();
+                fetch_body(body, &parts.headers).await
+            }
+            _ => Err(format!("bad method: {}", request.method()).into()),
+        }
+    }
+
     /// Verifies the request is well-formed for the name-server and supported protocols
     fn verify<T>(
         self,
@@ -607,14 +607,14 @@ mod tests {
             _ => panic!("unexpected method"),
         };
 
-        let bytes = message_from(
-            request,
-            "/dns-query".into(),
-            Some(Arc::from("ns.example.com")),
-            version,
-        )
-        .await
-        .unwrap();
+        let bytes = version
+            .message_from(
+                request,
+                "/dns-query".into(),
+                Some(Arc::from("ns.example.com")),
+            )
+            .await
+            .unwrap();
 
         let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
         assert_eq!(message, msg_from_post);
