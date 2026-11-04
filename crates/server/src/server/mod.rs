@@ -1007,16 +1007,16 @@ pub(super) struct ResponseReporter {
 
 impl ResponseReporter {
     /// Logs the response sent for the request, and updates metrics
-    fn report(&self, response_info: &ResponseInfo) {
+    fn report(&self, info: &ResponseInfo) {
         let id = self.request_meta.id;
-        let rid = response_info.id;
+        let rid = info.id;
         if id != rid {
             warn!("request id:{id} does not match response id:{rid}");
             debug_assert_eq!(id, rid, "request id and response id should match");
         }
 
-        let rflags = response_info.flags();
-        let counts = response_info.header.counts;
+        let rflags = info.flags();
+        let counts = info.header.counts;
         info!(
             "request:{id} src:{proto}://{addr}#{port} {op} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
             id = rid,
@@ -1025,7 +1025,7 @@ impl ResponseReporter {
             port = self.src_addr.port(),
             op = self.request_meta.op_code,
             qflags = self.request_meta.flags(),
-            code = response_info.header.response_code,
+            code = info.header.response_code,
             answers = counts.answers,
             authorities = counts.authorities,
             additionals = counts.additionals,
@@ -1042,7 +1042,7 @@ impl ResponseReporter {
         }
 
         #[cfg(feature = "metrics")]
-        self.metrics.update(response_info, self);
+        self.metrics.update(info, self);
     }
 }
 
