@@ -257,14 +257,14 @@ where
             let query_str = request
                 .uri()
                 .query()
-                .ok_or_else(|| -> NetError { "no query string".into() })?;
+                .ok_or_else(|| NetError::from("no query string"))?;
             let mut query = form_urlencoded::parse(query_str.as_bytes());
             // find() iterates over items until it finds a "dns" key (if any)
             // it leaves the iterator positioned after the first occurrence
             let (_, v) = query
                 .by_ref()
                 .find(|(k, _)| k == "dns")
-                .ok_or_else(|| -> NetError { "missing required dns parameter".into() })?;
+                .ok_or_else(|| NetError::from("missing required dns parameter"))?;
 
             // resume the iterator and test if there is any item with the "dns" key
             if query.any(|(k, _)| k == "dns") {
