@@ -278,7 +278,16 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 
                         // will return if the socket will block
                         // the length is 16 bits
-                        let len = u16::to_be_bytes(buffer.len() as u16);
+                        let Ok(len) = u16::try_from(buffer.len()) else {
+                            return Poll::Ready(Some(Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!(
+                                    "message of {} bytes does not fit the 16-bit TCP length prefix",
+                                    buffer.len()
+                                ),
+                            ))));
+                        };
+                        let len = len.to_be_bytes();
 
                         debug!("sending message len: {} to: {}", buffer.len(), dst);
                         *send_state = Some(WriteTcpState::LenBytes {
@@ -397,11 +406,17 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 #[cfg(feature = "tokio")]
 mod tests {
     use core::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use core::time::Duration;
+    use std::io;
 
+    use futures_util::StreamExt;
     use test_support::subscribe;
 
-    use crate::runtime::TokioRuntimeProvider;
+    use super::TcpStream;
+    use crate::proto::op::SerialMessage;
+    use crate::runtime::{RuntimeProvider, TokioRuntimeProvider};
     use crate::tcp::tests::tcp_stream_test;
+    use crate::xfer::dns_handle::DnsStreamHandle;
 
     #[tokio::test]
     async fn test_tcp_stream_ipv4() {
@@ -417,5 +432,33 @@ mod tests {
             TokioRuntimeProvider::new(),
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn test_tcp_stream_rejects_oversized_message() {
+        subscribe();
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let server_addr = listener.local_addr().unwrap();
+
+        let tcp = TokioRuntimeProvider::new()
+            .connect_tcp(server_addr, None, None)
+            .await
+            .unwrap();
+        let (_server, _) = listener.accept().unwrap();
+        let (mut stream, mut sender) = TcpStream::from_stream(tcp, server_addr);
+
+        // 65536 bytes would wrap to a length prefix of 0
+        let oversized = vec![0; usize::from(u16::MAX) + 1];
+        sender
+            .send(SerialMessage::new(oversized, server_addr))
+            .unwrap();
+
+        let result = tokio::time::timeout(Duration::from_secs(5), stream.next())
+            .await
+            .expect("oversized message was written instead of rejected");
+        let Some(Err(error)) = result else {
+            panic!("expected an error for the oversized message");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
     }
 }
