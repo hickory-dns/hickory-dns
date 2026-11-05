@@ -15,11 +15,25 @@ Please read the [Architecture](ARCHITECTURE.md) to understand the general design
 
 Before submitting a PR it would be good to discuss the change in an issue so as to avoid wasted work, also feel free to reach out on the Discord channel listed on the front page of the GitHub project. Please keep PRs focused on one issue at a time. While issues are not required for a PR to be accepted they are encouraged, especially for anything that would change behavior, change an API, or be a medium to large change.
 
-When submitting PRs, please keep refactoring commits separate from functional change commits. Breaking up the PR into multiple commits such that a reviewer can follow the change improves the review experience, and will result in PRs getting merged more quickly.
+When submitting PRs, please keep refactoring commits separate from functional change commits. Breaking up the PR into multiple commits such that a reviewer can follow the change improves the review experience, and will result in PRs getting merged more quickly. The codebase should remain functional at each commit, both to ensure that each commit can be reviewed as a self-contained unit, and to aid in bisecting and debugging in the future. When addressing review comments, please amend the relevant commit instead of adding a subsequent commit. We prefer to keep git history linear, so please rebase your PR branch when needed instead of adding a merge commit.
 
 ### Test policy
 
 All PRs *must* pass all tests. Ideally any PR submitted should have more than 85% code coverage, but this is not mandated.
+
+## Build tools
+
+Hickory DNS uses [just](https://github.com/casey/just) and [cargo-workspaces](https://github.com/pksunkara/cargo-workspaces) to orchestrate checks and tests in CI. We recommend installing these to ease local development. Docker is required for some test suites.
+
+## Code style
+
+We follow rustfmt's formatting rules, and check them in CI. You can check formatting locally with `just fmt`. Try to wrap comments and other long lines at 100 columns where possible.
+
+Item names should generally follow the conventions in the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/naming.html). We make some exceptions for structs and enum variants that are named after DNS mnemonics, using all uppercase characters instead of camel case.
+
+Items in the same module should generally be in topological order, with the main exposed APIs at the top, and leaf functions below all their callers. Constants and unit test modules should be at the bottom of the file.
+
+Import statements inside function bodies are discouraged, as are fully-qualified names. Both should be replaced with import statements at the top of the relevant module.
 
 ## Releases
 
