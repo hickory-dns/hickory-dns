@@ -19,7 +19,7 @@ When submitting PRs please keep refactoring commits separate from functional cha
 
 ### Test policy
 
-All PRs *must* be passing all tests. Ideally any PR submitted should have more than 85% code coverage, but this is not mandated. When tests are failing, especially on previous branches this is often due to checked in testing keys for the DoH and DoT tests. See **Updating Security Related Tests**.
+All PRs *must* be passing all tests. Ideally any PR submitted should have more than 85% code coverage, but this is not mandated.
 
 ## Releases
 
@@ -33,8 +33,6 @@ Hickory DNS tries to follow semver versioning semantics. Major versions will not
 > git branch release/0.19
 > git push --set-upstream origin release/0.19
 ```
-
-Previous release can fail due to time-lapse, please see **Updating Security Related Tests**.
 
 ## Performing a Release, for Maintainers
 
@@ -54,12 +52,6 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 After approximately 45 minutes it should be published. This may fail.
 
 **TBD**: add instructions to skip already published crates
-
-## Updating Security Related Tests
-
-### All TLS tests are failing
-
-TBD: add notes on updating certificates in test directories
 
 ## FAQ
 
