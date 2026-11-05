@@ -687,10 +687,18 @@ mod tests {
         let mut response_metadata = Metadata::response_from_request(&request_metadata);
         response_metadata.response_code = response_code;
 
-        MessageResponseBuilder::from_message_request(&request)
+        // Try encoding the message twice, with the SOA record passed in both the `soa` and
+        // `additionals` iterator arguments.
+        let cache_ttl_1 = MessageResponseBuilder::from_message_request(&request)
             .build(response_metadata, answers, authorities, [], [])
             .encode(Protocol::Tcp)
-            .cache_ttl
+            .cache_ttl;
+        let cache_ttl_2 = MessageResponseBuilder::from_message_request(&request)
+            .build(response_metadata, answers, [], authorities, [])
+            .encode(Protocol::Tcp)
+            .cache_ttl;
+        assert_eq!(cache_ttl_1, cache_ttl_2);
+        cache_ttl_1
     }
 
     /// Constructs an A record with the given TTL.
