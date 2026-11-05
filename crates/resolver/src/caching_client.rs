@@ -333,10 +333,7 @@ where
         let negative_ttl = response.negative_ttl();
         let response_code = response.response_code;
 
-        // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
-        // FIXME: for SRV this evaluation is inadequate. CNAME is a single chain to a single record
-        //   for SRV, there could be many different targets. The search_name needs to be enhanced to
-        //   be a list of names found for SRV records.
+        // seek out CNAMES, this is only performed if the query is not a CNAME or ANY
         let (search_name, was_cname, preserved_records) = {
             // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
             let (search_name, cname_ttl, was_cname) =
@@ -346,30 +343,18 @@ where
                     // Folds any cnames from the answers section, into the final cname in the answers section
                     //   this works by folding the last CNAME found into the final folded result.
                     //   it assumes that the CNAMEs are in chained order in the DnsResponse Message...
-                    // For SRV, the name added for the search becomes the target name.
                     //
                     // TODO: should this include the additionals?
                     response.answers.iter().fold(
                         (Cow::Borrowed(query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
-                            match &r.data {
-                                RData::CNAME(CNAME(cname)) => {
-                                    // take the minimum TTL of the cname_ttl and the next record in the chain
-                                    let ttl = cname_ttl.min(r.ttl);
-                                    debug_assert_eq!(r.record_type(), RecordType::CNAME);
-                                    if search_name.as_ref() == &r.name {
-                                        return (Cow::Owned(cname.clone()), ttl, true);
-                                    }
+                            if let RData::CNAME(CNAME(cname)) = &r.data {
+                                // take the minimum TTL of the cname_ttl and the next record in the chain
+                                let ttl = cname_ttl.min(r.ttl);
+                                debug_assert_eq!(r.record_type(), RecordType::CNAME);
+                                if search_name.as_ref() == &r.name {
+                                    return (Cow::Owned(cname.clone()), ttl, true);
                                 }
-                                RData::SRV(srv) => {
-                                    // take the minimum TTL of the cname_ttl and the next record in the chain
-                                    let ttl = cname_ttl.min(r.ttl);
-                                    debug_assert_eq!(r.record_type(), RecordType::SRV);
-
-                                    // the search name becomes the srv.target
-                                    return (Cow::Owned(srv.target.clone()), ttl, true);
-                                }
-                                _ => (),
                             }
 
                             (search_name, cname_ttl, was_cname)
@@ -895,6 +880,282 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(additionals.contains(&RData::A(A::new(127, 0, 0, 1))));
         assert!(additionals.contains(&RData::AAAA(AAAA::new(0, 0, 0, 0, 0, 0, 0, 1))));
+    }
+
+    #[test]
+    fn test_srv_behind_cname_in_one_response() {
+        subscribe();
+
+        // SRV query for a name that is a CNAME to the owner of the SRV record, as in
+        // `_xmpp-client._tcp.cname.badxmpp.eu.` (see #4139).
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+                3600,
+                RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("c2s.example.com.").unwrap(),
+                3600,
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap(),
+                )),
+            ),
+        ]);
+
+        let lookup = srv_behind_cname_lookup(vec![message], false).expect("lookup failed");
+        let answers = lookup
+            .answers()
+            .iter()
+            .map(|r| r.data.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            answers,
+            vec![RData::SRV(SRV::new(
+                0,
+                0,
+                5222,
+                Name::from_str("example.com.").unwrap()
+            ))]
+        );
+    }
+
+    #[test]
+    fn test_srv_behind_cname_in_one_response_with_preserve_intermediates() {
+        subscribe();
+
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+                3600,
+                RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("c2s.example.com.").unwrap(),
+                3600,
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap(),
+                )),
+            ),
+        ]);
+
+        let lookup = srv_behind_cname_lookup(vec![message], true).expect("lookup failed");
+        let answers = lookup
+            .answers()
+            .iter()
+            .map(|r| r.data.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            answers,
+            vec![
+                RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap()
+                ))
+            ]
+        );
+    }
+
+    #[test]
+    fn test_srv_behind_cname_in_second_hop_with_preserve_intermediates() {
+        subscribe();
+
+        let mut message1 = Message::response(0, OpCode::Query);
+        message1.add_query(Query::query(
+            Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
+        message1.insert_answers(vec![Record::from_rdata(
+            Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+            3600,
+            RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+        )]);
+
+        let mut message2 = Message::response(0, OpCode::Query);
+        message2.add_query(Query::query(
+            Name::from_str("c2s.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
+        message2.insert_answers(vec![Record::from_rdata(
+            Name::from_str("c2s.example.com.").unwrap(),
+            3600,
+            RData::SRV(SRV::new(
+                0,
+                0,
+                5222,
+                Name::from_str("example.com.").unwrap(),
+            )),
+        )]);
+
+        let lookup =
+            srv_behind_cname_lookup(vec![message1, message2], true).expect("lookup failed");
+        let answers = lookup
+            .answers()
+            .iter()
+            .map(|r| r.data.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            answers,
+            vec![
+                RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap()
+                ))
+            ]
+        );
+    }
+
+    #[test]
+    fn test_srv_behind_cname_chain_takes_min_ttl() {
+        subscribe();
+
+        // Two CNAMEs, the first with the lower TTL, then the SRV record.
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+                300,
+                RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("alias.example.com.").unwrap(),
+                600,
+                RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("c2s.example.com.").unwrap(),
+                3600,
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap(),
+                )),
+            ),
+        ]);
+
+        let lookup = srv_behind_cname_lookup(vec![message], false).expect("lookup failed");
+        let answers = lookup
+            .answers()
+            .iter()
+            .map(|r| (r.data.clone(), r.ttl))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            answers,
+            vec![(
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap()
+                )),
+                300
+            )]
+        );
+    }
+
+    #[test]
+    fn test_srv_behind_cname_ignores_unrelated_cname() {
+        subscribe();
+
+        // A CNAME that is not part of the chain must not change the search name.
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::query(
+            Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+                3600,
+                RData::CNAME(CNAME(Name::from_str("c2s.example.com.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("other.example.com.").unwrap(),
+                3600,
+                RData::CNAME(CNAME(Name::from_str("elsewhere.example.net.").unwrap())),
+            ),
+            Record::from_rdata(
+                Name::from_str("c2s.example.com.").unwrap(),
+                3600,
+                RData::SRV(SRV::new(
+                    0,
+                    0,
+                    5222,
+                    Name::from_str("example.com.").unwrap(),
+                )),
+            ),
+        ]);
+
+        let lookup = srv_behind_cname_lookup(vec![message], false).expect("lookup failed");
+        let answers = lookup
+            .answers()
+            .iter()
+            .map(|r| r.data.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            answers,
+            vec![RData::SRV(SRV::new(
+                0,
+                0,
+                5222,
+                Name::from_str("example.com.").unwrap()
+            ))]
+        );
+    }
+
+    fn srv_behind_cname_lookup(
+        responses: Vec<Message>,
+        preserve_intermediates: bool,
+    ) -> Result<Lookup, NetError> {
+        let cache = ResponseCache::new(1, TtlConfig::default());
+
+        // Any further query, e.g. for SRV at the SRV target, gets an error.
+        let mut messages = vec![error()];
+        messages.extend(
+            responses
+                .into_iter()
+                .rev()
+                .map(|message| Ok(DnsResponse::from_message(message).unwrap())),
+        );
+        let client = CachingClient::with_cache(cache, mock(messages), preserve_intermediates);
+
+        block_on(CachingClient::inner_lookup(
+            Query::query(
+                Name::from_str("_xmpp-client._tcp.example.com.").unwrap(),
+                RecordType::SRV,
+            ),
+            DnsRequestOptions::default(),
+            client,
+            vec![],
+            DepthTracker::default(),
+        ))
     }
 
     // TODO: if we ever enable recursive lookups for SRV, here are the tests...
