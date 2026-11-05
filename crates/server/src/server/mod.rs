@@ -451,10 +451,13 @@ impl<T: RequestHandler> Server<T> {
         Ok(())
     }
 
-    /// Triggers a graceful shutdown the server. All background tasks will stop accepting
-    /// new connections and the returned future will complete once all tasks have terminated.
+    /// Triggers a shutdown and waits for the registered transport tasks to finish.
+    ///
+    /// Transports stop accepting new work. Their local task sets are dropped,
+    /// cancelling the owned tasks without waiting for cancellation to complete.
+    /// Independently spawned request tasks may continue running.
     pub async fn shutdown_gracefully(&mut self) -> Result<(), NetError> {
-        self.context.shutdown.cancel();
+        self.shutdown_token().cancel();
 
         // Wait for the server to complete.
         self.block_until_done().await
@@ -462,8 +465,8 @@ impl<T: RequestHandler> Server<T> {
 
     /// Returns a reference to the [`CancellationToken`] used to gracefully shut down the server.
     ///
-    /// Once cancellation is requested, all background tasks will stop accepting new connections,
-    /// and `block_until_done()` will complete once all tasks have terminated.
+    /// Once cancellation is requested, transports stop accepting new work.
+    /// `block_until_done()` waits for the registered transport tasks to finish.
     pub fn shutdown_token(&self) -> &CancellationToken {
         &self.context.shutdown
     }
