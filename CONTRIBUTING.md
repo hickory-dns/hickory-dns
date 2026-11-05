@@ -72,8 +72,7 @@ This repository contains multiple workspaces, so rust-analyzer will require addi
     "rust-analyzer.linkedProjects": [
         "/path/to/hickory-dns/Cargo.toml",
         "/path/to/hickory-dns/conformance/Cargo.toml",
-        "/path/to/hickory-dns/fuzz/Cargo.toml",
-        "/path/to/hickory-dns/tests/e2e-tests/Cargo.toml"
+        "/path/to/hickory-dns/fuzz/Cargo.toml"
     ],
     "rust-analyzer.cargo.features": "all"
     // etc.
