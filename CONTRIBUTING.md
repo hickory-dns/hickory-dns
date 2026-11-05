@@ -15,7 +15,7 @@ Please read the [Architecture](ARCHITECTURE.md) to understand the general design
 
 Before submitting a PR it would be good to discuss the change in an issue so as to avoid wasted work, also feel free to reach out on the Discord channel listed on the front page of the GitHub project. Please keep PRs focused on one issue at a time. While issues are not required for a PR to be accepted they are encouraged, especially for anything that would change behavior, change an API, or be a medium to large change.
 
-When submitting PRs, please keep refactoring commits separate from functional change commits. Breaking up the PR into multiple commits such that a reviewer can follow the change improves the review experience, and will result in PRs getting merged more quickly.
+When submitting PRs, please keep refactoring commits separate from functional change commits. Breaking up the PR into multiple commits such that a reviewer can follow the change improves the review experience, and will result in PRs getting merged more quickly. The codebase should remain functional at each commit, both to ensure that each commit can be reviewed as a self-contained unit, and to aid in bisecting and debugging in the future. When addressing review comments, please amend the relevant commit instead of adding a subsequent commit. We prefer to keep git history linear, so please rebase your PR branch when needed instead of adding a merge commit.
 
 ### Test policy
 
