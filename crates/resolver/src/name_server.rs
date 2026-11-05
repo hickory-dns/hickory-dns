@@ -290,33 +290,11 @@ impl<P: ConnectionProvider> NameServer<P> {
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<ConnectedClient<P>, (NetError, Option<Protocol>)> {
-        // Check for an existing usable connection (short lock)
-        {
-            let mut connections = self.connections.lock().await;
-            connections.retain(|conn| {
-                matches!(
-                    self.meta(conn.protocol).status(),
-                    Status::Init | Status::Established
-                )
-            });
-
-            if let Some(conn) = policy.select_connection(
-                self.config.ip,
-                &*cx.transport_state().await,
-                &cx.opportunistic_encryption,
-                &connections,
-            ) {
-                return Ok(ConnectedClient {
-                    handle: conn.handle.clone(),
-                    meta: self.meta(conn.protocol).clone(),
-                    protocol: conn.protocol,
-                    reuse: ConnectionReuse::Reused,
-                });
-            }
+        if let Some(client) = self.pooled_client(policy, cx).await {
+            return Ok(client);
         }
 
         // Select connection config and update transport state (no lock)
-        debug!(config = ?self.config, "connecting");
         let config = policy
             .select_connection_config(
                 self.config.ip,
@@ -325,6 +303,45 @@ impl<P: ConnectionProvider> NameServer<P> {
                 &self.config.connections,
             )
             .ok_or((NetError::NoConnections, None))?;
+        self.establish(config, policy, cx).await
+    }
+
+    /// Returns an existing usable connection, if any.
+    async fn pooled_client(
+        &self,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> Option<ConnectedClient<P>> {
+        let mut connections = self.connections.lock().await;
+        connections.retain(|conn| {
+            matches!(
+                self.meta(conn.protocol).status(),
+                Status::Init | Status::Established
+            )
+        });
+
+        let conn = policy.select_connection(
+            self.config.ip,
+            &*cx.transport_state().await,
+            &cx.opportunistic_encryption,
+            &connections,
+        )?;
+        Some(ConnectedClient {
+            handle: conn.handle.clone(),
+            meta: self.meta(conn.protocol).clone(),
+            protocol: conn.protocol,
+            reuse: ConnectionReuse::Reused,
+        })
+    }
+
+    /// Open a new connection to this server and add it to the pool.
+    async fn establish(
+        &self,
+        config: &ConnectionConfig,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> Result<ConnectedClient<P>, (NetError, Option<Protocol>)> {
+        debug!(config = ?self.config, "connecting");
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
