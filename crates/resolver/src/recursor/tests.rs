@@ -462,20 +462,12 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
             .ns_referral(&leaf_zone, &leaf_ns)
             .a_glue(&leaf_ns, LEAF_IP),
         MockResponse::new(LEAF_IP, &ent_name, RecordType::NS)
-            .soa_authority(&leaf_zone, &leaf_ns, &leaf_ns),
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_ns)
+            .with_response_code(ResponseCode::NXDomain),
         MockResponse::new(LEAF_IP, &query_name, RecordType::NS)
             .soa_authority(&leaf_zone, &leaf_ns, &leaf_ns),
         MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
     ];
-
-    let nxdomain_at_ent = Box::new(move |_, _, message: &mut Message| {
-        if let Some(query) = message.queries.first() {
-            if query.name == ent_name && query.query_type == RecordType::NS {
-                message.metadata.response_code = ResponseCode::NXDomain;
-                message.answers.clear();
-            }
-        }
-    });
 
     let recursor_no_cache = Recursor::with_options(
         &[ROOT_IP.into()],
@@ -485,9 +477,7 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
             qname_minimization: QNameMinimization::Relaxed,
             ..RecursorOptions::default()
         },
-        MockProvider::new(
-            MockNetworkHandler::new(responses.clone()).with_mutation(nxdomain_at_ent.clone()),
-        ),
+        MockProvider::new(MockNetworkHandler::new(responses.clone())),
     )?;
 
     let recursor_cache = Recursor::with_options(
@@ -498,9 +488,7 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
             qname_minimization: QNameMinimization::Relaxed,
             ..RecursorOptions::default()
         },
-        MockProvider::new(
-            MockNetworkHandler::new(responses.clone()).with_mutation(nxdomain_at_ent),
-        ),
+        MockProvider::new(MockNetworkHandler::new(responses.clone())),
     )?;
 
     for recursor in [recursor_no_cache, recursor_cache] {
@@ -627,17 +615,11 @@ async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
         MockResponse::new(LEAF_IP, &no_exist_cut, RecordType::NS)
             .with_ttl(3600)
             .soa_authority(&leaf_ns, &leaf_zone, &leaf_ns)
-            .ns_referral(&leaf_zone, &bogus_ns),
+            .ns_referral(&leaf_zone, &bogus_ns)
+            .with_response_code(ResponseCode::NXDomain),
     ];
 
-    let cut = no_exist_cut.clone();
-    let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-        move |_destination: IpAddr, _protocol: Protocol, message: &mut Message| {
-            if message.queries[0].name == cut {
-                message.metadata.response_code = ResponseCode::NXDomain;
-            }
-        },
-    ));
+    let handler = MockNetworkHandler::new(responses);
 
     let provider = MockProvider::new(handler);
     let recursor = Recursor::with_options(

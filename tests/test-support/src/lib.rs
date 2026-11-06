@@ -107,6 +107,12 @@ impl MockResponse {
         Self { ttl, ..self }
     }
 
+    /// Set the response code.
+    pub fn with_response_code(mut self, response_code: ResponseCode) -> Self {
+        self.message.metadata.response_code = response_code;
+        self
+    }
+
     /// Set the truncation flag.
     pub fn with_tc(mut self, truncation: bool) -> Self {
         self.message.metadata.truncation = truncation;
