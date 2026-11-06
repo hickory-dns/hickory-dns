@@ -87,11 +87,13 @@ fn make_recursor() -> (Recursor<MockProvider>, Name) {
         // Referral from root zone to TLD
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         // Referral from TLD to leaf zone
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a(&leaf_ns, LEAF_IP),
+            .a(&leaf_ns, LEAF_IP)
+            .with_aa(false),
         // Answer from leaf zone
         MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
     ]));
