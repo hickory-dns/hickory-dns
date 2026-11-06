@@ -107,6 +107,12 @@ impl MockResponse {
         Self { ttl, ..self }
     }
 
+    /// Set the truncation flag.
+    pub fn with_tc(mut self, truncation: bool) -> Self {
+        self.message.metadata.truncation = truncation;
+        self
+    }
+
     /// Add an A record to the answer section.
     pub fn a(self, name: &Name, ip_address: Ipv4Addr) -> Self {
         self.add_answer(name, RData::A(A(ip_address)))
