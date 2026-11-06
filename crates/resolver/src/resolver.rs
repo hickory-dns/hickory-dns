@@ -1574,9 +1574,8 @@ mod tests {
                 .soa_authority(&zone_name, &mname, &rname),
             // Return NS RRset when checking for zone cut.
             MockResponse::new(resolver_ip, &zone_name, RecordType::NS)
-                .ns_referral(&zone_name, &mname),
-            MockResponse::new(resolver_ip, &tld_name, RecordType::NS)
-                .ns_referral(&tld_name, &mname),
+                .ns_answer(&zone_name, &mname),
+            MockResponse::new(resolver_ip, &tld_name, RecordType::NS).ns_answer(&tld_name, &mname),
             // Negative response when querying any DS RRset. This should cause DNSSEC validation to
             // fail. (Plus, synthesizing records would be hard without moving tests to the
             // hickory-integration crate.)
