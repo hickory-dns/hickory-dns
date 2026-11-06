@@ -309,7 +309,7 @@ impl<S: DnsClientStream> Stream for DnsMultiplexer<S> {
         for i in 0..QOS_MAX_RECEIVE_MSGS {
             match self.stream.poll_next_unpin(cx) {
                 Poll::Ready(Some(Ok(buffer))) => {
-                    messages_received = i;
+                    messages_received = i + 1;
 
                     //   deserialize or log decode_error
                     match DnsResponse::from_buffer(buffer.into_parts().0) {
@@ -380,6 +380,10 @@ const QUERY_RESPONSE_BUFFER_SIZE: usize = 8;
 #[cfg(test)]
 mod test {
     use core::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    use core::task::Waker;
+    use std::sync::Arc;
+    use std::task::Wake;
 
     use futures_util::{
         future::{self, BoxFuture},
@@ -577,6 +581,42 @@ mod test {
             DnsRequest::new(query, DnsRequestOptions::default()),
             vec![msg1, msg2],
         )
+    }
+
+    /// How many times one poll of a multiplexer with `ready` messages waiting asks to be woken.
+    async fn wakes_after_one_poll(ready: usize) -> usize {
+        struct Count(AtomicUsize);
+        impl Wake for Count {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        let (query, answer) = a_query_answer();
+        let answers = answer.into_iter().cycle().take(ready).collect();
+        let mut multiplexer = get_mocked_multiplexer(answers).await;
+        let _response = multiplexer.send_message(query);
+
+        let count = Arc::new(Count(AtomicUsize::new(0)));
+        let waker = Waker::from(count.clone());
+        let mut cx = Context::from_waker(&waker);
+        assert!(multiplexer.poll_next_unpin(&mut cx).is_pending());
+        count.0.load(Ordering::Relaxed)
+    }
+
+    /// Messages left past the per-poll limit are still ready on the socket, so nothing else would
+    /// wake the task for them.
+    #[tokio::test]
+    async fn test_multiplexer_wakes_itself_past_the_qos_limit() {
+        subscribe();
+        assert_eq!(wakes_after_one_poll(QOS_MAX_RECEIVE_MSGS + 1).await, 1);
+    }
+
+    /// With the stream drained, the stream's own waker is enough: waking here would spin.
+    #[tokio::test]
+    async fn test_multiplexer_does_not_wake_itself_below_the_qos_limit() {
+        subscribe();
+        assert_eq!(wakes_after_one_poll(QOS_MAX_RECEIVE_MSGS - 1).await, 0);
     }
 
     #[tokio::test]
