@@ -747,15 +747,23 @@ fn ns_cache_test_fixture(
             .ns_referral(&tld_zone, &tld_ns)
             .a_glue(&tld_ns, TLD_IP)
             .with_aa(false),
+        MockResponse::new(LEAF_IP, &query_1_name, RecordType::NS)
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_zone),
         MockResponse::new(LEAF_IP, &query_1_name, RecordType::A)
             .with_ttl(0)
             .a(&query_1_name, target_1_ip_1),
+        MockResponse::new(leaf_2_ip, &query_1_name, RecordType::NS)
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_zone),
         MockResponse::new(leaf_2_ip, &query_1_name, RecordType::A)
             .with_ttl(0)
             .a(&query_1_name, target_1_ip_2),
+        MockResponse::new(LEAF_IP, &query_2_name, RecordType::NS)
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_zone),
         MockResponse::new(LEAF_IP, &query_2_name, RecordType::A)
             .with_ttl(0)
             .a(&query_2_name, target_2_ip_1),
+        MockResponse::new(leaf_2_ip, &query_2_name, RecordType::NS)
+            .soa_authority(&leaf_zone, &leaf_ns, &leaf_zone),
         MockResponse::new(leaf_2_ip, &query_2_name, RecordType::A)
             .with_ttl(0)
             .a(&query_2_name, target_2_ip_2),
@@ -784,6 +792,11 @@ fn ns_cache_test_fixture(
             MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::A)
                 .with_ttl(ns_ttl)
                 .a(&off_domain_ns, LEAF_IP),
+            MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::AAAA).soa_authority(
+                &off_domain_ns,
+                &off_domain_zone,
+                &off_domain_ns,
+            ),
         ]);
     } else {
         responses.push(
