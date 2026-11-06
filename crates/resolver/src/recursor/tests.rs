@@ -832,7 +832,11 @@ fn ns_cache_test_fixture(
                 let count = counter.fetch_add(1, Ordering::Relaxed);
                 if count > 0 {
                     msg.answers.clear();
-                    msg.add_answer(Record::from_rdata(leaf_ns, zone_ttl, leaf_2_ip.into()));
+                    msg.add_answer(Record::from_rdata(
+                        off_domain_ns.clone(),
+                        zone_ttl,
+                        leaf_2_ip.into(),
+                    ));
                 }
             }
         },
