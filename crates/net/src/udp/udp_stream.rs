@@ -68,7 +68,7 @@ impl<S: DnsUdpSocket> UdpStream<S> {
     ///   allow a Hickory-specified port to be used, and setting this option
     ///   will prevent those prompts from being displayed. If os_port_selection
     ///   is true, avoid_local_udp_ports will be ignored.
-    /// * `receive_buffer_size` - size of the receive buffer in bytes
+    /// * `max_payload_size` - the largest datagram this stream accepts, in bytes
     /// * `provider` - async runtime provider, for I/O and timers
     ///
     /// # Return
@@ -80,7 +80,7 @@ impl<S: DnsUdpSocket> UdpStream<S> {
         bind_addr: Option<SocketAddr>,
         avoid_local_ports: Option<Arc<HashSet<u16>>>,
         os_port_selection: bool,
-        receive_buffer_size: u16,
+        max_payload_size: u16,
         provider: impl RuntimeProvider<Udp = S>,
     ) -> (
         BoxFuture<'static, Result<Self, NetError>>,
@@ -103,7 +103,7 @@ impl<S: DnsUdpSocket> UdpStream<S> {
             Ok(Self {
                 socket: next_socket.await?,
                 outbound_messages,
-                receive_buffer: vec![0; usize::from(receive_buffer_size)],
+                receive_buffer: vec![0; usize::from(max_payload_size)],
             })
         });
 
@@ -121,7 +121,7 @@ impl<S: DnsUdpSocket> UdpStream<S> {
     ///
     /// * `socket` - an already bound UDP socket
     /// * `remote_addr` - remote side of this connection
-    /// * `receive_buffer_size` - size of the receive buffer in bytes
+    /// * `max_payload_size` - the largest datagram this stream accepts, in bytes
     ///
     /// # Return
     ///
@@ -130,13 +130,13 @@ impl<S: DnsUdpSocket> UdpStream<S> {
     pub fn with_bound(
         socket: S,
         remote_addr: SocketAddr,
-        receive_buffer_size: u16,
+        max_payload_size: u16,
     ) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
         let stream = Self {
             socket,
             outbound_messages,
-            receive_buffer: vec![0; usize::from(receive_buffer_size)],
+            receive_buffer: vec![0; usize::from(max_payload_size)],
         };
 
         (stream, message_sender)
@@ -146,12 +146,12 @@ impl<S: DnsUdpSocket> UdpStream<S> {
     pub(crate) fn from_parts(
         socket: S,
         outbound_messages: StreamReceiver,
-        receive_buffer_size: u16,
+        max_payload_size: u16,
     ) -> Self {
         Self {
             socket,
             outbound_messages,
-            receive_buffer: vec![0; usize::from(receive_buffer_size)],
+            receive_buffer: vec![0; usize::from(max_payload_size)],
         }
     }
 }

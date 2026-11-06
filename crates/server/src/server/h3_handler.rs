@@ -8,8 +8,7 @@
 use std::{net::SocketAddr, sync::Arc, task::Context, time::Duration};
 
 use bytes::{Buf, Bytes};
-use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
+use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::{
@@ -25,30 +24,6 @@ use crate::net::{
     http::{self, Version},
     xfer::Protocol,
 };
-
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h3(
-    socket: net::UdpSocket,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    dns_hostname: Option<String>,
-    http_endpoint: String,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!("registered h3: {:?}", socket);
-    handle_h3_with_server(
-        H3Server::with_socket(socket, server_cert_resolver)?,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        dns_hostname,
-        http_endpoint,
-        cx,
-    )
-    .await
-}
 
 pub(super) async fn handle_h3_with_server(
     mut server: H3Server,
@@ -141,7 +116,7 @@ pub(super) async fn handle_h3_with_server(
     Ok(())
 }
 
-pub(crate) async fn h3_handler(
+async fn h3_handler(
     mut connection: H3Connection,
     src_addr: SocketAddr,
     idle_timeout: Option<Duration>,
