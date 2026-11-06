@@ -2633,8 +2633,7 @@ mod mock_provider {
     use crate::net::runtime::TokioTime;
     use crate::net::runtime::iocompat::AsyncIoTokioAsStd;
     use crate::proto::op::Message;
-    use crate::proto::rr::rdata::NULL;
-    use crate::proto::rr::{RData, Record};
+    use crate::proto::rr::{RData, Record, rdata::A};
 
     /// `MockProvider` is a `ConnectionProvider` that uses a synchronous runtime provider.
     ///
@@ -2724,7 +2723,7 @@ mod mock_provider {
                 response.add_answer(Record::from_rdata(
                     query.name.clone(),
                     0,
-                    RData::NULL(NULL::with(vec![0])),
+                    RData::A(A::new(10, 0, 0, 1)),
                 ));
             }
             future::ready(Ok(DnsResponse::from_message(response).unwrap()))
