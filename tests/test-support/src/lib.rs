@@ -589,16 +589,18 @@ pub fn assert_histogram_sample_count_eq(
     expected_sample_count: u64,
     expected_unit: Unit,
 ) {
+    let key = CompositeKey::new(MetricKind::Histogram, Key::from_parts(name, labels));
     let (unit_opt, desc, value) = map
-        .get(&CompositeKey::new(
-            MetricKind::Histogram,
-            Key::from_parts(name, labels),
-        ))
-        .unwrap();
-    assert_eq!(unit_opt, &Some(expected_unit));
-    assert!(desc.is_some());
+        .get(&key)
+        .unwrap_or_else(|| panic!("no observations for metric: {key:?}"));
+    assert_eq!(unit_opt, &Some(expected_unit), "metric: {key:?}");
+    assert!(desc.is_some(), "missing description for metric: {key:?}");
     if let DebugValue::Histogram(samples) = value {
-        assert_eq!(samples.len(), expected_sample_count as usize);
+        assert_eq!(
+            samples.len(),
+            expected_sample_count as usize,
+            "metric: {key:?}"
+        );
     } else {
         panic!("expected histogram value, got {value:?}");
     }
@@ -610,15 +612,13 @@ pub fn assert_counter_eq(
     labels: impl IntoLabels,
     expected: u64,
 ) {
+    let key = CompositeKey::new(MetricKind::Counter, Key::from_parts(name, labels));
     let (unit_opt, desc, value) = map
-        .get(&CompositeKey::new(
-            MetricKind::Counter,
-            Key::from_parts(name, labels),
-        ))
-        .unwrap();
-    assert_eq!(unit_opt, &Some(Unit::Count));
-    assert!(desc.is_some());
-    assert_eq!(value, &DebugValue::Counter(expected));
+        .get(&key)
+        .unwrap_or_else(|| panic!("no observations for metric: {key:?}"));
+    assert_eq!(unit_opt, &Some(Unit::Count), "metric: {key:?}");
+    assert!(desc.is_some(), "missing description for metric: {key:?}");
+    assert_eq!(value, &DebugValue::Counter(expected), "metric: {key:?}");
 }
 
 pub fn assert_gauge_eq(
@@ -627,16 +627,14 @@ pub fn assert_gauge_eq(
     labels: impl IntoLabels,
     expected: u8,
 ) {
+    let key = CompositeKey::new(MetricKind::Gauge, Key::from_parts(name, labels));
     let (unit_opt, desc, value) = map
-        .get(&CompositeKey::new(
-            MetricKind::Gauge,
-            Key::from_parts(name, labels),
-        ))
-        .unwrap();
-    assert_eq!(unit_opt, &Some(Unit::Count));
-    assert!(desc.is_some());
+        .get(&key)
+        .unwrap_or_else(|| panic!("no observations for metric: {key:?}"));
+    assert_eq!(unit_opt, &Some(Unit::Count), "metric: {key:?}");
+    assert!(desc.is_some(), "missing description for metric: {key:?}");
     if let DebugValue::Gauge(gauge_val) = value {
-        assert_eq!(gauge_val.into_inner(), expected as f64);
+        assert_eq!(gauge_val.into_inner(), expected as f64, "metric: {key:?}");
     } else {
         panic!("expected gauge value {expected}, got {value:?}")
     }
