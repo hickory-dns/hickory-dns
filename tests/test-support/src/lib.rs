@@ -119,6 +119,12 @@ impl MockResponse {
         self
     }
 
+    /// Set the authoritative answer flag.
+    pub fn with_aa(mut self, authoritative_answer: bool) -> Self {
+        self.message.metadata.authoritative = authoritative_answer;
+        self
+    }
+
     /// Add an A record to the answer section.
     pub fn a(self, name: &Name, ip_address: Ipv4Addr) -> Self {
         self.add_answer(name, RData::A(A(ip_address)))

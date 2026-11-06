@@ -353,16 +353,20 @@ async fn ns_pool_zone_name_test() -> Result<(), NetError> {
     let responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a_glue(&leaf_ns, LEAF_IP),
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &delegated_leaf_zone, RecordType::NS)
             .ns_referral(&delegated_leaf_zone, &delegated_leaf_ns)
-            .a_glue(&delegated_leaf_ns, DELEGATED_LEAF_IP),
+            .a_glue(&delegated_leaf_ns, DELEGATED_LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &ent_delegated_leaf_zone, RecordType::NS)
             .ns_referral(&ent_delegated_leaf_zone, &ent_delegated_leaf_ns)
-            .a_glue(&ent_delegated_leaf_ns, ENT_DELEGATED_LEAF_IP),
+            .a_glue(&ent_delegated_leaf_ns, ENT_DELEGATED_LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
         MockResponse::new(LEAF_IP, &ent_query_name, RecordType::A).a(&ent_query_name, LEAF_IP),
         MockResponse::new(DELEGATED_LEAF_IP, &delegated_query_name, RecordType::A)
@@ -457,10 +461,12 @@ async fn ns_pool_zone_name_nxdomain_at_ent() -> Result<(), NetError> {
     let responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a_glue(&leaf_ns, LEAF_IP),
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &ent_name, RecordType::NS)
             .soa_authority(&leaf_zone, &leaf_ns, &leaf_ns)
             .with_response_code(ResponseCode::NXDomain),
@@ -546,10 +552,12 @@ async fn cache_negative_responses() -> Result<(), NetError> {
     let responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a_glue(&leaf_ns, LEAF_IP),
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &exists_name, RecordType::A).a(&exists_name, LEAF_IP),
         MockResponse::new(LEAF_IP, &no_exist_name, RecordType::A)
             .soa_authority(&leaf_ns, &leaf_zone, &leaf_ns),
@@ -606,10 +614,12 @@ async fn nxdomain_with_ns_records_short_circuits() -> Result<(), NetError> {
     let responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a_glue(&leaf_ns, LEAF_IP),
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
         // The zone cut probe gets an NXDOMAIN whose authority section carries NS records
         // alongside the SOA.
         MockResponse::new(LEAF_IP, &no_exist_cut, RecordType::NS)
@@ -735,7 +745,8 @@ fn ns_cache_test_fixture(
     let mut responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &query_1_name, RecordType::A)
             .with_ttl(0)
             .a(&query_1_name, target_1_ip_1),
@@ -758,11 +769,13 @@ fn ns_cache_test_fixture(
         responses.extend_from_slice(&[
             MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
                 .with_ttl(zone_ttl)
-                .ns_referral(&leaf_zone, &off_domain_ns),
+                .ns_referral(&leaf_zone, &off_domain_ns)
+                .with_aa(false),
             MockResponse::new(TLD_IP, &off_domain_zone, RecordType::NS)
                 .with_ttl(zone_ttl)
                 .ns_referral(&off_domain_zone, &off_domain_ns)
-                .a_glue(&off_domain_ns, off_domain_ip),
+                .a_glue(&off_domain_ns, off_domain_ip)
+                .with_aa(false),
             MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::NS).soa_authority(
                 &off_domain_ns,
                 &off_domain_zone,
@@ -777,7 +790,8 @@ fn ns_cache_test_fixture(
             MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
                 .with_ttl(zone_ttl)
                 .ns_referral(&leaf_zone, &leaf_ns)
-                .a_glue(&leaf_ns, LEAF_IP),
+                .a_glue(&leaf_ns, LEAF_IP)
+                .with_aa(false),
         );
     }
 
@@ -856,7 +870,8 @@ async fn self_referential_cname_returns_servfail() -> Result<(), NetError> {
     let mut responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &direct, RecordType::A).cname(&direct, &direct),
         MockResponse::new(TLD_IP, &alias, RecordType::A).cname(&alias, &target),
         MockResponse::new(TLD_IP, &target, RecordType::A).cname(&target, &target),
@@ -933,13 +948,16 @@ async fn cross_zone_cname_loop_returns_servfail() -> Result<(), NetError> {
     let responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &zone1, RecordType::NS)
             .ns_referral(&zone1, &zone1_ns)
-            .a_glue(&zone1_ns, LEAF_IP),
+            .a_glue(&zone1_ns, LEAF_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &zone2, RecordType::NS)
             .ns_referral(&zone2, &zone2_ns)
-            .a_glue(&zone2_ns, DELEGATED_LEAF_IP),
+            .a_glue(&zone2_ns, DELEGATED_LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &a, RecordType::A).cname(&a, &b),
         MockResponse::new(LEAF_IP, &a, RecordType::NS)
             .with_ttl(3600)
@@ -1014,13 +1032,16 @@ fn test_fixture() -> Result<(MockProvider, RecursorOptions), NetError> {
     let responses = vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a_glue(&leaf_ns, LEAF_IP),
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &dup_leaf_zone, RecordType::NS)
             .ns_referral(&dup_leaf_zone, &dup_leaf_ns)
-            .a_glue(&dup_leaf_ns, LEAF_IP),
+            .a_glue(&dup_leaf_ns, LEAF_IP)
+            .with_aa(false),
         MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
         MockResponse::new(LEAF_IP, &dup_query_name, RecordType::A).a(&dup_query_name, LEAF_IP),
     ];
@@ -1083,10 +1104,12 @@ mod metrics {
             let handler = MockNetworkHandler::new(vec![
                 MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
                     .ns_referral(&tld_zone, &tld_ns)
-                    .a_glue(&tld_ns, TLD_IP),
+                    .a_glue(&tld_ns, TLD_IP)
+                    .with_aa(false),
                 MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
                     .ns_referral(&leaf_zone, &leaf_ns)
-                    .a_glue(&leaf_ns, LEAF_IP),
+                    .a_glue(&leaf_ns, LEAF_IP)
+                    .with_aa(false),
                 MockResponse::new(LEAF_IP, &leaf_zone, RecordType::A).a(&leaf_zone, A_RR_IP),
             ]);
 
@@ -1149,9 +1172,9 @@ mod metrics {
         #[cfg(feature = "__dnssec")]
         {
             assert_counter_eq(&map, OUTGOING_QUERIES_TOTAL, vec![], 6);
-            assert_counter_eq(&map, CACHE_HIT_TOTAL, vec![], 7);
+            assert_counter_eq(&map, CACHE_HIT_TOTAL, vec![], 4);
             assert_counter_eq(&map, CACHE_MISS_TOTAL, vec![], 4);
-            assert_histogram_sample_count_eq(&map, CACHE_HIT_DURATION, vec![], 5, Unit::Seconds);
+            assert_histogram_sample_count_eq(&map, CACHE_HIT_DURATION, vec![], 2, Unit::Seconds);
             assert_histogram_sample_count_eq(&map, CACHE_MISS_DURATION, vec![], 1, Unit::Seconds);
 
             // When validating DNSSEC, we should also see DNSSEC-specific metrics.
@@ -1277,14 +1300,17 @@ async fn empty_ns_pool_not_cached_on_glueless_failure() -> Result<(), NetError> 
         // Root -> TLD delegation (with glue)
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         // TLD -> leaf zone delegation, glueless NS in otherdomain.testing.
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
-            .ns_referral(&leaf_zone, &off_domain_ns),
+            .ns_referral(&leaf_zone, &off_domain_ns)
+            .with_aa(false),
         // TLD -> otherdomain.testing. delegation (with glue)
         MockResponse::new(TLD_IP, &off_domain_zone, RecordType::NS)
             .ns_referral(&off_domain_zone, &off_domain_ns)
-            .a_glue(&off_domain_ns, off_domain_ip),
+            .a_glue(&off_domain_ns, off_domain_ip)
+            .with_aa(false),
         // otherdomain.testing. SOA for NS query that has no zone cut
         MockResponse::new(off_domain_ip, &off_domain_ns, RecordType::NS).soa_authority(
             &off_domain_ns,
@@ -1366,10 +1392,12 @@ fn chain_delegation() -> Result<Vec<MockResponse>, NetError> {
     Ok(vec![
         MockResponse::new(ROOT_IP, &tld_zone, RecordType::NS)
             .ns_referral(&tld_zone, &tld_ns)
-            .a_glue(&tld_ns, TLD_IP),
+            .a_glue(&tld_ns, TLD_IP)
+            .with_aa(false),
         MockResponse::new(TLD_IP, &leaf_zone, RecordType::NS)
             .ns_referral(&leaf_zone, &leaf_ns)
-            .a_glue(&leaf_ns, LEAF_IP),
+            .a_glue(&leaf_ns, LEAF_IP)
+            .with_aa(false),
     ])
 }
 
