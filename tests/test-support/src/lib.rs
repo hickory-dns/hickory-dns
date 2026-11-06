@@ -80,11 +80,11 @@ pub struct MockResponse {
     /// The IP address of the mock name server that sends this response.
     ///
     /// This is used when matching queries against mock responses.
-    server_ip: IpAddr,
+    pub server_ip: IpAddr,
     /// The mock response message to be sent in reply to queries.
     ///
     /// The question section of the message is used when matching queries against mock responses.
-    message: Message,
+    pub message: Message,
 
     /// TTL to be used in records added by convenience methods.
     ttl: u32,
