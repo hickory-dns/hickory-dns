@@ -256,7 +256,6 @@ async fn test_cname_lookup_preserve() {
 #[tokio::test]
 async fn test_chained_cname_lookup() {
     subscribe();
-    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -267,8 +266,18 @@ async fn test_chained_cname_lookup() {
     );
 
     // The first response should be a cname, the second will be the actual record
-    let message1 = message(resp_query.clone(), vec![cname_record], vec![], vec![]);
-    let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
+    let message1 = message(
+        Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A),
+        vec![cname_record],
+        vec![],
+        vec![],
+    );
+    let message2 = message(
+        Query::new(Name::from_str("v4.example.com.").unwrap(), RecordType::A),
+        vec![v4_record],
+        vec![],
+        vec![],
+    );
 
     // the mock pops messages...
     let client: MockClientHandle<_> = MockClientHandle::mock(vec![
@@ -290,7 +299,6 @@ async fn test_chained_cname_lookup() {
 #[tokio::test]
 async fn test_chained_cname_lookup_preserve() {
     subscribe();
-    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -302,12 +310,17 @@ async fn test_chained_cname_lookup_preserve() {
 
     // The first response should be a cname, the second will be the actual record
     let message1 = message(
-        resp_query.clone(),
+        Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A),
         vec![cname_record.clone()],
         vec![],
         vec![],
     );
-    let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
+    let message2 = message(
+        Query::new(Name::from_str("v4.example.com.").unwrap(), RecordType::A),
+        vec![v4_record],
+        vec![],
+        vec![],
+    );
 
     // the mock pops messages...
     let client: MockClientHandle<_> = MockClientHandle::mock(vec![
@@ -332,61 +345,78 @@ async fn test_chained_cname_lookup_preserve() {
 #[tokio::test]
 async fn test_max_chained_lookup_depth() {
     subscribe();
-    let resp_query = Query::new(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-    let cname_record1 = cname_record(
-        Name::from_str("www.example.com.").unwrap(),
-        Name::from_str("cname2.example.com.").unwrap(),
+    let www_name = Name::from_str("www.example.com.").unwrap();
+    let cname2_name = Name::from_str("cname2.example.com.").unwrap();
+    let cname3_name = Name::from_str("cname3.example.com.").unwrap();
+    let cname4_name = Name::from_str("cname4.example.com.").unwrap();
+    let cname5_name = Name::from_str("cname5.example.com.").unwrap();
+    let cname6_name = Name::from_str("cname6.example.com.").unwrap();
+    let cname7_name = Name::from_str("cname7.example.com.").unwrap();
+    let cname8_name = Name::from_str("cname8.example.com.").unwrap();
+    let cname9_name = Name::from_str("cname9.example.com.").unwrap();
+    let v4_name = Name::from_str("v4.example.com.").unwrap();
+    let message1 = message(
+        Query::new(www_name.clone(), RecordType::A),
+        vec![cname_record(www_name.clone(), cname2_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record2 = cname_record(
-        Name::from_str("cname2.example.com.").unwrap(),
-        Name::from_str("cname3.example.com.").unwrap(),
+    let message2 = message(
+        Query::new(cname2_name.clone(), RecordType::A),
+        vec![cname_record(cname2_name, cname3_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record3 = cname_record(
-        Name::from_str("cname3.example.com.").unwrap(),
-        Name::from_str("cname4.example.com.").unwrap(),
+    let message3 = message(
+        Query::new(cname3_name.clone(), RecordType::A),
+        vec![cname_record(cname3_name, cname4_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record4 = cname_record(
-        Name::from_str("cname4.example.com.").unwrap(),
-        Name::from_str("cname5.example.com.").unwrap(),
+    let message4 = message(
+        Query::new(cname4_name.clone(), RecordType::A),
+        vec![cname_record(cname4_name, cname5_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record5 = cname_record(
-        Name::from_str("cname5.example.com.").unwrap(),
-        Name::from_str("cname6.example.com.").unwrap(),
+    let message5 = message(
+        Query::new(cname5_name.clone(), RecordType::A),
+        vec![cname_record(cname5_name, cname6_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record6 = cname_record(
-        Name::from_str("cname6.example.com.").unwrap(),
-        Name::from_str("cname7.example.com.").unwrap(),
+    let message6 = message(
+        Query::new(cname6_name.clone(), RecordType::A),
+        vec![cname_record(cname6_name, cname7_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record7 = cname_record(
-        Name::from_str("cname7.example.com.").unwrap(),
-        Name::from_str("cname8.example.com.").unwrap(),
+    let message7 = message(
+        Query::new(cname7_name.clone(), RecordType::A),
+        vec![cname_record(cname7_name, cname8_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record8 = cname_record(
-        Name::from_str("cname8.example.com.").unwrap(),
-        Name::from_str("cname9.example.com.").unwrap(),
+    let message8 = message(
+        Query::new(cname8_name.clone(), RecordType::A),
+        vec![cname_record(cname8_name, cname9_name.clone())],
+        vec![],
+        vec![],
     );
-    let cname_record9 = cname_record(
-        Name::from_str("cname9.example.com.").unwrap(),
-        Name::from_str("v4.example.com.").unwrap(),
+    let message9 = message(
+        Query::new(cname9_name.clone(), RecordType::A),
+        vec![cname_record(cname9_name, v4_name.clone())],
+        vec![],
+        vec![],
     );
-    let v4_record = v4_record(
-        Name::from_str("v4.example.com.").unwrap(),
-        Ipv4Addr::new(93, 184, 215, 14),
+    let message10 = message(
+        Query::new(v4_name.clone(), RecordType::A),
+        vec![v4_record(v4_name, Ipv4Addr::new(93, 184, 215, 14))],
+        vec![],
+        vec![],
     );
 
-    // The first response should be a cname, the second will be the actual record
-    let message1 = message(resp_query.clone(), vec![cname_record1], vec![], vec![]);
-    let message2 = message(resp_query.clone(), vec![cname_record2], vec![], vec![]);
-    let message3 = message(resp_query.clone(), vec![cname_record3], vec![], vec![]);
-    let message4 = message(resp_query.clone(), vec![cname_record4], vec![], vec![]);
-    let message5 = message(resp_query.clone(), vec![cname_record5], vec![], vec![]);
-    let message6 = message(resp_query.clone(), vec![cname_record6], vec![], vec![]);
-    let message7 = message(resp_query.clone(), vec![cname_record7], vec![], vec![]);
-    let message8 = message(resp_query.clone(), vec![cname_record8], vec![], vec![]);
-    let message9 = message(resp_query.clone(), vec![cname_record9], vec![], vec![]);
-    let message10 = message(resp_query, vec![v4_record], vec![], vec![]);
-
-    // the mock pops messages...
+    // The mock pops messages in reverse order.
     let client: MockClientHandle<_> = MockClientHandle::mock(vec![
         Ok(DnsResponse::from_message(message10).unwrap()),
         Ok(DnsResponse::from_message(message9).unwrap()),
