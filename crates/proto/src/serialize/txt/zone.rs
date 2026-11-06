@@ -200,8 +200,8 @@ impl<'a> Parser<'a> {
                     State::Origin => {
                         match t {
                             Token::CharData(data) => {
-                                // TODO an origin was specified, should this be legal? definitely confusing...
-                                cx.origin = Some(Name::parse(&data, None)?);
+                                // a relative name is relative to the current origin (RFC 1035 section 5.1)
+                                cx.origin = Some(Name::parse(&data, cx.origin.as_ref())?);
                                 State::StartLine
                             }
                             _ => return Err(ParseError::UnexpectedToken(t)),
@@ -508,6 +508,27 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_relative_origin() {
+        let zone_data = "$ORIGIN example.com.
+$TTL 3600
+$ORIGIN sub
+www IN A 192.0.2.1
+$ORIGIN deeper
+@ IN A 192.0.2.2
+";
+        let (_, records) = Parser::new(zone_data, None, None).parse().unwrap();
+        let owners = records
+            .values()
+            .map(|rrset| rrset.name().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            owners,
+            ["deeper.sub.example.com.", "www.sub.example.com."],
+            "unexpected owners: {owners:?}"
+        );
     }
 
     #[test]
