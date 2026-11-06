@@ -2378,13 +2378,11 @@ mod tests {
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+            MockResponse::new(server_ip, &query_name, RecordType::A)
+                .a(&query_name, server_ip)
+                .with_tc(true),
         ];
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                msg.metadata.truncation = true;
-            },
-        ));
+        let handler = MockNetworkHandler::new(responses);
         let provider = MockProvider::new(handler);
 
         let opts = ResolverOpts {
@@ -2437,14 +2435,11 @@ mod tests {
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+            MockResponse::new(server_ip, &query_name, RecordType::A)
+                .a(&query_name, server_ip)
+                .with_tc(true),
         ];
-        // Always set truncation regardless of protocol.
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                msg.metadata.truncation = true;
-            },
-        ));
+        let handler = MockNetworkHandler::new(responses);
         let provider = MockProvider::new(handler);
 
         let opts = ResolverOpts {
@@ -2496,14 +2491,14 @@ mod tests {
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockResponse::new(server1_ip, &query_name, RecordType::A).a(&query_name, server1_ip),
-            MockResponse::new(server2_ip, &query_name, RecordType::A).a(&query_name, server2_ip),
+            MockResponse::new(server1_ip, &query_name, RecordType::A)
+                .a(&query_name, server1_ip)
+                .with_tc(true),
+            MockResponse::new(server2_ip, &query_name, RecordType::A)
+                .a(&query_name, server2_ip)
+                .with_tc(true),
         ];
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                msg.metadata.truncation = true;
-            },
-        ));
+        let handler = MockNetworkHandler::new(responses);
         let provider = MockProvider::new(handler);
 
         let opts = ResolverOpts {
