@@ -713,9 +713,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 return Err(ProofError::ds_should_exist(name));
             }
 
-            // Make an un-verified request for the NS RRset at this ancestor name.
+            // Make an un-verified request for the NS RRset at this ancestor name, with CD set.
             let query = Query::new(ancestor.clone(), RecordType::NS);
-            let result = self.handle.lookup(query.clone(), options).await;
+            let mut request = DnsRequest::from_query(query.clone(), options);
+            request.metadata.checking_disabled = true;
+            let result = self.handle.send(request).await;
             match result {
                 Ok(response) => {
                     if response.all_sections().any(|record| {
@@ -1171,7 +1173,9 @@ impl<H: DnsHandle> DnsHandle for DnssecDnsHandle<H> {
         request.edns.get_or_insert_with(Edns::new).enable_dnssec();
 
         request.metadata.authentic_data = true;
-        request.metadata.checking_disabled = false;
+        // Set CD to ask a validating upstream for the data even if it fails validation there,
+        // so that this handle reaches its own verdict (RFC 6840 section 5.9).
+        request.metadata.checking_disabled = true;
         let options = *request.options();
 
         let result = self.handle.send(request).await;
