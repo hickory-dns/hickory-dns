@@ -1106,7 +1106,7 @@ mod tests {
     use crate::connection_provider::ConnectionProvider;
     use crate::net::runtime::{RuntimeProvider, TokioHandle, TokioRuntimeProvider, TokioTime};
     use crate::net::xfer::{DnsHandle, Protocol};
-    use crate::proto::op::{DnsRequestOptions, Message, Query};
+    use crate::proto::op::{DnsRequestOptions, Query};
     use crate::proto::rr::{DNSClass, Name, RecordType};
 
     /// Servers sharing a TLS server name are pushed apart so the parallel
@@ -2433,34 +2433,26 @@ mod tests {
         let query_name = Name::from_str("example.com.")?;
         let target_name = query_name.clone();
 
-        let responses = vec![
-            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
-        ];
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            move |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                // TODO: This mutation callback could be replaced with the new builder methods that
-                // take a `Message` directly, `MockResponse::add_answer()`, etc.
-                let Some(class) = class else { return };
-                if msg.queries.first().map(|q| &q.name) != Some(&target_name) {
-                    return;
+        let mut response =
+            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip);
+        if let Some(class) = class {
+            let mut record =
+                Record::from_rdata(target_name.clone(), 300, RData::A(A([6, 6, 6, 6].into())));
+            record.dns_class = class;
+            match section {
+                ForeignSection::Answer => {
+                    response.message.add_answer(record);
                 }
-                let mut record =
-                    Record::from_rdata(target_name.clone(), 300, RData::A(A([6, 6, 6, 6].into())));
-                record.dns_class = class;
-                match section {
-                    ForeignSection::Answer => {
-                        msg.add_answer(record);
-                    }
-                    ForeignSection::Authority => {
-                        msg.add_authority(record);
-                    }
-                    ForeignSection::Additional => {
-                        msg.add_additional(record);
-                    }
-                    ForeignSection::None => {}
+                ForeignSection::Authority => {
+                    response.message.add_authority(record);
                 }
-            },
-        ));
+                ForeignSection::Additional => {
+                    response.message.add_additional(record);
+                }
+                ForeignSection::None => {}
+            }
+        }
+        let handler = MockNetworkHandler::new(vec![response]);
 
         let pool = NameServerPool::from_nameservers(
             vec![Arc::new(NameServer::new(
@@ -2501,13 +2493,11 @@ mod tests {
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+            MockResponse::new(server_ip, &query_name, RecordType::A)
+                .a(&query_name, server_ip)
+                .with_tc(true),
         ];
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                msg.metadata.truncation = true;
-            },
-        ));
+        let handler = MockNetworkHandler::new(responses);
         let provider = MockProvider::new(handler);
 
         let opts = ResolverOpts {
@@ -2560,14 +2550,11 @@ mod tests {
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockResponse::new(server_ip, &query_name, RecordType::A).a(&query_name, server_ip),
+            MockResponse::new(server_ip, &query_name, RecordType::A)
+                .a(&query_name, server_ip)
+                .with_tc(true),
         ];
-        // Always set truncation regardless of protocol.
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                msg.metadata.truncation = true;
-            },
-        ));
+        let handler = MockNetworkHandler::new(responses);
         let provider = MockProvider::new(handler);
 
         let opts = ResolverOpts {
@@ -2619,14 +2606,14 @@ mod tests {
         let query_name = Name::from_str("example.com.").unwrap();
 
         let responses = vec![
-            MockResponse::new(server1_ip, &query_name, RecordType::A).a(&query_name, server1_ip),
-            MockResponse::new(server2_ip, &query_name, RecordType::A).a(&query_name, server2_ip),
+            MockResponse::new(server1_ip, &query_name, RecordType::A)
+                .a(&query_name, server1_ip)
+                .with_tc(true),
+            MockResponse::new(server2_ip, &query_name, RecordType::A)
+                .a(&query_name, server2_ip)
+                .with_tc(true),
         ];
-        let handler = MockNetworkHandler::new(responses).with_mutation(Box::new(
-            |_destination: IpAddr, _protocol: Protocol, msg: &mut Message| {
-                msg.metadata.truncation = true;
-            },
-        ));
+        let handler = MockNetworkHandler::new(responses);
         let provider = MockProvider::new(handler);
 
         let opts = ResolverOpts {

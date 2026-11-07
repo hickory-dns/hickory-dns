@@ -80,11 +80,11 @@ pub struct MockResponse {
     /// The IP address of the mock name server that sends this response.
     ///
     /// This is used when matching queries against mock responses.
-    server_ip: IpAddr,
+    pub server_ip: IpAddr,
     /// The mock response message to be sent in reply to queries.
     ///
     /// The question section of the message is used when matching queries against mock responses.
-    message: Message,
+    pub message: Message,
 
     /// TTL to be used in records added by convenience methods.
     ttl: u32,
@@ -105,6 +105,18 @@ impl MockResponse {
     /// Set the TTL of records added by subsequent method calls.
     pub fn with_ttl(self, ttl: u32) -> Self {
         Self { ttl, ..self }
+    }
+
+    /// Set the response code.
+    pub fn with_response_code(mut self, response_code: ResponseCode) -> Self {
+        self.message.metadata.response_code = response_code;
+        self
+    }
+
+    /// Set the truncation flag.
+    pub fn with_tc(mut self, truncation: bool) -> Self {
+        self.message.metadata.truncation = truncation;
+        self
     }
 
     /// Add an A record to the answer section.
