@@ -303,6 +303,13 @@ impl<'a> RrsetVerificationContext<'a> {
             return RrsigValidity::WrongDnskey;
         }
 
+        if !(sig_input.num_labels >= dnskey.name().num_labels()) {
+            // If the RRSIG claims to be over a wildcard name, it must still be within the zone.
+            //
+            // See https://indico.dns-oarc.net/event/58/contributions/1255/, slide 25 onward.
+            return RrsigValidity::WrongDnskey;
+        }
+
         RrsigValidity::ValidRrsig
     }
 
@@ -769,6 +776,59 @@ mod test {
         assert_eq!(
             context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::WrongRrsig
+        );
+    }
+
+    #[test]
+    fn rrsig_parent_wildcard_rejected() {
+        subscribe();
+
+        let wildcard_rrset_name = Name::from_ascii("*.example.").unwrap();
+        let expanded_rrset_name = Name::from_ascii("attacker.example.").unwrap();
+        let signer_name = Name::from_ascii("attacker.example.").unwrap();
+
+        let dnskey = rdataDNSKEY::new(
+            true,  // zone_key
+            true,  // secure_entry_point
+            false, // revoke
+            PublicKeyBuf::new(vec![0u8; 32], Algorithm::ED25519),
+        );
+        let key_tag = dnskey.calculate_key_tag().unwrap();
+
+        let sig_input = SigInput {
+            type_covered: A,
+            algorithm: Algorithm::ED25519,
+            num_labels: wildcard_rrset_name.num_labels(),
+            original_ttl: 300,
+            sig_expiration: SerialNumber::new(1_000_000),
+            sig_inception: SerialNumber::new(0),
+            key_tag,
+            signer_name: signer_name.clone(),
+        };
+        assert_eq!(sig_input.num_labels, 1);
+        let rrsig = rdataRRSIG::from_sig(sig_input, vec![0u8; 64]);
+
+        let key = RrKey::new((&expanded_rrset_name).into(), A);
+        let rrset = Rrset {
+            records: Vec::new(),
+            signatures: Vec::new(),
+        };
+        let rrsig_rec = Record::from_rdata(
+            expanded_rrset_name,
+            300,
+            RData::DNSSEC(DNSSECRData::RRSIG(rrsig)),
+        );
+        let dnskey_rec =
+            Record::from_rdata(signer_name, 300, RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)));
+
+        let rrsig_ref = rrsig_rec.try_borrow::<rdataRRSIG>().unwrap();
+        let dnskey_ref = dnskey_rec.try_borrow::<rdataDNSKEY>().unwrap();
+
+        let query = Query::root();
+        let context = validity_context(&query, &key, &rrset);
+        assert_eq!(
+            context.validity(rrsig_ref, dnskey_ref),
+            RrsigValidity::WrongDnskey
         );
     }
 
