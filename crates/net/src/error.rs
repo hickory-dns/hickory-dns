@@ -17,6 +17,8 @@ use std::io;
 use std::sync::Arc;
 
 #[cfg(any(feature = "__https", feature = "__h3"))]
+use http::StatusCode;
+#[cfg(any(feature = "__https", feature = "__h3"))]
 use http::header::ToStrError;
 use thiserror::Error;
 use tracing::debug;
@@ -63,6 +65,16 @@ pub enum NetError {
         record_class: DNSClass,
         /// The type of the offending record.
         record_type: RecordType,
+    },
+
+    /// An HTTP error occurred
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("HTTP error {status}: {body}")]
+    Http {
+        /// The HTTP status code of the response.
+        status: StatusCode,
+        /// The response body.
+        body: String,
     },
 
     /// An HTTP/2 related error
@@ -213,6 +225,8 @@ impl NetError {
             Self::Truncated => false,
 
             // An HTTP/2 or HTTP/3 connection or stream failure.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Http { .. } => true,
             #[cfg(feature = "__https")]
             Self::H2(_) => true,
             #[cfg(feature = "__h3")]
@@ -315,6 +329,8 @@ impl NetError {
             #[cfg(any(feature = "__https", feature = "__h3"))]
             Self::Decode(_) => "http_header_decode",
             Self::Dns(dns_err) => dns_err.as_metrics_label(),
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Http { .. } => "http",
             #[cfg(feature = "__https")]
             Self::H2(_) => "http2",
             #[cfg(feature = "__h3")]
