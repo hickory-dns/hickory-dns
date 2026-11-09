@@ -668,6 +668,7 @@ pub(super) struct RrsetProof {
 }
 
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 enum RrsigValidity {
     /// RRSIG has already expired
     ExpiredRrsig,
@@ -703,10 +704,10 @@ mod test {
 
         let query = Query::root();
         let context = validity_context(&query, &key, &rrset);
-        assert!(matches!(
+        assert_eq!(
             context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::WrongRrsig
-        ));
+        );
     }
 
     #[test]
@@ -719,10 +720,10 @@ mod test {
 
         let query = Query::root();
         let context = validity_context(&query, &key, &rrset);
-        assert!(matches!(
+        assert_eq!(
             context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::ValidRrsig
-        ));
+        );
     }
 
     #[test]
@@ -735,10 +736,10 @@ mod test {
 
         let query = Query::root();
         let context = validity_context(&query, &key, &rrset);
-        assert!(matches!(
+        assert_eq!(
             context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::ValidRrsig
-        ));
+        );
     }
 
     #[test]
@@ -750,10 +751,10 @@ mod test {
 
         let query = Query::root();
         let context = validity_context(&query, &key, &rrset);
-        assert!(matches!(
+        assert_eq!(
             context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::ValidRrsig
-        ));
+        );
     }
 
     #[test]
@@ -765,10 +766,10 @@ mod test {
 
         let query = Query::root();
         let context = validity_context(&query, &key, &rrset);
-        assert!(matches!(
+        assert_eq!(
             context.validity(rrsig_ref, dnskey_ref),
             RrsigValidity::WrongRrsig
-        ));
+        );
     }
 
     fn validity_context<'a>(
