@@ -344,14 +344,10 @@ async fn send(
 
     // Was it a successful request?
     if !response_stream.status().is_success() {
-        let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-        // TODO: make explicit error type
-        return Err(NetError::from(format!(
-            "http unsuccessful code: {}, message: {}",
-            response_stream.status(),
-            error_string
-        )));
+        return Err(NetError::Http {
+            status: response_stream.status(),
+            body: String::from_utf8_lossy(response_bytes.as_ref()).into_owned(),
+        });
     } else {
         // verify content type
         {
