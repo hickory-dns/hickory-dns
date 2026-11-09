@@ -356,10 +356,8 @@ async fn send(
                 .headers()
                 .get(header::CONTENT_TYPE)
                 .map(|h| {
-                    h.to_str().map_err(|err| {
-                        // TODO: make explicit error type
-                        NetError::from(format!("ContentType header not a string: {err}"))
-                    })
+                    h.to_str()
+                        .map_err(|_| NetError::InvalidContentType(format!("{h:?}")))
                 })
                 .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
 

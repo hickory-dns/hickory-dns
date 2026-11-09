@@ -108,19 +108,13 @@ impl H3ClientStream {
             .headers()
             .get(header::CONTENT_TYPE)
             .map(|h| {
-                h.to_str().map_err(|err| {
-                    // TODO: make explicit error type
-                    NetError::from(format!("ContentType header not a string: {err}"))
-                })
+                h.to_str()
+                    .map_err(|_| NetError::InvalidContentType(format!("{h:?}")))
             })
             .unwrap_or(Ok(crate::http::MIME_APPLICATION_DNS))?;
 
         if content_type != crate::http::MIME_APPLICATION_DNS {
-            return Err(NetError::from(format!(
-                "ContentType unsupported (must be '{}'): '{}'",
-                crate::http::MIME_APPLICATION_DNS,
-                content_type
-            )));
+            return Err(NetError::InvalidContentType(content_type.to_owned()));
         }
 
         // and finally convert the bytes into a DNS message
