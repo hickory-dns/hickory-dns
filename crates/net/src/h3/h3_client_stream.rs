@@ -97,14 +97,10 @@ impl H3ClientStream {
         .await?;
 
         if !response.status().is_success() {
-            let error_string = String::from_utf8_lossy(response_bytes.as_ref());
-
-            // TODO: make explicit error type
-            return Err(NetError::from(format!(
-                "http unsuccessful code: {}, message: {}",
-                response.status(),
-                error_string
-            )));
+            return Err(NetError::Http {
+                status: response.status(),
+                body: String::from_utf8_lossy(response_bytes.as_ref()).into_owned(),
+            });
         }
 
         // in the case that the ContentType is not specified, we assume it's the standard DNS format
