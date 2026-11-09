@@ -126,6 +126,7 @@ impl<R: ConnectionProvider> Resolver<R> {
             tls: None,
             opportunistic_encryption: OpportunisticEncryption::default(),
             encrypted_transport_state: NameServerTransportState::default(),
+            response_cache: None,
             #[cfg(feature = "__dnssec")]
             trust_anchor: None,
             #[cfg(feature = "__dnssec")]
@@ -415,6 +416,7 @@ pub struct ResolverBuilder<P> {
     tls: Option<rustls::ClientConfig>,
     opportunistic_encryption: OpportunisticEncryption,
     encrypted_transport_state: NameServerTransportState,
+    response_cache: Option<ResponseCache>,
     #[cfg(feature = "__dnssec")]
     trust_anchor: Option<Arc<TrustAnchors>>,
     #[cfg(feature = "__dnssec")]
@@ -474,6 +476,19 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         self
     }
 
+    /// Use the provided [`ResponseCache`] instead of creating one from [`ResolverOpts`].
+    ///
+    /// Clones of a `ResponseCache` share storage, so the caller can keep a handle to insert
+    /// responses obtained elsewhere, or share one cache between resolvers. The cache's own
+    /// capacity and [`TtlConfig`] then apply instead of `cache_size` and the TTL options.
+    ///
+    /// Cached responses are returned as-is, without DNSSEC validation or other processing,
+    /// so only insert or share responses this resolver would itself have produced.
+    pub fn with_response_cache(mut self, cache: ResponseCache) -> Self {
+        self.response_cache = Some(cache);
+        self
+    }
+
     /// Set maximum limits on NSEC3 additional iterations.
     ///
     /// See [RFC 9276](https://www.rfc-editor.org/rfc/rfc9276.html). Signed
@@ -512,6 +527,7 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
             nsec3_hard_iteration_limit,
             opportunistic_encryption,
             encrypted_transport_state,
+            response_cache,
         } = self;
 
         #[cfg(feature = "__dnssec")]
@@ -554,10 +570,12 @@ impl<P: ConnectionProvider> ResolverBuilder<P> {
         #[cfg(not(feature = "__dnssec"))]
         let either = LookupEither::Retry(client);
 
-        let cache = ResponseCache::new(
-            context.options.cache_size,
-            TtlConfig::from_opts(&context.options),
-        );
+        let cache = response_cache.unwrap_or_else(|| {
+            ResponseCache::new(
+                context.options.cache_size,
+                TtlConfig::from_opts(&context.options),
+            )
+        });
         let client_cache =
             CachingClient::with_cache(cache, either, context.options.preserve_intermediates);
 
@@ -1452,6 +1470,57 @@ mod tests {
         for name in &not_tor_address {
             assert_eq!(resolver.build_names(name.clone()).len(), 2);
         }
+    }
+
+    #[tokio::test]
+    async fn test_with_response_cache() {
+        use std::time::{Duration, Instant};
+
+        use crate::proto::op::{Message, OpCode};
+
+        subscribe();
+        let cache = ResponseCache::new(16, TtlConfig::default());
+
+        // No name servers are configured, so a lookup can only be answered from the cache.
+        // `cache_size` and the TTL bounds in the options are ignored when a cache is supplied.
+        let mut builder = Resolver::builder_with_config(
+            ResolverConfig::from_parts(None, vec![], vec![]),
+            TokioRuntimeProvider::default(),
+        )
+        .with_response_cache(cache.clone());
+        builder.options_mut().use_hosts_file = ResolveHosts::Never;
+        builder.options_mut().cache_size = 0;
+        builder.options_mut().positive_max_ttl = Some(Duration::from_secs(1));
+        let resolver = builder.build().unwrap();
+
+        // Insert through the caller's handle after the resolver has been built.
+        let name = Name::from_ascii("www.example.com.").unwrap();
+        let address = Ipv4Addr::new(192, 0, 2, 1);
+        let query = Query::new(name.clone(), RecordType::A);
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(query.clone());
+        message.add_answer(Record::from_rdata(
+            name.clone(),
+            300,
+            RData::A(address.into()),
+        ));
+        cache.insert(query.clone(), Ok(message), Instant::now());
+
+        let lookup = resolver.lookup(name, RecordType::A).await.unwrap();
+        assert_eq!(
+            lookup
+                .answers()
+                .iter()
+                .map(|r| r.data.ip_addr().unwrap())
+                .collect::<Vec<IpAddr>>(),
+            vec![IpAddr::V4(address)]
+        );
+        // The supplied cache's default `TtlConfig` applied, not `positive_max_ttl = 1s`.
+        assert!(lookup.answers().iter().all(|r| r.ttl > 1));
+
+        // The resolver and the caller's handle share the same storage.
+        resolver.clear_cache();
+        assert!(cache.get(&query, Instant::now()).is_none());
     }
 
     #[tokio::test]
