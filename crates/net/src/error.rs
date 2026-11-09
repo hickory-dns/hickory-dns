@@ -219,7 +219,7 @@ impl NetError {
             Self::Jni(_) => false,
             Self::Msg(_) => false,
             Self::Message(_) => false,
-            Self::NoConnections => false,
+            Self::NoConnections => true,
 
             // A response header value that does not parse as a number.
             Self::ParseInt(_) => false,
