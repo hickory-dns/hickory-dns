@@ -87,6 +87,11 @@ pub enum NetError {
     #[cfg(feature = "__h3")]
     H3(Arc<h3::error::StreamError>),
 
+    /// An Invalid HTTP content type header
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("invalid content type: {0}")]
+    InvalidContentType(String),
+
     // foreign
     /// An error got returned from IO
     #[error("io error: {0}")]
@@ -231,6 +236,8 @@ impl NetError {
             Self::H2(_) => true,
             #[cfg(feature = "__h3")]
             Self::H3(_) => true,
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::InvalidContentType(_) => true,
 
             Self::Io(_) => true,
 
@@ -386,6 +393,8 @@ impl NetError {
                     _ => "io_unknown",
                 }
             }
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::InvalidContentType(_) => "invalid_content_type",
             #[cfg(target_os = "android")]
             Self::Jni(_) => "jni",
             #[cfg(any(feature = "__https", feature = "__h3"))]
