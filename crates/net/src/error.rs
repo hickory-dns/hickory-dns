@@ -73,7 +73,12 @@ pub enum NetError {
     #[cfg(feature = "__h3")]
     H3(Arc<h3::error::StreamError>),
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An Invalid HTTP content type header
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("invalid content type: {0}")]
+    InvalidContentType(String),
+
+    /// An error with an arbitrary message
     #[error("{0}")]
     Message(&'static str),
 
@@ -225,6 +230,8 @@ impl NetError {
             Self::H2(_) => true,
             #[cfg(feature = "__h3")]
             Self::H3(_) => true,
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::InvalidContentType(_) => true,
 
             Self::Io(_) => true,
 
@@ -330,6 +337,8 @@ impl NetError {
             Self::H2(_) => "http2",
             #[cfg(feature = "__h3")]
             Self::H3(_) => "http3",
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::InvalidContentType(_) => "invalid_content_type",
             Self::ParseInt(_) => "parse_header_value",
             Self::NoConnections => "no_connections",
             Self::Proto(_) => "proto",
