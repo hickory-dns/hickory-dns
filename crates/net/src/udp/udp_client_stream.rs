@@ -17,7 +17,7 @@ use futures_util::{FutureExt, Stream, StreamExt, pin_mut, stream::FuturesUnorder
 use tracing::{debug, trace, warn};
 
 use crate::error::NetError;
-use crate::proto::op::{DEFAULT_RETRY_FLOOR, DnsRequest, DnsResponse, Message, SerialMessage};
+use crate::proto::op::{DEFAULT_RETRY_FLOOR, DnsRequest, DnsResponse, SerialMessage};
 #[cfg(feature = "__dnssec")]
 use crate::proto::rr::TSigner;
 use crate::runtime::{DnsUdpSocket, RuntimeProvider, Spawn, Time};
@@ -297,8 +297,7 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
             //  - RR data in responses of dubious reliability.  When a resolver
             // receives unsolicited responses or RR data other than that
             // requested, it should discard it without caching it.
-            let request_message = Message::from_vec(msg.bytes())?;
-            let request_queries = &request_message.queries;
+            let request_queries = &final_message.queries;
             let response_queries = &mut response.queries;
 
             let question_matches = request_queries.len() == response_queries.len()
@@ -507,7 +506,7 @@ mod tests {
     use super::*;
     use crate::{
         proto::{
-            op::{DnsRequestOptions, Query, ResponseCode},
+            op::{DnsRequestOptions, Message, Query, ResponseCode},
             rr::{Name, RData, Record, RecordType, rdata::NULL},
         },
         runtime::{TokioRuntimeProvider, TokioTime},
