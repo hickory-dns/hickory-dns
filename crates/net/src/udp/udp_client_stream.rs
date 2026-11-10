@@ -343,8 +343,14 @@ impl<P: RuntimeProvider> Request for UdpRequest<P> {
 
             debug!("received message id: {}", response.id);
             #[cfg(feature = "__dnssec")]
-            if let Some(mut verifier) = verifier {
-                return Ok(verifier.verify(response_bytes)?);
+            if let Some(verifier) = verifier.as_mut() {
+                match verifier.verify(response_bytes) {
+                    Ok(response) => return Ok(response),
+                    Err(error) => {
+                        warn!(%error, "ignoring response, TSIG validation failed");
+                        continue;
+                    }
+                }
             }
             return Ok(response);
         }
