@@ -179,23 +179,26 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                     tokens[1]
                         .parse()
                         .map_err(|e| format!("NSEC3 ttl error: {e:?}"))?,
-                    RData::DNSSEC(DNSSECRData::NSEC3(NSEC3::new(
-                        Nsec3HashAlgorithm::try_from(
-                            tokens[4]
-                                .parse::<u8>()
-                                .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                    RData::DNSSEC(DNSSECRData::NSEC3(
+                        NSEC3::try_new(
+                            Nsec3HashAlgorithm::try_from(
+                                tokens[4]
+                                    .parse::<u8>()
+                                    .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                            )
+                            .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                            tokens[5] == "1",
+                            tokens[6]
+                                .parse()
+                                .map_err(|e| format!("NSEC3 iterations error: {e:?}"))?,
+                            salt,
+                            BASE32_DNSSEC
+                                .decode(tokens[8].as_bytes())
+                                .map_err(|e| format!("NSEC3 base32 decode error: {e:?}"))?,
+                            types,
                         )
-                        .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
-                        tokens[5] == "1",
-                        tokens[6]
-                            .parse()
-                            .map_err(|e| format!("NSEC3 iterations error: {e:?}"))?,
-                        salt,
-                        BASE32_DNSSEC
-                            .decode(tokens[8].as_bytes())
-                            .map_err(|e| format!("NSEC3 base32 decode error: {e:?}"))?,
-                        types,
-                    ))),
+                        .map_err(|e| format!("NSEC3 error: {e}"))?,
+                    )),
                 ));
             }
             "DNSKEY" => {
@@ -231,23 +234,26 @@ pub(crate) fn parse_zone_file(path: &Path) -> Result<Vec<Record>, String> {
                     tokens[1]
                         .parse()
                         .map_err(|e| format!("NSEC3PARAM ttl error: {e:?}"))?,
-                    RData::DNSSEC(DNSSECRData::NSEC3PARAM(NSEC3PARAM::new(
-                        Nsec3HashAlgorithm::try_from(
-                            tokens[4]
-                                .parse::<u8>()
-                                .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                    RData::DNSSEC(DNSSECRData::NSEC3PARAM(
+                        NSEC3PARAM::try_new(
+                            Nsec3HashAlgorithm::try_from(
+                                tokens[4]
+                                    .parse::<u8>()
+                                    .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                            )
+                            .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
+                            tokens[5] == "1",
+                            tokens[6]
+                                .parse()
+                                .map_err(|e| format!("NSEC3PARAM iterations error: {e:?}"))?,
+                            if tokens[7] == "-" {
+                                vec![]
+                            } else {
+                                tokens[8].as_bytes().to_vec()
+                            },
                         )
-                        .map_err(|e| format!("NSEC3PARAM algorithm error: {e:?}"))?,
-                        tokens[5] == "1",
-                        tokens[6]
-                            .parse()
-                            .map_err(|e| format!("NSEC3PARAM iterations error: {e:?}"))?,
-                        if tokens[7] == "-" {
-                            vec![]
-                        } else {
-                            tokens[8].as_bytes().to_vec()
-                        },
-                    ))),
+                        .map_err(|e| format!("NSEC3PARAM error: {e}"))?,
+                    )),
                 ));
             }
             _ => return Err(format!("unexpected record type: {}", tokens[3])),

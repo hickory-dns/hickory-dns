@@ -810,7 +810,7 @@ impl InnerInMemory {
             let next_index = (i + 1) % record_types.len();
             let next_hashed_name = record_types[next_index].0.as_ref().to_vec();
 
-            let rdata = NSEC3::new(
+            let rdata = NSEC3::try_new(
                 hash_alg,
                 opt_out,
                 iterations,
@@ -820,7 +820,7 @@ impl InnerInMemory {
                     .iter()
                     .copied()
                     .chain(exists.then_some(RecordType::RRSIG)),
-            );
+            )?;
 
             let name =
                 origin.prepend_label(data_encoding::BASE32_DNSSEC.encode(hashed_name.as_ref()))?;
@@ -830,7 +830,7 @@ impl InnerInMemory {
         }
 
         // Include the NSEC3PARAM record.
-        let rdata = NSEC3PARAM::new(hash_alg, opt_out, iterations, salt.to_vec());
+        let rdata = NSEC3PARAM::try_new(hash_alg, opt_out, iterations, salt.to_vec())?;
         let record = Record::from_rdata(origin.into(), ttl, rdata);
         records.push(record.into_record_of_rdata());
 

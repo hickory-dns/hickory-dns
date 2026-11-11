@@ -1791,14 +1791,15 @@ mod tests {
         let nsec3 = |owner: &str, next: &str, opt_out, types: &[RecordType]| {
             Nsec3Pair(
                 Name::from_ascii(owner).unwrap(),
-                NSEC3::new(
+                NSEC3::try_new(
                     Nsec3HashAlgorithm::SHA1,
                     opt_out,
                     12,
                     KNOWN_SALT.to_vec(),
                     BASE32_DNSSEC.decode(next.as_bytes()).unwrap(),
                     types.iter().copied(),
-                ),
+                )
+                .unwrap(),
             )
         };
 
@@ -1827,22 +1828,24 @@ mod tests {
         let record_2_hash = [0xBB; 20];
         let record_1_label = Label::from_ascii(&BASE32_DNSSEC.encode(&record_1_hash)).unwrap();
         let record_2_label = Label::from_ascii(&BASE32_DNSSEC.encode(&record_2_hash)).unwrap();
-        let record_1_rdata = NSEC3::new(
+        let record_1_rdata = NSEC3::try_new(
             Nsec3HashAlgorithm::SHA1,
             false,
             0,
             Vec::new(),
             record_2_hash.to_vec(),
             [],
-        );
-        let record_2_rdata = NSEC3::new(
+        )
+        .unwrap();
+        let record_2_rdata = NSEC3::try_new(
             Nsec3HashAlgorithm::SHA1,
             false,
             0,
             Vec::new(),
             record_1_hash.to_vec(),
             [],
-        );
+        )
+        .unwrap();
 
         let zone_name = Name::parse("example.", None).unwrap();
         let record_1_pair = Nsec3RecordInfo {
@@ -1902,14 +1905,15 @@ mod tests {
         ) -> Self {
             Self(
                 rr_name,
-                NSEC3::new(
+                NSEC3::try_new(
                     Nsec3HashAlgorithm::SHA1,
                     false,
                     12,
                     KNOWN_SALT.to_vec(),
                     next_name,
                     rrset,
-                ),
+                )
+                .unwrap(),
             )
         }
 

@@ -1462,7 +1462,7 @@ impl Handler for Nsec3WrongZoneHandler {
         let hash = data_encoding::BASE32_DNSSEC
             .decode(hash_base32.as_bytes())
             .unwrap();
-        let crafted_nsec3_rdata = NSEC3::new(
+        let crafted_nsec3_rdata = NSEC3::try_new(
             Nsec3HashAlgorithm::SHA1,
             false,
             1,
@@ -1475,7 +1475,7 @@ impl Handler for Nsec3WrongZoneHandler {
                 RecordType::DNSKEY,
                 RecordType::NSEC3PARAM,
             ],
-        );
+        )?;
         let crafted_nsec3_name =
             Name::from_ascii("GTR6F74IERHONNKRCH3QDNUNNDVR2OF1.attacker.testing.")?;
         let crafted_nsec3_record = Record::from_rdata(
