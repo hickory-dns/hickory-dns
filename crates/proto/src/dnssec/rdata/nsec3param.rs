@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     dnssec::Nsec3HashAlgorithm,
-    error::ProtoResult,
+    error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordType},
     serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, DecodeError},
 };
@@ -89,6 +89,34 @@ pub struct NSEC3PARAM {
 
 impl NSEC3PARAM {
     /// Constructs a new NSEC3PARAM RData for use in a Resource Record
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the salt is longer than 255 bytes, since its length is encoded in a
+    /// single byte.
+    pub fn try_new(
+        hash_algorithm: Nsec3HashAlgorithm,
+        opt_out: bool,
+        iterations: u16,
+        salt: Vec<u8>,
+    ) -> Result<Self, ProtoError> {
+        if salt.len() > 255 {
+            return Err(ProtoError::CharacterDataTooLong {
+                max: 255,
+                len: salt.len(),
+            });
+        }
+
+        Ok(Self {
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+        })
+    }
+
+    /// Constructs a new NSEC3PARAM RData for use in a Resource Record
+    #[deprecated(since = "0.26.4", note = "use `try_new()` instead")]
     pub fn new(
         hash_algorithm: Nsec3HashAlgorithm,
         opt_out: bool,
@@ -204,7 +232,12 @@ impl<'r> BinDecodable<'r> for NSEC3PARAM {
             })?;
         let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified(/*valid as any array of u8*/);
 
-        Ok(Self::new(hash_algorithm, opt_out, iterations, salt))
+        Ok(Self {
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+        })
     }
 }
 
@@ -276,8 +309,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_try_new_rejects_salt_over_255() {
+        let new =
+            |salt_len| NSEC3PARAM::try_new(Nsec3HashAlgorithm::SHA1, false, 0, vec![0; salt_len]);
+
+        assert!(new(255).is_ok());
+        assert!(matches!(
+            new(256),
+            Err(ProtoError::CharacterDataTooLong { max: 255, len: 256 })
+        ));
+    }
+
+    #[test]
     fn test() {
-        let rdata = NSEC3PARAM::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1, 2, 3, 4, 5]);
+        let rdata =
+            NSEC3PARAM::try_new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1, 2, 3, 4, 5]).unwrap();
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
