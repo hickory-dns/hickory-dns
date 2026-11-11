@@ -1611,7 +1611,7 @@ impl Handler for Nsec3WrongZoneHandler {
                 RecordType::DNSKEY,
                 RecordType::NSEC3PARAM,
             ],
-        );
+        )?;
         let crafted_nsec3_name =
             Name::from_ascii("GTR6F74IERHONNKRCH3QDNUNNDVR2OF1.attacker.testing.")?;
         let crafted_nsec3_record = Record::from_rdata(

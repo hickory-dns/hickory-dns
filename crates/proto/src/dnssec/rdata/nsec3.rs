@@ -14,7 +14,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{
     dnssec::Nsec3HashAlgorithm,
-    error::ProtoResult,
+    error::{ProtoError, ProtoResult},
     rr::{RData, RecordData, RecordDataDecodable, RecordType, RecordTypeSet, domain::Label},
     serialize::binary::*,
 };
@@ -123,6 +123,11 @@ pub struct NSEC3 {
 
 impl NSEC3 {
     /// Constructs a new NSEC3 record
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the salt or the next hashed owner name is longer than 255 bytes,
+    /// since their lengths are encoded in a single byte.
     pub fn new(
         hash_algorithm: Nsec3HashAlgorithm,
         opt_out: bool,
@@ -130,7 +135,7 @@ impl NSEC3 {
         salt: Vec<u8>,
         next_hashed_owner_name: Vec<u8>,
         type_bit_maps: impl IntoIterator<Item = RecordType>,
-    ) -> Self {
+    ) -> Result<Self, ProtoError> {
         Self::with_record_type_set(
             hash_algorithm,
             opt_out,
@@ -142,6 +147,34 @@ impl NSEC3 {
     }
 
     fn with_record_type_set(
+        hash_algorithm: Nsec3HashAlgorithm,
+        opt_out: bool,
+        iterations: u16,
+        salt: Vec<u8>,
+        next_hashed_owner_name: Vec<u8>,
+        type_bit_maps: RecordTypeSet,
+    ) -> Result<Self, ProtoError> {
+        // The salt and the next hashed owner name have a one-byte length on the wire.
+        if salt.len() > 255 {
+            return Err(ProtoError::from("NSEC3 salt is too long"));
+        }
+        if next_hashed_owner_name.len() > 255 {
+            return Err(ProtoError::from("NSEC3 next hashed owner name is too long"));
+        }
+
+        Ok(Self::from_parts(
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            type_bit_maps,
+        ))
+    }
+
+    /// Builds the record without the length checks of `with_record_type_set()`, for decoding,
+    /// where both lengths were read from a single byte.
+    fn from_parts(
         hash_algorithm: Nsec3HashAlgorithm,
         opt_out: bool,
         iterations: u16,
@@ -301,7 +334,8 @@ impl NSEC3 {
 
     /// Returns the parameters used to produce this NSEC3 record.
     pub fn parameters(&self) -> NSEC3PARAM {
-        NSEC3PARAM::new(
+        // The salt length was checked when this record was built
+        NSEC3PARAM::from_checked_parts(
             self.hash_algorithm,
             self.opt_out,
             self.iterations,
@@ -365,7 +399,7 @@ impl<'r> RecordDataDecodable<'r> for NSEC3 {
         // read the bitmap
         let record_types = RecordTypeSet::read_data(decoder)?;
 
-        Ok(Self::with_record_type_set(
+        Ok(Self::from_parts(
             hash_algorithm,
             opt_out,
             iterations,
@@ -485,14 +519,15 @@ impl<'de> Deserialize<'de> for NSEC3 {
             next_hashed_owner_name,
             type_bit_maps,
         } = NSEC3Serde::deserialize(deserializer)?;
-        Ok(Self::with_record_type_set(
+        Self::with_record_type_set(
             hash_algorithm,
             opt_out,
             iterations,
             salt,
             next_hashed_owner_name,
             type_bit_maps,
-        ))
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -519,7 +554,8 @@ mod tests {
                 RecordType::DS,
                 RecordType::RRSIG,
             ],
-        );
+        )
+        .unwrap();
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
@@ -531,6 +567,35 @@ mod tests {
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = NSEC3::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_new_rejects_lengths_over_255() {
+        let new = |salt_len, hash_len| {
+            NSEC3::new(
+                Nsec3HashAlgorithm::SHA1,
+                false,
+                0,
+                vec![0; salt_len],
+                vec![0; hash_len],
+                [RecordType::A],
+            )
+        };
+
+        let rdata = new(255, 255).unwrap();
+        let mut bytes = Vec::new();
+        rdata.emit(&mut BinEncoder::new(&mut bytes)).unwrap();
+        let read_rdata = NSEC3::read_data(&mut BinDecoder::new(&bytes)).unwrap();
+        assert_eq!(rdata, read_rdata);
+
+        assert!(matches!(
+            new(256, 20),
+            Err(ProtoError::Message(msg)) if msg == "NSEC3 salt is too long"
+        ));
+        assert!(matches!(
+            new(8, 256),
+            Err(ProtoError::Message(msg)) if msg == "NSEC3 next hashed owner name is too long"
+        ));
     }
 
     #[test]
@@ -548,7 +613,8 @@ mod tests {
                 RecordType::AAAA,
                 RecordType::RRSIG,
             ],
-        );
+        )
+        .unwrap();
 
         let rdata_wo = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
@@ -562,7 +628,8 @@ mod tests {
                 RecordType::DS,
                 RecordType::RRSIG,
             ],
-        );
+        )
+        .unwrap();
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);

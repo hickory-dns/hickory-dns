@@ -1331,14 +1331,17 @@ mod tests {
             let nsec3_record = Record::from_rdata(
                 nsec3_name.clone(),
                 3600,
-                RData::DNSSEC(DNSSECRData::NSEC3(NSEC3::new(
-                    Nsec3HashAlgorithm::SHA1,
-                    false,
-                    ITERATIONS,
-                    KNOWN_SALT.to_vec(),
-                    next_hashed_owner_name,
-                    record_types,
-                ))),
+                RData::DNSSEC(DNSSECRData::NSEC3(
+                    NSEC3::new(
+                        Nsec3HashAlgorithm::SHA1,
+                        false,
+                        ITERATIONS,
+                        KNOWN_SALT.to_vec(),
+                        next_hashed_owner_name,
+                        record_types,
+                    )
+                    .unwrap(),
+                )),
             );
             let rrsig_record = Record::from_rdata(
                 nsec3_name,
@@ -1776,7 +1779,8 @@ mod tests {
                     KNOWN_SALT.to_vec(),
                     BASE32_DNSSEC.decode(next.as_bytes()).unwrap(),
                     types.iter().copied(),
-                ),
+                )
+                .unwrap(),
             )
         };
 
@@ -1812,7 +1816,8 @@ mod tests {
             Vec::new(),
             record_2_hash.to_vec(),
             [],
-        );
+        )
+        .unwrap();
         let record_2_rdata = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
             false,
@@ -1820,7 +1825,8 @@ mod tests {
             Vec::new(),
             record_1_hash.to_vec(),
             [],
-        );
+        )
+        .unwrap();
 
         let zone_name = Name::parse("example.", None).unwrap();
         let record_1_pair = Nsec3RecordInfo {
@@ -1887,7 +1893,8 @@ mod tests {
                     KNOWN_SALT.to_vec(),
                     next_name,
                     rrset,
-                ),
+                )
+                .unwrap(),
             )
         }
 
