@@ -188,7 +188,7 @@ dependencies = [
 
 [[package]]
 name = "hickory-proto"
-version = "0.26.3"
+version = "0.26.4"
 dependencies = [
  "aws-lc-rs",
  "bitflags",
