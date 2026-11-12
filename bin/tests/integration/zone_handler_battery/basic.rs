@@ -335,6 +335,48 @@ pub fn test_cname_chain(handler: impl ZoneHandler) {
     }
 }
 
+/// A CNAME query returns only the queried CNAME record without chasing the chain.
+pub fn test_cname_query_on_chain(handler: impl ZoneHandler) {
+    let request = Request::from_message(
+        MessageRequest::mock(
+            *TEST_METADATA,
+            Query::new(
+                Name::from_str("alias-chain.example.com.").unwrap(),
+                RecordType::CNAME,
+            ),
+        ),
+        SocketAddr::from((Ipv4Addr::LOCALHOST, 53)),
+        Protocol::Udp,
+    )
+    .unwrap();
+
+    let lookup = block_on(handler.search(&request, LookupOptions::default()))
+        .0
+        .unwrap();
+
+    assert!(
+        lookup.additionals().is_none(),
+        "CNAME query should not produce additional records"
+    );
+
+    let mut answers = lookup.into_iter();
+
+    let cname = answers
+        .next()
+        .expect("CNAME record not found in zone handler");
+    match &cname.data {
+        RData::CNAME(cname) => {
+            assert_eq!(Name::from_str("alias.example.com.").unwrap(), cname.0);
+        }
+        _ => panic!("wrong rdata type returned"),
+    }
+
+    assert!(
+        answers.next().is_none(),
+        "CNAME query should return only the queried CNAME record"
+    );
+}
+
 /// In this the ANAME , should, return A and AAAA records in additional section
 /// the answer should be the A record
 pub fn test_aname(handler: impl ZoneHandler) {
@@ -961,6 +1003,7 @@ macro_rules! basic_battery {
                     test_cname,
                     test_cname_alias,
                     test_cname_chain,
+                    test_cname_query_on_chain,
                     test_aname,
                     test_aname_a_lookup,
                     test_aname_chain,
