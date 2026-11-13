@@ -347,6 +347,7 @@ pub(crate) enum State {
 }
 
 /// Tokens emited from each Lexer pass
+#[allow(clippy::exhaustive_enums)]
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Token {
     /// only if the first part of the line

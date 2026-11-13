@@ -183,8 +183,8 @@ impl DNSClassMetrics {
             DNSClass::HS => self.hs.increment(1),
             DNSClass::NONE => self.none.increment(1),
             DNSClass::ANY => self.any.increment(1),
-            DNSClass::Unknown(_) => self.unknown.increment(1),
             DNSClass::OPT(_) => { /* skip OPT class type */ }
+            DNSClass::Unknown(_) | _ => self.unknown.increment(1),
         }
     }
 }
@@ -444,7 +444,7 @@ impl OpCodeMetrics {
             OpCode::Status => self.status.increment(1),
             OpCode::Notify => self.notify.increment(1),
             OpCode::Update => self.update.increment(1),
-            OpCode::Unknown(_) => self.unknown.increment(1),
+            OpCode::Unknown(_) | _ => self.unknown.increment(1),
         }
     }
 }
@@ -577,7 +577,7 @@ impl ResponseCodeMetrics {
             ResponseCode::BADALG => self.bad_alg.increment(1),
             ResponseCode::BADTRUNC => self.bad_trunc.increment(1),
             ResponseCode::BADCOOKIE => self.bad_cookie.increment(1),
-            ResponseCode::Unknown(_) => self.unknown.increment(1),
+            ResponseCode::Unknown(_) | _ => self.unknown.increment(1),
         }
     }
 }

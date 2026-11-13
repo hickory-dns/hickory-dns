@@ -108,6 +108,7 @@ pub struct TLSA {
 ///    +-------+----------+--------------------------------+-------------+
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum CertUsage {
     /// ```text
@@ -223,6 +224,7 @@ impl From<CertUsage> for u8 {
 ///    (DKIM) [RFC6376].)
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Selector {
     /// Full certificate: the Certificate binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
@@ -285,6 +287,7 @@ impl From<Selector> for u8 {
 ///    number of hash algorithms.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Matching {
     /// Exact match on selected content

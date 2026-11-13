@@ -147,6 +147,7 @@ impl<'a> Iterator for DnssecIter<'a> {
 ///    requires IETF Standards Action [RFC2434].
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy, Default)]
 pub enum Nsec3HashAlgorithm {
     /// Hash for the Nsec3 records
@@ -304,6 +305,7 @@ pub trait SigningKey: Send + Sync + 'static {
 }
 
 /// The format of the binary key
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeyFormat {
     /// A der encoded key
@@ -381,6 +383,7 @@ impl Clone for DnsSecError {
 }
 
 /// DNSSEC status of an answer
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DnssecSummary {
     /// All records have been DNSSEC validated

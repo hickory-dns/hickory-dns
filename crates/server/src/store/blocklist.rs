@@ -475,6 +475,7 @@ impl ZoneHandler for BlocklistZoneHandler {
 }
 
 /// Consult action enum.  Controls how consult lookups are handled.
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
 pub enum BlocklistConsultAction {
     /// Do not log or block any request when the blocklist is called via consult

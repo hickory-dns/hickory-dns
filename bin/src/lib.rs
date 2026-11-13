@@ -522,6 +522,7 @@ impl DnsServer {
     }
 }
 
+#[allow(clippy::exhaustive_enums)]
 #[derive(ValueEnum, Debug, PartialEq, Eq, Clone)]
 pub enum Logging {
     /// Print formatted logs to standard output.

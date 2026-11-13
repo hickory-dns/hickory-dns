@@ -685,6 +685,7 @@ fn default_edns_payload_len() -> u16 {
 /// `Recursor`'s DNSSEC policy
 // `Copy` can only be implemented when `dnssec` is disabled we don't want to remove a trait
 // implementation when a feature is enabled as features are meant to be additive
+#[non_exhaustive]
 #[derive(Clone, Default)]
 pub enum DnssecPolicy {
     /// security unaware; DNSSEC records will not be requested nor processed
@@ -753,6 +754,7 @@ pub struct DnssecConfig {
 
 /// DNSSEC policy configuration
 #[cfg(feature = "serde")]
+#[non_exhaustive]
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub enum DnssecPolicyConfig {
@@ -784,6 +786,7 @@ pub enum DnssecPolicyConfig {
 
 /// Configuration for QNAME minimization (RFC 9156).
 #[cfg_attr(feature = "serde", derive(Deserialize))]
+#[non_exhaustive]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub enum QNameMinimization {
     /// Enforce RFC 8020: short-circuit on NXDOMAIN.

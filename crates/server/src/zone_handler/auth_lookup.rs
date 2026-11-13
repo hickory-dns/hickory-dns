@@ -133,6 +133,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
 }
 
 /// An iterator over a ZoneHandler lookup
+#[non_exhaustive]
 #[derive(Default)]
 pub enum AuthLookupIter<'r> {
     /// The empty set
@@ -235,6 +236,7 @@ impl<'r> Iterator for AxfrRecordsIter<'r> {
 }
 
 /// The result of a lookup
+#[non_exhaustive]
 #[derive(Debug, Default)]
 pub enum LookupRecords {
     /// The empty set of records
@@ -305,6 +307,7 @@ impl<'a> IntoIterator for &'a LookupRecords {
 }
 
 /// Iterator over lookup records
+#[non_exhaustive]
 #[derive(Default)]
 pub enum LookupRecordsIter<'r> {
     /// An iteration over a single RecordSet
