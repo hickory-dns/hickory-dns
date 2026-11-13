@@ -29,22 +29,22 @@ ascii-art = []
 
 systemd = ["dep:sd-notify", "dep:tracing-journald"]
 blocklist = ["hickory-server/blocklist"]
-recursor = ["hickory-server/recursor"]
+recursor = ["hickory-server/recursor", "dep:hickory-resolver"]
 # Recursive Resolution is Experimental!
-resolver = ["hickory-server/resolver"]
+resolver = ["hickory-server/resolver", "dep:hickory-resolver"]
 sqlite = ["hickory-server/sqlite", "dep:rusqlite"]
 prometheus-metrics = ["metrics", "dep:http", "dep:hyper", "dep:hyper-util", "dep:metrics-exporter-prometheus", "dep:tokio-util", "dep:tower", "dep:tower-http"]
-metrics = ["hickory-server/metrics", "hickory-resolver/metrics", "dep:metrics", "dep:metrics-process"]
+metrics = ["hickory-server/metrics", "hickory-resolver?/metrics", "dep:metrics", "dep:metrics-process"]
 
-tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "hickory-resolver/tls-aws-lc-rs", "__tls"]
-https-aws-lc-rs = ["hickory-server/https-aws-lc-rs", "hickory-resolver/https-aws-lc-rs", "tls-aws-lc-rs", "__https"]
-quic-aws-lc-rs = ["hickory-server/quic-aws-lc-rs", "hickory-resolver/quic-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
-h3-aws-lc-rs = ["hickory-resolver/h3-aws-lc-rs", "quic-aws-lc-rs"]
+tls-aws-lc-rs = ["hickory-server/tls-aws-lc-rs", "hickory-resolver?/tls-aws-lc-rs", "__tls"]
+https-aws-lc-rs = ["hickory-server/https-aws-lc-rs", "hickory-resolver?/https-aws-lc-rs", "tls-aws-lc-rs", "__https"]
+quic-aws-lc-rs = ["hickory-server/quic-aws-lc-rs", "hickory-resolver?/quic-aws-lc-rs", "tls-aws-lc-rs", "__quic"]
+h3-aws-lc-rs = ["hickory-resolver?/h3-aws-lc-rs", "quic-aws-lc-rs"]
 
-tls-ring = ["hickory-server/tls-ring", "hickory-resolver/tls-ring", "__tls"]
-https-ring = ["hickory-server/https-ring", "hickory-resolver/https-ring", "tls-ring", "__https"]
-quic-ring = ["hickory-server/quic-ring", "hickory-resolver/quic-ring", "tls-ring", "__quic"]
-h3-ring = ["hickory-resolver/h3-ring", "quic-ring"]
+tls-ring = ["hickory-server/tls-ring", "hickory-resolver?/tls-ring", "__tls"]
+https-ring = ["hickory-server/https-ring", "hickory-resolver?/https-ring", "tls-ring", "__https"]
+quic-ring = ["hickory-server/quic-ring", "hickory-resolver?/quic-ring", "tls-ring", "__quic"]
+h3-ring = ["hickory-resolver?/h3-ring", "quic-ring"]
 
 __tls = ["dep:rustls"]
 __https = []
@@ -95,7 +95,7 @@ tower-http = { workspace = true, features = ["compression-gzip"], optional = tru
 hex.workspace = true
 hickory-proto.workspace = true
 hickory-net.workspace = true
-hickory-resolver.workspace = true
+hickory-resolver = { workspace = true, optional = true }
 hickory-server = { workspace = true, features = ["toml"] }
 hostname.workspace = true
 metrics = { workspace = true, optional = true }
