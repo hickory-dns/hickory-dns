@@ -15,13 +15,14 @@ use tower::{Service, ServiceBuilder};
 use tower_http::compression::CompressionLayer;
 use tracing::{debug, error};
 
-#[cfg(any(feature = "__tls", feature = "__quic"))]
+#[cfg(all(feature = "resolver", any(feature = "__tls", feature = "__quic")))]
 use hickory_resolver::metrics::opportunistic_encryption::PROBE_DURATION_SECONDS;
 #[cfg(feature = "recursor")]
 use hickory_resolver::metrics::recursor::{
     CACHE_HIT_DURATION as RECURSOR_CACHE_HIT_DURATION,
     CACHE_MISS_DURATION as RECURSOR_CACHE_MISS_DURATION,
 };
+#[cfg(feature = "resolver")]
 use hickory_resolver::metrics::{
     CACHE_HIT_DURATION as RESOLVER_CACHE_HIT_DURATION,
     CACHE_MISS_DURATION as RESOLVER_CACHE_MISS_DURATION,
@@ -152,9 +153,11 @@ fn configure_buckets(mut builder: PrometheusBuilder) -> PrometheusBuilder {
 
 /// Histogram metric names and associated bucket sizes.
 const HISTOGRAMS: &[(&str, &[f64])] = &[
-    #[cfg(any(feature = "__tls", feature = "__quic"))]
+    #[cfg(all(feature = "resolver", any(feature = "__tls", feature = "__quic")))]
     (PROBE_DURATION_SECONDS, INTERNET_LATENCY_BUCKETS),
+    #[cfg(feature = "resolver")]
     (RESOLVER_CACHE_MISS_DURATION, INTERNET_LATENCY_BUCKETS),
+    #[cfg(feature = "resolver")]
     (RESOLVER_CACHE_HIT_DURATION, INTERNAL_LATENCY_BUCKETS),
     #[cfg(feature = "recursor")]
     (RECURSOR_CACHE_MISS_DURATION, INTERNET_LATENCY_BUCKETS),
@@ -165,6 +168,7 @@ const HISTOGRAMS: &[(&str, &[f64])] = &[
 /// Histogram buckets for operations that traverse the internet to remote systems.
 ///
 /// The values used are matched to the Go client defaults.
+#[cfg(any(feature = "resolver", feature = "recursor"))]
 const INTERNET_LATENCY_BUCKETS: &[f64] = &[
     0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
 ];
@@ -172,6 +176,7 @@ const INTERNET_LATENCY_BUCKETS: &[f64] = &[
 /// Histogram buckets for internal operations that don't depend on remote systems.
 ///
 /// The values used are a range of buckets between 100μs and 100ms.
+#[cfg(any(feature = "resolver", feature = "recursor"))]
 const INTERNAL_LATENCY_BUCKETS: &[f64] = &[
     0.0001, 0.00025, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1,
 ];
