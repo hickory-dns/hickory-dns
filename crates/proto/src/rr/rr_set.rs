@@ -475,6 +475,7 @@ impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
 }
 
 /// An iterator over the RecordSet data
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum RrsetRecords<'r> {
     /// There are no records in the record set

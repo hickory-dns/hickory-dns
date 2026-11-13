@@ -379,8 +379,9 @@ pub struct HeaderCounts {
 }
 
 /// Message types are either Query (also Update) or Response
-#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[allow(clippy::exhaustive_enums)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 pub enum MessageType {
     /// Queries are Client requests, these are either Queries or Updates
     Query,

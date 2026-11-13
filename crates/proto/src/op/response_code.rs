@@ -62,6 +62,7 @@ use serde::{Deserialize, Serialize};
 ///                 6-15            Reserved for future use.
 ///  ```
 #[derive(Debug, Default, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
+#[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum ResponseCode {
     /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)

@@ -468,6 +468,7 @@ impl From<KEY> for RData {
 
 /// Specifies in what contexts this key may be trusted for use
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[allow(clippy::exhaustive_enums)]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum KeyTrust {
     /// Use of the key is prohibited for authentication
@@ -514,8 +515,9 @@ impl From<KeyTrust> for u16 {
 }
 
 /// Declares what this key is for
-#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[allow(clippy::exhaustive_enums)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum KeyUsage {
     /// key associated with a "user" or "account" at an end entity, usually a host
     Host,
@@ -765,6 +767,7 @@ impl From<UpdateScope> for u16 {
 /// All Protocol Octet values except DNSSEC (3) are eliminated
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Protocol {
     /// Not in use

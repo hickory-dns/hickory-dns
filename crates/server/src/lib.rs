@@ -52,6 +52,7 @@ pub mod dnssec {
     use std::sync::Arc;
 
     /// The kind of non-existence proof provided by the nameserver
+    #[non_exhaustive]
     #[derive(Debug, Deserialize, Clone, PartialEq, Eq)]
     #[serde(rename_all = "lowercase")]
     pub enum NxProofKind {

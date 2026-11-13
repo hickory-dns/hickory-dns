@@ -105,6 +105,7 @@ impl RequestContext {
 }
 
 /// Represents a version of the HTTP spec.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug)]
 pub enum Version {
     /// HTTP/2 for DoH.

@@ -357,6 +357,7 @@ impl<'a> BinEncoder<'a> {
 const COMPRESSION_CANDIDATE_LIMIT: usize = 64;
 
 /// Selects how names should be encoded.
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy)]
 pub enum NameEncoding {
     /// Encode names with compression enabled. The case of the name is unchanged.
@@ -369,6 +370,7 @@ pub enum NameEncoding {
 
 /// Determines how names inside RDATA are encoded, depending on the record type and whether DNSSEC
 /// canonical form is used.
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy)]
 pub enum RDataEncoding {
     /// Applicable to standard record types defined in [RFC 1035 section

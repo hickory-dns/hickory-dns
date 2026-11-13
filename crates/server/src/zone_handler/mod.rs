@@ -236,6 +236,7 @@ pub trait DnssecZoneHandler: ZoneHandler {
 ///   any queries that **did not** match the blocklist, to allow the recursor or forwarder to
 ///   resolve the query. Skip must not be used to represent an empty lookup; (use
 ///   Continue(EmptyLookup) or Break(EmptyLookup) for that.)
+#[allow(clippy::exhaustive_enums)]
 pub enum LookupControlFlow<T, E = LookupError> {
     /// A lookup response that may be passed to one or more additional zone handlers before
     /// being returned to the client.
@@ -577,6 +578,7 @@ impl LookupOptions {
 /// AxfrPolicy describes how to handle AXFR requests
 ///
 /// By default, all AXFR requests are denied.
+#[non_exhaustive]
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Deserialize)]
 pub enum AxfrPolicy {
     /// Deny all AXFR requests.
@@ -590,6 +592,7 @@ pub enum AxfrPolicy {
 }
 
 /// The type of zone stored in a Catalog
+#[allow(clippy::exhaustive_enums)]
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
     /// This authority for a zone

@@ -223,6 +223,7 @@ impl Deref for Queries {
 }
 
 /// A helper struct to emit the queries in a [`MessageRequest`].
+#[non_exhaustive]
 pub enum QueriesEmitAndCount<'q> {
     /// Original query encoding
     Some(&'q [u8]),

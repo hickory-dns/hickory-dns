@@ -25,6 +25,7 @@ pub struct TsigKey {
 /// currently supports.
 ///
 /// [^1]: <https://www.rfc-editor.org/rfc/rfc8945.html#section-6>
+#[non_exhaustive]
 #[derive(Clone, Copy, Serialize)]
 pub enum TsigAlgorithm {
     /// HMAC with SHA-256

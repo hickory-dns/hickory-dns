@@ -532,8 +532,8 @@ impl DnsError {
             Refused | ServFail | FormErr | NotImp | YXDomain | YXRRSet | NXRRSet | NotAuth
             | NotZone | BADVERS | BADSIG | BADKEY | BADTIME | BADMODE | BADNAME | BADALG
             | BADTRUNC | BADCOOKIE => return Err(Self::ResponseCode(response.response_code)),
-            Unknown(_) => return Ok(response),
             NXDomain | NoError => {}
+            Unknown(_) | _ => return Ok(response),
         };
 
         // Do not transform truncated negative responses into an error, as this could lose the TC
@@ -631,11 +631,11 @@ impl DnsError {
             Self::ResponseCode(BADALG) => "dns_response_code_badalg",
             Self::ResponseCode(BADTRUNC) => "dns_response_code_badtrunc",
             Self::ResponseCode(BADCOOKIE) => "dns_response_code_badcookie",
-            Self::ResponseCode(Unknown(_)) => "dns_response_code_unknown",
             Self::NoRecordsFound(_) => "dns_no_records",
             #[cfg(feature = "__dnssec")]
             Self::Nsec { .. } => "dns_nsec",
             Self::DnssecBogus => "dns_dnssec_bogus",
+            Self::ResponseCode(Unknown(_)) | Self::ResponseCode(_) => "dns_response_code_unknown",
         }
     }
 }

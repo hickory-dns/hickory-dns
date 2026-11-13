@@ -160,6 +160,7 @@ impl SSHFP {
 /// [RFC 7479](https://tools.ietf.org/html/rfc7479) and
 /// [RFC 8709](https://tools.ietf.org/html/rfc8709).
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Algorithm {
     /// Reserved value
@@ -234,6 +235,7 @@ impl From<Algorithm> for u8 {
 /// The fingerprint type values have been updated in
 /// [RFC 6594](https://tools.ietf.org/html/rfc6594).
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum FingerprintType {
     /// Reserved value

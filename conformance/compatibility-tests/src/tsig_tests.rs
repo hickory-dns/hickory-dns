@@ -177,6 +177,7 @@ fn tsig_key_and_signer() -> (TsigKey, TSigner) {
             TestTsigAlgorithm::HmacSha256 => TsigAlgorithm::HmacSha256,
             TestTsigAlgorithm::HmacSha384 => TsigAlgorithm::HmacSha384,
             TestTsigAlgorithm::HmacSha512 => TsigAlgorithm::HmacSha512,
+            _ => panic!("unsupported algorithm"),
         },
         Name::from_str(&tsig_key.name).unwrap(),
         60,

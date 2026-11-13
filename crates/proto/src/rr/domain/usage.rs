@@ -116,6 +116,7 @@ fn in_zone(name: &Name, zone: impl IntoIterator<Item = &'static str>) -> bool {
 ///   Are writers of name resolution APIs and libraries expected to
 ///   make their software recognize these names as special and treat
 ///   them differently?  If so, how?
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ResolverUsage {
     /// Name resolution APIs and libraries SHOULD NOT recognize these
