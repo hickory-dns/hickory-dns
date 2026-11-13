@@ -289,8 +289,7 @@ prefer to `import std::error::Error as StdError`.
 
 We prefer to export types under a single name, avoiding re-exporting types from
 the top-level `lib.rs`. The exception to this are "paved path" exports that we
-expect every user will need. The canonical example of such types are
-`client::ClientConfig` and `server::ServerConfig`. In general this sort of type
+expect every user will need. In general this sort of type
 is rare and most new types should be exported only from the module in which they
 are defined.
 
