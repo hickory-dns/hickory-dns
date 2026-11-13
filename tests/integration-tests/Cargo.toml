@@ -80,7 +80,7 @@ h3-ring = [
 ]
 
 __tls = ["dep:rustls"]
-__https = ["dep:rustls", "dep:webpki-roots"]
+__https = ["dep:rustls"]
 
 sqlite = ["rusqlite", "hickory-server/sqlite"]
 metrics = ["hickory-server/metrics"]
@@ -99,7 +99,6 @@ hickory-proto = { workspace = true, features = ["testing", "std"] }
 hickory-net = { workspace = true, features = ["tokio"] }
 hickory-resolver = { workspace = true, features = ["tokio"] }
 hickory-server = { workspace = true, features = ["testing", "resolver"] }
-webpki-roots = { workspace = true, optional = true }
 
 [dev-dependencies]
 data-encoding.workspace = true
@@ -108,6 +107,7 @@ pretty_assertions = "1"
 tokio = { workspace = true, features = ["macros", "rt"] }
 test-support.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "std"] }
+webpki-roots.workspace = true
 
 [package.metadata.cargo-all-features]
 skip_optional_dependencies = true
