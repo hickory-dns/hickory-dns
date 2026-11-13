@@ -482,6 +482,7 @@ impl fmt::Display for TSIG {
 ///      +--------------------------+----------------+-----------------+
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum TsigAlgorithm {
     /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)
@@ -647,6 +648,7 @@ impl BinDecodable<'_> for TsigAlgorithm {
 ///
 /// See <https://www.rfc-editor.org/rfc/rfc8945.html#section-3>
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
 pub enum TsigError {
     /// Bad signature

@@ -30,6 +30,7 @@ use serde::{Deserialize, Serialize};
 ///                 3-15            reserved for future use
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
+#[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum OpCode {
     /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)
