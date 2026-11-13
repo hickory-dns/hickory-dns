@@ -155,6 +155,7 @@ unused_qualifications = "warn"
 [workspace.lints.clippy]
 bool_to_int_with_if = "allow"
 default_trait_access = "warn"
+exhaustive_enums = "warn"
 manual_let_else = "warn"
 or_fun_call = "warn"
 single_component_path_imports = "allow"

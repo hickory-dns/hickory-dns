@@ -466,12 +466,13 @@ impl<'de> Deserialize<'de> for ConnectionConfig {
 }
 
 /// Protocol configuration
-#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
     serde(deny_unknown_fields, rename_all = "snake_case", tag = "type")
 )]
+#[non_exhaustive]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ProtocolConfig {
     /// DNS over UDP
     #[default]
@@ -792,8 +793,9 @@ fn default_edns_payload_len() -> u16 {
 }
 
 /// The lookup ip strategy
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum LookupIpStrategy {
     /// Only query for A (Ipv4) records
     Ipv4Only,
@@ -828,8 +830,9 @@ pub enum ServerOrderingStrategy {
 }
 
 /// Whether the system hosts file should be respected by the resolver.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[allow(clippy::exhaustive_enums)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ResolveHosts {
     /// Always attempt to look up IP addresses from the system hosts file.
     /// If the hostname cannot be found, query the DNS.

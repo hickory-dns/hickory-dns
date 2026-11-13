@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 ///   cases:
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[allow(clippy::exhaustive_enums)]
 #[must_use = "Proof is a flag on Record data, it should be interrogated before using a record"]
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 #[repr(u8)]

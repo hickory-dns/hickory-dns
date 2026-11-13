@@ -50,6 +50,7 @@ use crate::{
 ///          65535            Reserved
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum CertType {
     /// 0            Reserved
@@ -273,6 +274,7 @@ impl fmt::Display for CertType {
 /// 123-251    reserved
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Algorithm {
     /// 0, 9, 11, 123-251, 255   reserved

@@ -18,6 +18,7 @@ pub use self::mdns_client_stream::MdnsClientStream;
 pub use self::mdns_stream::{MDNS_IPV4, MDNS_IPV6, MdnsStream};
 
 /// See [rfc6762](https://tools.ietf.org/html/rfc6762#section-5) details on these different types.
+#[allow(clippy::exhaustive_enums)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MdnsQueryType {
     /// The querier using this socket will only perform standard DNS queries over multicast. (clients only)

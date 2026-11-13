@@ -57,6 +57,7 @@ pub(crate) const DOQ_ALPN: &[u8] = b"doq";
 ///    DOQ_ERROR_RESERVED (0xd098ea5e):  An alternative error code used for
 ///       tests.
 /// ```
+#[non_exhaustive]
 #[derive(Clone, Copy)]
 pub enum DoqErrorCode {
     /// No error. This is used when the connection or stream needs to be closed, but there is no error to signal.

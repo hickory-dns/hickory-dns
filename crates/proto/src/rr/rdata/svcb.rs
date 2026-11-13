@@ -540,6 +540,7 @@ where
 ///      network byte order.  (See Section 14.3.2 for the defined values.)
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum SvcParamKey {
     /// Mandatory keys in this RR
@@ -691,6 +692,7 @@ impl PartialOrd for SvcParamKey {
 ///      determined by the SvcParamKey.
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum SvcParamValue {
     ///    In a ServiceMode RR, a SvcParamKey is considered "mandatory" if the

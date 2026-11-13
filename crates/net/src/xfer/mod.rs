@@ -317,6 +317,7 @@ impl OneshotDnsResponse {
 }
 
 /// A Stream that wraps a [`oneshot::Receiver<Stream>`] and resolves to items in the inner Stream
+#[non_exhaustive]
 pub enum DnsResponseReceiver {
     /// The receiver
     Receiver(oneshot::Receiver<DnsResponseStream>),
