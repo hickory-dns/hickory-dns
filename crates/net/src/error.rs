@@ -14,6 +14,8 @@ use std::io;
 use std::sync::Arc;
 
 #[cfg(any(feature = "__https", feature = "__h3"))]
+use http::StatusCode;
+#[cfg(any(feature = "__https", feature = "__h3"))]
 use http::header::ToStrError;
 use thiserror::Error;
 use tracing::debug;
@@ -51,6 +53,16 @@ pub enum NetError {
     #[error("DNS error: {0}")]
     Dns(#[from] DnsError),
 
+    /// An HTTP error occurred
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("HTTP error {status}: {body}")]
+    Http {
+        /// The HTTP status code of the response.
+        status: StatusCode,
+        /// The response body.
+        body: String,
+    },
+
     /// An HTTP/2 related error
     #[error("H2 error: {0}")]
     #[cfg(feature = "__https")]
@@ -61,7 +73,12 @@ pub enum NetError {
     #[cfg(feature = "__h3")]
     H3(Arc<h3::error::StreamError>),
 
-    /// An error with an arbitrary message, referenced as &'static str
+    /// An Invalid HTTP content type header
+    #[cfg(any(feature = "__https", feature = "__h3"))]
+    #[error("invalid content type: {0}")]
+    InvalidContentType(String),
+
+    /// An error with an arbitrary message
     #[error("{0}")]
     Message(&'static str),
 
@@ -185,6 +202,87 @@ impl NetError {
         matches!(self, Self::Dns(DnsError::NoRecordsFound { .. }))
     }
 
+    /// Returns true if the error indicates a failure at the transport layer.
+    ///
+    /// The match is exhaustive so a new variant cannot silently change how a
+    /// name server is penalized. Errors from the query, the response contents,
+    /// or local state are not transport errors.
+    pub fn is_transport_error(&self) -> bool {
+        match self {
+            // Internal resource pressure, not a server property.
+            Self::Busy => false,
+            Self::ConnectionClosed => true,
+
+            // A response header that does not decode as a string.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Decode(_) => false,
+
+            // A response from the server, whatever its contents.
+            Self::Dns(_) => false,
+            Self::ForeignClassRecord { .. } => false,
+            Self::QueryCaseMismatch => false,
+            Self::Truncated => false,
+
+            // An HTTP/2 or HTTP/3 connection or stream failure.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Http { .. } => true,
+            #[cfg(feature = "__https")]
+            Self::H2(_) => true,
+            #[cfg(feature = "__h3")]
+            Self::H3(_) => true,
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::InvalidContentType(_) => true,
+
+            Self::Io(_) => true,
+
+            // Local failures that no server choice can avoid.
+            #[cfg(target_os = "android")]
+            Self::Jni(_) => false,
+            Self::Msg(_) => false,
+            Self::Message(_) => false,
+            Self::NoConnections => true,
+
+            // A response header value that does not parse as a number.
+            Self::ParseInt(_) => false,
+
+            // Usually RDATA our code cannot transform, so the zone contents decide
+            // the failure rather than the server or protocol.
+            Self::Proto(_) => false,
+
+            // A DoQ protocol violation by the server.
+            #[cfg(feature = "__quic")]
+            Self::QuicMessageIdNot0(_) => true,
+
+            // A QUIC configuration or connection failure.
+            #[cfg(feature = "__quic")]
+            Self::QuinnConfigError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnect(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnConnection(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnReadError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnStreamError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnTlsConfigError(_) => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnUnknownStreamError => true,
+            #[cfg(feature = "__quic")]
+            Self::QuinnWriteError(_) => true,
+
+            // The server responded; only the body exceeded our size limit.
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::RequestTooLarge => false,
+
+            // A TLS handshake failure.
+            #[cfg(feature = "__tls")]
+            Self::RustlsError(_) => true,
+
+            Self::Timeout => true,
+        }
+    }
+
     /// Returns true for a transport-level connection error: the connection was
     /// closed, reset, or refused, as opposed to a timeout or a server-side (DNS)
     /// error.
@@ -233,10 +331,14 @@ impl NetError {
             #[cfg(any(feature = "__https", feature = "__h3"))]
             Self::Decode(_) => "http_header_decode",
             Self::Dns(dns_err) => dns_err.as_metrics_label(),
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::Http { .. } => "http",
             #[cfg(feature = "__https")]
             Self::H2(_) => "http2",
             #[cfg(feature = "__h3")]
             Self::H3(_) => "http3",
+            #[cfg(any(feature = "__https", feature = "__h3"))]
+            Self::InvalidContentType(_) => "invalid_content_type",
             Self::ParseInt(_) => "parse_header_value",
             Self::NoConnections => "no_connections",
             Self::Proto(_) => "proto",
