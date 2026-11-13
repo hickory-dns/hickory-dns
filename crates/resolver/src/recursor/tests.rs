@@ -706,8 +706,8 @@ async fn get_zone_name(
     recursor: &Recursor<MockProvider>,
     query: &Name,
 ) -> Result<Option<Name>, NetError> {
-    match recursor.mode {
-        RecursorMode::NonValidating { ref handle } => {
+    match &recursor.mode {
+        RecursorMode::NonValidating { handle } => {
             let ns_pool = handle
                 .ns_pool_for_name(query.clone(), Instant::now(), 0, &RequestLimits::new())
                 .await?
