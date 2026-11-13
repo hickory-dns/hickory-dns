@@ -5,7 +5,7 @@ name = "compatibility-tests"
 publish = false
 version = "0.1.0"
 
-[dependencies]
+[dev-dependencies]
 dns-test.workspace = true
 futures.workspace = true
 hickory-net = { workspace = true, features = ["dnssec-ring"] }
