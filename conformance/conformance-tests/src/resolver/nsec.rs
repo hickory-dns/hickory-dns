@@ -13,7 +13,7 @@ use dns_test::{
 #[test]
 fn zone_exist_domain_does_not_nsec3() -> Result<(), Error> {
     zone_exist_domain_does_not(Nsec::_3 {
-        iterations: 0,
+        iterations: 1,
         opt_out: false,
         salt: None,
     })
@@ -27,7 +27,7 @@ fn zone_exist_domain_does_not_nsec() -> Result<(), Error> {
 #[test]
 fn zone_does_not_exist_nsec3() -> Result<(), Error> {
     zone_does_not_exist(Nsec::_3 {
-        iterations: 0,
+        iterations: 1,
         opt_out: false,
         salt: None,
     })
@@ -41,7 +41,7 @@ fn zone_does_not_exist_nsec() -> Result<(), Error> {
 #[test]
 fn domain_exists_record_type_does_not_nsec3() -> Result<(), Error> {
     domain_exists_record_type_does_not(Nsec::_3 {
-        iterations: 0,
+        iterations: 1,
         opt_out: false,
         salt: None,
     })
@@ -66,7 +66,7 @@ fn wildcard_exists_record_type_does_not_nsec_end_chain() -> Result<(), Error> {
 fn wildcard_exists_record_type_does_not_nsec3() -> Result<(), Error> {
     wildcard_exists_record_type_does_not(
         Nsec::_3 {
-            iterations: 0,
+            iterations: 1,
             opt_out: false,
             salt: None,
         },

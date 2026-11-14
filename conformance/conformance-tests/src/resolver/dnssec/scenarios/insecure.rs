@@ -16,7 +16,7 @@ mod deprecated_algorithm;
 #[test]
 fn unsigned_zone_nsec3() -> Result<(), Error> {
     unsigned_zone_fixture(Nsec::_3 {
-        iterations: 0,
+        iterations: 1,
         opt_out: false,
         salt: None,
     })
@@ -115,7 +115,7 @@ fn no_ds_record_nsec3() -> Result<(), Error> {
     let (output, _logs) = no_ds_record_fixture(
         FQDN::TEST_TLD.push_label("no-ds"),
         SignSettings::default().nsec(Nsec::_3 {
-            iterations: 0,
+            iterations: 1,
             salt: None,
             opt_out: false,
         }),
@@ -136,7 +136,7 @@ fn no_ds_record_nsec3_case_randomization() -> Result<(), Error> {
     let (output, _logs) = no_ds_record_fixture(
         FQDN::TEST_TLD.push_label("no-ds"),
         SignSettings::default().nsec(Nsec::_3 {
-            iterations: 0,
+            iterations: 1,
             salt: None,
             opt_out: false,
         }),

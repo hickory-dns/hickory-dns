@@ -7,7 +7,7 @@ use crate::{
     Error, FQDN,
     container::Container,
     name_server::{DS2, Signed},
-    record::DS,
+    record::{DS, Record},
 };
 
 use super::{DNSKEY, Keypair, SigningKeys, ZoneFile};
@@ -180,7 +180,7 @@ pub enum Nsec {
 impl Default for Nsec {
     fn default() -> Self {
         Self::_3 {
-            iterations: 0,
+            iterations: 1,
             opt_out: false,
             salt: None,
         }
@@ -307,6 +307,27 @@ impl<'a> Signer<'a> {
             .container
             .stdout(&["cat", &format!("{zone_file_path}.signed")])?
             .parse()?;
+
+        if let Nsec::_3 {
+            iterations,
+            salt,
+            opt_out: _,
+        } = &self.settings.nsec
+        {
+            let nsec3param = signed
+                .records
+                .iter()
+                .find_map(|r| match r {
+                    Record::NSEC3PARAM(nsec3param) => Some(nsec3param),
+                    _ => None,
+                })
+                .expect("could not find NSEC3PARAM in signed zone");
+            assert_eq!(nsec3param.iterations, *iterations);
+            assert_eq!(
+                &hex::encode(&nsec3param.salt),
+                salt.as_deref().unwrap_or_default()
+            )
+        }
 
         let ksk = keys.ksk.public.clone().with_ttl(ttl);
         let zsk = keys.zsk.public.clone().with_ttl(ttl);
