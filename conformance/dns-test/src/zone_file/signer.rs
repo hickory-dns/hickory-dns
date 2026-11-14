@@ -402,9 +402,7 @@ impl<'a> Signer<'a> {
                 {
                     args.push("-n".to_string());
 
-                    if *iterations > 0 {
-                        args.push(format!("-t {iterations}"));
-                    }
+                    args.push(format!("-t {iterations}"));
 
                     if *opt_out {
                         args.push("-p".to_string());
@@ -441,9 +439,7 @@ impl<'a> Signer<'a> {
                     opt_out,
                 } = &self.settings.nsec
                 {
-                    if *iterations > 0 {
-                        args.push(format!("-H {iterations}"));
-                    }
+                    args.push(format!("-H {iterations}"));
 
                     args.push("-3".to_string());
 
