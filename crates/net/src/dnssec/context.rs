@@ -95,7 +95,7 @@ impl<'a> RrsetVerificationContext<'a> {
             match dnskey.proof() {
                 Proof::Secure => {
                     all_insecure = Some(false);
-                    if let Ok(proof) = self.verify_with_dnskey(dnskey, dnskey.proof(), rrsig) {
+                    if let Ok(proof) = self.verify_with_dnskey(dnskey, rrsig) {
                         return Some((proof.0, proof.1));
                     }
                 }
@@ -118,23 +118,8 @@ impl<'a> RrsetVerificationContext<'a> {
     pub(super) fn verify_with_dnskey(
         &self,
         dnskey: RecordRef<'_, DNSKEY>,
-        dnskey_proof: Proof,
         rrsig: &RecordRef<'_, RRSIG>,
     ) -> Result<(Proof, Option<u32>), ProofError> {
-        match dnskey_proof {
-            Proof::Secure => (),
-            proof => {
-                debug!("insecure dnskey {} {}", dnskey.name(), dnskey.data());
-                return Err(ProofError::new(
-                    proof,
-                    ProofErrorKind::InsecureDnsKey {
-                        name: dnskey.name().clone(),
-                        key_tag: rrsig.data().input().key_tag,
-                    },
-                ));
-            }
-        }
-
         if dnskey.data().revoke() {
             debug!("revoked dnskey {} {}", dnskey.name(), dnskey.data());
             return Err(ProofError::new(

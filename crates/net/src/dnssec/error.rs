@@ -92,15 +92,6 @@ pub enum ProofErrorKind {
         name: Name,
     },
 
-    /// The DNSKEY used was not verified as secure
-    #[error("dnskey insecure: {name}, key_tag: {key_tag}")]
-    InsecureDnsKey {
-        /// The name of the DNSKEY
-        name: Name,
-        /// The key tag derived from the DNSKEY
-        key_tag: u16,
-    },
-
     /// The DnsKey is not marked as a zone key
     #[error("not a zone signing key: {name} key_tag: {key_tag}")]
     NotZoneDnsKey {

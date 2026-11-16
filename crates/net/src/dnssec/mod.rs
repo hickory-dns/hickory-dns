@@ -646,7 +646,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         let Ok(dnskey) = RecordRef::<DNSKEY>::try_from(&**dnskey) else {
                             return None;
                         };
-                        context.verify_with_dnskey(dnskey, proof.0, &rrsig).ok()
+                        context.verify_with_dnskey(dnskey, &rrsig).ok()
                     });
 
             if let Some(rrset_proof) = rrset_proof {
