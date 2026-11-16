@@ -38,7 +38,8 @@ use crate::{
 
 mod context;
 use context::{
-    RrsetMap, RrsetProof, RrsetVerificationContext, RrsigVerificationOutcome, VerifiedRrsetMap,
+    ProofWithTtl, RrsetMap, RrsetProof, RrsetVerificationContext, RrsigVerificationOutcome,
+    VerifiedRrsetMap,
 };
 
 mod error;
@@ -631,7 +632,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             };
             let signer_name = &rrsig.data().input().signer_name;
 
-            let rrset_proof =
+            let proof_opt =
                 rrset
                     .records
                     .iter()
@@ -646,15 +647,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         let Ok(dnskey) = RecordRef::<DNSKEY>::try_from(&**dnskey) else {
                             return None;
                         };
-                        context.verify_with_dnskey(dnskey, &rrsig).ok()
+                        match context.verify_with_dnskey(dnskey, &rrsig) {
+                            ProofWithTtl::Secure { authenticated_ttl } => Some(RrsetProof {
+                                proof: Proof::Secure,
+                                adjusted_ttl: Some(authenticated_ttl),
+                                rrsig_index: Some(i),
+                            }),
+                            _ => None,
+                        }
                     });
 
-            if let Some(rrset_proof) = rrset_proof {
-                return Ok(RrsetProof {
-                    proof: rrset_proof.0,
-                    adjusted_ttl: rrset_proof.1,
-                    rrsig_index: Some(i),
-                });
+            if let Some(proof) = proof_opt {
+                return Ok(proof);
             }
         }
 
