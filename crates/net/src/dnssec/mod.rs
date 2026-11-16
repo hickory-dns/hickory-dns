@@ -563,8 +563,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             "validating rrset with dnskeys",
         );
 
-        let mut dnskey_proofs: Vec<(Proof, Option<u32>, Option<usize>)> =
-            vec![(Proof::Bogus, None, None); rrset.records.len()];
+        let mut dnskey_proofs: Vec<RrsetProof> = vec![
+            RrsetProof {
+                proof: Proof::Bogus,
+                adjusted_ttl: None,
+                rrsig_index: None
+            };
+            rrset.records.len()
+        ];
 
         // Check if the DNSKEYs are in the trust anchors.
         for (r, proof) in rrset.records.iter().zip(dnskey_proofs.iter_mut()) {
@@ -572,20 +578,21 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 continue;
             };
 
-            proof.0 = self.is_dnskey_in_root_store(&dnskey, &key.name);
+            proof.proof = self.is_dnskey_in_root_store(&dnskey, &key.name);
         }
 
         // If not all DNSKEYs are trust anchors, and this isn't the root DNSKEY RRset, then we
         // should look for DS records to possibly verify more keys.
-        let ds_records = if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !key.name.is_root() {
-            // Need to get DS records for each DNSKEY.
-            // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
-            self.fetch_ds_records(Name::from(&key.name), options)
-                .await?
-        } else {
-            debug!("ignoring DS lookup for root zone or registered keys");
-            Vec::default()
-        };
+        let ds_records =
+            if !dnskey_proofs.iter().all(|p| p.proof.is_secure()) && !key.name.is_root() {
+                // Need to get DS records for each DNSKEY.
+                // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
+                self.fetch_ds_records(Name::from(&key.name), options)
+                    .await?
+            } else {
+                debug!("ignoring DS lookup for root zone or registered keys");
+                Vec::default()
+            };
 
         // if the DS records are not empty and they also have no supported algorithms, then this is INSECURE
         // for secure DS records the BOGUS check happens after DNSKEYs are evaluated against the DS
@@ -611,14 +618,26 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 continue;
             };
 
-            if proof.0.is_secure() {
+            if proof.proof.is_secure() {
                 continue;
             }
 
             // need to track each proof on each dnskey to ensure they are all validated
             match verify_dnskey(&dnskey, &ds_records) {
-                Ok(pf) => *proof = (pf, None, None),
-                Err(err) => *proof = (err.proof, None, None),
+                Ok(pf) => {
+                    *proof = RrsetProof {
+                        proof: pf,
+                        adjusted_ttl: None,
+                        rrsig_index: None,
+                    }
+                }
+                Err(err) => {
+                    *proof = RrsetProof {
+                        proof: err.proof,
+                        adjusted_ttl: None,
+                        rrsig_index: None,
+                    }
+                }
             }
         }
 
@@ -635,7 +654,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 .records
                 .iter()
                 .zip(dnskey_proofs.iter())
-                .filter(|(r, (proof, ..))| &r.name == signer_name && proof.is_secure())
+                .filter(|(r, RrsetProof { proof, .. })| &r.name == signer_name && proof.is_secure())
                 .filter_map(|(r, _)| RecordRef::<'_, DNSKEY>::try_from(&**r).ok())
                 .find_map(|dnskey| context.verify_with_dnskey(dnskey, &rrsig).ok());
 
@@ -649,13 +668,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
 
         // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
-        if dnskey_proofs.iter().all(|(proof, ..)| proof.is_secure()) {
+        if dnskey_proofs
+            .iter()
+            .all(|RrsetProof { proof, .. }| proof.is_secure())
+        {
             let proof = dnskey_proofs.pop().unwrap(/* This can not happen due to above test */);
-            return Ok(RrsetProof {
-                proof: proof.0,
-                adjusted_ttl: proof.1,
-                rrsig_index: proof.2,
-            });
+            return Ok(proof);
         }
 
         if !ds_records.is_empty() {
