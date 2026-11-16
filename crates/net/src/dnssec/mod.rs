@@ -642,9 +642,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                         .ok()
                         .map(|r| (r, proof))
                 })
-                .find_map(|(dnskey, proof)| {
-                    context.verify_with_dnskey(dnskey, *proof, &rrsig).ok()
-                });
+                .find_map(|(dnskey, _)| context.verify_with_dnskey(dnskey, &rrsig).ok());
 
             if let Some(rrset_proof) = rrset_proof {
                 return Ok(RrsetProof {
