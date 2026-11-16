@@ -635,14 +635,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 .records
                 .iter()
                 .zip(dnskey_proofs.iter())
-                .filter(|(_, (proof, ..))| proof.is_secure())
-                .filter(|(r, _)| &r.name == signer_name)
-                .filter_map(|(r, (proof, ..))| {
-                    RecordRef::<'_, DNSKEY>::try_from(&**r)
-                        .ok()
-                        .map(|r| (r, proof))
-                })
-                .find_map(|(dnskey, _)| context.verify_with_dnskey(dnskey, &rrsig).ok());
+                .filter(|(r, (proof, ..))| &r.name == signer_name && proof.is_secure())
+                .filter_map(|(r, _)| RecordRef::<'_, DNSKEY>::try_from(&**r).ok())
+                .find_map(|dnskey| context.verify_with_dnskey(dnskey, &rrsig).ok());
 
             if let Some(adjusted_ttl) = adjusted_ttl_opt {
                 return Ok(RrsetProof {
