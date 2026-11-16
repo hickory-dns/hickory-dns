@@ -631,7 +631,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             };
             let signer_name = &rrsig.data().input().signer_name;
 
-            let rrset_proof = rrset
+            let adjusted_ttl_opt = rrset
                 .records
                 .iter()
                 .zip(dnskey_proofs.iter())
@@ -644,10 +644,10 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 })
                 .find_map(|(dnskey, _)| context.verify_with_dnskey(dnskey, &rrsig).ok());
 
-            if let Some(rrset_proof) = rrset_proof {
+            if let Some(adjusted_ttl) = adjusted_ttl_opt {
                 return Ok(RrsetProof {
-                    proof: rrset_proof.0,
-                    adjusted_ttl: rrset_proof.1,
+                    proof: Proof::Secure,
+                    adjusted_ttl: Some(adjusted_ttl),
                     rrsig_index: Some(i),
                 });
             }
