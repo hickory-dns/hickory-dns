@@ -11,8 +11,8 @@ use tracing::{debug, warn};
 
 use crate::{
     dnssec::{
-        MAX_KEY_TAG_COLLISIONS, ProofError, ProofErrorKind, ValidationCacheKey,
-        nsec::ZoneNsecRecords, nsec3::ZoneNsec3Records,
+        MAX_KEY_TAG_COLLISIONS, ProofErrorKind, ValidationCacheKey, nsec::ZoneNsecRecords,
+        nsec3::ZoneNsec3Records,
     },
     proto::{
         dnssec::{
@@ -528,37 +528,27 @@ impl<'a> Rrset<'a> {
     /// Updates the RRset with verification results and produces a `VerifiedRrset`.
     pub(super) fn verified(
         mut self,
-        result: Result<RrsetProof, ProofError>,
+        rrset_proof: RrsetProof,
         name: &LowerName,
         record_type: RecordType,
     ) -> VerifiedRrset<'a> {
-        let proof = match result {
-            Ok(proof) => {
+        let (proof, adjusted_ttl, rrsig_idx) = match rrset_proof {
+            RrsetProof::Secure {
+                adjusted_ttl,
+                rrsig_index,
+            } => {
                 debug!("verified: {name} record_type: {record_type}");
-                proof
+                (Proof::Secure, Some(adjusted_ttl), Some(rrsig_index))
             }
-            Err(err) => {
-                match err.kind() {
-                    ProofErrorKind::DsResponseInsecure { .. } => {
-                        debug!("verified insecure {name}/{record_type}")
-                    }
-                    kind => {
-                        debug!("failed to verify: {name} record_type: {record_type}: {kind}")
-                    }
-                }
-                RrsetProof {
-                    proof: err.proof,
-                    adjusted_ttl: None,
-                    rrsig_index: None,
-                }
+            RrsetProof::Insecure => {
+                debug!("verified insecure {name}/{record_type}");
+                (Proof::Insecure, None, None)
+            }
+            RrsetProof::Bogus(kind) => {
+                debug!("failed to verify: {name} record_type: {record_type}: {kind}");
+                (Proof::Bogus, None, None)
             }
         };
-
-        let RrsetProof {
-            proof,
-            adjusted_ttl,
-            rrsig_index: rrsig_idx,
-        } = proof;
 
         for record in self.records.iter_mut() {
             record.proof = proof;
@@ -628,11 +618,23 @@ pub(super) enum RrsigVerificationOutcome<'a> {
     Bogus,
 }
 
+/// DNSSEC validation status of an RRset, along with auxiliary information.
 #[derive(Clone)]
-pub(super) struct RrsetProof {
-    pub(super) proof: Proof,
-    pub(super) adjusted_ttl: Option<u32>,
-    pub(super) rrsig_index: Option<usize>,
+pub(super) enum RrsetProof {
+    Secure {
+        /// The adjusted TTL of the RRset, after taking into account the RRSIG expiration time.
+        adjusted_ttl: u32,
+        /// The index of the RRSIG that validated this RRset, in the list of RRSIG records.
+        rrsig_index: usize,
+    },
+    Insecure,
+    Bogus(Box<ProofErrorKind>),
+}
+
+impl RrsetProof {
+    pub(super) fn bogus(kind: ProofErrorKind) -> Self {
+        Self::Bogus(Box::new(kind))
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
