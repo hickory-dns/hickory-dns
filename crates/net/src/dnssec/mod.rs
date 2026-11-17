@@ -495,9 +495,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     // Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
                     //  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
                     //  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
-                    //  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
-                    //  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
-                    //  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
+                    //  validated to prove it's correctness.
                     let proof = match context.key.record_type {
                         RecordType::DNSKEY => self.verify_dnskey_rrset(&context).await,
                         _ => self.verify_default_rrset(&context).await,
@@ -659,16 +657,6 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             if let Some(proof) = proof_opt {
                 return Ok(proof);
             }
-        }
-
-        // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
-        if dnskey_proofs.iter().all(|proof| proof.is_secure()) {
-            let proof = dnskey_proofs.pop().unwrap(/* This can not happen due to above test */);
-            return Ok(RrsetProof {
-                proof,
-                adjusted_ttl: None,
-                rrsig_index: None,
-            });
         }
 
         if !ds_records.is_empty() {
