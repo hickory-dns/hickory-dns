@@ -489,7 +489,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             };
 
             let cache_key = context.key();
-            let result = match self.validation_cache.get(&cache_key, &context) {
+            let rrset_proof = match self.validation_cache.get(&cache_key, &context) {
                 Some(cached) => cached,
                 None => {
                     // Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
@@ -503,7 +503,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
                     match &proof {
                         // These could be transient errors that should be retried.
-                        Err(e) if matches!(e.kind(), ProofErrorKind::Net { .. }) => {
+                        RrsetProof::Bogus(kind)
+                            if matches!(&**kind, ProofErrorKind::Net { .. }) =>
+                        {
                             debug!("not caching DNSSEC validation with ProofErrorKind::Net")
                         }
                         _ => {
@@ -516,7 +518,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 }
             };
 
-            let verified = rrset.verified(result, name, record_type);
+            let verified = rrset.verified(rrset_proof, name, record_type);
             map.insert(key, verified);
         }
 
@@ -525,25 +527,23 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
     /// DNSKEY-specific verification
     ///
-    /// A DNSKEY needs to be checked against a DS record provided by the parent zone.
+    /// At least one DNSKEY must authenticated with a DS record provided by the parent zone, or by
+    /// the trust anchor. Then, the RRSIG over the DNSKEY RRset by that key is verified to establish
+    /// trust in the rest of the RRset.
     ///
-    /// A DNSKEY that's part of the trust anchor does not need to have its DS record (which may
-    /// not exist as it's the case of the root zone) nor its RRSIG validated. If an RRSIG is present
-    /// it will be validated.
+    /// A DNSKEY that's part of the trust anchor does not need to have its DS record validated. In
+    /// particular, DNSKEYs in the root zone cannot have a DS record.
     ///
     /// # Return
     ///
-    /// If Ok, returns an RrsetProof containing the proof, adjusted TTL, and an index of the RRSIG used for
-    /// validation of the rrset.
+    /// Returns an RrsetProof containing the result of the verification, plus the adjusted TTL and
+    /// index of the RRSIG used for validation of the RRset, if applicable.
     ///
     /// # Panics
     ///
-    /// This method should only be called to validate DNSKEYs, see `verify_default_rrset` for other record types.
-    ///  if a non-DNSKEY RRSET is passed into this method it will always panic.
-    async fn verify_dnskey_rrset(
-        &self,
-        context: &RrsetVerificationContext<'_>,
-    ) -> Result<RrsetProof, ProofError> {
+    /// This method should only be called to validate DNSKEYs, see `verify_default_rrset` for other
+    /// record types. If a non-DNSKEY RRset is passed into this method it will always panic.
+    async fn verify_dnskey_rrset(&self, context: &RrsetVerificationContext<'_>) -> RrsetProof {
         let RrsetVerificationContext {
             key,
             rrset,
@@ -578,8 +578,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         let ds_records = if !dnskey_proofs.iter().all(|p| p.is_secure()) && !key.name.is_root() {
             // Need to get DS records for each DNSKEY.
             // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
-            self.fetch_ds_records(Name::from(&key.name), options)
-                .await?
+            match self.fetch_ds_records(Name::from(&key.name), options).await {
+                Ok(ds_records) => ds_records,
+                Err(ProofError {
+                    proof: Proof::Insecure,
+                    ..
+                }) => return RrsetProof::Insecure,
+                Err(ProofError { kind, .. }) => return RrsetProof::Bogus(kind),
+            }
         } else {
             debug!("ignoring DS lookup for root zone or registered keys");
             Vec::default()
@@ -597,10 +603,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 "all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone"
             );
             // cannot validate; mark as insecure
-            return Err(ProofError::new(
-                Proof::Insecure,
-                ProofErrorKind::UnsupportedKeyAlgorithm,
-            ));
+            return RrsetProof::Insecure;
         }
 
         // verify all dnskeys individually against the DS records
@@ -645,17 +648,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                             return None;
                         };
                         match context.verify_with_dnskey(dnskey, &rrsig) {
-                            ProofWithTtl::Secure { authenticated_ttl } => Some(RrsetProof {
-                                proof: Proof::Secure,
-                                adjusted_ttl: Some(authenticated_ttl),
-                                rrsig_index: Some(i),
-                            }),
+                            ProofWithTtl::Secure { authenticated_ttl } => {
+                                Some(RrsetProof::Secure {
+                                    adjusted_ttl: authenticated_ttl,
+                                    rrsig_index: i,
+                                })
+                            }
                             _ => None,
                         }
                     });
 
             if let Some(proof) = proof_opt {
-                return Ok(proof);
+                return proof;
             }
         }
 
@@ -666,24 +670,18 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 ?ds_records,
                 "bogus validation: missing dnskeys, but have ds records",
             );
-            return Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::DsRecordsButNoDnskey {
-                    name: Name::from(&key.name),
-                },
-            ));
+            return RrsetProof::bogus(ProofErrorKind::DsRecordsButNoDnskey {
+                name: Name::from(&key.name),
+            });
         }
 
         // There were DS records or RRSIGs, but none of the signatures could be validated, so we're in a
         // bogus state. If there was no DS record, it should have gotten an NSEC upstream, and returned
         // early above.
         trace!(rrset_name = ?key.name, "no dnskey found");
-        Err(ProofError::new(
-            Proof::Bogus,
-            ProofErrorKind::DnskeyNotFound {
-                name: Name::from(&key.name),
-            },
-        ))
+        RrsetProof::bogus(ProofErrorKind::DnskeyNotFound {
+            name: Name::from(&key.name),
+        })
     }
 
     /// Checks whether a DS RRset exists for the zone containing a name.
@@ -939,25 +937,21 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
     }
 
-    /// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
+    /// Verifies that a given RRset is validly signed by any of the provided RRSIGs.
     ///
     /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
-    ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
-    ///  then the RRSET will be valid.
+    /// be validated through a chain back to the trust anchor.
     ///
     /// # Returns
     ///
-    /// On Ok, the set of (Proof, AdjustedTTL, and IndexOfRRSIG) is returned, where the index is the one of the RRSIG that validated
-    ///   the Rrset
+    /// Returns an RrsetProof containing the result of the verification, plus the adjusted TTL and
+    /// index of the RRSIG used for validation of the RRset, if applicable.
     ///
     /// # Panics
     ///
     /// This method should never be called to validate DNSKEYs, see `verify_dnskey_rrset` instead.
-    ///  if a DNSKEY RRSET is passed into this method it will always panic.
-    async fn verify_default_rrset(
-        &self,
-        context: &RrsetVerificationContext<'_>,
-    ) -> Result<RrsetProof, ProofError> {
+    /// If a DNSKEY RRset is passed into this method it will always panic.
+    async fn verify_default_rrset(&self, context: &RrsetVerificationContext<'_>) -> RrsetProof {
         let RrsetVerificationContext {
             query: original_query,
             key,
@@ -997,16 +991,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     search_name = original_query.name.base_name();
                 }
 
-                self.find_ds_records(search_name, options).await?; // insecure will return early here
+                match self.find_ds_records(search_name, options).await {
+                    Ok(ds_records) => ds_records,
+                    Err(ProofError {
+                        proof: Proof::Insecure,
+                        ..
+                    }) => return RrsetProof::Insecure,
+                    Err(ProofError { kind, .. }) => return RrsetProof::Bogus(kind),
+                }
             }
 
-            return Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::RrsigsNotPresent {
-                    name: Name::from(&key.name),
-                    record_type: key.record_type,
-                },
-            ));
+            return RrsetProof::bogus(ProofErrorKind::RrsigsNotPresent {
+                name: Name::from(&key.name),
+                record_type: key.record_type,
+            });
         }
 
         // the record set is going to be shared across a bunch of futures, Arc for that.
@@ -1074,29 +1072,22 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                             // Report a failed signature as an error, so that select_ok()
                             // below tries the remaining RRSIGs.
                             match context.verify_rrsig_with_keys(message, &rrsig) {
-                                ProofWithTtl::Secure { authenticated_ttl } => Ok(RrsetProof {
-                                    proof: Proof::Secure,
-                                    adjusted_ttl: Some(authenticated_ttl),
-                                    rrsig_index: Some(i),
-                                }),
-                                ProofWithTtl::Insecure => Ok(RrsetProof {
-                                    proof: Proof::Insecure,
-                                    adjusted_ttl: None,
-                                    rrsig_index: Some(i),
-                                }),
-                                ProofWithTtl::Bogus => Err(ProofError::new(
-                                    Proof::Bogus,
-                                    ProofErrorKind::RrsigsUnverified {
+                                ProofWithTtl::Secure { authenticated_ttl } => {
+                                    Ok(RrsetProof::Secure {
+                                        adjusted_ttl: authenticated_ttl,
+                                        rrsig_index: i,
+                                    })
+                                }
+                                ProofWithTtl::Insecure => Ok(RrsetProof::Insecure),
+                                ProofWithTtl::Bogus => {
+                                    Err(RrsetProof::bogus(ProofErrorKind::RrsigsUnverified {
                                         name: Name::from(&key.name),
                                         record_type: key.record_type,
-                                    },
-                                )),
+                                    }))
+                                }
                             }
                         }
-                        Err(net) => Err(ProofError::new(
-                            Proof::Bogus,
-                            ProofErrorKind::Net { query, net },
-                        )),
+                        Err(net) => Err(RrsetProof::bogus(ProofErrorKind::Net { query, net })),
                     },
                 ))
             })
@@ -1104,20 +1095,16 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
 
         // if there are no available verifications, then we are in a failed state.
         if verifications.is_empty() {
-            return Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::RrsigsNotPresent {
-                    name: Name::from(&key.name),
-                    record_type: key.record_type,
-                },
-            ));
+            return RrsetProof::bogus(ProofErrorKind::RrsigsNotPresent {
+                name: Name::from(&key.name),
+                record_type: key.record_type,
+            });
         }
 
         // as long as any of the verifications is good, then the RRSET is valid.
-        let (proof, rest) = future::select_ok(verifications).await?;
-        drop(rest);
-
-        Ok(proof)
+        match future::select_ok(verifications).await {
+            Ok((proof, _)) | Err(proof) => proof,
+        }
     }
 
     /// An internal function used to clone the handle, but maintain some information back to the
@@ -1283,7 +1270,7 @@ fn verify_dnskey(
 #[derive(Clone)]
 #[allow(clippy::type_complexity)]
 struct ValidationCache {
-    inner: Arc<Mutex<LruCache<ValidationCacheKey, (Instant, Result<RrsetProof, ProofError>)>>>,
+    inner: Arc<Mutex<LruCache<ValidationCacheKey, (Instant, RrsetProof)>>>,
     negative_ttl: Option<RangeInclusive<Duration>>,
     positive_ttl: Option<RangeInclusive<Duration>>,
 }
@@ -1301,7 +1288,7 @@ impl ValidationCache {
         &self,
         key: &ValidationCacheKey,
         context: &RrsetVerificationContext<'_>,
-    ) -> Option<Result<RrsetProof, ProofError>> {
+    ) -> Option<RrsetProof> {
         let (ttl, cached) = self.inner.lock().get_mut(key)?.clone();
 
         if Instant::now() < ttl {
@@ -1323,7 +1310,7 @@ impl ValidationCache {
 
     fn insert(
         &self,
-        proof: Result<RrsetProof, ProofError>,
+        proof: RrsetProof,
         key: ValidationCacheKey,
         cx: &RrsetVerificationContext<'_>,
     ) {
@@ -1334,7 +1321,7 @@ impl ValidationCache {
         );
 
         let (mut min, mut max) = (Duration::from_secs(0), Duration::from_secs(u64::MAX));
-        if proof.is_err() {
+        if !matches!(proof, RrsetProof::Secure { .. }) {
             if let Some(negative_bounds) = self.negative_ttl.clone() {
                 (min, max) = negative_bounds.into_inner();
             }
@@ -1410,9 +1397,10 @@ mod test {
     use std::time::{Duration, Instant};
 
     use super::{
-        DnsRequestOptions, Proof, ProofError, ProofErrorKind, RrsetVerificationContext,
-        ValidationCache,
-        context::{Rrset, RrsetMap, RrsigVerificationOutcome, VerifiedRrset, VerifiedRrsetMap},
+        DnsRequestOptions, ProofErrorKind, RrsetVerificationContext, ValidationCache,
+        context::{
+            Rrset, RrsetMap, RrsetProof, RrsigVerificationOutcome, VerifiedRrset, VerifiedRrsetMap,
+        },
     };
     use crate::proto::{
         dnssec::rdata::DNSSECRData,
@@ -1449,10 +1437,7 @@ mod test {
         let cache = ValidationCache::new(8);
         let before = Instant::now();
         cache.insert(
-            Err(ProofError::new(
-                Proof::Bogus,
-                ProofErrorKind::Msg("forced bogus".into()),
-            )),
+            RrsetProof::bogus(ProofErrorKind::Msg("forced bogus".into())),
             cx.key(),
             &cx,
         );
