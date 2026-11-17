@@ -564,8 +564,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             "validating rrset with dnskeys",
         );
 
-        let mut dnskey_proofs: Vec<(Proof, Option<u32>, Option<usize>)> =
-            vec![(Proof::Bogus, None, None); rrset.records.len()];
+        let mut dnskey_proofs = vec![Proof::Bogus; rrset.records.len()];
 
         // Check if the DNSKEYs are in the trust anchors.
         for (r, proof) in rrset.records.iter().zip(dnskey_proofs.iter_mut()) {
@@ -573,12 +572,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 continue;
             };
 
-            proof.0 = self.is_dnskey_in_root_store(&dnskey, &key.name);
+            *proof = self.is_dnskey_in_root_store(&dnskey, &key.name);
         }
 
         // If not all DNSKEYs are trust anchors, and this isn't the root DNSKEY RRset, then we
         // should look for DS records to possibly verify more keys.
-        let ds_records = if !dnskey_proofs.iter().all(|p| p.0.is_secure()) && !key.name.is_root() {
+        let ds_records = if !dnskey_proofs.iter().all(|p| p.is_secure()) && !key.name.is_root() {
             // Need to get DS records for each DNSKEY.
             // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
             self.fetch_ds_records(Name::from(&key.name), options)
@@ -612,14 +611,14 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                 continue;
             };
 
-            if proof.0.is_secure() {
+            if proof.is_secure() {
                 continue;
             }
 
             // need to track each proof on each dnskey to ensure they are all validated
             match verify_dnskey(&dnskey, &ds_records) {
-                Ok(pf) => *proof = (pf, None, None),
-                Err(err) => *proof = (err.proof, None, None),
+                Ok(pf) => *proof = pf,
+                Err(err) => *proof = err.proof,
             }
         }
 
@@ -638,7 +637,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     .iter()
                     .zip(dnskey_proofs.iter())
                     .find_map(|(dnskey, proof)| {
-                        if !proof.0.is_secure() {
+                        if !proof.is_secure() {
                             return None;
                         }
                         if &dnskey.name != signer_name {
@@ -663,12 +662,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         }
 
         // if it was just the root DNSKEYS with no RRSIG, we'll accept the entire set, or none
-        if dnskey_proofs.iter().all(|(proof, ..)| proof.is_secure()) {
+        if dnskey_proofs.iter().all(|proof| proof.is_secure()) {
             let proof = dnskey_proofs.pop().unwrap(/* This can not happen due to above test */);
             return Ok(RrsetProof {
-                proof: proof.0,
-                adjusted_ttl: proof.1,
-                rrsig_index: proof.2,
+                proof,
+                adjusted_ttl: None,
+                rrsig_index: None,
             });
         }
 
