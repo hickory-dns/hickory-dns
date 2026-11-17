@@ -1086,12 +1086,17 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                             // Report a failed signature as an error, so that select_ok()
                             // below tries the remaining RRSIGs.
                             match context.verify_rrsig_with_keys(message, &rrsig) {
-                                Some((proof, adjusted_ttl)) => Ok(RrsetProof {
-                                    proof,
-                                    adjusted_ttl,
+                                ProofWithTtl::Secure { authenticated_ttl } => Ok(RrsetProof {
+                                    proof: Proof::Secure,
+                                    adjusted_ttl: Some(authenticated_ttl),
                                     rrsig_index: Some(i),
                                 }),
-                                None => Err(ProofError::new(
+                                ProofWithTtl::Insecure => Ok(RrsetProof {
+                                    proof: Proof::Insecure,
+                                    adjusted_ttl: None,
+                                    rrsig_index: Some(i),
+                                }),
+                                ProofWithTtl::Bogus => Err(ProofError::new(
                                     Proof::Bogus,
                                     ProofErrorKind::RrsigsUnverified {
                                         name: Name::from(&key.name),

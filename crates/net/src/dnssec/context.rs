@@ -40,7 +40,7 @@ impl<'a> RrsetVerificationContext<'a> {
         &self,
         dnskey_message: DnsResponse,
         rrsig: &RecordRef<'_, RRSIG>,
-    ) -> Option<(Proof, Option<u32>)> {
+    ) -> ProofWithTtl {
         let mut tag_count = HashMap::<u16, usize>::new();
 
         if (self.key.record_type == RecordType::NSEC || self.key.record_type == RecordType::NSEC3)
@@ -51,7 +51,7 @@ impl<'a> RrsetVerificationContext<'a> {
                 rrset_type = ?self.key.record_type,
                 "record signature claims to be expanded from a wildcard",
             );
-            return None;
+            return ProofWithTtl::Bogus;
         }
         if self.key.record_type == RecordType::NSEC3
             && self.key.name.base_name().deref() != &rrsig.data().input().signer_name
@@ -61,7 +61,7 @@ impl<'a> RrsetVerificationContext<'a> {
                 signer_name = %rrsig.data().input().signer_name,
                 "NSEC3 record name is malformed"
             );
-            return None;
+            return ProofWithTtl::Bogus;
         }
 
         // DNSKEYs were already validated by the inner query in the above lookup
@@ -95,10 +95,9 @@ impl<'a> RrsetVerificationContext<'a> {
             match dnskey.proof() {
                 Proof::Secure => {
                     all_insecure = Some(false);
-                    if let ProofWithTtl::Secure { authenticated_ttl } =
-                        self.verify_with_dnskey(dnskey, rrsig)
-                    {
-                        return Some((Proof::Secure, Some(authenticated_ttl)));
+                    let proof = self.verify_with_dnskey(dnskey, rrsig);
+                    if matches!(proof, ProofWithTtl::Secure { .. }) {
+                        return proof;
                     }
                 }
                 Proof::Insecure => {
@@ -110,9 +109,9 @@ impl<'a> RrsetVerificationContext<'a> {
 
         if all_insecure.unwrap_or(false) {
             // inherit Insecure state
-            Some((Proof::Insecure, None))
+            ProofWithTtl::Insecure
         } else {
-            None
+            ProofWithTtl::Bogus
         }
     }
 
@@ -297,6 +296,7 @@ impl<'a> RrsetVerificationContext<'a> {
 /// Combines the validation status of an RRSIG and the signature's authenticated TTL, if applicable.
 pub(super) enum ProofWithTtl {
     Secure { authenticated_ttl: u32 },
+    Insecure,
     Bogus,
 }
 
