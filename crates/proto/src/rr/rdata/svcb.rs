@@ -920,7 +920,6 @@ impl fmt::Display for SvcParamValue {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[repr(transparent)]
 pub struct Mandatory(pub Vec<SvcParamKey>);
 
 impl<'r> BinDecodable<'r> for Mandatory {
@@ -1102,7 +1101,6 @@ impl fmt::Display for Mandatory {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[repr(transparent)]
 pub struct Alpn(pub Vec<Vec<u8>>);
 
 impl<'r> BinDecodable<'r> for Alpn {
@@ -1190,7 +1188,6 @@ impl fmt::Display for Alpn {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Eq, Hash, Clone)]
-#[repr(transparent)]
 pub struct EchConfigList(pub Vec<u8>);
 
 impl<'r> BinDecodable<'r> for EchConfigList {
@@ -1291,7 +1288,6 @@ impl fmt::Debug for EchConfigList {
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[repr(transparent)]
 pub struct IpHint<T>(pub Vec<T>);
 
 impl<'r, T> BinDecodable<'r> for IpHint<T>
@@ -1370,7 +1366,6 @@ where
 /// ```
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[repr(transparent)]
 pub struct Unknown(pub Vec<u8>);
 
 impl<'r> BinDecodable<'r> for Unknown {

@@ -627,7 +627,6 @@ impl PoolContext {
 /// A mapping from nameserver IP address and protocol to encrypted transport state.
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[repr(transparent)]
 pub struct NameServerTransportState(HashMap<IpAddr, ProtocolTransportState>);
 
 impl NameServerTransportState {
