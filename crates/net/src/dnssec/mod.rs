@@ -631,20 +631,23 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             };
             let signer_name = &rrsig.data().input().signer_name;
 
-            let rrset_proof = rrset
-                .records
-                .iter()
-                .zip(dnskey_proofs.iter())
-                .filter(|(_, (proof, ..))| proof.is_secure())
-                .filter(|(r, _)| &r.name == signer_name)
-                .filter_map(|(r, (proof, ..))| {
-                    RecordRef::<'_, DNSKEY>::try_from(&**r)
-                        .ok()
-                        .map(|r| (r, proof))
-                })
-                .find_map(|(dnskey, proof)| {
-                    context.verify_with_dnskey(dnskey, *proof, &rrsig).ok()
-                });
+            let rrset_proof =
+                rrset
+                    .records
+                    .iter()
+                    .zip(dnskey_proofs.iter())
+                    .find_map(|(dnskey, proof)| {
+                        if !proof.0.is_secure() {
+                            return None;
+                        }
+                        if &dnskey.name != signer_name {
+                            return None;
+                        }
+                        let Ok(dnskey) = RecordRef::<DNSKEY>::try_from(&**dnskey) else {
+                            return None;
+                        };
+                        context.verify_with_dnskey(dnskey, proof.0, &rrsig).ok()
+                    });
 
             if let Some(rrset_proof) = rrset_proof {
                 return Ok(RrsetProof {
