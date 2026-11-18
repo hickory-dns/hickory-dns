@@ -780,6 +780,48 @@ async fn test_update() {
     assert_eq!(serial + 6, handler.serial().await);
 }
 
+#[tokio::test]
+async fn test_update_delete_all_rrsets() {
+    subscribe();
+    let origin = Name::from_str("example.com.").unwrap();
+    let sub_name = Name::from_str("sub.example.com.").unwrap();
+    let mut handler = create_example();
+    handler.set_allow_update(true);
+
+    let delegation = Record::from_rdata(
+        sub_name.clone(),
+        86400,
+        RData::NS(NS(Name::from_str("ns.sub.example.com.").unwrap())),
+    );
+    assert!(handler.update_records(&[delegation], true).await.unwrap());
+
+    //  ANY      ANY      empty    Delete all RRsets from a name
+    let mut del_origin = Record::update0(origin.clone(), 0, RecordType::ANY);
+    del_origin.dns_class = DNSClass::ANY;
+    let mut del_sub = Record::update0(sub_name.clone(), 0, RecordType::ANY);
+    del_sub.dns_class = DNSClass::ANY;
+    assert!(
+        handler
+            .update_records(&[del_origin, del_sub], true)
+            .await
+            .expect("update failed")
+    );
+
+    let origin = LowerName::from(&origin);
+    let sub_name = LowerName::from(&sub_name);
+    let records = handler.records().await;
+    let mut origin_types = records
+        .keys()
+        .filter(|key| key.name == origin)
+        .map(|key| key.record_type)
+        .collect::<Vec<_>>();
+    origin_types.sort();
+
+    // SOA and NS at the zone apex are kept, see RFC 2136 section 3.4.2.3
+    assert_eq!(origin_types, [RecordType::NS, RecordType::SOA]);
+    assert!(!records.keys().any(|key| key.name == sub_name));
+}
+
 #[cfg(feature = "__dnssec")]
 #[tokio::test]
 async fn test_update_tsig_valid() {
