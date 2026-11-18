@@ -311,6 +311,9 @@ pub mod transport {
     /// Builder and transport implementation for TCP.
     ///
     /// Wraps an already-bound TCP listener and handles incoming connections.
+    ///
+    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
+    /// unset by default. Care should be taken to not make them too low depending on use cases.
     #[derive(Debug)]
     pub struct Tcp<L: DnsTcpListener> {
         listener: L,
@@ -443,6 +446,9 @@ pub mod transport {
     /// Builder and transport implementation for DNS-over-TLS (DoT).
     ///
     /// Wraps an already-bound TCP listener and a TLS configuration to accept encrypted DNS queries.
+    ///
+    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
+    /// unset by default. Care should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__tls")]
     pub struct Tls<L: DnsTcpListener> {
         listener: L,
@@ -628,6 +634,9 @@ pub mod transport {
     /// Builder and transport implementation for DNS-over-HTTPS (DoH / HTTP/2).
     ///
     /// Wraps an already-bound TCP listener and a TLS configuration to accept HTTP/2 DNS queries.
+    ///
+    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
+    /// unset by default. Care should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__https")]
     pub struct H2<L: DnsTcpListener> {
         listener: L,
@@ -769,6 +778,9 @@ pub mod transport {
     /// Builder and transport implementation for DNS-over-QUIC (DoQ).
     ///
     /// Wraps an already-bound UDP socket and a TLS configuration to accept QUIC connections.
+    ///
+    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
+    /// unset by default. Care should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__quic")]
     #[derive(Debug)]
     pub struct Quic {
@@ -870,6 +882,9 @@ pub mod transport {
     /// Builder and transport implementation for DNS-over-HTTP/3 (DoH3).
     ///
     /// Wraps an already-bound UDP socket and a TLS configuration to accept HTTP/3 connections.
+    ///
+    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
+    /// unset by default. Care should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__h3")]
     #[derive(Debug)]
     pub struct H3 {
