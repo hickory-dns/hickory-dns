@@ -900,7 +900,7 @@ pub mod transport {
                 idle_timeout: None,
                 request_timeout: None,
                 dns_hostname: None,
-                http_endpoint: "/dns-query".to_string(),
+                http_endpoint: crate::net::http::DEFAULT_DNS_QUERY_PATH.to_string(),
             })
         }
 
