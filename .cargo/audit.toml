@@ -1,2 +1,6 @@
 [advisories]
-ignore = []
+ignore = [
+    # `chrono` is unmaintained. We only use this in a test, via the
+    # `prometheus-parse` crate.
+    "RUSTSEC-2026-0543",
+]
