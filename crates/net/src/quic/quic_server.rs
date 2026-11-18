@@ -9,7 +9,6 @@ use core::net::SocketAddr;
 use std::io;
 use std::sync::Arc;
 
-use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Connecting, Connection, Endpoint, Incoming, ServerConfig};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
@@ -62,7 +61,7 @@ impl QuicServer {
         tls_config: Arc<TlsServerConfig>,
     ) -> Result<Self, NetError> {
         let mut server_config =
-            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
+            ServerConfig::with_crypto(Arc::new(quic_config::server_crypto(tls_config)?));
         server_config.transport = Arc::new(quic_config::transport());
 
         let socket = socket.into_std()?;
