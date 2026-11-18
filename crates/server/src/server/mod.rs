@@ -164,6 +164,8 @@ impl<T: transport::Transport> Transport for T {}
 pub mod transport {
     //! Transport protocol abstractions and builders for server registration.
 
+    #[cfg(any(feature = "__tls", feature = "__https"))]
+    use std::fmt::{self, Debug};
     use std::{future::Future, sync::Arc, time::Duration};
 
     use futures_util::StreamExt;
@@ -441,7 +443,6 @@ pub mod transport {
     ///
     /// Wraps an already-bound TCP listener and a TLS configuration to accept encrypted DNS queries.
     #[cfg(feature = "__tls")]
-    #[derive(Debug)]
     pub struct Tls<L: DnsTcpListener> {
         listener: L,
         tls_config: Arc<ServerConfig>,
@@ -502,6 +503,17 @@ pub mod transport {
                 stream_timeout,
                 ..self
             }
+        }
+    }
+
+    #[cfg(feature = "__tls")]
+    impl<L: DnsTcpListener + Debug> Debug for Tls<L> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("Tls")
+                .field("listener", &self.listener)
+                .field("handshake_timeout", &self.handshake_timeout)
+                .field("stream_timeout", &self.stream_timeout)
+                .finish_non_exhaustive()
         }
     }
 
@@ -616,7 +628,6 @@ pub mod transport {
     ///
     /// Wraps an already-bound TCP listener and a TLS configuration to accept HTTP/2 DNS queries.
     #[cfg(feature = "__https")]
-    #[derive(Debug)]
     pub struct H2<L: DnsTcpListener> {
         listener: L,
         tls_config: Arc<ServerConfig>,
@@ -720,6 +731,20 @@ pub mod transport {
                 http_endpoint,
                 ..self
             }
+        }
+    }
+
+    #[cfg(feature = "__https")]
+    impl<L: DnsTcpListener + Debug> Debug for H2<L> {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("H2")
+                .field("listener", &self.listener)
+                .field("handshake_timeout", &self.handshake_timeout)
+                .field("idle_timeout", &self.idle_timeout)
+                .field("request_timeout", &self.request_timeout)
+                .field("dns_hostname", &self.dns_hostname)
+                .field("http_endpoint", &self.http_endpoint)
+                .finish_non_exhaustive()
         }
     }
 
