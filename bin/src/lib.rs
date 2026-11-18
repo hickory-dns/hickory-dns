@@ -731,8 +731,7 @@ impl ServerSetup<'_> {
                     .map_err(|err| format!("failed to lookup local address: {err}"))?
             );
 
-            let mut tls_config = tls_config::server_tcp(b"doq", cert_resolver.clone())
-                .map_err(|err| format!("failed to build default TLS config: {err}"))?;
+            let mut tls_config = tls_config::server_quic(b"doq", cert_resolver.clone());
             if self.ssl_keylog_enabled {
                 warn!("DoQ SSL_KEYLOG_FILE support enabled");
                 tls_config.key_log = Arc::new(KeyLogFile::new());
