@@ -17,8 +17,7 @@ use std::future::Future;
 #[cfg(feature = "__tls")]
 use std::time::Duration;
 use std::{
-    fmt::{self, Debug},
-    io,
+    fmt, io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::Arc,
 };
@@ -105,9 +104,11 @@ impl<T: RequestHandler> Server<T> {
     /// Registers a transport on this server.
     ///
     /// The transport's constructor initializes its listener and reports initialization errors.
-    /// The transport is logged using its [`Debug`] implementation.
-    pub fn register(&mut self, transport: impl Transport + Debug) {
-        debug!(?transport, "registering transport");
+    pub fn register(&mut self, transport: impl Transport) {
+        debug!(
+            transport = std::any::type_name_of_val(&transport),
+            "registering transport"
+        );
         self.join_set.spawn(transport.run(self.context.clone()));
     }
 
