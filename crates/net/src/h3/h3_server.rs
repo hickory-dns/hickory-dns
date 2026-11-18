@@ -73,7 +73,7 @@ impl H3Server {
         tls_config: Arc<TlsServerConfig>,
     ) -> Result<Self, NetError> {
         let mut server_config =
-            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config).unwrap()));
+            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
         server_config.transport = Arc::new(super::transport());
 
         let socket = socket.into_quic_socket()?;
