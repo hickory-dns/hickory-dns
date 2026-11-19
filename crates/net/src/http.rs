@@ -13,7 +13,7 @@ use std::sync::Arc;
 use bytes::{Buf, BufMut, BytesMut};
 use futures_util::{Stream, StreamExt};
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
-use http::{HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header, uri};
+use http::{HeaderMap, HeaderValue, Method, Request, Response, StatusCode, Uri, header, uri};
 use tracing::debug;
 
 use crate::error::NetError;
@@ -105,12 +105,6 @@ pub fn verify<T>(
     }
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => {}
-        _ => return Err("unsupported content type".into()),
-    };
-
-    // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(ACCEPT).map(|v| v.to_str()) {
         Some(Ok(ctype)) => {
             let mut found = false;
@@ -122,6 +116,10 @@ pub fn verify<T>(
                         break;
                     }
                     Some(mime) if mime.trim() == "application/*" => {
+                        found = true;
+                        break;
+                    }
+                    Some(mime) if mime.trim() == "*/*" => {
                         found = true;
                         break;
                     }
@@ -147,6 +145,18 @@ pub fn verify<T>(
         return Err(message.into());
     }
 
+    match *request.method() {
+        // A POST request carries the DNS message as its body.
+        Method::POST => match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
+            // TODO: switch to mime::APPLICATION_DNS when that stabilizes
+            Some(Ok(ctype)) if ctype == MIME_APPLICATION_DNS => {}
+            _ => return Err("unsupported content type".into()),
+        },
+        // A GET request carries it in the `dns` query parameter and has no body.
+        Method::GET => {}
+        _ => return Err(format!("unsupported method: {}", request.method()).into()),
+    }
+
     debug!(
         "verified request from: {}",
         request
@@ -157,6 +167,33 @@ pub fn verify<T>(
     );
 
     Ok(())
+}
+
+/// Decode the DNS message carried by a GET request in the `dns` query parameter
+///
+/// RFC 8484 section 4.1: the value is the DNS message encoded with base64url, without
+/// padding. Other parameters are ignored.
+#[cfg(feature = "__https")]
+pub(crate) fn message_from_query(uri: &Uri) -> Result<BytesMut, NetError> {
+    let query = uri
+        .query()
+        .ok_or_else(|| -> NetError { "no query string".into() })?;
+    let mut params = form_urlencoded::parse(query.as_bytes());
+    // find() leaves the iterator after the first "dns" parameter
+    let (_, value) = params
+        .by_ref()
+        .find(|(key, _)| key == "dns")
+        .ok_or_else(|| -> NetError { "missing required dns parameter".into() })?;
+
+    if params.any(|(key, _)| key == "dns") {
+        return Err("only one dns parameter is allowed in the query string".into());
+    }
+
+    match data_encoding::BASE64URL_NOPAD.decode(value.as_bytes()) {
+        Ok(decoded) if decoded.len() > MAX_REQUEST_SIZE => Err(NetError::RequestTooLarge),
+        Ok(decoded) => Ok(BytesMut::from(decoded.as_slice())),
+        Err(e) => Err(format!("error decoding dns parameter: {e}").into()),
+    }
 }
 
 /// Fetch the body of the request from the stream
@@ -408,5 +445,120 @@ mod tests {
                 .map(|&len| Ok(Bytes::from(vec![0u8; len])))
                 .collect::<Vec<_>>(),
         )
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_verify_get_without_content_type() {
+        let request = get_request("?dns=AAABAAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE");
+        assert!(request.headers().get(CONTENT_TYPE).is_none());
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_verify_post_requires_content_type() {
+        let mut request = get_request("");
+        *request.method_mut() = Method::POST;
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_verify_rejects_other_methods() {
+        let mut request = get_request("?dns=AAABAAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE");
+        *request.method_mut() = Method::PUT;
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_verify_accepts_any_type() {
+        let mut request = get_request("?dns=AAABAAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE");
+        request
+            .headers_mut()
+            .insert(ACCEPT, HeaderValue::from_static("*/*"));
+        assert!(
+            verify(
+                Version::Http2,
+                Some("ns.example.com"),
+                "/dns-query",
+                &request
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_message_from_query() {
+        let message = vec![0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1];
+        let encoded = data_encoding::BASE64URL_NOPAD.encode(&message);
+
+        let uri = Uri::try_from(format!("/dns-query?dns={encoded}")).unwrap();
+        assert_eq!(
+            message_from_query(&uri).unwrap().as_ref(),
+            message.as_slice()
+        );
+
+        // other parameters are ignored
+        let uri = Uri::try_from(format!("/dns-query?ct=x&dns={encoded}&other=1")).unwrap();
+        assert_eq!(
+            message_from_query(&uri).unwrap().as_ref(),
+            message.as_slice()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "__https")]
+    fn test_message_from_query_errors() {
+        for query in [
+            "/dns-query",
+            "/dns-query?other=1",
+            "/dns-query?dns=AAAB&dns=AAAB",
+            "/dns-query?dns=AA%2BB",
+            "/dns-query?dns=AAAB==",
+        ] {
+            let uri = Uri::try_from(query).unwrap();
+            assert!(
+                message_from_query(&uri).is_err(),
+                "{query} should be rejected"
+            );
+        }
+    }
+
+    #[cfg(feature = "__https")]
+    fn get_request(query: &str) -> Request<()> {
+        Request::builder()
+            .method(Method::GET)
+            .uri(format!("https://ns.example.com/dns-query{query}"))
+            .version(Version::Http2.to_http())
+            .header(ACCEPT, MIME_APPLICATION_DNS)
+            .body(())
+            .unwrap()
     }
 }

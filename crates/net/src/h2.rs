@@ -406,17 +406,19 @@ where
         Err(err) => return Err(err),
     }
 
-    // attempt to get the content length
-    let mut content_length = None;
-    if let Some(length) = request.headers().get(CONTENT_LENGTH) {
-        let length = usize::from_str(length.to_str()?)?;
-        debug!("got message length: {}", length);
-        content_length = Some(length);
-    }
-
     match *request.method() {
-        Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),
-        Method::POST => fetch_body(request.into_body(), content_length).await,
+        // A body sent with a GET request is ignored
+        Method::GET => crate::http::message_from_query(request.uri()),
+        Method::POST => {
+            // attempt to get the content length
+            let mut content_length = None;
+            if let Some(length) = request.headers().get(CONTENT_LENGTH) {
+                let length = usize::from_str(length.to_str()?)?;
+                debug!("got message length: {}", length);
+                content_length = Some(length);
+            }
+            fetch_body(request.into_body(), content_length).await
+        }
         _ => Err(format!("bad method: {}", request.method()).into()),
     }
 }
@@ -684,6 +686,38 @@ mod tests {
 
         let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
         assert_eq!(message, msg_from_post);
+    }
+
+    #[tokio::test]
+    async fn test_from_get() {
+        subscribe();
+        let message = Message::query();
+        let msg_bytes = message.to_vec().unwrap();
+        let uri = format!(
+            "https://ns.example.com/dns-query?dns={}",
+            data_encoding::BASE64URL_NOPAD.encode(&msg_bytes)
+        );
+
+        // a body sent with GET is ignored
+        let stream = TestBytesStream(vec![Ok(Bytes::from("not a dns message"))]);
+        let request = Request::builder()
+            .method(Method::GET)
+            .uri(uri)
+            .version(http::Version::HTTP_2)
+            .header(header::ACCEPT, crate::http::MIME_APPLICATION_DNS)
+            .body(stream)
+            .unwrap();
+
+        let bytes = message_from(
+            Some(Arc::from("ns.example.com")),
+            "/dns-query".into(),
+            request,
+        )
+        .await
+        .unwrap();
+
+        let msg_from_get = Message::from_vec(bytes.as_ref()).expect("bytes failed");
+        assert_eq!(message, msg_from_get);
     }
 
     /// Verifies that `request_timeout` cancels a stalled DNS-over-H2 request.
