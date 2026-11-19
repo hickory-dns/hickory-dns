@@ -1042,6 +1042,7 @@ dependencies = [
  "async-trait",
  "data-encoding",
  "futures",
+ "futures-io",
  "hickory-net",
  "hickory-proto",
  "hickory-resolver",
