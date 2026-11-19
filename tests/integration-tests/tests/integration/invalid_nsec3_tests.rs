@@ -244,7 +244,6 @@ async fn wildcard_expansion() {
 }
 
 /// Based on RFC 5155 section B.5.
-#[ignore = "validation fails for one NSEC3 record's signature"]
 #[tokio::test]
 async fn wildcard_no_data_error() {
     subscribe();
