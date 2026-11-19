@@ -12,7 +12,7 @@ use std::println;
 use std::sync::Arc;
 
 use futures_util::StreamExt;
-use rustls::{ClientConfig, KeyLogFile, sign::SingleCertAndKey};
+use rustls::{ClientConfig, KeyLogFile, ServerConfig, sign::SingleCertAndKey, version::TLS12};
 use test_support::{TestCertificates, subscribe};
 
 use crate::{
@@ -117,4 +117,21 @@ async fn test_quic_stream() {
 
     // and finally kill the server
     server_join.abort();
+}
+
+#[tokio::test]
+async fn rejects_tls_config_without_tls13() {
+    subscribe();
+
+    let certificates = TestCertificates::generate();
+    let tls_config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
+        .with_protocol_versions(&[&TLS12])
+        .unwrap()
+        .with_no_client_auth()
+        .with_cert_resolver(Arc::new(SingleCertAndKey::from(
+            certificates.certified_key(),
+        )));
+
+    let socket = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+    assert!(QuicServer::with_socket_and_tls_config(socket, Arc::new(tls_config)).is_err());
 }

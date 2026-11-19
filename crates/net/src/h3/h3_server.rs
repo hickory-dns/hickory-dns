@@ -14,13 +14,12 @@ use std::sync::Arc;
 use bytes::Bytes;
 use h3::server::{Connection, RequestResolver};
 use h3_quinn::Endpoint;
-use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Connecting, EndpointConfig, Incoming, ServerConfig};
 use rustls::server::ResolvesServerCert;
 use rustls::server::ServerConfig as TlsServerConfig;
 use rustls::version::TLS13;
 
-use crate::{error::NetError, tls::default_provider, udp::UdpSocket};
+use crate::{error::NetError, quic::server_crypto, tls::default_provider, udp::UdpSocket};
 
 use super::ALPN_H3;
 
@@ -63,8 +62,7 @@ impl H3Server {
         socket: tokio::net::UdpSocket,
         tls_config: Arc<TlsServerConfig>,
     ) -> Result<Self, NetError> {
-        let mut server_config =
-            ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config).unwrap()));
+        let mut server_config = ServerConfig::with_crypto(Arc::new(server_crypto(tls_config)?));
         server_config.transport = Arc::new(super::transport());
 
         let socket = socket.into_std()?;
