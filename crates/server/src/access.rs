@@ -60,12 +60,12 @@ impl AccessControl {
             IpAddr::V4(v4) => {
                 let v4 = Ipv4Net::from(v4);
 
-                self.ipv4.allow(&v4)
+                self.ipv4.allow(&v4, !self.ipv6.allow_only())
             }
             IpAddr::V6(v6) => {
                 let v6 = Ipv6Net::from(v6);
 
-                self.ipv6.allow(&v6)
+                self.ipv6.allow(&v6, !self.ipv4.allow_only())
             }
         }
     }
@@ -85,12 +85,13 @@ impl<I: Prefix> InnerAccessControl<I> {
     /// # Arguments
     ///
     /// * `ip` - source ip address to evaluate
+    /// * `default` - result when there are no entries for this address family
     ///
     /// # Return
     ///
     /// Ok if access is granted, Err otherwise
     #[must_use]
-    fn allow(&self, ip: &I) -> bool {
+    fn allow(&self, ip: &I, default: bool) -> bool {
         // If there are no allows or denies specified, we will always default to allow.
         // Allows without denies always translate to deny all except those in the allow list.
         // Denies without allows only deny those in the specified deny list.
@@ -106,9 +107,15 @@ impl<I: Prefix> InnerAccessControl<I> {
             ) {
                 (true, _) => true,      // there are deny entries, but this isn't one
                 (false, true) => false, // there are only allow entries, but this isn't one
-                (false, false) => true, // there are no entries
+                // there are no entries for this address family, follow the other family
+                (false, false) => default,
             },
         }
+    }
+
+    /// Returns true if there are allow entries and no deny entries
+    fn allow_only(&self) -> bool {
+        self.deny.iter().next().is_none() && self.allow.iter().next().is_some()
     }
 }
 
@@ -143,6 +150,26 @@ mod tests {
         assert!(access.allow("fd00::00ff".parse().unwrap()));
         assert!(!access.allow("fd00::ffff".parse().unwrap()));
         assert!(!access.allow("fd00::1:1".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_allow_v4_denies_v6() {
+        let mut access = AccessControl::default();
+        access.insert_allow(["192.168.1.0/24".parse().unwrap()]);
+
+        assert!(access.allow("192.168.1.1".parse().unwrap()));
+        assert!(!access.allow("fd00::1".parse().unwrap()));
+        assert!(!access.allow("::1".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_allow_v6_denies_v4() {
+        let mut access = AccessControl::default();
+        access.insert_allow(["fd00::/120".parse().unwrap()]);
+
+        assert!(access.allow("fd00::1".parse().unwrap()));
+        assert!(!access.allow("192.168.1.1".parse().unwrap()));
+        assert!(!access.allow("::ffff:192.168.1.1".parse().unwrap()));
     }
 
     #[test]
