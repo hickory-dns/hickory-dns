@@ -46,6 +46,7 @@ pub(super) async fn load_keys(
 }
 
 /// Key pair configuration for DNSSEC keys for signing a zone
+#[non_exhaustive]
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct KeyConfig {

@@ -939,6 +939,7 @@ impl OpportunisticEncryption {
 }
 
 /// Configuration parameters for opportunistic encryption.
+#[non_exhaustive]
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(default, deny_unknown_fields))]
@@ -991,6 +992,7 @@ fn default_max_concurrent_probes() -> u8 {
     10
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -1057,6 +1059,7 @@ pub const QUAD9: ServerGroup<'static> = ServerGroup {
 };
 
 /// A group of DNS servers.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug)]
 pub struct ServerGroup<'a> {
     /// IP addresses of the DNS servers in this group.

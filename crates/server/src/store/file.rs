@@ -247,11 +247,19 @@ impl DnssecZoneHandler for FileZoneHandler {
 }
 
 /// Configuration for file based zones
+#[non_exhaustive]
 #[derive(Clone, Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct FileConfig {
     /// path to the zone file
     pub zone_path: PathBuf,
+}
+
+impl FileConfig {
+    /// Constructs configuration for a file-based zone with the given path.
+    pub fn new(zone_path: PathBuf) -> Self {
+        Self { zone_path }
+    }
 }
 
 #[cfg(test)]

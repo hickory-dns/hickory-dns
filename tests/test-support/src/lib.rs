@@ -50,6 +50,7 @@ pub fn subscribe() {
 
 /// This is a writer that can be used with a thread-local tracing subscriber to inspect
 /// logs for a single test.
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone)]
 pub struct LogWriter(pub Arc<Mutex<Vec<u8>>>);
 
@@ -647,6 +648,7 @@ pub fn assert_gauge_eq(
 }
 
 /// A root certificate and a server certificate, for use in tests.
+#[non_exhaustive]
 pub struct TestCertificates {
     /// Root certificate authority.
     pub ca: CertifiedIssuer<'static, KeyPair>,

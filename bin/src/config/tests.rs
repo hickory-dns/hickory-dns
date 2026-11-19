@@ -595,7 +595,7 @@ fn file_store_zone_path() {
             assert_eq!(config.stores.len(), 1);
             assert!(matches!(
                     &config.stores[0],
-                ServerStoreConfig::File(FileConfig { zone_path }) if zone_path == Path::new("default/localhost.zone"),
+                ServerStoreConfig::File(FileConfig { zone_path, .. }) if zone_path == Path::new("default/localhost.zone"),
             ));
         }
         Err(e) => panic!("expected successful parse: {e:?}"),

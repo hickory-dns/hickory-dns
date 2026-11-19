@@ -45,6 +45,7 @@ use crate::{
 };
 
 /// The DNS AAAA record type, an IPv6 address
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct AAAA(pub Ipv6Addr);

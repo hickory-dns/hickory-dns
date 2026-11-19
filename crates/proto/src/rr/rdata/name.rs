@@ -44,6 +44,7 @@ use crate::{
 macro_rules! name_rdata {
     ($name: ident, $rdata_policy: expr) => {
         #[doc = stringify!(new type for the RecordData of $name)]
+        #[allow(clippy::exhaustive_structs)]
         #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
         #[derive(Debug, PartialEq, Eq, Hash, Clone)]
         pub struct $name(pub Name);

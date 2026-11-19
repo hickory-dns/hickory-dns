@@ -810,12 +810,9 @@ async fn test_cname_chain() {
 async fn test_update_forwarder() {
     subscribe();
 
-    let handler = ForwardZoneHandler::builder_tokio(ForwardConfig {
-        name_servers: Vec::new(),
-        ..ForwardConfig::default()
-    })
-    .build()
-    .unwrap();
+    let handler = ForwardZoneHandler::builder_tokio(ForwardConfig::default())
+        .build()
+        .unwrap();
 
     let mut catalog = Catalog::new();
     catalog.upsert(Name::root().into(), vec![Arc::new(handler)]);

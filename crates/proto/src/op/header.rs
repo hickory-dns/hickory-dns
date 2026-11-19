@@ -56,6 +56,7 @@ use crate::{
 ///
 /// ```
 ///
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct Header {
@@ -365,6 +366,7 @@ impl fmt::Display for Metadata {
 /// Tracks the counts of the records in the Message.
 ///
 /// This is only used internally during serialization.
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct HeaderCounts {

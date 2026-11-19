@@ -918,6 +918,7 @@ impl fmt::Display for SvcParamValue {
 ///    SHOULD NOT appear in the list either.  (Including them wastes space
 ///    and otherwise has no effect.)
 /// ```
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Mandatory(pub Vec<SvcParamKey>);
@@ -1099,6 +1100,7 @@ impl fmt::Display for Mandatory {
 ///   supports the default transports.  This enables compatibility with the
 ///   greatest number of clients.
 /// ```
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Alpn(pub Vec<Vec<u8>>);
@@ -1186,6 +1188,7 @@ impl fmt::Display for Alpn {
 ///   with TLS server software. To enable simpler parsing, this SvcParam MUST NOT contain escape
 ///   sequences.
 /// ```
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct EchConfigList(pub Vec<u8>);
@@ -1286,6 +1289,7 @@ impl fmt::Debug for EchConfigList {
 ///   operators SHOULD NOT include these hints, because they are unlikely
 ///   to convey any performance benefit.
 /// ```
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct IpHint<T>(pub Vec<T>);
@@ -1364,6 +1368,7 @@ where
 ///   SvcParams in presentation format MAY appear in any order, but keys
 ///   MUST NOT be repeated.
 /// ```
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Unknown(pub Vec<u8>);

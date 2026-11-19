@@ -10,6 +10,7 @@ use core::cmp::Ordering;
 use crate::rr::{LowerName, RecordType};
 
 /// Accessor key for RRSets in the Authority.
+#[allow(clippy::exhaustive_structs)]
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
 pub struct RrKey {
     /// Matches the name in the Record of this key

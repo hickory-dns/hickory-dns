@@ -165,58 +165,6 @@ impl BlocklistZoneHandler {
     ///   be accepted, but an entry for '\*.com' would not.**
     /// * All entries are treated as being fully-qualified. If an entry does not contain a trailing
     ///   '.', one will be added before insertion into the cache.
-    ///
-    /// # Example
-    /// ```
-    /// use std::{fs::File, net::{Ipv4Addr, Ipv6Addr}, path::{Path, PathBuf}, str::FromStr, sync::Arc};
-    /// use hickory_proto::rr::{LowerName, RecordType, Name};
-    /// use hickory_server::{
-    ///     store::blocklist::*,
-    ///     zone_handler::{LookupControlFlow, LookupOptions, ZoneHandler, ZoneType},
-    /// };
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let config = BlocklistConfig {
-    ///         wildcard_match: true,
-    ///         min_wildcard_depth: 2,
-    ///         lists: vec![PathBuf::from("default/blocklist.txt")],
-    ///         sinkhole_ipv4: None,
-    ///         sinkhole_ipv6: None,
-    ///         block_message: None,
-    ///         ttl: 86_400,
-    ///         consult_action: BlocklistConsultAction::Disabled,
-    ///         log_clients: true,
-    ///     };
-    ///
-    ///     let mut blocklist = BlocklistZoneHandler::try_from_config(
-    ///         Name::root(),
-    ///         config,
-    ///         Some(Path::new("../../tests/test-data/test_configs")),
-    ///     ).unwrap();
-    ///
-    ///     let handle = File::open("../../tests/test-data/test_configs/default/blocklist2.txt").unwrap();
-    ///     if let Err(e) = blocklist.add(handle) {
-    ///         panic!("error adding blocklist: {e:?}");
-    ///     }
-    ///
-    ///     let origin = blocklist.origin().clone();
-    ///     let handler = Arc::new(blocklist) as Arc<dyn ZoneHandler>;
-    ///
-    ///     // In this example, malc0de.com only exists in the blocklist2.txt file we added to the
-    ///     // zone handler after instantiating it.  The following simulates a lookup against the
-    ///     // blocklist zone handler, and checks for the expected response for a blocklist match.
-    ///     use LookupControlFlow::*;
-    ///     let Break(Ok(_res)) = handler.lookup(
-    ///                             &LowerName::from(Name::from_ascii("malc0de.com.").unwrap()),
-    ///                             RecordType::A,
-    ///                             None,
-    ///                             LookupOptions::default(),
-    ///                           ).await else {
-    ///         panic!("blocklist zone handler did not return expected match");
-    ///     };
-    /// }
-    /// ```
     pub fn add(&mut self, mut handle: impl Read) -> Result<(), io::Error> {
         let mut contents = String::new();
 
@@ -489,6 +437,7 @@ pub enum BlocklistConsultAction {
 }
 
 /// Configuration for blocklist zones
+#[non_exhaustive]
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct BlocklistConfig {

@@ -289,6 +289,7 @@ impl<P: ConnectionProvider> ZoneHandler for ForwardZoneHandler<P> {
 }
 
 /// Configuration for forwarder zones
+#[non_exhaustive]
 #[derive(Clone, Deserialize, Debug, Default)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardConfig {

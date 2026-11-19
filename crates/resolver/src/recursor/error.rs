@@ -194,6 +194,7 @@ impl Clone for RecursorError {
 }
 
 /// Data from the authority section of a response.
+#[non_exhaustive]
 #[derive(Clone, Debug)]
 pub struct AuthorityData {
     /// Query

@@ -11,9 +11,7 @@ use hickory_server::zone_handler::{AxfrPolicy, LookupOptions, ZoneHandler};
 use test_support::subscribe;
 
 fn file(zone_path: &Path, _module: &str, _test_name: &str) -> FileZoneHandler {
-    let config = FileConfig {
-        zone_path: zone_path.to_owned(),
-    };
+    let config = FileConfig::new(zone_path.to_owned());
 
     FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
@@ -33,9 +31,9 @@ dnssec_battery!(file, crate::store_file_tests::file);
 #[test]
 fn test_all_lines_are_loaded() {
     subscribe();
-    let config = FileConfig {
-        zone_path: PathBuf::from("../tests/test-data/test_configs/default/nonewline.zone"),
-    };
+    let config = FileConfig::new(PathBuf::from(
+        "../tests/test-data/test_configs/default/nonewline.zone",
+    ));
 
     let mut handler = FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
@@ -56,9 +54,9 @@ fn test_all_lines_are_loaded() {
 #[test]
 fn test_implicit_in_class() {
     subscribe();
-    let config = FileConfig {
-        zone_path: PathBuf::from("../tests/test-data/test_configs/default/implicitclass.zone"),
-    };
+    let config = FileConfig::new(PathBuf::from(
+        "../tests/test-data/test_configs/default/implicitclass.zone",
+    ));
 
     let handler = FileZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
@@ -74,9 +72,9 @@ fn test_implicit_in_class() {
 #[tokio::test]
 async fn test_ttl_wildcard() {
     subscribe();
-    let config = FileConfig {
-        zone_path: PathBuf::from("../tests/test-data/test_configs/default/test.local.zone"),
-    };
+    let config = FileConfig::new(PathBuf::from(
+        "../tests/test-data/test_configs/default/test.local.zone",
+    ));
 
     let zone_name = LowerName::from_str("test.local.").unwrap();
     let mut handler = FileZoneHandler::try_from_config(

@@ -305,6 +305,7 @@ impl fmt::Display for Edns {
 /// EDNS flags
 ///
 /// <https://www.rfc-editor.org/rfc/rfc6891#section-6.1.4>
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct EdnsFlags {

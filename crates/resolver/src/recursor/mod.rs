@@ -541,6 +541,7 @@ impl<P: ConnectionProvider> ValidatingRecursor<P> {
 
 /// Configuration for recursive resolver zones
 #[cfg(feature = "serde")]
+#[non_exhaustive]
 #[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct RecursiveConfig {
@@ -555,6 +556,7 @@ pub struct RecursiveConfig {
 }
 
 /// Options for the [`Recursor`]
+#[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[derive(Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

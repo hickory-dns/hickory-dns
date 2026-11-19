@@ -41,6 +41,7 @@ pub mod iocompat {
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `futures_io::{AsyncRead, AsyncWrite}`
+    #[allow(clippy::exhaustive_structs)]
     pub struct AsyncIoTokioAsStd<T: TokioAsyncRead + TokioAsyncWrite>(pub T);
 
     impl<T: TokioAsyncRead + TokioAsyncWrite + Unpin> Unpin for AsyncIoTokioAsStd<T> {}
@@ -81,6 +82,7 @@ pub mod iocompat {
     }
 
     /// Conversion from `futures_io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
+    #[allow(clippy::exhaustive_structs)]
     pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
     impl<T: AsyncRead + AsyncWrite + Unpin> Unpin for AsyncIoStdAsTokio<T> {}
@@ -382,6 +384,7 @@ pub trait Time: Send + Sync + Unpin {
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
 #[cfg(any(test, feature = "tokio"))]
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone, Copy, Debug)]
 pub struct TokioTime;
 

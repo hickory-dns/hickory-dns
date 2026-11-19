@@ -27,6 +27,7 @@ use hickory_proto::rr::{Name, RData, Record};
 use hickory_resolver::config::ConnectionConfig;
 use hickory_resolver::{ConnectionProvider, PoolContext};
 
+#[non_exhaustive]
 pub struct TcpPlaceholder;
 
 impl AsyncRead for TcpPlaceholder {
@@ -61,6 +62,7 @@ impl DnsTcpStream for TcpPlaceholder {
     type Time = TokioTime;
 }
 
+#[non_exhaustive]
 pub struct UdpPlaceholder;
 
 impl DnsUdpSocket for UdpPlaceholder {
@@ -87,6 +89,7 @@ impl DnsUdpSocket for UdpPlaceholder {
     }
 }
 
+#[non_exhaustive]
 #[derive(Clone, Default)]
 pub struct MockRuntimeProvider;
 
@@ -118,6 +121,7 @@ impl RuntimeProvider for MockRuntimeProvider {
     }
 }
 
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone)]
 pub struct MockConnProvider<O: OnSend + Unpin> {
     pub on_send: O,
@@ -249,6 +253,7 @@ pub trait OnSend: Clone + Send + Sync + 'static {
     }
 }
 
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone)]
 pub struct DefaultOnSend;
 
