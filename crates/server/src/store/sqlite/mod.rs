@@ -816,7 +816,7 @@ impl<P: RuntimeProvider + Send + Sync> SqliteZoneHandler<P> {
                                 k.name != rr_name
                                     || ((k.record_type == RecordType::SOA
                                         || k.record_type == RecordType::NS)
-                                        && k.name != *origin)
+                                        && k.name == *origin)
                             });
                             let new_size = records.len();
                             drop(records);
