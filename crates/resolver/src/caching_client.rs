@@ -166,7 +166,15 @@ where
                     .cache_size
                     .set(client.cache.entry_count() as f64);
             }
-            return cached_lookup;
+            // A cached CNAME target still needs the CNAME records gathered on
+            // the way here (only kept with `preserve_intermediates`), as the
+            // uncached path merges them in `handle_noerror`.
+            return match cached_lookup {
+                Ok(lookup) if !preserved_records.is_empty() => {
+                    Ok(Self::with_preserved_records(lookup, preserved_records))
+                }
+                other => other,
+            };
         };
 
         #[cfg(feature = "metrics")]
@@ -288,6 +296,31 @@ where
             );
 
         Some(Ok(Lookup::new(message, valid_until)))
+    }
+
+    /// Put the CNAME records gathered while following a chain in front of a
+    /// cached lookup of the chain's target.
+    fn with_preserved_records(lookup: Lookup, preserved_records: Vec<Record>) -> Lookup {
+        let cached = lookup.message();
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_queries(cached.queries.iter().cloned());
+        // As in handle_noerror, the chain's answers take the smallest TTL seen in it.
+        let chain_ttl = preserved_records.iter().map(|r| r.ttl).min();
+        message.add_answers(preserved_records);
+        message.add_answers(cached.answers.iter().cloned().map(|mut r| {
+            if let Some(ttl) = chain_ttl {
+                r.ttl = r.ttl.min(ttl);
+            }
+            r
+        }));
+        message.add_authorities(cached.authorities.iter().cloned());
+        message.add_additionals(cached.additionals.iter().cloned());
+
+        let mut valid_until = lookup.valid_until();
+        if let Some(ttl) = chain_ttl {
+            valid_until = valid_until.min(Instant::now() + Duration::from_secs(ttl.into()));
+        }
+        Lookup::new(message, valid_until)
     }
 
     /// Handle the case where there is no error returned
@@ -1558,6 +1591,70 @@ mod tests {
             1,
             "ADDITIONAL section should be preserved"
         );
+    }
+
+    /// Purpose: Verify the CNAME is kept when the CNAME target is already cached
+    ///
+    /// With preserve_intermediates=true, a lookup of an alias whose target is answered from
+    /// the cache must still return the CNAME, and so must the alias entry it caches.
+    #[test]
+    fn test_cname_to_cached_target_with_preserve_intermediates() {
+        subscribe();
+
+        let alias = Name::from_str("alias.example.com.").unwrap();
+        let target = Name::from_str("target.example.com.").unwrap();
+        let cname = Record::from_rdata(alias.clone(), 60, RData::CNAME(CNAME(target.clone())));
+        let a = Record::from_rdata(target.clone(), 300, RData::A(A::new(192, 0, 2, 5)));
+
+        let cache = ResponseCache::new(10, TtlConfig::default());
+        let mut cached = Message::response(0, OpCode::Query);
+        cached.add_query(Query::new(target.clone(), RecordType::A));
+        cached.add_answer(a.clone());
+        cache.insert(
+            Query::new(target.clone(), RecordType::A),
+            Ok(cached),
+            Instant::now(),
+        );
+
+        // The server only answers with the CNAME; the target comes from the cache.
+        let mut message = Message::response(0, OpCode::Query);
+        message.add_query(Query::new(alias.clone(), RecordType::A));
+        message.add_answer(cname.clone());
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
+        let client = CachingClient::with_cache(cache, client, true); // preserve_intermediates=true
+
+        for attempt in ["first", "cached"] {
+            let lookup = block_on(CachingClient::inner_lookup(
+                Query::new(alias.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+                client.clone(),
+                vec![],
+                DepthTracker::default(),
+            ))
+            .expect("lookup failed");
+
+            let answers = lookup
+                .answers()
+                .iter()
+                .map(|r| (r.name.clone(), r.data.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                answers,
+                vec![
+                    (cname.name.clone(), cname.data.clone()),
+                    (a.name.clone(), a.data.clone()),
+                ],
+                "{attempt} alias lookup should keep the CNAME"
+            );
+            // The chain's answers take the CNAME's smaller TTL, as on the uncached path.
+            assert!(
+                lookup.answers().iter().all(|r| r.ttl <= 60),
+                "{attempt} alias lookup should cap TTLs at the CNAME's TTL"
+            );
+        }
     }
 
     /// Purpose: Verify only final response sections are preserved in multi-hop CNAME chains
