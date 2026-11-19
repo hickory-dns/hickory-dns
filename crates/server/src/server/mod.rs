@@ -203,6 +203,22 @@ pub mod transport {
         },
     };
 
+    /// Default timeout for completing a TLS or QUIC handshake.
+    pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+
+    /// Default timeout for receiving a complete request once it has started.
+    pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+    /// Default timeout before closing an idle connection.
+    pub const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
+
+    /// Default timeout for receiving the next request on a TCP or TLS stream.
+    ///
+    /// A single timer covers both the idle period and receiving the request, so this is
+    /// [`DEFAULT_IDLE_TIMEOUT`] plus [`DEFAULT_REQUEST_TIMEOUT`].
+    pub const DEFAULT_STREAM_TIMEOUT: Duration =
+        DEFAULT_IDLE_TIMEOUT.saturating_add(DEFAULT_REQUEST_TIMEOUT);
+
     /// # Task ownership
     ///
     /// The returned future owns the listening resource:
@@ -312,8 +328,8 @@ pub mod transport {
     ///
     /// Wraps an already-bound TCP listener and handles incoming connections.
     ///
-    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
-    /// unset by default. Care should be taken to not make them too low depending on use cases.
+    /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+    /// should be taken to not make them too low depending on use cases.
     #[derive(Debug)]
     pub struct Tcp<L: DnsTcpListener> {
         listener: L,
@@ -325,12 +341,12 @@ pub mod transport {
         /// Constructs a new TCP transport.
         ///
         /// The `listener` must be already bound to the desired local address.
-        /// Default `stream_timeout` is `None` (no timeout).
+        /// The stream timeout defaults to [`DEFAULT_STREAM_TIMEOUT`].
         /// The response buffer defaults to [`DEFAULT_STREAM_BUFFER_SIZE`].
         pub fn new(listener: L) -> Self {
             Self {
                 listener,
-                stream_timeout: None,
+                stream_timeout: Some(DEFAULT_STREAM_TIMEOUT),
                 response_buffer_size: DEFAULT_STREAM_BUFFER_SIZE,
             }
         }
@@ -447,8 +463,8 @@ pub mod transport {
     ///
     /// Wraps an already-bound TCP listener and a TLS configuration to accept encrypted DNS queries.
     ///
-    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
-    /// unset by default. Care should be taken to not make them too low depending on use cases.
+    /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+    /// should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__tls")]
     pub struct Tls<L: DnsTcpListener> {
         listener: L,
@@ -462,13 +478,14 @@ pub mod transport {
         /// Constructs a new TLS transport with the provided [`ServerConfig`].
         ///
         /// The `listener` must be already bound to the desired local address.
-        /// Default handshake and stream timeouts are `None`.
+        /// The handshake timeout defaults to [`DEFAULT_HANDSHAKE_TIMEOUT`], and the stream timeout
+        /// defaults to [`DEFAULT_STREAM_TIMEOUT`].
         pub fn with_tls_config(listener: L, tls_config: Arc<ServerConfig>) -> Self {
             Self {
                 listener,
                 tls_config,
-                handshake_timeout: None,
-                stream_timeout: None,
+                handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
+                stream_timeout: Some(DEFAULT_STREAM_TIMEOUT),
             }
         }
 
@@ -635,8 +652,8 @@ pub mod transport {
     ///
     /// Wraps an already-bound TCP listener and a TLS configuration to accept HTTP/2 DNS queries.
     ///
-    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
-    /// unset by default. Care should be taken to not make them too low depending on use cases.
+    /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+    /// should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__https")]
     pub struct H2<L: DnsTcpListener> {
         listener: L,
@@ -653,14 +670,15 @@ pub mod transport {
         /// Constructs a new HTTPS transport with the provided [`ServerConfig`].
         ///
         /// The `listener` must be already bound to the desired local address.
-        /// Default HTTP endpoint is `/dns-query`, and timeouts are `None`.
+        /// Default HTTP endpoint is `/dns-query`. Timeouts default to [`DEFAULT_HANDSHAKE_TIMEOUT`],
+        /// [`DEFAULT_IDLE_TIMEOUT`] and [`DEFAULT_REQUEST_TIMEOUT`].
         pub fn with_tls_config(listener: L, tls_config: Arc<ServerConfig>) -> Self {
             Self {
                 listener,
                 tls_config,
-                handshake_timeout: None,
-                idle_timeout: None,
-                request_timeout: None,
+                handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
+                idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
+                request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),
                 dns_hostname: None,
                 http_endpoint: crate::net::http::DEFAULT_DNS_QUERY_PATH.to_string(),
             }
@@ -779,8 +797,8 @@ pub mod transport {
     ///
     /// Wraps an already-bound UDP socket and a TLS configuration to accept QUIC connections.
     ///
-    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
-    /// unset by default. Care should be taken to not make them too low depending on use cases.
+    /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+    /// should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__quic")]
     #[derive(Debug)]
     pub struct Quic {
@@ -795,7 +813,8 @@ pub mod transport {
         /// Constructs a new QUIC transport with the provided [`ServerConfig`].
         ///
         /// The `socket` must be already bound to the desired local address, and the configuration
-        /// must enable the DoQ ALPN protocol. Default timeouts are `None`.
+        /// must enable the DoQ ALPN protocol. Timeouts default to [`DEFAULT_HANDSHAKE_TIMEOUT`],
+        /// [`DEFAULT_IDLE_TIMEOUT`] and [`DEFAULT_REQUEST_TIMEOUT`].
         ///
         /// Initializes the QUIC endpoint immediately and requires a Tokio runtime.
         /// Returns errors from TLS configuration conversion, socket conversion, or endpoint creation.
@@ -805,9 +824,9 @@ pub mod transport {
         ) -> Result<Self, NetError> {
             Ok(Self {
                 listener: QuicServer::with_socket_and_tls_config(socket, tls_config)?,
-                handshake_timeout: None,
-                idle_timeout: None,
-                request_timeout: None,
+                handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
+                idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
+                request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),
             })
         }
 
@@ -883,8 +902,8 @@ pub mod transport {
     ///
     /// Wraps an already-bound UDP socket and a TLS configuration to accept HTTP/3 connections.
     ///
-    /// To make the server more resilient to DOS issues, timeouts should be configured. They are
-    /// unset by default. Care should be taken to not make them too low depending on use cases.
+    /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+    /// should be taken to not make them too low depending on use cases.
     #[cfg(feature = "__h3")]
     #[derive(Debug)]
     pub struct H3 {
@@ -901,7 +920,8 @@ pub mod transport {
         /// Constructs a new HTTP/3 transport with the provided [`ServerConfig`].
         ///
         /// The `socket` must be already bound to the desired local address, and the configuration
-        /// must enable the H3 ALPN protocol. Default timeouts are `None`.
+        /// must enable the H3 ALPN protocol. Timeouts default to [`DEFAULT_HANDSHAKE_TIMEOUT`],
+        /// [`DEFAULT_IDLE_TIMEOUT`] and [`DEFAULT_REQUEST_TIMEOUT`].
         ///
         /// Initializes the QUIC endpoint immediately and requires a Tokio runtime.
         /// Returns errors from TLS configuration conversion, socket conversion, or endpoint creation.
@@ -911,9 +931,9 @@ pub mod transport {
         ) -> Result<Self, NetError> {
             Ok(Self {
                 listener: H3Server::with_socket_and_tls_config(socket, tls_config)?,
-                handshake_timeout: None,
-                idle_timeout: None,
-                request_timeout: None,
+                handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
+                idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
+                request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),
                 dns_hostname: None,
                 http_endpoint: crate::net::http::DEFAULT_DNS_QUERY_PATH.to_string(),
             })
