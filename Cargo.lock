@@ -982,6 +982,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "data-encoding",
+ "form_urlencoded",
  "futures-channel",
  "futures-executor",
  "futures-io",
