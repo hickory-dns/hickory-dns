@@ -57,7 +57,6 @@ use crate::{
         BufDnsStreamHandle, DnsStreamHandle, NetError,
         runtime::{TokioTime, iocompat::AsyncIoTokioAsStd},
         tcp::TcpStream,
-        udp::UdpStream,
         xfer::Protocol,
     },
     proto::{
@@ -89,12 +88,12 @@ pub struct Server<T: RequestHandler> {
 }
 
 impl<T: RequestHandler> Server<T> {
-    /// Creates a new ServerFuture with the specified Handler.
+    /// Creates a new Server with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self::with_access(handler, [], [], DEFAULT_MAX_PAYLOAD_LEN, None)
     }
 
-    /// Creates a new ServerFuture with the specified Handler and denied/allowed networks
+    /// Creates a new Server with the specified Handler and denied/allowed networks.
     pub fn with_access(
         handler: T,
         denied_networks: impl IntoIterator<Item = IpNet>,
@@ -102,29 +101,27 @@ impl<T: RequestHandler> Server<T> {
         max_payload_size: u16,
         nsid: Option<NSIDPayload>,
     ) -> Self {
-        let mut access = AccessControl::default();
-        access.insert_deny(denied_networks);
-        access.insert_allow(allowed_networks);
-
         Self {
-            context: Arc::new(ServerContext {
+            context: Arc::new(ServerContext::new(
                 handler,
+                denied_networks,
+                allowed_networks,
                 max_payload_size,
                 nsid,
-                access,
-                shutdown: CancellationToken::new(),
-            }),
+            )),
             join_set: JoinSet::new(),
         }
     }
 
-    /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket, receive_buffer_size: u16) {
-        self.join_set.spawn(handle_udp(
-            socket,
-            receive_buffer_size,
-            self.context.clone(),
-        ));
+    /// Registers a transport on this server.
+    ///
+    /// The transport's constructor initializes its listener and reports initialization errors.
+    pub fn register(&mut self, transport: impl Transport) {
+        debug!(
+            transport = std::any::type_name_of_val(&transport),
+            "registering transport"
+        );
+        self.join_set.spawn(transport.run(self.context.clone()));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -451,10 +448,13 @@ impl<T: RequestHandler> Server<T> {
         Ok(())
     }
 
-    /// Triggers a graceful shutdown the server. All background tasks will stop accepting
-    /// new connections and the returned future will complete once all tasks have terminated.
+    /// Triggers a shutdown and waits for the registered transport tasks to finish.
+    ///
+    /// Transports stop accepting new work. Their local task sets are dropped,
+    /// cancelling the owned tasks without waiting for cancellation to complete.
+    /// Independently spawned request tasks may continue running.
     pub async fn shutdown_gracefully(&mut self) -> Result<(), NetError> {
-        self.context.shutdown.cancel();
+        self.shutdown_token().cancel();
 
         // Wait for the server to complete.
         self.block_until_done().await
@@ -462,8 +462,8 @@ impl<T: RequestHandler> Server<T> {
 
     /// Returns a reference to the [`CancellationToken`] used to gracefully shut down the server.
     ///
-    /// Once cancellation is requested, all background tasks will stop accepting new connections,
-    /// and `block_until_done()` will complete once all tasks have terminated.
+    /// Once cancellation is requested, transports stop accepting new work.
+    /// `block_until_done()` waits for the registered transport tasks to finish.
     pub fn shutdown_token(&self) -> &CancellationToken {
         &self.context.shutdown
     }
@@ -489,71 +489,135 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
-async fn handle_udp(
-    socket: net::UdpSocket,
-    receive_buffer_size: u16,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!("registering udp: {:?}", socket);
+/// Common interface for server transports.
+///
+/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
+/// a TCP listener) together with protocol-specific configurations.
+/// Transport implementations are sealed to keep the server's execution interface internal.
+#[expect(private_bounds)]
+pub trait Transport: transport::Transport {}
+impl<T: transport::Transport> Transport for T {}
 
-    // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-    //   the address used is acquired from the inbound queries
-    let (mut stream, stream_handle) = UdpStream::with_bound(
-        socket,
-        ([127, 255, 255, 254], 0).into(),
-        receive_buffer_size,
-    );
+pub mod transport {
+    //! Transport protocol abstractions and builders for server registration.
 
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
-            // Graceful shutdown
-            break;
-        };
-        let Some(message_res) = option else {
-            // End of stream
-            break;
-        };
+    use std::{future::Future, sync::Arc};
 
-        let message = match message_res {
-            Err(error) => {
-                warn!(%error, "error receiving message on udp_socket");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
-                }
-                continue;
-            }
-            Ok(message) => message,
-        };
+    use futures_util::StreamExt;
+    use tokio::task::JoinSet;
+    use tracing::{debug, warn};
 
-        let src_addr = message.addr();
-        debug!("received udp request from: {}", src_addr);
+    use crate::{
+        net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
+        server::{
+            ServerContext, is_unrecoverable_socket_error, reap_tasks,
+            request_handler::RequestHandler, sanitize_src_address,
+        },
+    };
 
-        // verify that the src address is safe for responses
-        if let Err(e) = sanitize_src_address(src_addr) {
-            warn!(
-                "address can not be responded to {src_addr}: {e}",
-                src_addr = src_addr,
-                e = e
-            );
-            continue;
-        }
-
-        let cx = cx.clone();
-        let stream_handle = stream_handle.with_remote_addr(src_addr);
-        inner_join_set.spawn(async move {
-            cx.handle_raw_request(message, Protocol::Udp, stream_handle)
-                .await;
-        });
-
-        reap_tasks(&mut inner_join_set);
+    /// # Task ownership
+    ///
+    /// The returned future owns the listening resource:
+    ///
+    /// * The cancellation signal is obtained from the [`ServerContext`] it is given.
+    /// * Built-in transports own UDP requests or accepted connections in a local
+    ///   `JoinSet`, which cancels those tasks when the returned future is dropped.
+    /// * Protocols may spawn requests independently of the connection task. The transport
+    ///   chooses how to finish accepted work when it stops.
+    /// * The server waits for the registered transport futures. It does not separately
+    ///   wait for child tasks to finish cancellation.
+    pub(super) trait Transport: Send + 'static {
+        /// Runs a transport whose listener was initialized by its constructor.
+        fn run<H: RequestHandler>(
+            self,
+            cx: Arc<ServerContext<H>>,
+        ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
     }
 
-    if cx.shutdown.is_cancelled() {
-        Ok(())
-    } else {
-        // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-        Err(NetError::from("unexpected close of UDP socket"))
+    /// Builder and transport implementation for UDP.
+    ///
+    /// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
+    #[derive(Debug)]
+    pub struct Udp<S: DnsUdpSocket> {
+        socket: S,
+    }
+
+    impl<S: DnsUdpSocket> Udp<S> {
+        /// Constructs a new UDP transport.
+        ///
+        /// The `socket` must be already bound to the desired local address.
+        pub fn new(socket: S) -> Self {
+            Self { socket }
+        }
+    }
+
+    impl<S: DnsUdpSocket + 'static> Transport for Udp<S> {
+        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+            handle_udp(self.socket, cx.max_payload_size, cx).await
+        }
+    }
+
+    async fn handle_udp<S: DnsUdpSocket>(
+        socket: S,
+        max_payload_size: u16,
+        cx: Arc<ServerContext<impl RequestHandler>>,
+    ) -> Result<(), NetError> {
+        // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
+        //   the address used is acquired from the inbound queries
+        let (mut stream, stream_handle) =
+            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into(), max_payload_size);
+
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
+                // Graceful shutdown
+                break;
+            };
+            let Some(message_res) = option else {
+                // End of stream
+                break;
+            };
+
+            let message = match message_res {
+                Err(error) => {
+                    warn!(%error, "error receiving message on udp_socket");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                }
+                Ok(message) => message,
+            };
+
+            let src_addr = message.addr();
+            debug!("received udp request from: {}", src_addr);
+
+            // verify that the src address is safe for responses
+            if let Err(e) = sanitize_src_address(src_addr) {
+                warn!(
+                    "address can not be responded to {src_addr}: {e}",
+                    src_addr = src_addr,
+                    e = e
+                );
+                continue;
+            }
+
+            let cx = cx.clone();
+            let stream_handle = stream_handle.with_remote_addr(src_addr);
+            inner_join_set.spawn(async move {
+                cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+                    .await;
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        if cx.shutdown.is_cancelled() {
+            Ok(())
+        } else {
+            // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+            Err(NetError::from("unexpected close of UDP socket"))
+        }
     }
 }
 
@@ -740,7 +804,8 @@ pub fn default_tls_server_config(
     Ok(config)
 }
 
-struct ServerContext<T> {
+/// Shared request handling and shutdown state for registered transports.
+pub(super) struct ServerContext<T> {
     handler: T,
     nsid: Option<NSIDPayload>,
     /// The server's UDP payload size.
@@ -750,6 +815,28 @@ struct ServerContext<T> {
     max_payload_size: u16,
     access: AccessControl,
     shutdown: CancellationToken,
+}
+
+impl<T> ServerContext<T> {
+    fn new(
+        handler: T,
+        denied_networks: impl IntoIterator<Item = IpNet>,
+        allowed_networks: impl IntoIterator<Item = IpNet>,
+        max_payload_size: u16,
+        nsid: Option<NSIDPayload>,
+    ) -> Self {
+        let mut access = AccessControl::default();
+        access.insert_deny(denied_networks);
+        access.insert_allow(allowed_networks);
+
+        Self {
+            handler,
+            nsid,
+            max_payload_size,
+            access,
+            shutdown: CancellationToken::new(),
+        }
+    }
 }
 
 impl<T: RequestHandler> ServerContext<T> {
@@ -1092,7 +1179,7 @@ async fn optional_timeout<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
+    use crate::server::transport::Udp;
     use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
@@ -1204,10 +1291,7 @@ mod tests {
         }
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
-            server.register_socket(
-                UdpSocket::bind(self.udp_addr).await.unwrap(),
-                DEFAULT_MAX_PAYLOAD_LEN,
-            );
+            server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Some(Duration::from_secs(1)),
