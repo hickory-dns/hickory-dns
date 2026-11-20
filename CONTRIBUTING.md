@@ -21,6 +21,78 @@ When submitting PRs, please keep refactoring commits separate from functional ch
 
 All PRs *must* pass all tests. Ideally any PR submitted should have more than 85% code coverage, but this is not mandated.
 
+## AI/LLM policy
+
+Use of generative AI/large language model tools in the process of producing
+contributions is conditionally allowed, provided you follow these guidelines.
+
+### You are responsible for your contributions
+
+When you file an issue or a PR, you are responsible for its content, regardless
+of whether and how you use AI-based tools in your process. Contributions to
+this project are held to a high bar. We expect you to have reviewed any code
+you submit in a PR, and we are unwilling to be the first reviewer of code
+produced by other's AI tools. Unproductive issues or PRs may be closed at our
+discretion.
+
+### We want to communicate with you
+
+When communicating with maintainers and other contributors, in issues, PRs, or
+elsewhere, use your own words. PR descriptions should describe the rationale
+for the code changes and/or your design decisions in your own words. Do not
+copy and paste AI generated responses, especially when responding to a
+question. It is important that you understand any issue you are reporting or
+any PR you are submitting, so that we can discuss it with you in a productive
+manner. We may hide overly verbose and nonsensical comments without notice.
+
+Fully autonomous AI agents are not allowed to interact in this project's
+discussion venues.
+
+If you want to include AI output as context for your comment, please put it in
+a block quote, then summarize it and describe its relevance in your own words.
+If the output is overly long, only include the relevant parts in the block
+quote.
+
+### Translation
+
+If you use AI tools to translate your comments to English, please review the
+output to ensure the meaning of your comments is preserved. We recommend
+including the original text in your native language in a block quote.
+
+### AI antipatterns
+
+We have observed the following shortcomings in contributions created with
+assistance from AI tools. Please structure your use of such tools to avoid
+these pitfalls, and review the tools' output.
+
+* Overly verbose, poorly written prose in discussion threads
+* Unnecessary mentions of what test commands were run, and how many tests
+  passed in each
+* Misunderstanding of the severity of issues
+* Code with overly verbose comments
+* Comments about what the code used to do, or what the PR changes, not about
+  what the code now does
+* Ambiguously named variables and functions, with names that are only one word
+  long
+* Addressing symptoms, rather than causes, of bugs
+* Hallucinated RFC citations
+* Poor understanding of the DNS
+
+#### Motivation of contributors
+
+We have noticed a pattern where soon after an issue is filed, a new contributor
+will submit a PR to address it, apparently written using AI-based tools. The
+contents of the PRs themselves suffer from the above shortcomings, and have
+required more maintainer time to review than is justified by the low importance
+of the issue. Aside from PR quality, this practice has a second-order effect of
+burning through low priority, low complexity issues that new contributors could
+have otherwise used as an introduction to the project, familiarizing themselves
+with the codebase through implementation of the same change.
+
+Due to the maintainer time requirements for reviewing such pull requests, and
+the impact on prioritization, we discourage drive-by use of AI tools to address
+issues you have not encountered in practice.
+
 ## Style guide
 
 ### Ordering
