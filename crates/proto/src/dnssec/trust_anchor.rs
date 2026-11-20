@@ -16,7 +16,7 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
-use alloc::{borrow::ToOwned, format, vec::Vec};
+use alloc::{borrow::ToOwned, format, string::ToString, vec::Vec};
 use core::str::FromStr;
 use std::{fs, path::Path};
 
@@ -40,7 +40,7 @@ pub struct TrustAnchors {
 }
 
 impl TrustAnchors {
-    /// Loads a trust anchor from a file of DNSKEY records.
+    /// Loads a trust anchor from a file of DNSKEY and DS records.
     pub fn from_file(path: &Path) -> Result<Self, ParseError> {
         Self::from_str(&fs::read_to_string(path)?)
     }
@@ -143,19 +143,27 @@ impl FromStr for TrustAnchors {
         let parser = trust_anchor::Parser::new(input);
         let entries = parser.parse()?;
 
-        let mut public_keys = Vec::new();
+        let mut anchors = Self::empty();
         for entry in entries {
-            let Entry::DNSKEY(record) = entry;
-            let dnskey = record.data();
-            let key = dnskey.key()?;
-            let public_key_buf = PublicKeyBuf::new(key.public_bytes().to_vec(), dnskey.algorithm());
-            public_keys.push((record.name().into(), public_key_buf));
+            match entry {
+                Entry::DNSKEY(record) => {
+                    let dnskey = record.data();
+                    let key = dnskey.key()?;
+                    let public_key_buf =
+                        PublicKeyBuf::new(key.public_bytes().to_vec(), dnskey.algorithm());
+                    anchors
+                        .public_keys
+                        .push((record.name().into(), public_key_buf));
+                }
+                Entry::DS(record) => {
+                    anchors
+                        .insert_ds(record.data().clone(), record.name().into())
+                        .map_err(|err| ParseError::from(err.to_string()))?;
+                }
+            }
         }
 
-        Ok(Self {
-            public_keys,
-            ds_records: vec![],
-        })
+        Ok(anchors)
     }
 }
 
@@ -182,8 +190,8 @@ mod tests {
     use crate::{
         dnssec::{
             Algorithm, DigestType, PublicKeyBuf,
-            rdata::DS,
-            trust_anchor::{ROOT_ANCHOR_2024, TrustAnchors},
+            rdata::{DNSKEY, DS},
+            trust_anchor::{ROOT_ANCHOR_2018, ROOT_ANCHOR_2024, TrustAnchors},
         },
         rr::{LowerName, Name},
     };
@@ -202,6 +210,43 @@ mod tests {
 
         let trust_anchor = input.parse::<TrustAnchors>().unwrap();
         assert_eq!(3, trust_anchor.len());
+    }
+
+    /// `dig` output: a TTL field, and whitespace splitting the digest.
+    #[test]
+    fn can_load_ds_trust_anchor_file() {
+        let input = include_str!("../../tests/test-data/tld-ds.anchors");
+        let trust_anchor = input.parse::<TrustAnchors>().unwrap();
+        assert_eq!(3, trust_anchor.len());
+
+        let org = LowerName::from(Name::from_ascii("org.").unwrap());
+        let [ds] = trust_anchor.lookup_ds(&org).collect::<Vec<_>>()[..] else {
+            panic!("expected one DS record for org.");
+        };
+        assert_eq!(725, ds.key_tag());
+        assert_eq!(Algorithm::RSASHA256, ds.algorithm());
+        assert_eq!(DigestType::SHA256, ds.digest_type());
+        assert_eq!(32, ds.digest().len());
+    }
+
+    #[test]
+    fn root_ds_trust_anchors_cover_root_keys() {
+        let input = include_str!("../../tests/test-data/root-ds.anchors");
+        let trust_anchor = input.parse::<TrustAnchors>().unwrap();
+        let root = Name::root();
+        let lower_root = LowerName::from(&root);
+
+        for key in [ROOT_ANCHOR_2018, ROOT_ANCHOR_2024] {
+            let public_key = PublicKeyBuf::new(key.to_owned(), Algorithm::RSASHA256);
+            let dnskey = DNSKEY::new(true, true, false, public_key);
+            assert!(
+                trust_anchor
+                    .lookup_ds(&lower_root)
+                    .any(|ds| ds.covers(&root, &dnskey).unwrap()),
+                "no DS covers root key {}",
+                dnskey.calculate_key_tag().unwrap()
+            );
+        }
     }
 
     #[test]
