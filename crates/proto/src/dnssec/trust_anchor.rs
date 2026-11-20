@@ -16,7 +16,7 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, format, vec::Vec};
 use core::str::FromStr;
 use std::{fs, path::Path};
 
@@ -26,7 +26,8 @@ use crate::serialize::txt::ParseError;
 use crate::serialize::txt::trust_anchor::{self, Entry};
 
 use super::Verifier;
-use super::{Algorithm, PublicKeyBuf};
+use super::rdata::DS;
+use super::{Algorithm, DnsSecError, PublicKeyBuf};
 
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
 const ROOT_ANCHOR_2024: &[u8] = include_bytes!("roots/38696.rsa");
@@ -35,6 +36,7 @@ const ROOT_ANCHOR_2024: &[u8] = include_bytes!("roots/38696.rsa");
 #[derive(Clone)]
 pub struct TrustAnchors {
     public_keys: Vec<(LowerName, PublicKeyBuf)>,
+    ds_records: Vec<(LowerName, DS)>,
 }
 
 impl TrustAnchors {
@@ -49,6 +51,7 @@ impl TrustAnchors {
     pub fn empty() -> Self {
         Self {
             public_keys: vec![],
+            ds_records: vec![],
         }
     }
 
@@ -61,6 +64,11 @@ impl TrustAnchors {
                     && trust_anchor_public_key.public_bytes() == public_key.public_bytes()
                     && trust_anchor_public_key.algorithm() == public_key.algorithm()
             })
+    }
+
+    /// Determines if a DS record is in the set.
+    pub fn contains_ds(&self, ds: &DS, name: &LowerName) -> bool {
+        self.ds_records.iter().any(|(n, d)| n == name && d == ds)
     }
 
     /// Inserts a public key as a trust anchor.
@@ -76,14 +84,55 @@ impl TrustAnchors {
         true
     }
 
-    /// Number of keys.
-    pub fn len(&self) -> usize {
-        self.public_keys.len()
+    /// Inserts a DS record as a trust anchor.
+    ///
+    /// Returns `Ok(false)` if the DS record is already in the set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the DS record uses an unsupported algorithm or digest type. Such a
+    /// record can never authenticate a DNSKEY, so anchoring a zone with it would only make the
+    /// zone unverifiable.
+    pub fn insert_ds(&mut self, ds: DS, name: LowerName) -> Result<bool, DnsSecError> {
+        if !ds.algorithm().is_supported() {
+            return Err(format!(
+                "unsupported algorithm in DS trust anchor for {name}: {}",
+                ds.algorithm()
+            )
+            .into());
+        }
+
+        if !ds.digest_type().is_supported() {
+            return Err(format!(
+                "unsupported digest type in DS trust anchor for {name}: {:?}",
+                ds.digest_type()
+            )
+            .into());
+        }
+
+        if self.contains_ds(&ds, &name) {
+            return Ok(false);
+        }
+        self.ds_records.push((name, ds));
+        Ok(true)
     }
 
-    /// Returns true if there are no keys.
+    /// Looks up DS records for a name.
+    pub fn lookup_ds<'a>(&'a self, name: &'a LowerName) -> impl Iterator<Item = &'a DS> + 'a {
+        self.ds_records
+            .iter()
+            .filter(move |(n, _)| n == name)
+            .map(|(_, d)| d)
+    }
+
+    /// Number of keys and DS records.
+    pub fn len(&self) -> usize {
+        self.public_keys.len() + self.ds_records.len()
+    }
+
+    /// Returns true if there are no keys or DS records.
     pub fn is_empty(&self) -> bool {
-        self.public_keys.is_empty()
+        self.public_keys.is_empty() && self.ds_records.is_empty()
     }
 }
 
@@ -103,7 +152,10 @@ impl FromStr for TrustAnchors {
             public_keys.push((record.name().into(), public_key_buf));
         }
 
-        Ok(Self { public_keys })
+        Ok(Self {
+            public_keys,
+            ds_records: vec![],
+        })
     }
 }
 
@@ -120,6 +172,7 @@ impl Default for TrustAnchors {
                     PublicKeyBuf::new(ROOT_ANCHOR_2024.to_owned(), Algorithm::RSASHA256),
                 ),
             ],
+            ds_records: vec![],
         }
     }
 }
@@ -128,12 +181,13 @@ impl Default for TrustAnchors {
 mod tests {
     use crate::{
         dnssec::{
-            Algorithm, PublicKeyBuf,
+            Algorithm, DigestType, PublicKeyBuf,
+            rdata::DS,
             trust_anchor::{ROOT_ANCHOR_2024, TrustAnchors},
         },
-        rr::Name,
+        rr::{LowerName, Name},
     };
-    use alloc::borrow::ToOwned;
+    use alloc::{borrow::ToOwned, vec, vec::Vec};
 
     #[test]
     fn test_contains_dnskey_bytes() {
@@ -148,5 +202,46 @@ mod tests {
 
         let trust_anchor = input.parse::<TrustAnchors>().unwrap();
         assert_eq!(3, trust_anchor.len());
+    }
+
+    #[test]
+    fn insert_ds() {
+        let mut trust = TrustAnchors::empty();
+        assert!(trust.is_empty());
+
+        let name = LowerName::from(Name::from_ascii("example.com.").unwrap());
+        let ds = DS::new(1, Algorithm::ED25519, DigestType::SHA256, vec![0; 32]);
+        assert!(trust.insert_ds(ds.clone(), name.clone()).unwrap());
+        assert!(
+            !trust.insert_ds(ds.clone(), name.clone()).unwrap(),
+            "duplicate"
+        );
+
+        assert!(!trust.is_empty(), "DS-only anchors must not be empty");
+        assert_eq!(1, trust.len());
+        assert!(trust.contains_ds(&ds, &name));
+        assert_eq!(vec![&ds], trust.lookup_ds(&name).collect::<Vec<_>>());
+
+        let other = LowerName::from(Name::from_ascii("example.net.").unwrap());
+        assert!(!trust.contains_ds(&ds, &other));
+        assert_eq!(0, trust.lookup_ds(&other).count());
+    }
+
+    /// A DS record that can never authenticate a DNSKEY must not become a trust anchor: the
+    /// validator would otherwise treat the anchored zone as insecure.
+    #[test]
+    fn insert_ds_rejects_unsupported() {
+        let mut trust = TrustAnchors::empty();
+        let name = LowerName::from(Name::from_ascii("example.com.").unwrap());
+
+        let unknown_digest = DS::new(1, Algorithm::ED25519, DigestType::Unknown(255), vec![0; 32]);
+        assert!(trust.insert_ds(unknown_digest, name.clone()).is_err());
+
+        let unknown_algorithm =
+            DS::new(1, Algorithm::Unknown(255), DigestType::SHA256, vec![0; 32]);
+        assert!(trust.insert_ds(unknown_algorithm, name.clone()).is_err());
+
+        assert!(trust.is_empty());
+        assert_eq!(0, trust.lookup_ds(&name).count());
     }
 }
