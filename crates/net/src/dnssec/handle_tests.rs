@@ -117,6 +117,82 @@ async fn bogus_delegation_with_empty_ds_response() {
     assert_eq!(response.answers[0].proof, Proof::Bogus);
 }
 
+/// A DS trust anchor for the root zone must validate the root DNSKEY RRset, even though the root
+/// has no parent to publish DS records.
+#[tokio::test]
+async fn root_ds_trust_anchor_validates_root_dnskey() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let parent = Name::from_ascii("example.com.").unwrap();
+    fixture.respond(&child, RecordType::DS, [], [unsigned_soa(&parent)]);
+    let anchors = ds_anchor(&fixture.root.key().to_public_key().unwrap(), &Name::root());
+    let (handle, queries) = fixture.build_with(anchors);
+
+    // The insecure delegation proof is signed by `com.`, whose chain of trust ends at the root.
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Insecure);
+    assert_eq!(queries.count(&Name::root(), RecordType::DS), 0);
+}
+
+/// A DS trust anchor for a zone must validate the zone's DNSKEY RRset without asking anyone for
+/// the zone's DS RRset. Nothing above the anchored zone is trusted here, so a DS response from
+/// the parent could not be validated.
+#[tokio::test]
+async fn ds_trust_anchor_validates_without_ds_query() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let parent = Name::from_ascii("example.com.").unwrap();
+    let com = Name::from_ascii("com.").unwrap();
+    fixture.respond(&child, RecordType::DS, [], [unsigned_soa(&parent)]);
+    let anchors = ds_anchor(&fixture.com_public_key, &com);
+    let (handle, queries) = fixture.build_with(anchors);
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Insecure);
+    assert_eq!(queries.count(&com, RecordType::DS), 0);
+}
+
+/// An unsigned RRset below a DS trust anchor is bogus, and the search for its zone cut must stop
+/// at the anchored zone instead of continuing toward the root.
+#[tokio::test]
+async fn unsigned_rrset_below_ds_trust_anchor_is_bogus() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let com = Name::from_ascii("com.").unwrap();
+    let unsigned = Name::from_ascii("unsigned.com.").unwrap();
+    fixture.respond(&unsigned, RecordType::A, [a(&unsigned)], []);
+    fixture.respond(&unsigned, RecordType::NS, [], []);
+    let anchors = ds_anchor(&fixture.com_public_key, &com);
+    let (handle, queries) = fixture.build_with(anchors);
+
+    let response = handle
+        .lookup(
+            Query::new(unsigned, RecordType::A),
+            DnsRequestOptions::default(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Bogus);
+    assert_eq!(
+        queries.count(&com, RecordType::NS),
+        0,
+        "the zone cut search must stop at the anchored zone"
+    );
+}
+
+/// Builds trust anchors holding only a DS record covering the given zone's key.
+fn ds_anchor(public_key: &PublicKeyBuf, zone: &Name) -> TrustAnchors {
+    let ds = DS::from_key(public_key, zone, DigestType::SHA256).unwrap();
+    let mut anchors = TrustAnchors::empty();
+    anchors.insert_ds(ds, LowerName::from(zone)).unwrap();
+    anchors
+}
+
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
     let name = Name::from_ascii("www.child.example.com.").unwrap();
     handle
@@ -136,6 +212,7 @@ async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsRespo
 /// `example.com.` zone's records are unsigned.
 struct MockHandleBuilder {
     root: DnssecSigner,
+    com_public_key: PublicKeyBuf,
     responses: HashMap<(LowerName, RecordType), Message>,
 }
 
@@ -151,14 +228,16 @@ impl MockHandleBuilder {
             Duration::from_secs(86400),
         );
 
-        let mut new = Self {
-            root,
-            responses: HashMap::default(),
-        };
-
         let key =
             Ed25519SigningKey::from_pkcs8(&Ed25519SigningKey::generate_pkcs8().unwrap()).unwrap();
         let com_public_key = key.to_public_key().unwrap();
+
+        let mut new = Self {
+            root,
+            com_public_key: com_public_key.clone(),
+            responses: HashMap::default(),
+        };
+
         let com = DnssecSigner::new(
             DNSKEY::from_key(&com_public_key),
             Box::new(key),
@@ -252,18 +331,21 @@ impl MockHandleBuilder {
     }
 
     fn build(self) -> (DnssecDnsHandle<MockHandle>, QueryLog) {
-        let Self { root, responses } = self;
-        let queries = QueryLog::default();
-        let handle = MockHandle {
-            responses: Arc::new(responses),
-            queries: queries.clone(),
-        };
-
         let mut anchors = TrustAnchors::empty();
         anchors.insert(
-            &root.key().to_public_key().unwrap(),
-            LowerName::from(root.signer_name()),
+            &self.root.key().to_public_key().unwrap(),
+            LowerName::from(self.root.signer_name()),
         );
+        self.build_with(anchors)
+    }
+
+    /// Builds a handle trusting the given anchors instead of the root zone's DNSKEY.
+    fn build_with(self, anchors: TrustAnchors) -> (DnssecDnsHandle<MockHandle>, QueryLog) {
+        let queries = QueryLog::default();
+        let handle = MockHandle {
+            responses: Arc::new(self.responses),
+            queries: queries.clone(),
+        };
 
         (
             DnssecDnsHandle::with_trust_anchor(handle, Arc::new(anchors)),
