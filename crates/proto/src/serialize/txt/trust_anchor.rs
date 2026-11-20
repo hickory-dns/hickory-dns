@@ -1,13 +1,13 @@
 //! DNSSEC trust anchor file parser
 //!
 //! A trust anchor file largely adheres to the syntax of a zone file but may only contain
-//! DNSKEY or DS records. DS records are currently unsupported
+//! DNSKEY or DS records.
 
 use alloc::{borrow::Cow, string::String, vec::Vec};
 use core::str::FromStr;
 
 use crate::{
-    dnssec::rdata::DNSKEY,
+    dnssec::rdata::{DNSKEY, DS},
     rr::{DNSClass, Name, RecordData, RecordType},
     serialize::txt::{
         ParseError, ParseResult, parse_ttl,
@@ -81,16 +81,12 @@ impl<'a> Parser<'a> {
                 State::Type { name, ttl, class } => {
                     if let Token::CharData(mut data) = token {
                         data.make_ascii_uppercase();
-                        let rtype = RecordType::from_str(&data)?;
-
-                        if !matches!(rtype, RecordType::DNSKEY) {
-                            return Err(ParseError::UnsupportedRecordType(rtype));
-                        }
-
+                        let rtype = RecordType::from_str(&data)?.try_into()?;
                         State::RData {
                             name,
                             ttl,
                             class,
+                            rtype,
                             parts: vec![],
                         }
                     } else {
@@ -102,10 +98,11 @@ impl<'a> Parser<'a> {
                     name,
                     ttl,
                     class,
+                    rtype,
                     parts,
                 } => match token {
                     Token::EOL => {
-                        Self::flush_record(parts, name, ttl, class, &mut records)?;
+                        Self::flush_record(parts, name, ttl, class, rtype, &mut records)?;
                         State::StartLine
                     }
 
@@ -116,6 +113,7 @@ impl<'a> Parser<'a> {
                             name,
                             ttl,
                             class,
+                            rtype,
                             parts,
                         }
                     }
@@ -129,10 +127,11 @@ impl<'a> Parser<'a> {
             name,
             ttl,
             class,
+            rtype,
             parts,
         } = state
         {
-            Self::flush_record(parts, name, ttl, class, &mut records)?;
+            Self::flush_record(parts, name, ttl, class, rtype, &mut records)?;
         }
 
         Ok(records)
@@ -143,18 +142,25 @@ impl<'a> Parser<'a> {
         name: Name,
         ttl: Option<u32>,
         class: DNSClass,
+        rtype: RDataType,
         records: &mut Vec<Entry>,
     ) -> ParseResult<()> {
-        let dnskey = DNSKEY::from_tokens(rdata_parts.iter().map(AsRef::as_ref))?;
+        macro_rules! entry {
+            ($rtype:ident) => {{
+                let rdata = $rtype::from_tokens(rdata_parts.iter().map(AsRef::as_ref))?;
+                Entry::$rtype(Record {
+                    name_labels: name,
+                    dns_class: class,
+                    ttl,
+                    rdata,
+                })
+            }};
+        }
 
-        let record = Record {
-            name_labels: name,
-            dns_class: class,
-            ttl,
-            rdata: dnskey,
-        };
-
-        records.push(Entry::DNSKEY(record));
+        records.push(match rtype {
+            RDataType::DNSKEY => entry!(DNSKEY),
+            RDataType::DS => entry!(DS),
+        });
 
         Ok(())
     }
@@ -166,6 +172,8 @@ impl<'a> Parser<'a> {
 pub enum Entry {
     /// A DNSKEY record
     DNSKEY(Record<DNSKEY>),
+    /// A DS record
+    DS(Record<DS>),
 }
 
 /// A resource record as it appears in a zone file
@@ -225,8 +233,26 @@ enum State {
         name: Name,
         ttl: Option<u32>,
         class: DNSClass,
+        rtype: RDataType,
         parts: Vec<String>,
     },
+}
+
+enum RDataType {
+    DNSKEY,
+    DS,
+}
+
+impl TryFrom<RecordType> for RDataType {
+    type Error = ParseError;
+
+    fn try_from(rtype: RecordType) -> Result<Self, Self::Error> {
+        match rtype {
+            RecordType::DNSKEY => Ok(Self::DNSKEY),
+            RecordType::DS => Ok(Self::DS),
+            _ => Err(ParseError::UnsupportedRecordType(rtype)),
+        }
+    }
 }
 
 enum Token {
@@ -371,7 +397,10 @@ mod tests {
         let entries = res.expect("parsing failed");
         entries
             .into_iter()
-            .map(|Entry::DNSKEY(dnskey)| dnskey)
+            .map(|entry| match entry {
+                Entry::DNSKEY(dnskey) => dnskey,
+                Entry::DS(ds) => panic!("unexpected DS record: {ds:?}"),
+            })
             .collect()
     }
 
