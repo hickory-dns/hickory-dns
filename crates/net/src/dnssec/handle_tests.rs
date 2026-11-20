@@ -2,6 +2,7 @@
 
 use core::future::Future;
 use std::{
+    assert_matches,
     collections::HashMap,
     net::Ipv4Addr,
     sync::{Arc, Mutex},
@@ -13,7 +14,7 @@ use time::OffsetDateTime;
 
 use super::DnssecDnsHandle;
 use crate::{
-    error::NetError,
+    error::{DnsError, NetError},
     proto::{
         dnssec::{
             DigestType, DnssecSigner, Proof, PublicKeyBuf, SigningKey, TrustAnchors,
@@ -115,6 +116,87 @@ async fn bogus_delegation_with_empty_ds_response() {
 
     let response = lookup_child_a(&handle).await.unwrap();
     assert_eq!(response.answers[0].proof, Proof::Bogus);
+}
+
+/// Regression test: unrelated records from an insecure zone in the authority section should not
+/// cause a negative response to be accepted as a valid insecure response.
+#[tokio::test]
+#[ignore = "The heuristic for identifying insecure responses is insufficient"]
+async fn bogus_nodata_unrelated_insecure_record() {
+    subscribe();
+
+    // This sets up responses for multiple secure delegations, ending in one for example.com.
+    let mut builder = MockHandleBuilder::new(Parent::Secure);
+
+    // Set up responses for an insecure delegation to another zone.
+    let attacker_name = Name::from_ascii("attacker.").unwrap();
+    builder.respond(&attacker_name, RecordType::NS, [ns(&attacker_name)], []);
+    builder.respond(
+        &attacker_name,
+        RecordType::DS,
+        [],
+        sign([unsigned_soa(&Name::root())], &builder.root)
+            .into_iter()
+            .chain(sign(
+                [Record::from_rdata(
+                    attacker_name.clone(),
+                    TTL,
+                    RData::DNSSEC(DNSSECRData::NSEC(NSEC::new(
+                        Name::from_ascii("attacker0.").unwrap(),
+                        [RecordType::NS, RecordType::NSEC, RecordType::RRSIG],
+                    ))),
+                )],
+                &builder.root,
+            )),
+    );
+
+    // Add responses for a victim zone, including crafted NODATA responses.
+    let victim_name = Name::from_ascii("victim.").unwrap();
+    builder.respond(&victim_name, RecordType::NS, [ns(&victim_name)], []);
+    builder.respond(
+        &victim_name,
+        RecordType::A,
+        [],
+        [unsigned_soa(&attacker_name)],
+    );
+    builder.respond(
+        &victim_name,
+        RecordType::DS,
+        [],
+        [unsigned_soa(&attacker_name)],
+    );
+
+    let (handle, _) = builder.build();
+
+    let err = handle
+        .lookup(
+            Query::new(victim_name.clone(), RecordType::A),
+            DnsRequestOptions::default(),
+        )
+        .await
+        .unwrap_err();
+    assert_matches!(
+        err,
+        NetError::Dns(DnsError::Nsec {
+            proof: Proof::Bogus,
+            ..
+        })
+    );
+
+    let err = handle
+        .lookup(
+            Query::new(victim_name.clone(), RecordType::DS),
+            DnsRequestOptions::default(),
+        )
+        .await
+        .unwrap_err();
+    assert_matches!(
+        err,
+        NetError::Dns(DnsError::Nsec {
+            proof: Proof::Bogus,
+            ..
+        })
+    );
 }
 
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
