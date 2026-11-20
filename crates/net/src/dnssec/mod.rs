@@ -87,7 +87,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ///
     /// # Arguments
     /// * `handle` - handle to use for all connections to a remote server.
-    /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
+    /// * `trust_anchor` - custom DNSKEYs and DS records that will be trusted, can be used to pin
+    ///   trusted keys.
     pub fn with_trust_anchor(handle: H, trust_anchor: Arc<TrustAnchors>) -> Self {
         Self {
             handle,
@@ -532,7 +533,8 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// trust in the rest of the RRset.
     ///
     /// A DNSKEY that's part of the trust anchor does not need to have its DS record validated. In
-    /// particular, DNSKEYs in the root zone cannot have a DS record.
+    /// particular, the root zone has no parent to publish a DS record, so its DNSKEYs can only be
+    /// authenticated by a DNSKEY or DS trust anchor.
     ///
     /// # Return
     ///
@@ -573,11 +575,12 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             *proof = self.is_dnskey_in_root_store(&dnskey, &key.name);
         }
 
-        // If not all DNSKEYs are trust anchors, and this isn't the root DNSKEY RRset, then we
-        // should look for DS records to possibly verify more keys.
-        let ds_records = if !dnskey_proofs.iter().all(|p| p.is_secure()) && !key.name.is_root() {
-            // Need to get DS records for each DNSKEY.
-            // Every DNSKEY other than the root zone's keys may have a corresponding DS record.
+        // If not all DNSKEYs are trust anchors, then we should look for DS records to possibly
+        // verify more keys. The root zone has no parent to publish DS records, so only look for
+        // them there if they're configured as trust anchors.
+        let ds_records = if !dnskey_proofs.iter().all(|p| p.is_secure())
+            && (!key.name.is_root() || self.has_ds_trust_anchor(&key.name))
+        {
             match self.fetch_ds_records(Name::from(&key.name), options).await {
                 Ok(ds_records) => ds_records,
                 Err(ProofError {
@@ -600,7 +603,7 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             && !ds_records.is_empty()
         {
             debug!(
-                "all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone"
+                "all dnskeys use unsupported algorithms and there are no supported DS records in the parent zone or trust anchor"
             );
             // cannot validate; mark as insecure
             return RrsetProof::Insecure;
@@ -689,8 +692,9 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     /// Returns an error with an `Insecure` proof if the zone is proven to be insecure. Returns
     /// `Ok(())` if the zone is secure.
     ///
-    /// This first finds the nearest zone cut at or above the given name, by making NS queries.
-    /// Then, the DS RRset at the delegation point is requested. The DS response is validated to
+    /// This first finds the nearest zone cut at or above the given name, by making NS queries. If
+    /// the name or one of its ancestors has a DS trust anchor, the search stops there and the zone
+    /// is secure. Otherwise, the DS RRset at the delegation point is requested. The DS response is validated to
     /// determine if any DS records exist or not, and thus whether the zone is secure, insecure, or
     /// bogus. See [RFC 6840 section 6.1](https://datatracker.ietf.org/doc/html/rfc6840#section-6.1)
     /// and [RFC 4035 section 4.2](https://datatracker.ietf.org/doc/html/rfc4035#section-4.2).
@@ -701,6 +705,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
     ) -> Result<(), ProofError> {
         let mut ancestor = name.clone();
         let zone = loop {
+            if self.has_ds_trust_anchor(&LowerName::new(&ancestor)) {
+                // ancestor zone is anchored, no need to search further.
+                return Ok(());
+            }
+
             if ancestor.is_root() {
                 return Err(ProofError::ds_should_exist(name));
             }
@@ -738,6 +747,20 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
         zone: Name,
         options: DnsRequestOptions,
     ) -> Result<Vec<Record<DS>>, ProofError> {
+        let lower_zone = LowerName::new(&zone);
+        let mut lookup_ds = self.trust_anchor.lookup_ds(&lower_zone).peekable();
+        if lookup_ds.peek().is_some() {
+            debug!(%zone, "using DS records from trust anchor");
+            return Ok(lookup_ds
+                .map(|ds| {
+                    let mut record =
+                        Record::from_rdata(zone.clone(), TRUST_ANCHOR_DS_TTL, ds.clone());
+                    record.proof = Proof::Secure;
+                    record
+                })
+                .collect());
+        }
+
         let query = Query::new(zone.clone(), RecordType::DS);
         let mut response = match Box::pin(self.lookup(query, options)).await {
             Ok(response) => response,
@@ -913,6 +936,11 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
             Proof::Bogus,
             ProofErrorKind::DsRecordShouldExist { name: zone },
         ))
+    }
+
+    /// Returns true if DS records for the zone are configured as trust anchors.
+    fn has_ds_trust_anchor(&self, zone: &LowerName) -> bool {
+        self.trust_anchor.lookup_ds(zone).next().is_some()
     }
 
     /// Verifies that the key is a trust anchor.
@@ -1391,6 +1419,9 @@ const MAX_RRSIGS_PER_RRSET: usize = 8;
 /// The default validation cache size.  This is somewhat arbitrary, but set to the same size as the default
 /// recursor response cache
 const DEFAULT_VALIDATION_CACHE_SIZE: usize = 1_048_576;
+
+/// Constant TTL given to trust anchor DS records. Arbitrary and irrelevant to validation.
+const TRUST_ANCHOR_DS_TTL: u32 = 86400;
 
 #[cfg(test)]
 mod test {
