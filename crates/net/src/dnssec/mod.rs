@@ -331,7 +331,15 @@ impl<H: DnsHandle> DnssecDnsHandle<H> {
                     && rrset.signatures.iter().all(|x| x.proof == Proof::Insecure)
             })
         {
-            return Ok(message);
+            let search_start_name = match query.query_type {
+                RecordType::DS => query.name.base_name(),
+                _ => query.name.clone(),
+            };
+            if let Err(err) = self.find_ds_records(search_start_name, options).await {
+                if err.proof == Proof::Insecure {
+                    return Ok(message);
+                }
+            }
         }
 
         // Return Ok if this is a valid positive response.

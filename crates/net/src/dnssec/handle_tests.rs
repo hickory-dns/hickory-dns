@@ -121,7 +121,6 @@ async fn bogus_delegation_with_empty_ds_response() {
 /// Regression test: unrelated records from an insecure zone in the authority section should not
 /// cause a negative response to be accepted as a valid insecure response.
 #[tokio::test]
-#[ignore = "The heuristic for identifying insecure responses is insufficient"]
 async fn bogus_nodata_unrelated_insecure_record() {
     subscribe();
 
