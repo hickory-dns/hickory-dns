@@ -302,6 +302,11 @@ impl OneshotDnsRequest {
         )
     }
 
+    /// Whether whoever sent it has stopped waiting for its response.
+    fn is_canceled(&self) -> bool {
+        self.sender_for_response.is_canceled()
+    }
+
     fn into_parts(self) -> (DnsRequest, OneshotDnsResponse) {
         (
             self.dns_request,
