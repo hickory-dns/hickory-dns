@@ -175,6 +175,14 @@ impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
             match outbound_messages.as_mut().poll_next(cx) {
                 // already handled above, here to make sure the poll() pops the next message
                 Poll::Ready(Some(dns_request)) => {
+                    // Skip a request whose requester has stopped waiting by the time it is
+                    // checked here: on a stream that sends eagerly (TCP), it would reach the
+                    // server though no one would read the answer. A requester that gives up after
+                    // this check is still sent.
+                    if dns_request.is_canceled() {
+                        debug!("dropping a request whose requester stopped waiting");
+                        continue;
+                    }
                     // if there is no peer, this connection should die...
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
 
@@ -200,6 +208,97 @@ impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
             }
 
             // else we loop to poll on the outbound_messages
+        }
+    }
+}
+
+#[cfg(all(test, feature = "tokio"))]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use futures_util::task::noop_waker;
+
+    use super::*;
+    use crate::proto::op::{DnsRequestOptions, Message, Query};
+    use crate::proto::rr::{Name, RecordType};
+    use crate::runtime::TokioRuntimeProvider;
+    use crate::xfer::DnsResponseStream;
+
+    /// A stream that records the id of every request it is asked to send, as a TCP stream writes
+    /// each one out when asked; each response stream it returns fails at once with a marker error.
+    struct Recording(Arc<Mutex<Vec<u16>>>);
+
+    impl Stream for Recording {
+        type Item = Result<(), NetError>;
+
+        fn poll_next(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            Poll::Pending
+        }
+    }
+
+    impl DnsRequestSender for Recording {
+        fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
+            self.0.lock().unwrap().push(request.id);
+            NetError::from("recorded").into()
+        }
+
+        fn shutdown(&mut self) {}
+
+        fn is_shutdown(&self) -> bool {
+            false
+        }
+    }
+
+    fn request(id: u16) -> DnsRequest {
+        let mut message = Message::query();
+        message.metadata.id = id;
+        message.add_query(Query::new(
+            Name::from_ascii("www.example.com.").unwrap(),
+            RecordType::A,
+        ));
+        DnsRequest::new(message, DnsRequestOptions::default())
+    }
+
+    #[test]
+    fn a_request_whose_requester_stopped_waiting_is_not_sent() {
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let (exchange, mut background) =
+            DnsExchange::<TokioRuntimeProvider>::from_stream(Recording(sent.clone()));
+
+        // `send` queues the request when called: one given up on before the background task ran,
+        // one still waited for.
+        drop(exchange.send(request(1)));
+        let mut kept = Box::pin(exchange.send(request(2)));
+
+        let waker = noop_waker();
+        let mut cx = Context::from_waker(&waker);
+        assert!(Pin::new(&mut background).poll(&mut cx).is_pending());
+
+        assert_eq!(*sent.lock().unwrap(), vec![2]);
+        // The kept request still gets the stream send_message returned.
+        match kept.as_mut().poll(&mut cx) {
+            Poll::Ready(Err(NetError::Message(message))) if message == "recorded" => {}
+            other => panic!("the kept request did not get its response stream: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_zone_transfer_stream_given_up_on_is_not_sent() {
+        let sent = Arc::new(Mutex::new(Vec::new()));
+        let (exchange, mut background) =
+            DnsExchange::<TokioRuntimeProvider>::from_stream(Recording(sent.clone()));
+
+        drop(exchange.send_stream(request(1)));
+        let mut kept = exchange.send_stream(request(2));
+
+        let waker = noop_waker();
+        let mut cx = Context::from_waker(&waker);
+        assert!(Pin::new(&mut background).poll(&mut cx).is_pending());
+
+        assert_eq!(*sent.lock().unwrap(), vec![2]);
+        match Pin::new(&mut kept).poll_next(&mut cx) {
+            Poll::Ready(Some(Err(NetError::Message(message)))) if message == "recorded" => {}
+            other => panic!("the kept stream did not get its response stream: {other:?}"),
         }
     }
 }
