@@ -163,10 +163,7 @@ impl<S: DnsRequestSender, TE: Time> Future for DnsExchangeBackground<S, TE> {
             match outbound_messages.as_mut().poll_next(cx) {
                 // already handled above, here to make sure the poll() pops the next message
                 Poll::Ready(Some(dns_request)) => {
-                    // Skip a request whose requester has stopped waiting by the time it is
-                    // checked here: on a stream that sends eagerly (TCP), it would reach the
-                    // server though no one would read the answer. A requester that gives up after
-                    // this check is still sent.
+                    // Nobody will read the answer, and over TCP it would still be sent.
                     if dns_request.is_canceled() {
                         debug!("dropping a request whose requester stopped waiting");
                         continue;
