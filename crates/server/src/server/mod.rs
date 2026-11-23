@@ -506,11 +506,11 @@ mod transport {
     use std::{future::Future, sync::Arc};
 
     use futures_util::StreamExt;
-    use tokio::{net, task::JoinSet};
+    use tokio::task::JoinSet;
     use tracing::{debug, warn};
 
     use crate::{
-        net::{NetError, udp::UdpStream, xfer::Protocol},
+        net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
         server::{
             ServerContext, is_unrecoverable_socket_error, reap_tasks,
             request_handler::RequestHandler, sanitize_src_address,
@@ -540,27 +540,27 @@ mod transport {
     ///
     /// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
     #[derive(Debug)]
-    pub struct Udp {
-        socket: net::UdpSocket,
+    pub struct Udp<S: DnsUdpSocket> {
+        socket: S,
     }
 
-    impl Udp {
+    impl<S: DnsUdpSocket> Udp<S> {
         /// Constructs a new UDP transport.
         ///
         /// The `socket` must be already bound to the desired local address.
-        pub fn new(socket: net::UdpSocket) -> Self {
+        pub fn new(socket: S) -> Self {
             Self { socket }
         }
     }
 
-    impl Transport for Udp {
+    impl<S: DnsUdpSocket + 'static> Transport for Udp<S> {
         async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
             handle_udp(self.socket, cx.max_payload_size, cx).await
         }
     }
 
-    async fn handle_udp(
-        socket: net::UdpSocket,
+    async fn handle_udp<S: DnsUdpSocket>(
+        socket: S,
         max_payload_size: u16,
         cx: Arc<ServerContext<impl RequestHandler>>,
     ) -> Result<(), NetError> {
