@@ -469,7 +469,8 @@ impl<T: RequestHandler> Server<T> {
     }
 
     /// This will run until all background tasks complete. If one or more tasks return an error,
-    /// one will be chosen as the returned error for this future.
+    /// one will be chosen as the returned error for this future. If a task panics, the remaining
+    /// tasks are shut down.
     pub async fn block_until_done(&mut self) -> Result<(), NetError> {
         if self.join_set.is_empty() {
             warn!("block_until_done called with no pending tasks");
@@ -481,7 +482,10 @@ impl<T: RequestHandler> Server<T> {
             match join_result {
                 Ok(Ok(())) => continue,
                 Ok(Err(e)) => out = Err(e),
-                Err(e) => return Err(NetError::from(format!("internal error in spawn: {e}"))),
+                Err(e) => {
+                    self.context.shutdown.cancel();
+                    out = Err(NetError::from(format!("internal error in spawn: {e}")));
+                }
             }
         }
 
@@ -1102,6 +1106,7 @@ mod tests {
     use test_support::TestCertificates;
     use test_support::subscribe;
     use tokio::net::{TcpListener, UdpSocket};
+    use tokio::sync::oneshot::{self, error::TryRecvError};
     use tokio::time::timeout;
 
     #[tokio::test]
@@ -1136,6 +1141,29 @@ mod tests {
             .expect("error while awaiting tasks");
 
         endpoints.rebind_all().await;
+    }
+
+    #[tokio::test]
+    async fn block_until_done_shuts_down_after_panic() {
+        subscribe();
+        let mut server_future = Server::new(Catalog::new());
+        server_future
+            .join_set
+            .spawn(async { panic!("task panicked") });
+
+        let shutdown = server_future.context.shutdown.clone();
+        let (finished_tx, mut finished_rx) = oneshot::channel::<()>();
+        server_future.join_set.spawn(async move {
+            shutdown.cancelled().await;
+            drop(finished_tx);
+            Ok(())
+        });
+
+        timeout(Duration::from_secs(2), server_future.block_until_done())
+            .await
+            .expect("timed out waiting for the server to complete")
+            .expect_err("a task panicked");
+        assert_eq!(finished_rx.try_recv(), Err(TryRecvError::Closed));
     }
 
     #[test]
