@@ -113,13 +113,15 @@ impl<T: RequestHandler> Server<T> {
         }
     }
 
-    /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket, receive_buffer_size: u16) {
-        self.join_set.spawn(transport::handle_udp(
-            socket,
-            receive_buffer_size,
-            self.context.clone(),
-        ));
+    /// Registers a transport on this server.
+    ///
+    /// The transport's constructor initializes its listener and reports initialization errors.
+    pub fn register(&mut self, transport: impl Transport) {
+        debug!(
+            transport = std::any::type_name_of_val(&transport),
+            "registering transport"
+        );
+        self.join_set.spawn(transport.run(self.context.clone()));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -487,10 +489,21 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
-mod transport {
-    //! Transport protocol implementations for server registration.
+/// Common interface for server transports.
+///
+/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
+/// a TCP listener) together with protocol-specific configurations.
+/// Transport implementations are sealed to keep the server's execution interface internal.
+#[expect(private_bounds)]
+pub trait Transport: transport::Transport {}
+impl<T: transport::Transport> Transport for T {}
 
-    use std::sync::Arc;
+pub use transport::Udp;
+
+mod transport {
+    //! Transport protocol abstractions and builders for server registration.
+
+    use std::{future::Future, sync::Arc};
 
     use futures_util::StreamExt;
     use tokio::{net, task::JoinSet};
@@ -504,20 +517,57 @@ mod transport {
         },
     };
 
-    pub(super) async fn handle_udp(
+    /// # Task ownership
+    ///
+    /// The returned future owns the listening resource:
+    ///
+    /// * The cancellation signal is obtained from the [`ServerContext`] it is given.
+    /// * Built-in transports own UDP requests or accepted connections in a local
+    ///   `JoinSet`, which cancels those tasks when the returned future is dropped.
+    /// * Protocols may spawn requests independently of the connection task. The transport
+    ///   chooses how to finish accepted work when it stops.
+    /// * The server waits for the registered transport futures. It does not separately
+    ///   wait for child tasks to finish cancellation.
+    pub(super) trait Transport: Send + 'static {
+        /// Runs a transport whose listener was initialized by its constructor.
+        fn run<H: RequestHandler>(
+            self,
+            cx: Arc<ServerContext<H>>,
+        ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
+    }
+
+    /// Builder and transport implementation for UDP.
+    ///
+    /// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
+    #[derive(Debug)]
+    pub struct Udp {
         socket: net::UdpSocket,
-        receive_buffer_size: u16,
+    }
+
+    impl Udp {
+        /// Constructs a new UDP transport.
+        ///
+        /// The `socket` must be already bound to the desired local address.
+        pub fn new(socket: net::UdpSocket) -> Self {
+            Self { socket }
+        }
+    }
+
+    impl Transport for Udp {
+        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+            handle_udp(self.socket, cx.max_payload_size, cx).await
+        }
+    }
+
+    async fn handle_udp(
+        socket: net::UdpSocket,
+        max_payload_size: u16,
         cx: Arc<ServerContext<impl RequestHandler>>,
     ) -> Result<(), NetError> {
-        debug!("registering udp: {:?}", socket);
-
         // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
         //   the address used is acquired from the inbound queries
-        let (mut stream, stream_handle) = UdpStream::with_bound(
-            socket,
-            ([127, 255, 255, 254], 0).into(),
-            receive_buffer_size,
-        );
+        let (mut stream, stream_handle) =
+            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into(), max_payload_size);
 
         let mut inner_join_set = JoinSet::new();
         loop {
@@ -756,7 +806,8 @@ pub fn default_tls_server_config(
     Ok(config)
 }
 
-struct ServerContext<T> {
+/// Shared request handling and shutdown state for registered transports.
+pub(super) struct ServerContext<T> {
     handler: T,
     nsid: Option<NSIDPayload>,
     /// The server's UDP payload size.
@@ -1130,7 +1181,7 @@ async fn optional_timeout<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
+    use crate::server::Udp;
     use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
@@ -1242,10 +1293,7 @@ mod tests {
         }
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
-            server.register_socket(
-                UdpSocket::bind(self.udp_addr).await.unwrap(),
-                DEFAULT_MAX_PAYLOAD_LEN,
-            );
+            server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
             server.register_listener(
                 TcpListener::bind(self.tcp_addr).await.unwrap(),
                 Some(Duration::from_secs(1)),
