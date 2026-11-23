@@ -31,6 +31,7 @@ use hickory_proto::rr::{DNSClass, Name, RData, RecordType, rdata::A};
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_proto::rr::{Record, TSigner};
 use hickory_server::Server;
+use hickory_server::server::transport::Udp;
 #[cfg(all(feature = "__dnssec", feature = "sqlite"))]
 use hickory_server::zone_handler::AxfrPolicy;
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
@@ -104,7 +105,7 @@ async fn test_client() -> (Client<TokioRuntimeProvider>, Server<Catalog>) {
     let mut server = Server::with_access(catalog, [], [], DEFAULT_MAX_PAYLOAD_LEN, Some(nsid));
     let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
     let addr = socket.local_addr().unwrap();
-    server.register_socket(socket, DEFAULT_MAX_PAYLOAD_LEN);
+    server.register(Udp::new(socket));
 
     (udp_client(addr).await, server)
 }
