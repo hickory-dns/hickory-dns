@@ -7,12 +7,6 @@
 
 //! `Server` component for hosting domain name server operations.
 
-#[cfg(any(
-    feature = "__tls",
-    feature = "__quic",
-    feature = "__https",
-    feature = "__h3"
-))]
 use std::future::Future;
 use std::{
     fmt, io,
@@ -494,12 +488,13 @@ pub use transport::Udp;
 mod transport {
     //! Transport protocol abstractions and builders for server registration.
 
-    use std::{future::Future, sync::Arc};
+    use std::sync::Arc;
 
     use futures_util::StreamExt;
     use tokio::task::JoinSet;
     use tracing::{debug, warn};
 
+    use super::SealedTransport;
     use crate::{
         net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
         server::{
@@ -507,25 +502,6 @@ mod transport {
             request_handler::RequestHandler, sanitize_src_address,
         },
     };
-
-    /// # Task ownership
-    ///
-    /// The returned future owns the listening resource:
-    ///
-    /// * The cancellation signal is obtained from the [`ServerContext`] it is given.
-    /// * Built-in transports own UDP requests or accepted connections in a local
-    ///   `JoinSet`, which cancels those tasks when the returned future is dropped.
-    /// * Protocols may spawn requests independently of the connection task. The transport
-    ///   chooses how to finish accepted work when it stops.
-    /// * The server waits for the registered transport futures. It does not separately
-    ///   wait for child tasks to finish cancellation.
-    pub(super) trait SealedTransport: Send + 'static {
-        /// Runs a transport whose listener was initialized by its constructor.
-        fn run<H: RequestHandler>(
-            self,
-            cx: Arc<ServerContext<H>>,
-        ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
-    }
 
     /// Builder and transport implementation for UDP.
     ///
@@ -614,7 +590,7 @@ mod transport {
     }
 }
 
-impl<T: transport::SealedTransport> Transport for T {}
+impl<T: SealedTransport> Transport for T {}
 
 /// Common interface for server transports.
 ///
@@ -622,7 +598,26 @@ impl<T: transport::SealedTransport> Transport for T {}
 /// a TCP listener) together with protocol-specific configuration.
 /// Transport implementations are sealed to keep the server's execution interface internal.
 #[expect(private_bounds)]
-pub trait Transport: transport::SealedTransport {}
+pub trait Transport: SealedTransport {}
+
+/// # Task ownership
+///
+/// The returned future owns the listening resource:
+///
+/// * The cancellation signal is obtained from the [`ServerContext`] it is given.
+/// * Built-in transports own UDP requests or accepted connections in a local
+///   `JoinSet`, which cancels those tasks when the returned future is dropped.
+/// * Protocols may spawn requests independently of the connection task. The transport
+///   chooses how to finish accepted work when it stops.
+/// * The server waits for the registered transport futures. It does not separately
+///   wait for child tasks to finish cancellation.
+pub(super) trait SealedTransport: Send + 'static {
+    /// Runs a transport whose listener was initialized by its constructor.
+    fn run<H: RequestHandler>(
+        self,
+        cx: Arc<ServerContext<H>>,
+    ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
+}
 
 async fn handle_tcp(
     listener: net::TcpListener,
