@@ -17,6 +17,7 @@ use std::{
 
 use bytes::Bytes;
 use futures_util::StreamExt;
+use hickory_net::{runtime::DnsUdpSocket, udp::UdpStream};
 use hickory_proto::{
     op::{DEFAULT_MAX_PAYLOAD_LEN, Edns},
     rr::rdata::opt::NSIDPayload,
@@ -483,104 +484,83 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
-pub use transport::Udp;
+/// Builder and transport implementation for UDP.
+///
+/// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
+#[derive(Debug)]
+pub struct Udp<S: DnsUdpSocket> {
+    socket: S,
+}
 
-mod transport {
-    //! Transport protocol abstractions and builders for server registration.
-
-    use std::sync::Arc;
-
-    use futures_util::StreamExt;
-    use tokio::task::JoinSet;
-    use tracing::{debug, warn};
-
-    use super::SealedTransport;
-    use crate::{
-        net::{NetError, runtime::DnsUdpSocket, udp::UdpStream, xfer::Protocol},
-        server::{
-            ServerContext, is_unrecoverable_socket_error, reap_tasks,
-            request_handler::RequestHandler, sanitize_src_address,
-        },
-    };
-
-    /// Builder and transport implementation for UDP.
+impl<S: DnsUdpSocket> Udp<S> {
+    /// Constructs a new UDP transport.
     ///
-    /// Wraps an already-bound UDP socket and handles incoming DNS datagrams.
-    #[derive(Debug)]
-    pub struct Udp<S: DnsUdpSocket> {
-        socket: S,
+    /// The `socket` must be already bound to the desired local address.
+    pub fn new(socket: S) -> Self {
+        Self { socket }
     }
+}
 
-    impl<S: DnsUdpSocket> Udp<S> {
-        /// Constructs a new UDP transport.
-        ///
-        /// The `socket` must be already bound to the desired local address.
-        pub fn new(socket: S) -> Self {
-            Self { socket }
-        }
-    }
+impl<S: DnsUdpSocket + 'static> SealedTransport for Udp<S> {
+    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
+        //   the address used is acquired from the inbound queries
+        let (mut stream, stream_handle) = UdpStream::with_bound(
+            self.socket,
+            ([127, 255, 255, 254], 0).into(),
+            cx.max_payload_size,
+        );
 
-    impl<S: DnsUdpSocket + 'static> SealedTransport for Udp<S> {
-        async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-            // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-            //   the address used is acquired from the inbound queries
-            let (mut stream, stream_handle) = UdpStream::with_bound(
-                self.socket,
-                ([127, 255, 255, 254], 0).into(),
-                cx.max_payload_size,
-            );
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
+                // Graceful shutdown
+                break;
+            };
+            let Some(message_res) = option else {
+                // End of stream
+                break;
+            };
 
-            let mut inner_join_set = JoinSet::new();
-            loop {
-                let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
-                    // Graceful shutdown
-                    break;
-                };
-                let Some(message_res) = option else {
-                    // End of stream
-                    break;
-                };
-
-                let message = match message_res {
-                    Err(error) => {
-                        warn!(%error, "error receiving message on udp_socket");
-                        if is_unrecoverable_socket_error(&error) {
-                            break;
-                        }
-                        continue;
+            let message = match message_res {
+                Err(error) => {
+                    warn!(%error, "error receiving message on udp_socket");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
                     }
-                    Ok(message) => message,
-                };
-
-                let src_addr = message.addr();
-                debug!("received udp request from: {}", src_addr);
-
-                // verify that the src address is safe for responses
-                if let Err(e) = sanitize_src_address(src_addr) {
-                    warn!(
-                        "address can not be responded to {src_addr}: {e}",
-                        src_addr = src_addr,
-                        e = e
-                    );
                     continue;
                 }
+                Ok(message) => message,
+            };
 
-                let cx = cx.clone();
-                let stream_handle = stream_handle.with_remote_addr(src_addr);
-                inner_join_set.spawn(async move {
-                    cx.handle_raw_request(message, Protocol::Udp, stream_handle)
-                        .await;
-                });
+            let src_addr = message.addr();
+            debug!("received udp request from: {}", src_addr);
 
-                reap_tasks(&mut inner_join_set);
+            // verify that the src address is safe for responses
+            if let Err(e) = sanitize_src_address(src_addr) {
+                warn!(
+                    "address can not be responded to {src_addr}: {e}",
+                    src_addr = src_addr,
+                    e = e
+                );
+                continue;
             }
 
-            if cx.shutdown.is_cancelled() {
-                Ok(())
-            } else {
-                // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-                Err(NetError::from("unexpected close of UDP socket"))
-            }
+            let cx = cx.clone();
+            let stream_handle = stream_handle.with_remote_addr(src_addr);
+            inner_join_set.spawn(async move {
+                cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+                    .await;
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        if cx.shutdown.is_cancelled() {
+            Ok(())
+        } else {
+            // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+            Err(NetError::from("unexpected close of UDP socket"))
         }
     }
 }
