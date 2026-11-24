@@ -52,7 +52,7 @@ use crate::{
         BufDnsStreamHandle, DnsStreamHandle, NetError,
         runtime::{TokioTime, iocompat::AsyncIoTokioAsStd},
         tcp::TcpStream,
-        xfer::Protocol,
+        xfer::{DEFAULT_STREAM_BUFFER_SIZE, Protocol},
     },
     proto::{
         op::{
@@ -117,33 +117,6 @@ impl<T: RequestHandler> Server<T> {
             "registering transport"
         );
         self.join_set.spawn(transport.run(self.context.clone()));
-    }
-
-    /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
-    ///  IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP socket
-    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
-    ///   send requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    /// * `response_buffer_size` - size of the buffer for outgoing responses per connection
-    pub fn register_listener(
-        &mut self,
-        listener: net::TcpListener,
-        stream_timeout: Option<Duration>,
-        response_buffer_size: usize,
-    ) {
-        self.join_set.spawn(handle_tcp(
-            listener,
-            stream_timeout,
-            response_buffer_size,
-            self.context.clone(),
-        ));
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -565,6 +538,125 @@ impl<S: DnsUdpSocket + 'static> SealedTransport for Udp<S> {
     }
 }
 
+/// Builder and transport implementation for TCP.
+///
+/// Wraps an already-bound TCP listener and handles incoming connections.
+///
+/// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+/// should be taken to not make them too low depending on use cases.
+#[derive(Debug)]
+pub struct Tcp {
+    listener: net::TcpListener,
+    stream_timeout: Option<Duration>,
+    response_buffer_size: usize,
+}
+
+impl Tcp {
+    /// Constructs a new TCP transport.
+    ///
+    /// The `listener` must be already bound to the desired local address.
+    /// The stream timeout defaults to [`DEFAULT_STREAM_TIMEOUT`], and the response buffer
+    /// defaults to [`DEFAULT_STREAM_BUFFER_SIZE`].
+    pub fn new(listener: net::TcpListener) -> Self {
+        Self {
+            listener,
+            stream_timeout: Some(DEFAULT_STREAM_TIMEOUT),
+            response_buffer_size: DEFAULT_STREAM_BUFFER_SIZE,
+        }
+    }
+
+    /// Sets the maximum number of responses queued for sending per connection.
+    pub fn response_buffer_size(self, response_buffer_size: usize) -> Self {
+        Self {
+            response_buffer_size,
+            ..self
+        }
+    }
+
+    /// Sets the timeout for receiving the next request on a stream; pass `None` to disable it.
+    ///
+    /// Connections that do not send a complete request within this period are closed.
+    pub fn stream_timeout(self, stream_timeout: Option<Duration>) -> Self {
+        Self {
+            stream_timeout,
+            ..self
+        }
+    }
+}
+
+impl SealedTransport for Tcp {
+    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let Self {
+            listener,
+            stream_timeout,
+            response_buffer_size,
+        } = self;
+
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            };
+            let (tcp_stream, src_addr) = match result {
+                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+                Err(error) => {
+                    debug!(%error, "error receiving TCP tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                }
+            };
+
+            // verify that the src address is safe for responses
+            if let Err(error) = sanitize_src_address(src_addr) {
+                warn!(
+                    %src_addr, %error,
+                    "address can not be responded to (TCP)",
+                );
+                continue;
+            }
+
+            // and spawn to the io_loop
+            let cx = cx.clone();
+            inner_join_set.spawn(async move {
+                debug!(%src_addr, "accepted TCP request");
+                // take the created stream...
+                let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
+                    AsyncIoTokioAsStd(tcp_stream),
+                    src_addr,
+                    response_buffer_size,
+                );
+                let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
+
+                while let Some(message) = timeout_stream.next().await {
+                    let message = match message {
+                        Ok(message) => message,
+                        Err(error) => {
+                            debug!(%src_addr, %error, "error in TCP request stream");
+                            // we're going to bail on this connection...
+                            return;
+                        }
+                    };
+
+                    // we don't spawn here to limit clients from getting too many resources
+                    cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
+                        .await;
+                }
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        if cx.shutdown.is_cancelled() {
+            Ok(())
+        } else {
+            Err(NetError::from("unexpected close of socket"))
+        }
+    }
+}
+
 impl<T: SealedTransport> Transport for T {}
 
 /// Common interface for server transports.
@@ -581,77 +673,6 @@ pub(super) trait SealedTransport: Send + 'static {
         self,
         cx: Arc<ServerContext<H>>,
     ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
-}
-
-async fn handle_tcp(
-    listener: net::TcpListener,
-    stream_timeout: Option<Duration>,
-    response_buffer_size: usize,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!("register tcp: {listener:?}");
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
-            // A graceful shutdown was initiated. Break out of the loop.
-            break;
-        };
-        let (tcp_stream, src_addr) = match result {
-            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
-            Err(error) => {
-                debug!(%error, "error receiving TCP tcp_stream error");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
-                }
-                continue;
-            }
-        };
-
-        // verify that the src address is safe for responses
-        if let Err(error) = sanitize_src_address(src_addr) {
-            warn!(
-                %src_addr, %error,
-                "address can not be responded to (TCP)",
-            );
-            continue;
-        }
-
-        // and spawn to the io_loop
-        let cx = cx.clone();
-        inner_join_set.spawn(async move {
-            debug!(%src_addr, "accepted TCP request");
-            // take the created stream...
-            let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                AsyncIoTokioAsStd(tcp_stream),
-                src_addr,
-                response_buffer_size,
-            );
-            let mut timeout_stream = TimeoutStream::new(buf_stream, stream_timeout);
-
-            while let Some(message) = timeout_stream.next().await {
-                let message = match message {
-                    Ok(message) => message,
-                    Err(error) => {
-                        debug!(%src_addr, %error, "error in TCP request stream");
-                        // we're going to bail on this connection...
-                        return;
-                    }
-                };
-
-                // we don't spawn here to limit clients from getting too many resources
-                cx.handle_raw_request(message, Protocol::Tcp, stream_handle.clone())
-                    .await;
-            }
-        });
-
-        reap_tasks(&mut inner_join_set);
-    }
-
-    if cx.shutdown.is_cancelled() {
-        Ok(())
-    } else {
-        Err(NetError::from("unexpected close of socket"))
-    }
 }
 
 #[cfg(feature = "__tls")]
@@ -1138,10 +1159,23 @@ async fn optional_timeout<T>(
     }
 }
 
+/// Default timeout for receiving a complete request once it has started.
+pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Default timeout before closing an idle connection.
+pub const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Default timeout for receiving the next request on a TCP or TLS stream.
+///
+/// A single timer covers both the idle period and receiving the request, so this is
+/// [`DEFAULT_IDLE_TIMEOUT`] plus [`DEFAULT_REQUEST_TIMEOUT`].
+pub const DEFAULT_STREAM_TIMEOUT: Duration =
+    DEFAULT_IDLE_TIMEOUT.saturating_add(DEFAULT_REQUEST_TIMEOUT);
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::Udp;
+    use crate::server::{Tcp, Udp};
     use crate::zone_handler::Catalog;
     use futures_util::future;
     #[cfg(feature = "__tls")]
@@ -1254,11 +1288,7 @@ mod tests {
 
         async fn register<T: RequestHandler>(&self, server: &mut Server<T>) {
             server.register(Udp::new(UdpSocket::bind(self.udp_addr).await.unwrap()));
-            server.register_listener(
-                TcpListener::bind(self.tcp_addr).await.unwrap(),
-                Some(Duration::from_secs(1)),
-                32,
-            );
+            server.register(Tcp::new(TcpListener::bind(self.tcp_addr).await.unwrap()));
 
             #[cfg(feature = "__tls")]
             {
