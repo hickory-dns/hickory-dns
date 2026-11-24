@@ -57,6 +57,7 @@ use hickory_resolver::recursor::RecursiveConfig;
 use hickory_server::dnssec::NxProofKind;
 #[cfg(any(feature = "recursor", feature = "sqlite"))]
 use hickory_server::net::runtime::TokioRuntimeProvider;
+use hickory_server::server::{DEFAULT_IDLE_TIMEOUT, DEFAULT_REQUEST_TIMEOUT};
 #[cfg(feature = "blocklist")]
 use hickory_server::store::blocklist::{BlocklistConfig, BlocklistZoneHandler};
 #[cfg(feature = "resolver")]
@@ -838,11 +839,11 @@ fn default_handshake_timeout() -> Option<Duration> {
 }
 
 fn default_request_timeout() -> Option<Duration> {
-    Some(Duration::from_secs(5))
+    Some(DEFAULT_REQUEST_TIMEOUT)
 }
 
 fn default_idle_timeout() -> Option<Duration> {
-    Some(Duration::from_secs(5))
+    Some(DEFAULT_IDLE_TIMEOUT)
 }
 
 #[cfg(feature = "__https")]
