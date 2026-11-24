@@ -489,15 +489,6 @@ impl<T: RequestHandler> Server<T> {
     }
 }
 
-/// Common interface for server transports.
-///
-/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
-/// a TCP listener) together with protocol-specific configurations.
-/// Transport implementations are sealed to keep the server's execution interface internal.
-#[expect(private_bounds)]
-pub trait Transport: transport::Transport {}
-impl<T: transport::Transport> Transport for T {}
-
 pub use transport::Udp;
 
 mod transport {
@@ -622,6 +613,16 @@ mod transport {
         }
     }
 }
+
+impl<T: transport::Transport> Transport for T {}
+
+/// Common interface for server transports.
+///
+/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
+/// a TCP listener) together with protocol-specific configuration.
+/// Transport implementations are sealed to keep the server's execution interface internal.
+#[expect(private_bounds)]
+pub trait Transport: transport::Transport {}
 
 async fn handle_tcp(
     listener: net::TcpListener,
