@@ -159,7 +159,7 @@ coverage-lcov: coverage
 
 # Publish all crates
 publish:
-    cargo ws publish --publish-as-is --no-remove-dev-deps --token $CRATES_IO_TOKEN
+    cargo ws publish --publish-as-is --no-remove-dev-deps
 
 # Removes the target directories cleaning all built artifacts
 clean:
