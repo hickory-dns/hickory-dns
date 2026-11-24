@@ -14,7 +14,6 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::types::ToSql;
 use rusqlite::{self, Connection};
 use thiserror::Error;
-use time;
 use tracing::error;
 
 use crate::proto::ProtoError;
