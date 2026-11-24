@@ -28,5 +28,5 @@ jobs:
 
     - name: just publish
       env:
-        CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
       run: just publish
