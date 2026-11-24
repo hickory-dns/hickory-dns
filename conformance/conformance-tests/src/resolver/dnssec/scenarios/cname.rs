@@ -1082,3 +1082,72 @@ fn secure_cname_target_insecure_child_zone(sign_settings: SignSettings) -> Resul
 
     Ok(())
 }
+
+#[test]
+#[ignore = "hickory's verifier does not follow CNAMEs"]
+fn secure_cname_secure_nxdomain_nsec() -> Result<(), Error> {
+    test_signed_cname_nxdomain(SignSettings::default().nsec(Nsec::_1))
+}
+
+#[test]
+#[ignore = "hickory's verifier does not follow CNAMEs"]
+fn secure_cname_secure_nxdomain_nsec3() -> Result<(), Error> {
+    test_signed_cname_nxdomain(SignSettings::default().nsec(Nsec::_3 {
+        iterations: 1,
+        opt_out: false,
+        salt: None,
+    }))
+}
+
+fn test_signed_cname_nxdomain(sign_settings: SignSettings) -> Result<(), Error> {
+    let network = Network::new()?;
+
+    let alias_name = FQDN::TEST_DOMAIN.push_label("www");
+    let target_name = FQDN::EXAMPLE_SUBDOMAIN.push_label("nxdomain");
+
+    let child_ns = NameServer::new(&PEER, FQDN::EXAMPLE_SUBDOMAIN, &network)?;
+    let child_ns = child_ns.sign(sign_settings.clone())?;
+
+    let mut parent_ns = NameServer::new(&PEER, FQDN::TEST_DOMAIN, &network)?;
+    parent_ns.add(Record::cname(alias_name.clone(), target_name.clone()));
+    parent_ns.referral_nameserver(&child_ns);
+    parent_ns.add(child_ns.ds().ksk.clone());
+    let parent_ns = parent_ns.sign(sign_settings.clone())?;
+
+    let mut tld_ns = NameServer::new(&PEER, FQDN::TEST_TLD, &network)?;
+    tld_ns.referral_nameserver(&parent_ns);
+    tld_ns.add(parent_ns.ds().ksk.clone());
+    let tld_ns = tld_ns.sign(sign_settings.clone())?;
+
+    let mut root_ns = NameServer::new(&PEER, FQDN::ROOT, &network)?;
+    root_ns.referral_nameserver(&tld_ns);
+    root_ns.add(tld_ns.ds().ksk.clone());
+    let root_ns = root_ns.sign(sign_settings)?;
+    let root_hint = root_ns.root_hint();
+    let trust_anchor = root_ns.trust_anchor();
+
+    let _child_ns = child_ns.start()?;
+    let _parent_ns = parent_ns.start()?;
+    let _tld_ns = tld_ns.start()?;
+    let _root_ns = root_ns.start()?;
+
+    let resolver = Resolver::new(&network, root_hint)
+        .trust_anchor(&trust_anchor)
+        .start()?;
+    let client = Client::new(&network)?;
+
+    let settings = *DigSettings::default().recurse().dnssec().authentic_data();
+    let output = client.dig(settings, resolver.ipv4_addr(), RecordType::A, &alias_name)?;
+
+    assert_eq!(output.status, DigStatus::NXDOMAIN);
+    assert!(
+        output
+            .answer
+            .iter()
+            .any(|record| matches!(record, Record::CNAME(_))),
+        "CNAME record missing: {output:?}"
+    );
+    assert!(output.flags.authenticated_data, "{output:?}");
+
+    Ok(())
+}
