@@ -600,17 +600,6 @@ impl<T: SealedTransport> Transport for T {}
 #[expect(private_bounds)]
 pub trait Transport: SealedTransport {}
 
-/// # Task ownership
-///
-/// The returned future owns the listening resource:
-///
-/// * The cancellation signal is obtained from the [`ServerContext`] it is given.
-/// * Built-in transports own UDP requests or accepted connections in a local
-///   `JoinSet`, which cancels those tasks when the returned future is dropped.
-/// * Protocols may spawn requests independently of the connection task. The transport
-///   chooses how to finish accepted work when it stops.
-/// * The server waits for the registered transport futures. It does not separately
-///   wait for child tasks to finish cancellation.
 pub(super) trait SealedTransport: Send + 'static {
     /// Runs a transport whose listener was initialized by its constructor.
     fn run<H: RequestHandler>(
