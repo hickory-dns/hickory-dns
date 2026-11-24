@@ -16,8 +16,11 @@ use std::{
 };
 
 use bytes::Bytes;
-use futures_util::StreamExt;
-use hickory_net::{runtime::DnsUdpSocket, udp::UdpStream};
+use futures_util::{StreamExt, future::poll_fn};
+use hickory_net::{
+    runtime::{Accepted, DnsTcpListener, DnsUdpSocket},
+    udp::UdpStream,
+};
 use hickory_proto::{
     op::{DEFAULT_MAX_PAYLOAD_LEN, Edns},
     rr::rdata::opt::NSIDPayload,
@@ -25,6 +28,9 @@ use hickory_proto::{
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
+#[cfg(feature = "__tls")]
+use tokio::net;
+use tokio::task::JoinSet;
 #[cfg(any(
     feature = "__tls",
     feature = "__quic",
@@ -32,7 +38,6 @@ use rustls::{ServerConfig, server::ResolvesServerCert};
     feature = "__h3"
 ))]
 use tokio::time::{error::Elapsed, timeout};
-use tokio::{net, task::JoinSet};
 #[cfg(feature = "__tls")]
 use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
@@ -45,12 +50,15 @@ use crate::net::h3::h3_server::H3Server;
 #[cfg(feature = "__quic")]
 use crate::net::quic::QuicServer;
 #[cfg(feature = "__tls")]
-use crate::net::tls::{default_provider, tls_from_stream};
+use crate::net::{
+    runtime::iocompat::AsyncIoTokioAsStd,
+    tls::{default_provider, tls_from_stream},
+};
 use crate::{
     access::AccessControl,
     net::{
         BufDnsStreamHandle, DnsStreamHandle, NetError,
-        runtime::{TokioTime, iocompat::AsyncIoTokioAsStd},
+        runtime::TokioTime,
         tcp::TcpStream,
         xfer::{DEFAULT_STREAM_BUFFER_SIZE, Protocol},
     },
@@ -545,19 +553,19 @@ impl<S: DnsUdpSocket + 'static> SealedTransport for Udp<S> {
 /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
 /// should be taken to not make them too low depending on use cases.
 #[derive(Debug)]
-pub struct Tcp {
-    listener: net::TcpListener,
+pub struct Tcp<L: DnsTcpListener> {
+    listener: L,
     stream_timeout: Option<Duration>,
     response_buffer_size: usize,
 }
 
-impl Tcp {
+impl<L: DnsTcpListener> Tcp<L> {
     /// Constructs a new TCP transport.
     ///
     /// The `listener` must be already bound to the desired local address.
     /// The stream timeout defaults to [`DEFAULT_STREAM_TIMEOUT`], and the response buffer
     /// defaults to [`DEFAULT_STREAM_BUFFER_SIZE`].
-    pub fn new(listener: net::TcpListener) -> Self {
+    pub fn new(listener: L) -> Self {
         Self {
             listener,
             stream_timeout: Some(DEFAULT_STREAM_TIMEOUT),
@@ -584,22 +592,26 @@ impl Tcp {
     }
 }
 
-impl SealedTransport for Tcp {
+impl<L: DnsTcpListener> SealedTransport for Tcp<L> {
     async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
         let Self {
-            listener,
+            mut listener,
             stream_timeout,
             response_buffer_size,
         } = self;
 
         let mut inner_join_set = JoinSet::new();
         loop {
-            let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+            let accept = poll_fn(|cx| listener.poll_accept(cx));
+            let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
                 // A graceful shutdown was initiated. Break out of the loop.
                 break;
             };
-            let (tcp_stream, src_addr) = match result {
-                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            let (connection, src_addr) = match result {
+                Ok(Accepted {
+                    connection,
+                    src_addr,
+                }) => (connection, src_addr),
                 Err(error) => {
                     debug!(%error, "error receiving TCP tcp_stream error");
                     if is_unrecoverable_socket_error(&error) {
@@ -624,7 +636,7 @@ impl SealedTransport for Tcp {
                 debug!(%src_addr, "accepted TCP request");
                 // take the created stream...
                 let (buf_stream, stream_handle) = TcpStream::from_stream_with_buffer_size(
-                    AsyncIoTokioAsStd(tcp_stream),
+                    connection,
                     src_addr,
                     response_buffer_size,
                 );
