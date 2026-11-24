@@ -522,70 +522,65 @@ mod transport {
 
     impl<S: DnsUdpSocket + 'static> SealedTransport for Udp<S> {
         async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
-            handle_udp(self.socket, cx.max_payload_size, cx).await
-        }
-    }
+            // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
+            //   the address used is acquired from the inbound queries
+            let (mut stream, stream_handle) = UdpStream::with_bound(
+                self.socket,
+                ([127, 255, 255, 254], 0).into(),
+                cx.max_payload_size,
+            );
 
-    async fn handle_udp<S: DnsUdpSocket>(
-        socket: S,
-        max_payload_size: u16,
-        cx: Arc<ServerContext<impl RequestHandler>>,
-    ) -> Result<(), NetError> {
-        // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
-        //   the address used is acquired from the inbound queries
-        let (mut stream, stream_handle) =
-            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into(), max_payload_size);
+            let mut inner_join_set = JoinSet::new();
+            loop {
+                let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
+                    // Graceful shutdown
+                    break;
+                };
+                let Some(message_res) = option else {
+                    // End of stream
+                    break;
+                };
 
-        let mut inner_join_set = JoinSet::new();
-        loop {
-            let Some(option) = cx.shutdown.run_until_cancelled(stream.next()).await else {
-                // Graceful shutdown
-                break;
-            };
-            let Some(message_res) = option else {
-                // End of stream
-                break;
-            };
-
-            let message = match message_res {
-                Err(error) => {
-                    warn!(%error, "error receiving message on udp_socket");
-                    if is_unrecoverable_socket_error(&error) {
-                        break;
+                let message = match message_res {
+                    Err(error) => {
+                        warn!(%error, "error receiving message on udp_socket");
+                        if is_unrecoverable_socket_error(&error) {
+                            break;
+                        }
+                        continue;
                     }
+                    Ok(message) => message,
+                };
+
+                let src_addr = message.addr();
+                debug!("received udp request from: {}", src_addr);
+
+                // verify that the src address is safe for responses
+                if let Err(e) = sanitize_src_address(src_addr) {
+                    warn!(
+                        "address can not be responded to {src_addr}: {e}",
+                        src_addr = src_addr,
+                        e = e
+                    );
                     continue;
                 }
-                Ok(message) => message,
-            };
 
-            let src_addr = message.addr();
-            debug!("received udp request from: {}", src_addr);
+                let cx = cx.clone();
+                let stream_handle = stream_handle.with_remote_addr(src_addr);
+                inner_join_set.spawn(async move {
+                    cx.handle_raw_request(message, Protocol::Udp, stream_handle)
+                        .await;
+                });
 
-            // verify that the src address is safe for responses
-            if let Err(e) = sanitize_src_address(src_addr) {
-                warn!(
-                    "address can not be responded to {src_addr}: {e}",
-                    src_addr = src_addr,
-                    e = e
-                );
-                continue;
+                reap_tasks(&mut inner_join_set);
             }
 
-            let cx = cx.clone();
-            let stream_handle = stream_handle.with_remote_addr(src_addr);
-            inner_join_set.spawn(async move {
-                cx.handle_raw_request(message, Protocol::Udp, stream_handle)
-                    .await;
-            });
-
-            reap_tasks(&mut inner_join_set);
-        }
-
-        if cx.shutdown.is_cancelled() {
-            Ok(())
-        } else {
-            // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-            Err(NetError::from("unexpected close of UDP socket"))
+            if cx.shutdown.is_cancelled() {
+                Ok(())
+            } else {
+                // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+                Err(NetError::from("unexpected close of UDP socket"))
+            }
         }
     }
 }
