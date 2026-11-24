@@ -519,7 +519,7 @@ mod transport {
     ///   chooses how to finish accepted work when it stops.
     /// * The server waits for the registered transport futures. It does not separately
     ///   wait for child tasks to finish cancellation.
-    pub(super) trait Transport: Send + 'static {
+    pub(super) trait SealedTransport: Send + 'static {
         /// Runs a transport whose listener was initialized by its constructor.
         fn run<H: RequestHandler>(
             self,
@@ -544,7 +544,7 @@ mod transport {
         }
     }
 
-    impl<S: DnsUdpSocket + 'static> Transport for Udp<S> {
+    impl<S: DnsUdpSocket + 'static> SealedTransport for Udp<S> {
         async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
             handle_udp(self.socket, cx.max_payload_size, cx).await
         }
@@ -614,7 +614,7 @@ mod transport {
     }
 }
 
-impl<T: transport::Transport> Transport for T {}
+impl<T: transport::SealedTransport> Transport for T {}
 
 /// Common interface for server transports.
 ///
@@ -622,7 +622,7 @@ impl<T: transport::Transport> Transport for T {}
 /// a TCP listener) together with protocol-specific configuration.
 /// Transport implementations are sealed to keep the server's execution interface internal.
 #[expect(private_bounds)]
-pub trait Transport: transport::Transport {}
+pub trait Transport: transport::SealedTransport {}
 
 async fn handle_tcp(
     listener: net::TcpListener,
