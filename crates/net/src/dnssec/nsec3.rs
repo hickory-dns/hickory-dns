@@ -679,10 +679,8 @@ impl Iterator for EncloserCandidates<'_> {
         let cur = self.cur.take()?;
         let soa = self.soa?;
 
-        if &cur != soa {
-            let next = cur.base_name();
-            debug_assert_ne!(next, Name::root());
-            self.cur = Some(next);
+        if &cur != soa && !cur.is_root() {
+            self.cur = Some(cur.base_name());
         }
 
         Some(cur)
@@ -1873,6 +1871,57 @@ mod tests {
                 "{query_label} is covered by {covered_by:?}"
             );
         }
+    }
+
+    #[test]
+    fn encloser_candidates() {
+        let query = Query::new(Name::from_ascii("www.example.").unwrap(), A);
+        let nsec3_pair = Nsec3Pair::new(
+            Name::from_ascii("example.")
+                .unwrap()
+                .prepend_label(hash_with_base32("ns1.example"))
+                .unwrap(),
+            hash("x.y.w.example."),
+            [A, RRSIG],
+        );
+        let nsec3s = [Nsec3RecordInfo::new(&nsec3_pair.0, &nsec3_pair.1, &query, None).unwrap()];
+        let cx = Context::new(&query, None, &nsec3s).unwrap();
+        let candidates = cx.encloser_candidates().collect::<Vec<_>>();
+        assert_eq!(candidates, []);
+
+        let soa_name = Name::from_ascii("example.").unwrap();
+        let nsec3s = [
+            Nsec3RecordInfo::new(&nsec3_pair.0, &nsec3_pair.1, &query, Some(&soa_name)).unwrap(),
+        ];
+        let cx = Context::new(&query, Some(&soa_name), &nsec3s).unwrap();
+        let candidates = cx.encloser_candidates().collect::<Vec<_>>();
+        assert_eq!(
+            candidates,
+            [
+                Name::from_ascii("www.example.").unwrap(),
+                Name::from_ascii("example.").unwrap()
+            ]
+        );
+
+        let soa_name = Name::root();
+        let nsec3_pair = Nsec3Pair::new(
+            Name::root().prepend_label(hash_with_base32(".")).unwrap(),
+            hash("example."),
+            [NS, SOA, DNSKEY, RRSIG],
+        );
+        let nsec3s = [
+            Nsec3RecordInfo::new(&nsec3_pair.0, &nsec3_pair.1, &query, Some(&soa_name)).unwrap(),
+        ];
+        let cx = Context::new(&query, Some(&soa_name), &nsec3s).unwrap();
+        let candidates = cx.encloser_candidates().collect::<Vec<_>>();
+        assert_eq!(
+            candidates,
+            [
+                Name::from_ascii("www.example.").unwrap(),
+                Name::from_ascii("example.").unwrap(),
+                Name::root(),
+            ]
+        );
     }
 
     #[derive(Debug)]
