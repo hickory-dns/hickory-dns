@@ -729,7 +729,7 @@ fn insecure_cname_secure_nodata_nsec() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory crashes during NSEC3 verification"]
+#[ignore = "hickory returns bogus"]
 fn insecure_cname_secure_nodata_nsec3() -> Result<(), Error> {
     insecure_cname_secure_nodata(SignSettings::default())
 }
@@ -803,7 +803,7 @@ fn insecure_cname_secure_nodata(sign_settings: SignSettings) -> Result<(), Error
 }
 
 #[test]
-#[ignore = "hickory drops NSEC records associated with the CNAME record"]
+#[ignore = "hickory rejects responses with both NSEC and NSEC3 records"]
 fn secure_cname_nsec_secure_nodata_nsec3() -> Result<(), Error> {
     secure_cname_secure_nodata(
         SignSettings::default().nsec(Nsec::_1),
@@ -812,7 +812,7 @@ fn secure_cname_nsec_secure_nodata_nsec3() -> Result<(), Error> {
 }
 
 #[test]
-#[ignore = "hickory returns an error about the name of the SOA record"]
+#[ignore = "hickory rejects responses with both NSEC and NSEC3 records"]
 fn secure_cname_nsec3_secure_nodata_nsec() -> Result<(), Error> {
     secure_cname_secure_nodata(
         SignSettings::default(),

@@ -159,7 +159,7 @@ async fn no_data_error_empty_non_terminal() {
 }
 
 /// Based on RFC 5155 section B.3.
-#[ignore = "zone handler returns an NXDOMAIN for mc.c.example. instead of a referral to nameservers for c.example."]
+#[ignore = "verification of referral responses is not currently supported"]
 #[tokio::test]
 async fn referral_opt_out_unsigned() {
     subscribe();
