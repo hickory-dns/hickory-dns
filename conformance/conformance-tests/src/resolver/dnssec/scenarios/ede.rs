@@ -6,7 +6,7 @@ use dns_test::record::{Record, RecordType};
 use dns_test::zone_file::SignSettings;
 use dns_test::{Error, FQDN, Network, Resolver};
 
-#[ignore]
+#[ignore = "hickory does not produce EDE options"]
 #[test]
 fn dnskey_missing() -> Result<(), Error> {
     fixture(
@@ -37,7 +37,7 @@ fn dnskey_missing() -> Result<(), Error> {
     )
 }
 
-#[ignore]
+#[ignore = "hickory does not produce EDE options"]
 #[test]
 fn rrsigs_missing() -> Result<(), Error> {
     fixture(
@@ -68,7 +68,7 @@ fn rrsigs_missing() -> Result<(), Error> {
     )
 }
 
-#[ignore]
+#[ignore = "hickory does not produce EDE options"]
 #[test]
 fn unsupported_dnskey_algorithm() -> Result<(), Error> {
     fixture(
@@ -92,7 +92,7 @@ fn unsupported_dnskey_algorithm() -> Result<(), Error> {
     )
 }
 
-#[ignore]
+#[ignore = "hickory does not produce EDE options"]
 #[test]
 fn dnssec_bogus() -> Result<(), Error> {
     fixture(
