@@ -154,10 +154,10 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
         self,
         name_server: SocketAddr,
         server_name: Arc<str>,
-        path: Arc<str>,
+        query_path: Arc<str>,
     ) -> Result<DnsExchange<P>, NetError> {
         let mut handle = self.provider.create_handle();
-        let stream = self.build(name_server, server_name, path).await?;
+        let stream = self.build(name_server, server_name, query_path).await?;
         let (exchange, bg) = DnsExchange::from_stream(stream);
         handle.spawn_bg(bg);
         Ok(exchange)
@@ -168,20 +168,20 @@ impl<P: RuntimeProvider> HttpsClientStreamBuilder<P> {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name associated with a certificate
-    /// * `http_endpoint` - The HTTP endpoint where the remote DNS resolver provides service, typically `/dns-query`
+    /// * `server_name` - The DNS name associated with a certificate
+    /// * `query_path` - The HTTP query path where the remote DNS resolver provides service, typically `/dns-query`
     pub fn build(
         self,
         name_server: SocketAddr,
         server_name: Arc<str>,
-        path: Arc<str>,
+        query_path: Arc<str>,
     ) -> impl Future<Output = Result<HttpsClientStream, NetError>> + Send + 'static {
         connect(
             self.provider.connect_tcp(name_server, self.bind_addr, None),
             self.client_config,
             name_server,
             server_name,
-            path,
+            query_path,
             self.set_headers,
             self.connect_timeout,
         )

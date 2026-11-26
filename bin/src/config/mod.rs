@@ -175,11 +175,11 @@ pub(crate) struct Config {
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     #[cfg(feature = "__tls")]
     pub(crate) tls_cert: Option<TlsCertConfig>,
-    /// The HTTP endpoint where the DNS-over-HTTPS server provides service. Applicable
+    /// The HTTP query path where the DNS-over-HTTPS server provides service. Applicable
     /// to both HTTP/2 and HTTP/3 servers. Typically `/dns-query`.
     #[cfg(feature = "__https")]
-    #[serde(default = "default_http_endpoint")]
-    pub(crate) http_endpoint: String,
+    #[serde(default = "default_query_path")]
+    pub(crate) query_path: String,
     /// Networks denied to access the server
     #[serde(default)]
     pub(crate) deny_networks: Vec<IpNet>,
@@ -849,7 +849,7 @@ fn default_idle_timeout() -> Option<Duration> {
 }
 
 #[cfg(feature = "__https")]
-fn default_http_endpoint() -> String {
+fn default_query_path() -> String {
     DEFAULT_DNS_QUERY_PATH.to_string()
 }
 
