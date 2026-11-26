@@ -44,7 +44,7 @@ use tracing::{debug, info};
 ))]
 use crate::name_server_pool::NameServerTransportState;
 #[cfg(any(feature = "__https", feature = "__h3"))]
-use crate::net::http::DEFAULT_DNS_QUERY_PATH;
+use crate::net::http::DEFAULT_QUERY_PATH;
 use crate::net::xfer::{CONNECT_TIMEOUT, Protocol};
 use crate::proto::access_control::{AccessControlSet, AccessControlSetBuilder};
 use crate::proto::op::DEFAULT_MAX_PAYLOAD_LEN;
@@ -374,7 +374,7 @@ impl ConnectionConfig {
     pub fn https(server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
         Self::new(ProtocolConfig::Https {
             server_name,
-            path: path.unwrap_or_else(|| Arc::from(DEFAULT_DNS_QUERY_PATH)),
+            path: path.unwrap_or_else(|| Arc::from(DEFAULT_QUERY_PATH)),
             disable_sni: false,
         })
     }
@@ -393,7 +393,7 @@ impl ConnectionConfig {
     pub fn h3(server_name: Arc<str>, path: Option<Arc<str>>) -> Self {
         Self::new(ProtocolConfig::H3 {
             server_name,
-            path: path.unwrap_or_else(|| Arc::from(DEFAULT_DNS_QUERY_PATH)),
+            path: path.unwrap_or_else(|| Arc::from(DEFAULT_QUERY_PATH)),
             disable_grease: false,
             disable_sni: false,
         })

@@ -462,7 +462,7 @@ const CLIENT_GET_URI_LEN_PADDING: usize = 13; // "https://".len() + "?dns=".len(
 pub(crate) const MIME_APPLICATION_DNS: &str = "application/dns-message";
 
 /// The default query path for DNS-over-HTTPS if none was given.
-pub const DEFAULT_DNS_QUERY_PATH: &str = "/dns-query";
+pub const DEFAULT_QUERY_PATH: &str = "/dns-query";
 
 #[cfg(test)]
 mod tests {
