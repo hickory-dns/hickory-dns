@@ -177,6 +177,48 @@ async fn cname_chain_order_survives_validation() {
     }
 }
 
+/// A validating handle must set the CD bit on every query it sends upstream (RFC 6840 section
+/// 5.9).
+///
+/// Regression test for <https://github.com/hickory-dns/hickory-dns/issues/3966>.
+#[tokio::test]
+async fn validating_queries_set_checking_disabled() {
+    subscribe();
+
+    let mut fixture = MockHandleBuilder::new(Parent::Insecure);
+    let child = Name::from_ascii("child.example.com.").unwrap();
+    let parent = Name::from_ascii("example.com.").unwrap();
+    fixture.respond(&child, RecordType::DS, [], [unsigned_soa(&parent)]);
+    let (handle, queries) = fixture.build();
+
+    let response = lookup_child_a(&handle).await.unwrap();
+    assert_eq!(response.answers[0].proof, Proof::Insecure);
+
+    let logged = queries.0.lock().unwrap();
+    for record_type in [
+        RecordType::A,
+        RecordType::DNSKEY,
+        RecordType::DS,
+        RecordType::NS,
+    ] {
+        assert!(
+            logged
+                .iter()
+                .any(|entry| entry.query.query_type == record_type),
+            "expected at least one {record_type} query upstream"
+        );
+    }
+    let cleared = logged
+        .iter()
+        .filter(|entry| !entry.checking_disabled)
+        .map(|entry| &entry.query)
+        .collect::<Vec<_>>();
+    assert!(
+        cleared.is_empty(),
+        "queries sent upstream with CD=0: {cleared:?}"
+    );
+}
+
 async fn lookup_child_a(handle: &DnssecDnsHandle<MockHandle>) -> Result<DnsResponse, NetError> {
     let name = Name::from_ascii("www.child.example.com.").unwrap();
     handle
@@ -414,7 +456,13 @@ fn a(name: &Name) -> Record {
 }
 
 #[derive(Clone, Default)]
-struct QueryLog(Arc<Mutex<Vec<Query>>>);
+struct QueryLog(Arc<Mutex<Vec<LoggedQuery>>>);
+
+/// A query the mock upstream received, with the CD bit of the request that carried it.
+struct LoggedQuery {
+    query: Query,
+    checking_disabled: bool,
+}
 
 impl QueryLog {
     fn count(&self, name: &Name, record_type: RecordType) -> usize {
@@ -422,7 +470,7 @@ impl QueryLog {
             .lock()
             .unwrap()
             .iter()
-            .filter(|query| &query.name == name && query.query_type == record_type)
+            .filter(|logged| &logged.query.name == name && logged.query.query_type == record_type)
             .count()
     }
 }
@@ -439,7 +487,10 @@ impl DnsHandle for MockHandle {
 
     fn send(&self, request: DnsRequest) -> Self::Response {
         let query = request.queries[0].clone();
-        self.queries.0.lock().unwrap().push(query.clone());
+        self.queries.0.lock().unwrap().push(LoggedQuery {
+            query: query.clone(),
+            checking_disabled: request.metadata.checking_disabled,
+        });
 
         let key = (LowerName::from(&query.name), query.query_type);
         let Some(message) = self.responses.get(&key) else {
