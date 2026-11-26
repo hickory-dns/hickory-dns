@@ -28,7 +28,7 @@ use hickory_proto::{
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(feature = "__tls")]
+#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
 use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
@@ -51,7 +51,7 @@ use crate::net::h3::h3_server::H3Server;
 use crate::net::quic::QuicServer;
 #[cfg(feature = "__tls")]
 use crate::net::{
-    runtime::iocompat::AsyncIoTokioAsStd,
+    runtime::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd},
     tls::{default_provider, tls_from_stream},
 };
 use crate::{
@@ -610,21 +610,21 @@ impl<L: DnsTcpListener> SealedTransport for Tcp<L> {
 /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
 /// should be taken to not make them too low depending on use cases.
 #[cfg(feature = "__tls")]
-pub struct Tls {
-    listener: net::TcpListener,
+pub struct Tls<L: DnsTcpListener> {
+    listener: L,
     tls_config: Arc<ServerConfig>,
     handshake_timeout: Option<Duration>,
     stream_timeout: Option<Duration>,
 }
 
 #[cfg(feature = "__tls")]
-impl Tls {
+impl<L: DnsTcpListener> Tls<L> {
     /// Constructs a new TLS transport with the provided [`ServerConfig`].
     ///
     /// The `listener` must already be bound to a local address, and `tls_config` should enable the
     /// `dot` ALPN protocol. Timeouts default to [`DEFAULT_HANDSHAKE_TIMEOUT`] and
     /// [`DEFAULT_STREAM_TIMEOUT`].
-    pub fn new(listener: net::TcpListener, tls_config: Arc<ServerConfig>) -> Self {
+    pub fn new(listener: L, tls_config: Arc<ServerConfig>) -> Self {
         Self {
             listener,
             tls_config,
@@ -653,10 +653,10 @@ impl Tls {
 }
 
 #[cfg(feature = "__tls")]
-impl SealedTransport for Tls {
+impl<L: DnsTcpListener> SealedTransport for Tls<L> {
     async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
         let Self {
-            listener,
+            mut listener,
             tls_config,
             handshake_timeout,
             stream_timeout,
@@ -665,12 +665,16 @@ impl SealedTransport for Tls {
         let tls_acceptor = TlsAcceptor::from(tls_config);
         let mut inner_join_set = JoinSet::new();
         loop {
-            let Some(result) = cx.shutdown.run_until_cancelled(listener.accept()).await else {
+            let accept = poll_fn(|cx| listener.poll_accept(cx));
+            let Some(result) = cx.shutdown.run_until_cancelled(accept).await else {
                 // A graceful shutdown was initiated. Break out of the loop.
                 break;
             };
-            let (tcp_stream, src_addr) = match result {
-                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            let (connection, src_addr) = match result {
+                Ok(Accepted {
+                    connection,
+                    src_addr,
+                }) => (connection, src_addr),
                 Err(error) => {
                     debug!(%error, "error receiving TLS tcp_stream error");
                     if is_unrecoverable_socket_error(&error) {
@@ -696,8 +700,11 @@ impl SealedTransport for Tls {
                 debug!(%src_addr, "starting TLS request");
 
                 // perform the TLS
-                let Ok(tls_stream) =
-                    optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+                let Ok(tls_stream) = optional_timeout(
+                    handshake_timeout,
+                    tls_acceptor.accept(AsyncIoStdAsTokio(connection)),
+                )
+                .await
                 else {
                     warn!("tls timeout expired during handshake");
                     return;
@@ -744,7 +751,7 @@ impl SealedTransport for Tls {
 }
 
 #[cfg(feature = "__tls")]
-impl fmt::Debug for Tls {
+impl<L: DnsTcpListener + fmt::Debug> fmt::Debug for Tls<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             listener,
