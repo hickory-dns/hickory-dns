@@ -307,7 +307,7 @@ impl DnsServer {
             #[cfg(feature = "__tls")]
             tls_cert,
             #[cfg(feature = "__https")]
-            http_endpoint,
+            query_path,
             deny_networks,
             allow_networks,
             udp_socket: udp_socket_config,
@@ -428,7 +428,7 @@ impl DnsServer {
             true => info!("HTTPS protocol is disabled"),
             false => setup.https(
                 https_port.unwrap_or(https_listen_port),
-                &http_endpoint,
+                &query_path,
                 tls_cert
                     .as_ref()
                     .and_then(|config| config.endpoint_name.as_deref()),
@@ -663,7 +663,7 @@ impl ServerSetup<'_> {
     fn https(
         &mut self,
         port: u16,
-        http_endpoint: &str,
+        query_path: &str,
         dns_hostname: Option<&str>,
     ) -> Result<(), String> {
         let Some(cert_resolver) = &self.cert_resolver else {
@@ -698,7 +698,7 @@ impl ServerSetup<'_> {
                     self.request_timeout,
                     Arc::new(tls_config),
                     dns_hostname.map(|s| s.to_owned()),
-                    http_endpoint.to_owned(),
+                    query_path.to_owned(),
                 )
                 .map_err(|err| format!("failed to register HTTPS listener: {err}"))?;
         }

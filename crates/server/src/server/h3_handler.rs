@@ -34,7 +34,7 @@ pub(super) async fn handle_h3(
     request_timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
-    http_endpoint: String,
+    query_path: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     debug!("registered h3: {:?}", socket);
@@ -44,7 +44,7 @@ pub(super) async fn handle_h3(
         idle_timeout,
         request_timeout,
         dns_hostname,
-        http_endpoint,
+        query_path,
         cx,
     )
     .await
@@ -56,11 +56,11 @@ pub(super) async fn handle_h3_with_server(
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
     dns_hostname: Option<String>,
-    http_endpoint: String,
+    query_path: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let dns_hostname = dns_hostname.map(|n| n.into());
-    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
+    let query_path: Arc<str> = Arc::from(query_path);
 
     let mut inner_join_set = JoinSet::new();
     loop {
@@ -101,7 +101,7 @@ pub(super) async fn handle_h3_with_server(
 
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
-        let http_endpoint = http_endpoint.clone();
+        let query_path = query_path.clone();
         inner_join_set.spawn(async move {
             let handshake_future = H3Connection::new(connecting);
             let Ok(connection_result) = optional_timeout(handshake_timeout, handshake_future).await
@@ -125,7 +125,7 @@ pub(super) async fn handle_h3_with_server(
                 idle_timeout,
                 request_timeout,
                 dns_hostname,
-                http_endpoint,
+                query_path,
                 cx,
             )
             .await;
@@ -147,7 +147,7 @@ pub(crate) async fn h3_handler(
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
     dns_hostname: Option<Arc<str>>,
-    http_endpoint: Arc<str>,
+    query_path: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     // TODO: we should make this configurable
@@ -177,7 +177,7 @@ pub(crate) async fn h3_handler(
 
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
-        let http_endpoint = http_endpoint.clone();
+        let query_path = query_path.clone();
         tokio::spawn(async move {
             let (request, stream) = match request_resolver.resolve_request().await {
                 Ok((request, stream)) => (request, stream),
@@ -193,7 +193,7 @@ pub(crate) async fn h3_handler(
 
             let body_stream = BodyStream::from(move |cx: &mut Context<'_>| recv.poll_recv_data(cx));
             let request = request.map(|()| body_stream);
-            let message_future = Version::Http3.message_from(request, http_endpoint, dns_hostname);
+            let message_future = Version::Http3.message_from(request, query_path, dns_hostname);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };

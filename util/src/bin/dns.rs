@@ -67,9 +67,9 @@ struct Opts {
     #[clap(short = 't', long, required_if_eq_any = [("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
     tls_dns_name: Option<String>,
 
-    /// HTTP endpoint path. Relevant only to DNS-over-HTTPS. Defaults to `/dns-query`.
+    /// HTTP query path. Relevant only to DNS-over-HTTPS and HTTP/3. Defaults to `/dns-query`.
     #[clap(short = 'e', long, default_value = "/dns-query")]
-    http_endpoint: Option<String>,
+    query_path: Option<String>,
 
     /// For TLS, HTTPS, QUIC and H3 a custom ALPN code can be supplied
     ///
@@ -525,9 +525,9 @@ async fn https<P: RuntimeProvider>(
     let dns_name = opts
         .tls_dns_name
         .expect("tls_dns_name is required for https connections");
-    let http_endpoint = opts
-        .http_endpoint
-        .expect("http_endpoint is required for https connections");
+    let query_path = opts
+        .query_path
+        .expect("query_path is required for https connections");
     println!("; using https:{nameserver} dns_name:{dns_name}");
 
     let mut config = client_config()?;
@@ -538,7 +538,7 @@ async fn https<P: RuntimeProvider>(
     let config = Arc::new(config);
 
     let sender = HttpsClientStream::builder(config, provider)
-        .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
+        .build(nameserver, Arc::from(dns_name), Arc::from(query_path))
         .await?;
     let (client, bg) = Client::<P>::from_sender(sender);
     let handle = tokio::spawn(bg);
@@ -600,9 +600,9 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let dns_name = opts
         .tls_dns_name
         .expect("tls_dns_name is required for H3 connections");
-    let http_endpoint = opts
-        .http_endpoint
-        .expect("http_endpoint is required for H3 connections");
+    let query_path = opts
+        .query_path
+        .expect("query_path is required for H3 connections");
     println!("; using h3:{nameserver} dns_name:{dns_name}");
 
     let mut config = client_config()?;
@@ -613,7 +613,7 @@ async fn h3(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 
     let sender = H3ClientStream::builder()
         .crypto_config(config)
-        .build(nameserver, Arc::from(dns_name), Arc::from(http_endpoint))
+        .build(nameserver, Arc::from(dns_name), Arc::from(query_path))
         .await?;
     let (client, bg) = Client::<TokioRuntimeProvider>::from_sender(sender);
     let handle = tokio::spawn(bg);

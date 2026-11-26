@@ -33,7 +33,7 @@ pub(super) async fn handle_h2(
     request_timeout: Option<Duration>,
     server_cert_resolver: Arc<dyn ResolvesServerCert>,
     dns_hostname: Option<String>,
-    http_endpoint: String,
+    query_path: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     handle_h2_with_acceptor(
@@ -46,7 +46,7 @@ pub(super) async fn handle_h2(
             server_cert_resolver,
         )?)),
         dns_hostname,
-        http_endpoint,
+        query_path,
         cx,
     )
     .await
@@ -61,11 +61,11 @@ pub(super) async fn handle_h2_with_acceptor(
     request_timeout: Option<Duration>,
     tls_acceptor: TlsAcceptor,
     dns_hostname: Option<String>,
-    http_endpoint: String,
+    query_path: String,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) -> Result<(), NetError> {
     let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-    let http_endpoint: Arc<str> = Arc::from(http_endpoint);
+    let query_path: Arc<str> = Arc::from(query_path);
     debug!("registered https: {listener:?}");
 
     let mut inner_join_set = JoinSet::new();
@@ -95,7 +95,7 @@ pub(super) async fn handle_h2_with_acceptor(
         let cx = cx.clone();
         let tls_acceptor = tls_acceptor.clone();
         let dns_hostname = dns_hostname.clone();
-        let http_endpoint = http_endpoint.clone();
+        let query_path = query_path.clone();
         inner_join_set.spawn(async move {
             debug!("starting HTTPS request from: {src_addr}");
 
@@ -121,7 +121,7 @@ pub(super) async fn handle_h2_with_acceptor(
                 idle_timeout,
                 request_timeout,
                 dns_hostname,
-                http_endpoint,
+                query_path,
                 cx,
             )
             .await;
@@ -143,11 +143,11 @@ pub(crate) async fn h2_handler(
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
     dns_hostname: Option<Arc<str>>,
-    http_endpoint: Arc<str>,
+    query_path: Arc<str>,
     cx: Arc<ServerContext<impl RequestHandler>>,
 ) {
     let dns_hostname = dns_hostname.clone();
-    let http_endpoint = http_endpoint.clone();
+    let query_path = query_path.clone();
 
     // Start the HTTP/2.0 connection handshake
     let mut h2 = match server::handshake(io).await {
@@ -184,9 +184,9 @@ pub(crate) async fn h2_handler(
         debug!("Received request: {:#?}", request);
         let cx = cx.clone();
         let dns_hostname = dns_hostname.clone();
-        let http_endpoint = http_endpoint.clone();
+        let query_path = query_path.clone();
         tokio::spawn(async move {
-            let message_future = Version::Http2.message_from(request, http_endpoint, dns_hostname);
+            let message_future = Version::Http2.message_from(request, query_path, dns_hostname);
             let Ok(result) = optional_timeout(request_timeout, message_future).await else {
                 return; // Timeout while reading request.
             };

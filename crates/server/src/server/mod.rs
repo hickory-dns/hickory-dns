@@ -140,7 +140,7 @@ impl<T: RequestHandler> Server<T> {
     /// * `request_timeout` - timeout for receiving a complete request over a request stream
     /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
     /// * `dns_hostname` - the DNS hostname of the H2 server.
-    /// * `http_endpoint` - the HTTP endpoint of the H2 server.
+    /// * `query_path` - the HTTP query path of the H2 server.
     #[cfg(feature = "__https")]
     #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener(
@@ -151,7 +151,7 @@ impl<T: RequestHandler> Server<T> {
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
-        http_endpoint: String,
+        query_path: String,
     ) -> io::Result<()> {
         self.join_set.spawn(h2_handler::handle_h2(
             listener,
@@ -160,7 +160,7 @@ impl<T: RequestHandler> Server<T> {
             request_timeout,
             server_cert_resolver,
             dns_hostname,
-            http_endpoint,
+            query_path,
             self.context.clone(),
         ));
         Ok(())
@@ -183,7 +183,7 @@ impl<T: RequestHandler> Server<T> {
     /// * `request_timeout` - timeout for receiving a complete request over a request stream
     /// * `tls_config` - a customized `ServerConfig` to use for TLS.
     /// * `dns_hostname` - the DNS hostname of the H2 server.
-    /// * `http_endpoint` - the HTTP endpoint of the H2 server.
+    /// * `query_path` - the HTTP query path of the H2 server.
     #[cfg(feature = "__https")]
     #[allow(clippy::too_many_arguments)]
     pub fn register_https_listener_with_tls_config(
@@ -194,7 +194,7 @@ impl<T: RequestHandler> Server<T> {
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
-        http_endpoint: String,
+        query_path: String,
     ) -> io::Result<()> {
         self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
             listener,
@@ -203,7 +203,7 @@ impl<T: RequestHandler> Server<T> {
             request_timeout,
             TlsAcceptor::from(tls_config),
             dns_hostname,
-            http_endpoint,
+            query_path,
             self.context.clone(),
         ));
         Ok(())
@@ -303,7 +303,7 @@ impl<T: RequestHandler> Server<T> {
         request_timeout: Option<Duration>,
         server_cert_resolver: Arc<dyn ResolvesServerCert>,
         dns_hostname: Option<String>,
-        http_endpoint: String,
+        query_path: String,
     ) -> io::Result<()> {
         self.join_set.spawn(h3_handler::handle_h3(
             socket,
@@ -312,7 +312,7 @@ impl<T: RequestHandler> Server<T> {
             request_timeout,
             server_cert_resolver,
             dns_hostname,
-            http_endpoint,
+            query_path,
             self.context.clone(),
         ));
         Ok(())
@@ -344,7 +344,7 @@ impl<T: RequestHandler> Server<T> {
         request_timeout: Option<Duration>,
         tls_config: Arc<ServerConfig>,
         dns_hostname: Option<String>,
-        http_endpoint: String,
+        query_path: String,
     ) -> Result<(), NetError> {
         self.join_set.spawn(h3_handler::handle_h3_with_server(
             H3Server::with_socket_and_tls_config(socket, tls_config)?,
@@ -352,7 +352,7 @@ impl<T: RequestHandler> Server<T> {
             idle_timeout,
             request_timeout,
             dns_hostname,
-            http_endpoint,
+            query_path,
             self.context.clone(),
         ));
         Ok(())
