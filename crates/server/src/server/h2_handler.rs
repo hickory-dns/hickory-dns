@@ -5,10 +5,11 @@
 // https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{fmt, net::SocketAddr, sync::Arc, time::Duration};
 
-use ::h2::server;
 use bytes::Bytes;
+use h2::server;
+use rustls::ServerConfig;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
@@ -18,93 +19,195 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
 
 use super::{
+    DEFAULT_HANDSHAKE_TIMEOUT, DEFAULT_IDLE_TIMEOUT, DEFAULT_REQUEST_TIMEOUT, SealedTransport,
     ServerContext, is_unrecoverable_socket_error, optional_timeout, reap_tasks,
     request_handler::RequestHandler, sanitize_src_address,
 };
-use crate::net::{NetError, http::Version, xfer::Protocol};
+use crate::net::{
+    NetError,
+    http::{DEFAULT_QUERY_PATH, Version},
+    xfer::Protocol,
+};
 
-/// handle h2 using a specific TlsAcceptor.
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h2_with_acceptor(
+/// Builder and transport implementation for DNS-over-HTTPS (DoH) using HTTP/2.
+///
+/// Wraps an already-bound TCP listener and a TLS configuration to accept HTTP/2 DNS queries.
+///
+/// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+/// should be taken to not make them too low depending on use cases.
+pub struct H2 {
     listener: TcpListener,
+    tls_config: Arc<ServerConfig>,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    tls_acceptor: TlsAcceptor,
     dns_hostname: Option<String>,
     query_path: String,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
-    let query_path: Arc<str> = Arc::from(query_path);
-    debug!("registered https: {listener:?}");
+}
 
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let shutdown = &cx.shutdown;
-        let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
-            // A graceful shutdown was initiated. Break out of the loop.
-            break;
-        };
-        let (tcp_stream, src_addr) = match result {
-            Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
-            Err(error) => {
-                debug!(%error, "error receiving HTTPS tcp_stream error");
-                if is_unrecoverable_socket_error(&error) {
-                    break;
-                }
-                continue;
-            }
-        };
-
-        // verify that the src address is safe for responses
-        if let Err(error) = sanitize_src_address(src_addr) {
-            warn!(%error, %src_addr, "address can not be responded to");
-            continue;
+impl H2 {
+    /// Constructs a new HTTP/2 transport with the provided [`ServerConfig`].
+    ///
+    /// The `listener` must already be bound to a local address, and `tls_config` should enable the
+    /// `h2` ALPN protocol. Timeouts default to [`DEFAULT_HANDSHAKE_TIMEOUT`],
+    /// [`DEFAULT_IDLE_TIMEOUT`], and [`DEFAULT_REQUEST_TIMEOUT`], and the query path defaults to
+    /// [`DEFAULT_QUERY_PATH`].
+    pub fn new(listener: TcpListener, tls_config: Arc<ServerConfig>) -> Self {
+        Self {
+            listener,
+            tls_config,
+            handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
+            idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
+            request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),
+            dns_hostname: None,
+            query_path: DEFAULT_QUERY_PATH.to_owned(),
         }
-
-        let cx = cx.clone();
-        let tls_acceptor = tls_acceptor.clone();
-        let dns_hostname = dns_hostname.clone();
-        let query_path = query_path.clone();
-        inner_join_set.spawn(async move {
-            debug!("starting HTTPS request from: {src_addr}");
-
-            let Ok(tls_stream) =
-                optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
-            else {
-                warn!("https timeout expired during handshake");
-                return;
-            };
-
-            let tls_stream = match tls_stream {
-                Ok(tls_stream) => tls_stream,
-                Err(e) => {
-                    debug!("https handshake src: {src_addr} error: {e}");
-                    return;
-                }
-            };
-            debug!("accepted HTTPS request from: {src_addr}");
-
-            h2_handler(
-                tls_stream,
-                src_addr,
-                idle_timeout,
-                request_timeout,
-                dns_hostname,
-                query_path,
-                cx,
-            )
-            .await;
-        });
-
-        reap_tasks(&mut inner_join_set);
     }
 
-    if cx.shutdown.is_cancelled() {
-        Ok(())
-    } else {
-        Err(NetError::from("unexpected close of socket"))
+    /// Sets the timeout for completing a TLS handshake; pass `None` to disable it.
+    pub fn handshake_timeout(self, handshake_timeout: Option<Duration>) -> Self {
+        Self {
+            handshake_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the timeout before closing an idle connection; pass `None` to disable it.
+    pub fn idle_timeout(self, idle_timeout: Option<Duration>) -> Self {
+        Self {
+            idle_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the timeout for receiving a complete request on a stream; pass `None` to disable it.
+    pub fn request_timeout(self, request_timeout: Option<Duration>) -> Self {
+        Self {
+            request_timeout,
+            ..self
+        }
+    }
+
+    /// Sets the expected DNS hostname for HTTPS requests; pass `None` to disable it.
+    pub fn dns_hostname(self, dns_hostname: Option<String>) -> Self {
+        Self {
+            dns_hostname,
+            ..self
+        }
+    }
+
+    /// Sets the HTTP query path used to serve DNS queries.
+    pub fn query_path(self, query_path: String) -> Self {
+        Self { query_path, ..self }
+    }
+}
+
+impl SealedTransport for H2 {
+    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let Self {
+            listener,
+            tls_config,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
+            dns_hostname,
+            query_path,
+        } = self;
+
+        let tls_acceptor = TlsAcceptor::from(tls_config);
+        let dns_hostname: Option<Arc<str>> = dns_hostname.map(|n| n.into());
+        let query_path: Arc<str> = Arc::from(query_path);
+
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let shutdown = &cx.shutdown;
+            let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
+                // A graceful shutdown was initiated. Break out of the loop.
+                break;
+            };
+            let (tcp_stream, src_addr) = match result {
+                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+                Err(error) => {
+                    debug!(%error, "error receiving HTTPS tcp_stream error");
+                    if is_unrecoverable_socket_error(&error) {
+                        break;
+                    }
+                    continue;
+                }
+            };
+
+            // verify that the src address is safe for responses
+            if let Err(error) = sanitize_src_address(src_addr) {
+                warn!(%error, %src_addr, "address can not be responded to");
+                continue;
+            }
+
+            let cx = cx.clone();
+            let tls_acceptor = tls_acceptor.clone();
+            let dns_hostname = dns_hostname.clone();
+            let query_path = query_path.clone();
+            inner_join_set.spawn(async move {
+                debug!("starting HTTPS request from: {src_addr}");
+
+                let Ok(tls_stream) =
+                    optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+                else {
+                    warn!("https timeout expired during handshake");
+                    return;
+                };
+
+                let tls_stream = match tls_stream {
+                    Ok(tls_stream) => tls_stream,
+                    Err(e) => {
+                        debug!("https handshake src: {src_addr} error: {e}");
+                        return;
+                    }
+                };
+                debug!("accepted HTTPS request from: {src_addr}");
+
+                h2_handler(
+                    tls_stream,
+                    src_addr,
+                    idle_timeout,
+                    request_timeout,
+                    dns_hostname,
+                    query_path,
+                    cx,
+                )
+                .await;
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        if cx.shutdown.is_cancelled() {
+            Ok(())
+        } else {
+            Err(NetError::from("unexpected close of socket"))
+        }
+    }
+}
+
+impl fmt::Debug for H2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            listener,
+            tls_config: _,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
+            dns_hostname,
+            query_path,
+        } = self;
+
+        f.debug_struct("H2")
+            .field("listener", listener)
+            .field("handshake_timeout", handshake_timeout)
+            .field("idle_timeout", idle_timeout)
+            .field("request_timeout", request_timeout)
+            .field("dns_hostname", dns_hostname)
+            .field("query_path", query_path)
+            .finish_non_exhaustive()
     }
 }
 

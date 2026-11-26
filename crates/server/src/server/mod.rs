@@ -28,7 +28,7 @@ use hickory_proto::{
 use ipnet::IpNet;
 #[cfg(feature = "__tls")]
 use rustls::{ServerConfig, server::ResolvesServerCert};
-#[cfg(any(feature = "__https", feature = "__quic", feature = "__h3"))]
+#[cfg(any(feature = "__quic", feature = "__h3"))]
 use tokio::net;
 use tokio::task::JoinSet;
 #[cfg(any(
@@ -74,6 +74,8 @@ use crate::{
 
 #[cfg(feature = "__https")]
 mod h2_handler;
+#[cfg(feature = "__https")]
+pub use h2_handler::H2;
 #[cfg(feature = "__h3")]
 mod h3_handler;
 #[cfg(feature = "__quic")]
@@ -125,49 +127,6 @@ impl<T: RequestHandler> Server<T> {
             "registering transport"
         );
         self.join_set.spawn(transport.run(self.context.clone()));
-    }
-
-    /// Register a TcpListener for HTTPS (h2) for supporting DoH with the given TLS config.
-    ///
-    /// The TcpListener should already be bound to either an IPv6 or an IPv4 address.
-    ///
-    /// The TLS `ServerConfig` should be configured with TLS 1.3 support and the DoH ALPN protocol
-    /// enabled.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout for performing TLS handshakes
-    /// * `idle_timeout` - timeout before closing an idle connection
-    /// * `request_timeout` - timeout for receiving a complete request over a request stream
-    /// * `tls_config` - a customized `ServerConfig` to use for TLS.
-    /// * `dns_hostname` - the DNS hostname of the H2 server.
-    /// * `query_path` - the HTTP query path of the H2 server.
-    #[cfg(feature = "__https")]
-    #[allow(clippy::too_many_arguments)]
-    pub fn register_https_listener_with_tls_config(
-        &mut self,
-        listener: net::TcpListener,
-        handshake_timeout: Option<Duration>,
-        idle_timeout: Option<Duration>,
-        request_timeout: Option<Duration>,
-        tls_config: Arc<ServerConfig>,
-        dns_hostname: Option<String>,
-        query_path: String,
-    ) -> io::Result<()> {
-        self.join_set.spawn(h2_handler::handle_h2_with_acceptor(
-            listener,
-            handshake_timeout,
-            idle_timeout,
-            request_timeout,
-            TlsAcceptor::from(tls_config),
-            dns_hostname,
-            query_path,
-            self.context.clone(),
-        ));
-        Ok(())
     }
 
     /// Register a UdpSocket to the Server for supporting DoQ (DNS-over-QUIC). The UdpSocket should already be bound to either an
@@ -1323,20 +1282,10 @@ mod tests {
             ));
 
             #[cfg(feature = "__https")]
-            {
-                let cert_key = rustls_cert_key();
-                server
-                    .register_https_listener_with_tls_config(
-                        TcpListener::bind(self.https_rustls_addr).await.unwrap(),
-                        Some(Duration::from_secs(1)),
-                        Some(Duration::from_secs(1)),
-                        Some(Duration::from_secs(1)),
-                        Arc::new(default_tls_server_config(b"h2", cert_key).unwrap()),
-                        None,
-                        "/dns-query".into(),
-                    )
-                    .unwrap();
-            }
+            server.register(H2::new(
+                TcpListener::bind(self.https_rustls_addr).await.unwrap(),
+                Arc::new(default_tls_server_config(b"h2", rustls_cert_key()).unwrap()),
+            ));
 
             #[cfg(feature = "__quic")]
             {
