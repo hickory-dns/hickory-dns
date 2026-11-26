@@ -30,6 +30,8 @@ use hickory_proto::op::{DnsRequest, Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, OPT};
 use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use hickory_server::Server;
+#[cfg(feature = "__tls")]
+use hickory_server::server::default_tls_server_config;
 use hickory_server::server::{Tcp, Udp};
 use hickory_server::zone_handler::{Catalog, ZoneHandler};
 use test_support::subscribe;
@@ -385,12 +387,14 @@ async fn server_thread_tls(
     //     .expect("Pkcs12::from_der");
     // let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
 
+    let tls_config =
+        default_tls_server_config(b"dot", cert_chain).expect("failed to build TLS config");
     server
-        .register_tls_listener(
+        .register_tls_listener_with_tls_config(
             tls_listener,
             Some(Duration::from_secs(30)),
             Some(Duration::from_secs(30)),
-            cert_chain,
+            Arc::new(tls_config),
         )
         .expect("failed to register TLS");
 

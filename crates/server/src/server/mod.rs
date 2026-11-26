@@ -162,37 +162,6 @@ impl<T: RequestHandler> Server<T> {
         Ok(())
     }
 
-    /// Register a TlsListener to the Server by providing a rustls `ResolvesServerCert`. The
-    /// TlsListener should already be bound to either an IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
-    /// * `handshake_timeout` - timeout for performing TLS handshakes
-    /// * `stream_timeout` - timeout duration of incoming requests, any connection that does not
-    ///   send requests within this time period will be closed. In the future it should be
-    ///   possible to create long-lived queries, but these should be from trusted sources
-    ///   only, this would require some type of whitelisting.
-    /// * `server_cert_resolver` - resolver for the certificate and key used to announce to clients
-    #[cfg(feature = "__tls")]
-    pub fn register_tls_listener(
-        &mut self,
-        listener: net::TcpListener,
-        handshake_timeout: Option<Duration>,
-        stream_timeout: Option<Duration>,
-        server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> io::Result<()> {
-        Self::register_tls_listener_with_tls_config(
-            self,
-            listener,
-            handshake_timeout,
-            stream_timeout,
-            Arc::new(default_tls_server_config(b"dot", server_cert_resolver)?),
-        )
-    }
-
     /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (DNS-over-HTTPS). The TcpListener should already be bound to either an
     /// IPv6 or an IPv4 address.
     ///
@@ -1345,11 +1314,11 @@ mod tests {
             {
                 let cert_key = rustls_cert_key();
                 server
-                    .register_tls_listener(
+                    .register_tls_listener_with_tls_config(
                         TcpListener::bind(self.rustls_addr).await.unwrap(),
                         Some(Duration::from_secs(30)),
                         Some(Duration::from_secs(30)),
-                        cert_key,
+                        Arc::new(default_tls_server_config(b"dot", cert_key).unwrap()),
                     )
                     .unwrap();
             }
