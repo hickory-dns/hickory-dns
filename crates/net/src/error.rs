@@ -679,6 +679,7 @@ impl NoRecords {
 }
 
 /// Data needed to process a NS-record-based referral.
+#[allow(clippy::exhaustive_structs)]
 #[derive(Clone, Debug)]
 pub struct ForwardNSData {
     /// The referant NS record

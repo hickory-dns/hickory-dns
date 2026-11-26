@@ -346,6 +346,7 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
 /// A copy of all data in a zone.
 ///
 /// This is used in the AXFR sub-protocol.
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct ZoneTransfer {
     /// The SOA record, plus its RRSIG.

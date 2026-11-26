@@ -45,6 +45,7 @@ use crate::rr::{Name, RecordType};
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Context for a TSIG response, used to construct a TSIG response signer
+#[non_exhaustive]
 pub struct TSigResponseContext {
     #[cfg(feature = "__dnssec")]
     request_id: u16,

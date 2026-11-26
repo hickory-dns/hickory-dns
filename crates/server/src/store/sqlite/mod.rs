@@ -1194,6 +1194,7 @@ impl<P: RuntimeProvider + Send + Sync> DnssecZoneHandler for SqliteZoneHandler<P
 }
 
 /// Configuration for zone file for sqlite based zones
+#[non_exhaustive]
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct SqliteConfig {
@@ -1211,9 +1212,10 @@ pub struct SqliteConfig {
 }
 
 /// Configuration for a TSIG authentication signer key
+#[cfg(feature = "__dnssec")]
+#[non_exhaustive]
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 #[serde(deny_unknown_fields)]
-#[cfg(feature = "__dnssec")]
 pub struct TsigKeyConfig {
     /// The key name
     pub name: String,

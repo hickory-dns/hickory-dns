@@ -21,6 +21,7 @@ use crate::{
 use super::SVCB;
 
 /// HTTPS is really a derivation of the original SVCB record data. See SVCB for more documentation
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct HTTPS(pub SVCB);

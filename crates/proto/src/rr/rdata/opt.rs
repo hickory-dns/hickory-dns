@@ -853,6 +853,7 @@ impl AsRef<[u8]> for NSIDPayload {
 /// o  EXTRA-TEXT, a variable length, UTF-8 encoded, human readable string
 ///    with additional detail about the error. It may be zero length.
 /// ```
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash, Ord)]
 pub struct ExtendedDnsError {

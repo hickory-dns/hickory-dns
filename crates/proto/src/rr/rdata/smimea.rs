@@ -20,6 +20,7 @@ use crate::{
 ///
 /// > The SMIMEA wire format and presentation format are the same as for
 /// > the [TLSA] record
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SMIMEA(pub TLSA);

@@ -25,13 +25,7 @@ fn sqlite(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneHandler 
     // cleanup anything from previous test
     let _ = fs::remove_file(&journal_path);
 
-    let config = SqliteConfig {
-        zone_path: zone_path.to_owned(),
-        journal_path,
-        allow_update: true,
-        #[cfg(feature = "__dnssec")]
-        tsig_keys: Vec::new(),
-    };
+    let config = sqlite_config(zone_path, journal_path);
 
     block_on(SqliteZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
@@ -56,13 +50,7 @@ fn sqlite_update(zone_path: &Path, module: &str, test_name: &str) -> SqliteZoneH
     // cleanup anything from previous test
     let _ = fs::remove_file(&journal_path);
 
-    let config = SqliteConfig {
-        zone_path: zone_path.to_owned(),
-        journal_path,
-        allow_update: true,
-        #[cfg(feature = "__dnssec")]
-        tsig_keys: Vec::new(),
-    };
+    let config = sqlite_config(zone_path, journal_path);
 
     block_on(SqliteZoneHandler::try_from_config(
         Name::from_str("example.com.").unwrap(),
@@ -95,13 +83,7 @@ fn test_sqlite_memory_journal_path() {
     // With the bug, this would produce "/tmp/:memory:" (or similar) and SQLite would fail.
     let root_dir = temp_dir();
 
-    let config = SqliteConfig {
-        zone_path: zone_path.clone(),
-        journal_path: PathBuf::from(":memory:"),
-        allow_update: true,
-        #[cfg(feature = "__dnssec")]
-        tsig_keys: Vec::new(),
-    };
+    let config = sqlite_config(&zone_path, PathBuf::from(":memory:"));
 
     let result = block_on(SqliteZoneHandler::<TokioRuntimeProvider>::try_from_config(
         Name::from_str("example.com.").unwrap(),
@@ -118,4 +100,24 @@ fn test_sqlite_memory_journal_path() {
         "loading zone with :memory: journal should succeed even with a root_dir, got: {:?}",
         result.err()
     );
+}
+
+fn sqlite_config(zone_path: &Path, journal_path: PathBuf) -> SqliteConfig {
+    toml::from_str(&format!(
+        r#"zone_path = "{zone_path}"
+        journal_path = "{journal_path}"
+        allow_update = true"#,
+        zone_path = zone_path
+            .to_owned()
+            .into_os_string()
+            .into_string()
+            .expect("zone path contains invalid Unicode")
+            .escape_default(),
+        journal_path = journal_path
+            .into_os_string()
+            .into_string()
+            .expect("journal path contains invalid Unicode")
+            .escape_default(),
+    ))
+    .unwrap()
 }

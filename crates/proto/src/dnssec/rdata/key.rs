@@ -657,6 +657,7 @@ impl From<KeyUsage> for u16 {
 ///
 /// ```
 #[deprecated = "Deprecated by RFC3007"]
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {

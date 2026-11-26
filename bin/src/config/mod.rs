@@ -509,7 +509,7 @@ impl<'de> Deserialize<'de> for ZoneConfig {
                 }
             }
 
-            let store = ServerStoreConfig::File(FileConfig { zone_path });
+            let store = ServerStoreConfig::File(FileConfig::new(zone_path));
             match config.stores.as_mut_slice() {
                 [default @ ServerStoreConfig::Default] => *default = store,
                 _ => config.stores.push(store),

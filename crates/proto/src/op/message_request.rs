@@ -18,6 +18,7 @@ use crate::{
 };
 
 /// A Message which captures the data from an inbound request
+#[allow(clippy::exhaustive_structs)]
 #[derive(Debug, PartialEq)]
 pub struct MessageRequest {
     /// Metadata from the message header

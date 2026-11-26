@@ -98,15 +98,9 @@ fn make_recursor() -> (Recursor<MockProvider>, Name) {
         MockResponse::new(LEAF_IP, &query_name, RecordType::A).a(&query_name, LEAF_IP),
     ]));
 
-    let recursor = Recursor::with_options(
-        &[ROOT_IP.into()],
-        RecursorOptions {
-            deny_server: Vec::new(),
-            ..RecursorOptions::default()
-        },
-        provider,
-    )
-    .unwrap();
+    let mut options = RecursorOptions::default();
+    options.deny_server.clear();
+    let recursor = Recursor::with_options(&[ROOT_IP.into()], options, provider).unwrap();
 
     (recursor, query_name)
 }

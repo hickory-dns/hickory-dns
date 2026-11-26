@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
+use hickory_dns::dnssec::KeyConfig;
 use hickory_net::xfer::Protocol;
 use hickory_proto::{
     dnssec::{
@@ -372,20 +373,17 @@ pub fn verify(records: &[&Record], rrsig_records: &[Record<RRSIG>], keys: &[DNSK
 }
 
 pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
-    use hickory_dns::dnssec::KeyConfig;
     let signer_name = Name::from(handler.origin().to_owned());
 
     let mut keys = Vec::<DNSKEY>::new();
 
-    // TODO: support RSA signing with ring
-    #[cfg(feature = "__dnssec")]
     // rsa
     {
-        let key_config = KeyConfig {
-            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/rsa_2048.pk8"),
-            algorithm: Algorithm::RSASHA512,
-            signer_name: Some(signer_name.to_string()),
-        };
+        let key_config = key_config(
+            PathBuf::from("../tests/test-data/test_configs/dnssec/rsa_2048.pk8"),
+            Algorithm::RSASHA512,
+            &signer_name,
+        );
 
         let signer = key_config
             .try_into_signer(signer_name.clone())
@@ -397,11 +395,11 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
 
     // ecdsa_p256
     {
-        let key_config = KeyConfig {
-            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8"),
-            algorithm: Algorithm::ECDSAP256SHA256,
-            signer_name: Some(signer_name.clone().to_string()),
-        };
+        let key_config = key_config(
+            PathBuf::from("../tests/test-data/test_configs/dnssec/ecdsa_p256.pk8"),
+            Algorithm::ECDSAP256SHA256,
+            &signer_name,
+        );
 
         let signer = key_config
             .try_into_signer(signer_name.clone())
@@ -413,11 +411,11 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
 
     // ecdsa_p384
     {
-        let key_config = KeyConfig {
-            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8"),
-            algorithm: Algorithm::ECDSAP384SHA384,
-            signer_name: Some(signer_name.clone().to_string()),
-        };
+        let key_config = key_config(
+            PathBuf::from("../tests/test-data/test_configs/dnssec/ecdsa_p384.pk8"),
+            Algorithm::ECDSAP384SHA384,
+            &signer_name,
+        );
 
         let signer = key_config
             .try_into_signer(signer_name.clone())
@@ -428,13 +426,12 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
     }
 
     // ed 25519
-    #[cfg(feature = "__dnssec")]
     {
-        let key_config = KeyConfig {
-            key_path: PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),
-            algorithm: Algorithm::ED25519,
-            signer_name: Some(signer_name.to_string()),
-        };
+        let key_config = key_config(
+            PathBuf::from("../tests/test-data/test_configs/dnssec/ed25519.pk8"),
+            Algorithm::ED25519,
+            &signer_name,
+        );
 
         let signer = key_config
             .try_into_signer(signer_name)
@@ -445,6 +442,21 @@ pub fn add_signers<A: DnssecZoneHandler>(handler: &mut A) -> Vec<DNSKEY> {
     }
 
     keys
+}
+
+fn key_config(key_path: PathBuf, algorithm: Algorithm, signer_name: &Name) -> KeyConfig {
+    toml::from_str(&format!(
+        r#"key_path = "{key_path}"
+        algorithm = "{algorithm}"
+        signer_name = "{signer_name}""#,
+        key_path = key_path
+            .into_os_string()
+            .into_string()
+            .expect("key path contains invalid Unicode")
+            .escape_default(),
+        algorithm = algorithm.as_str(),
+    ))
+    .unwrap()
 }
 
 macro_rules! define_dnssec_test {

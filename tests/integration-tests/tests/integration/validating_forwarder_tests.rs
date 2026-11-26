@@ -29,7 +29,7 @@ use hickory_proto::{
         rdata::{A, SOA},
     },
 };
-use hickory_resolver::config::{NameServerConfig, ResolverOpts};
+use hickory_resolver::config::NameServerConfig;
 use hickory_server::{
     Server,
     server::Udp,
@@ -226,10 +226,9 @@ async fn setup_client_forwarder(
     // Server setup
     let mut config = NameServerConfig::udp(name_server_addr.ip());
     config.connections[0].port = name_server_addr.port();
-    let mut builder = ForwardZoneHandler::builder_tokio(ForwardConfig {
-        name_servers: vec![config],
-        options: Some(ResolverOpts::default()),
-    });
+    let mut forward_config = ForwardConfig::default();
+    forward_config.name_servers = vec![config];
+    let mut builder = ForwardZoneHandler::builder_tokio(forward_config);
 
     if let Some(public_key) = public_key {
         let mut anchors = TrustAnchors::empty();

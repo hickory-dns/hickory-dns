@@ -237,6 +237,7 @@ fn tls_config(cx: &PoolContext, disable_sni: bool) -> rustls::ClientConfig {
 }
 
 /// TLS configuration for the connection provider.
+#[non_exhaustive]
 pub struct TlsConfig {
     /// The TLS configuration to use for secure connections.
     #[cfg(feature = "__tls")]

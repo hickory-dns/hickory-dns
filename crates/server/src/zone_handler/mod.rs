@@ -504,6 +504,7 @@ impl From<ProtoError> for LookupError {
 
 /// Information required to compute the NSEC3 records that should be sent for a query.
 #[cfg(feature = "__dnssec")]
+#[non_exhaustive]
 pub struct Nsec3QueryInfo<'q> {
     /// The queried name.
     pub qname: &'q LowerName,

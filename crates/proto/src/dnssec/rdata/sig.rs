@@ -370,6 +370,7 @@ impl fmt::Display for SIG {
 }
 
 /// Input for a SIG or RRSIG record signature.
+#[allow(clippy::exhaustive_structs)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SigInput {
