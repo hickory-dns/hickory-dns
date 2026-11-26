@@ -9,7 +9,6 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use ::h2::server;
 use bytes::Bytes;
-use rustls::server::ResolvesServerCert;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::TcpListener,
@@ -19,38 +18,10 @@ use tokio_rustls::TlsAcceptor;
 use tracing::{debug, warn};
 
 use super::{
-    ServerContext, default_tls_server_config, is_unrecoverable_socket_error, optional_timeout,
-    reap_tasks, request_handler::RequestHandler, sanitize_src_address,
+    ServerContext, is_unrecoverable_socket_error, optional_timeout, reap_tasks,
+    request_handler::RequestHandler, sanitize_src_address,
 };
 use crate::net::{NetError, http::Version, xfer::Protocol};
-
-/// handle h2 using the default TLS server config.
-#[allow(clippy::too_many_arguments)]
-pub(super) async fn handle_h2(
-    listener: TcpListener,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    dns_hostname: Option<String>,
-    query_path: String,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    handle_h2_with_acceptor(
-        listener,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        TlsAcceptor::from(Arc::new(default_tls_server_config(
-            b"h2",
-            server_cert_resolver,
-        )?)),
-        dns_hostname,
-        query_path,
-        cx,
-    )
-    .await
-}
 
 /// handle h2 using a specific TlsAcceptor.
 #[allow(clippy::too_many_arguments)]
