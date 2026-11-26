@@ -44,7 +44,7 @@ use tracing::{debug, info};
 #[cfg(feature = "__dnssec")]
 use crate::dnssec;
 #[cfg(feature = "__https")]
-use hickory_net::http::DEFAULT_DNS_QUERY_PATH;
+use hickory_net::http::DEFAULT_QUERY_PATH;
 #[cfg(feature = "__tls")]
 use hickory_net::tls::default_provider;
 use hickory_net::xfer::DEFAULT_STREAM_BUFFER_SIZE;
@@ -850,7 +850,7 @@ fn default_idle_timeout() -> Option<Duration> {
 
 #[cfg(feature = "__https")]
 fn default_query_path() -> String {
-    DEFAULT_DNS_QUERY_PATH.to_string()
+    DEFAULT_QUERY_PATH.to_string()
 }
 
 #[cfg(not(windows))]
