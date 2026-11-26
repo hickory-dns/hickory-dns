@@ -8,11 +8,11 @@
 use std::{fmt, net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
+use futures_util::future::poll_fn;
 use h2::server;
 use rustls::ServerConfig;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    net::TcpListener,
     task::JoinSet,
 };
 use tokio_rustls::TlsAcceptor;
@@ -26,6 +26,7 @@ use super::{
 use crate::net::{
     NetError,
     http::{DEFAULT_QUERY_PATH, Version},
+    runtime::{Accepted, DnsTcpListener, iocompat::AsyncIoStdAsTokio},
     xfer::Protocol,
 };
 
@@ -35,8 +36,8 @@ use crate::net::{
 ///
 /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
 /// should be taken to not make them too low depending on use cases.
-pub struct H2 {
-    listener: TcpListener,
+pub struct H2<L: DnsTcpListener> {
+    listener: L,
     tls_config: Arc<ServerConfig>,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
@@ -45,14 +46,14 @@ pub struct H2 {
     query_path: String,
 }
 
-impl H2 {
+impl<L: DnsTcpListener> H2<L> {
     /// Constructs a new HTTP/2 transport with the provided [`ServerConfig`].
     ///
     /// The `listener` must already be bound to a local address, and `tls_config` should enable the
     /// `h2` ALPN protocol. Timeouts default to [`DEFAULT_HANDSHAKE_TIMEOUT`],
     /// [`DEFAULT_IDLE_TIMEOUT`], and [`DEFAULT_REQUEST_TIMEOUT`], and the query path defaults to
     /// [`DEFAULT_QUERY_PATH`].
-    pub fn new(listener: TcpListener, tls_config: Arc<ServerConfig>) -> Self {
+    pub fn new(listener: L, tls_config: Arc<ServerConfig>) -> Self {
         Self {
             listener,
             tls_config,
@@ -102,10 +103,10 @@ impl H2 {
     }
 }
 
-impl SealedTransport for H2 {
+impl<L: DnsTcpListener> SealedTransport for H2<L> {
     async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
         let Self {
-            listener,
+            mut listener,
             tls_config,
             handshake_timeout,
             idle_timeout,
@@ -121,12 +122,16 @@ impl SealedTransport for H2 {
         let mut inner_join_set = JoinSet::new();
         loop {
             let shutdown = &cx.shutdown;
-            let Some(result) = shutdown.run_until_cancelled(listener.accept()).await else {
+            let accept = poll_fn(|cx| listener.poll_accept(cx));
+            let Some(result) = shutdown.run_until_cancelled(accept).await else {
                 // A graceful shutdown was initiated. Break out of the loop.
                 break;
             };
-            let (tcp_stream, src_addr) = match result {
-                Ok((tcp_stream, src_addr)) => (tcp_stream, src_addr),
+            let (connection, src_addr) = match result {
+                Ok(Accepted {
+                    connection,
+                    src_addr,
+                }) => (connection, src_addr),
                 Err(error) => {
                     debug!(%error, "error receiving HTTPS tcp_stream error");
                     if is_unrecoverable_socket_error(&error) {
@@ -149,8 +154,11 @@ impl SealedTransport for H2 {
             inner_join_set.spawn(async move {
                 debug!("starting HTTPS request from: {src_addr}");
 
-                let Ok(tls_stream) =
-                    optional_timeout(handshake_timeout, tls_acceptor.accept(tcp_stream)).await
+                let Ok(tls_stream) = optional_timeout(
+                    handshake_timeout,
+                    tls_acceptor.accept(AsyncIoStdAsTokio(connection)),
+                )
+                .await
                 else {
                     warn!("https timeout expired during handshake");
                     return;
@@ -188,7 +196,7 @@ impl SealedTransport for H2 {
     }
 }
 
-impl fmt::Debug for H2 {
+impl<L: DnsTcpListener + fmt::Debug> fmt::Debug for H2<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let Self {
             listener,
