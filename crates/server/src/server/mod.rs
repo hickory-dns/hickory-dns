@@ -638,24 +638,6 @@ impl<L: DnsTcpListener> SealedTransport for Tcp<L> {
     }
 }
 
-impl<T: SealedTransport> Transport for T {}
-
-/// Common interface for server transports.
-///
-/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
-/// a TCP listener) together with protocol-specific configuration.
-/// Transport implementations are sealed to keep the server's execution interface internal.
-#[expect(private_bounds)]
-pub trait Transport: SealedTransport {}
-
-pub(super) trait SealedTransport: Send + 'static {
-    /// Runs a transport whose listener was initialized by its constructor.
-    fn run<H: RequestHandler>(
-        self,
-        cx: Arc<ServerContext<H>>,
-    ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
-}
-
 #[cfg(feature = "__tls")]
 async fn handle_tls(
     listener: net::TcpListener,
@@ -744,6 +726,24 @@ async fn handle_tls(
     } else {
         Err(NetError::from("unexpected close of socket"))
     }
+}
+
+impl<T: SealedTransport> Transport for T {}
+
+/// Common interface for server transports.
+///
+/// A `Transport` encapsulates a bound network resource (such as a UDP socket or
+/// a TCP listener) together with protocol-specific configuration.
+/// Transport implementations are sealed to keep the server's execution interface internal.
+#[expect(private_bounds)]
+pub trait Transport: SealedTransport {}
+
+pub(super) trait SealedTransport: Send + 'static {
+    /// Runs a transport whose listener was initialized by its constructor.
+    fn run<H: RequestHandler>(
+        self,
+        cx: Arc<ServerContext<H>>,
+    ) -> impl Future<Output = Result<(), NetError>> + Send + 'static;
 }
 
 /// Reap finished tasks from a `JoinSet`, without awaiting or blocking.
