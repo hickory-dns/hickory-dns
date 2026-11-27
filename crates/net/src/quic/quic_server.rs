@@ -15,7 +15,7 @@ use rustls::server::ServerConfig as TlsServerConfig;
 use crate::error::NetError;
 
 use super::{
-    quic_config,
+    QuicSocket, quic_config,
     quic_stream::{DoqErrorCode, QuicStream},
 };
 
@@ -28,21 +28,16 @@ impl QuicServer {
     /// Construct the new server with an existing socket and TLS configuration
     ///
     /// The caller must ensure the `TlsServerConfig` has the appropriate DoQ ALPN protocol enabled.
-    pub fn new(
-        socket: tokio::net::UdpSocket,
-        tls_config: Arc<TlsServerConfig>,
-    ) -> Result<Self, NetError> {
+    pub fn new(socket: QuicSocket, tls_config: Arc<TlsServerConfig>) -> Result<Self, NetError> {
         let mut server_config =
             ServerConfig::with_crypto(Arc::new(QuicServerConfig::try_from(tls_config)?));
         server_config.transport = Arc::new(quic_config::transport());
 
-        let socket = socket.into_std()?;
-
         let endpoint_config = quic_config::endpoint();
-        let endpoint = Endpoint::new(
+        let endpoint = Endpoint::new_with_abstract_socket(
             endpoint_config,
             Some(server_config),
-            socket,
+            socket.into(),
             Arc::new(quinn::TokioRuntime),
         )?;
 

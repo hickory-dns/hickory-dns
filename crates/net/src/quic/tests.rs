@@ -71,8 +71,8 @@ async fn test_quic_stream() {
     let socket = UdpSocket::bind(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await
         .unwrap();
-    let quic_ns =
-        QuicServer::new(socket, Arc::new(server_config)).expect("failed to initialize QuicServer");
+    let quic_ns = QuicServer::new(socket.try_into().unwrap(), Arc::new(server_config))
+        .expect("failed to initialize QuicServer");
 
     // kick off the server
     let server_addr = quic_ns.local_addr().expect("no address");

@@ -47,7 +47,7 @@ impl Quic {
     /// Initializes the QUIC endpoint immediately and requires an active Tokio runtime.
     pub fn new(socket: net::UdpSocket, tls_config: Arc<ServerConfig>) -> Result<Self, NetError> {
         Ok(Self {
-            server: QuicServer::new(socket, tls_config)?,
+            server: QuicServer::new(socket.try_into()?, tls_config)?,
             handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
             idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
             request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),
