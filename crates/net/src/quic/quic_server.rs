@@ -6,8 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use core::net::SocketAddr;
-use std::io;
-use std::sync::Arc;
+use std::{fmt, io, sync::Arc};
 
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Connecting, Connection, Endpoint, Incoming, ServerConfig};
@@ -89,6 +88,16 @@ impl QuicServer {
     ///   associated port address with this function.
     pub fn local_addr(&self) -> Result<SocketAddr, io::Error> {
         self.endpoint.local_addr()
+    }
+}
+
+impl fmt::Debug for QuicServer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self { endpoint: _ } = self;
+
+        f.debug_struct("QuicServer")
+            .field("local_addr", &self.local_addr())
+            .finish_non_exhaustive()
     }
 }
 
