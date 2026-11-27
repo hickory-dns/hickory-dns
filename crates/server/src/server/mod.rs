@@ -129,40 +129,6 @@ impl<T: RequestHandler> Server<T> {
         self.join_set.spawn(transport.run(self.context.clone()));
     }
 
-    /// Register a UdpSocket to the Server for supporting DoQ (DNS-over-QUIC). The UdpSocket should already be bound to either an
-    /// IPv6 or an IPv4 address.
-    ///
-    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
-    ///  to not make this too low depending on use cases.
-    ///
-    /// # Arguments
-    /// * `socket` - a bound UDP socket
-    /// * `handshake_timeout` - timeout for performing QUIC handshakes
-    /// * `idle_timeout` - timeout before closing an idle connection
-    /// * `request_timeout` - timeout for receiving a complete request over a stream
-    /// * `server_cert_resolver` - resolver for certificate and key used to announce to clients
-    /// * `dns_hostname` - the DNS hostname of the DoQ server.
-    #[cfg(feature = "__quic")]
-    pub fn register_quic_listener(
-        &mut self,
-        socket: net::UdpSocket,
-        handshake_timeout: Option<Duration>,
-        idle_timeout: Option<Duration>,
-        request_timeout: Option<Duration>,
-        server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    ) -> io::Result<()> {
-        let cx = self.context.clone();
-        self.join_set.spawn(quic_handler::handle_quic(
-            socket,
-            handshake_timeout,
-            idle_timeout,
-            request_timeout,
-            server_cert_resolver,
-            cx,
-        ));
-        Ok(())
-    }
-
     /// Register a UdpSocket for supporting DoQ (DNS-over-QUIC) with the provided TLS config.
     ///
     /// The UdpSocket should already be bound to either an IPv6 or an IPv4 address.
@@ -1291,12 +1257,12 @@ mod tests {
             {
                 let cert_key = rustls_cert_key();
                 server
-                    .register_quic_listener(
+                    .register_quic_listener_and_tls_config(
                         UdpSocket::bind(self.quic_addr).await.unwrap(),
                         Some(Duration::from_secs(1)),
                         Some(Duration::from_secs(1)),
                         Some(Duration::from_secs(1)),
-                        cert_key,
+                        Arc::new(default_tls_server_config(b"doq", cert_key).unwrap()),
                     )
                     .unwrap();
             }
