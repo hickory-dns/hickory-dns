@@ -9,6 +9,7 @@
 use std::time::{Duration, Instant};
 use std::{
     cmp,
+    collections::HashMap,
     fmt::Debug,
     marker::PhantomData,
     net::IpAddr,
@@ -18,6 +19,8 @@ use std::{
     },
 };
 
+use futures_util::FutureExt;
+use futures_util::future::{BoxFuture, Shared, WeakShared};
 use futures_util::lock::Mutex as AsyncMutex;
 use parking_lot::Mutex as SyncMutex;
 #[cfg(test)]
@@ -53,6 +56,8 @@ use crate::{
 pub struct NameServer<P: ConnectionProvider> {
     config: NameServerConfig,
     connections: AsyncMutex<Vec<ConnectionState<P>>>,
+    /// In-flight connection establishments, shared by the queries waiting on them.
+    connecting: AsyncMutex<HashMap<Protocol, Connecting<P>>>,
     /// Metrics related to opportunistic encryption probes.
     #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
     opportunistic_probe_metrics: ProbeMetrics,
@@ -132,6 +137,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         Self {
             config,
             connections: AsyncMutex::new(connections),
+            connecting: AsyncMutex::new(HashMap::new()),
             server_srtt: DecayingSrtt::new(Duration::from_micros(rand::random_range(1..32))),
             #[cfg(all(feature = "metrics", any(feature = "__tls", feature = "__quic")))]
             opportunistic_probe_metrics: ProbeMetrics::default(),
@@ -169,7 +175,7 @@ impl<P: ConnectionProvider> NameServer<P> {
     }
 
     async fn send_inner(
-        &self,
+        self: &Arc<Self>,
         request: DnsRequest,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
@@ -287,37 +293,19 @@ impl<P: ConnectionProvider> NameServer<P> {
     /// If the connection is in a failed state, then this will establish a new connection.
     ///
     async fn connected_mut_client(
-        &self,
+        self: &Arc<Self>,
         policy: ConnectionPolicy,
         cx: &Arc<PoolContext>,
     ) -> Result<ConnectedClient<P>, (NetError, Option<Protocol>)> {
-        // Check for an existing usable connection (short lock)
-        {
-            let mut connections = self.connections.lock().await;
-            connections.retain(|conn| {
-                matches!(
-                    self.meta(conn.protocol).status(),
-                    Status::Init | Status::Established
-                )
-            });
-
-            if let Some(conn) = policy.select_connection(
-                self.config.ip,
-                &*cx.transport_state().await,
-                &cx.opportunistic_encryption,
-                &connections,
-            ) {
-                return Ok(ConnectedClient {
-                    handle: conn.handle.clone(),
-                    meta: self.meta(conn.protocol).clone(),
-                    protocol: conn.protocol,
-                    reuse: ConnectionReuse::Reused,
-                });
-            }
+        if let Some(client) = self.pooled_client(policy, cx).await {
+            return Ok(client);
         }
 
-        // Select connection config and update transport state (no lock)
-        debug!(config = ?self.config, "connecting");
+        let mut connecting = self.connecting.lock().await;
+        if let Some(client) = self.pooled_client(policy, cx).await {
+            return Ok(client);
+        }
+
         let config = policy
             .select_connection_config(
                 self.config.ip,
@@ -326,6 +314,58 @@ impl<P: ConnectionProvider> NameServer<P> {
                 &self.config.connections,
             )
             .ok_or((NetError::NoConnections, None))?;
+        let protocol = config.protocol.to_protocol();
+
+        let establishment = match connecting.get(&protocol).and_then(Connecting::upgrade) {
+            Some(in_flight) => in_flight,
+            None => {
+                let (handle, started) = Connecting::new(self, config, policy, cx);
+                connecting.insert(protocol, handle);
+                started
+            }
+        };
+
+        // Release the lock so concurrent queries can join this establishment.
+        drop(connecting);
+        establishment.await
+    }
+
+    /// Returns an existing usable connection, if any.
+    async fn pooled_client(
+        &self,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> Option<ConnectedClient<P>> {
+        let mut connections = self.connections.lock().await;
+        connections.retain(|conn| {
+            matches!(
+                self.meta(conn.protocol).status(),
+                Status::Init | Status::Established
+            )
+        });
+
+        let conn = policy.select_connection(
+            self.config.ip,
+            &*cx.transport_state().await,
+            &cx.opportunistic_encryption,
+            &connections,
+        )?;
+        Some(ConnectedClient {
+            handle: conn.handle.clone(),
+            meta: self.meta(conn.protocol).clone(),
+            protocol: conn.protocol,
+            reuse: ConnectionReuse::Reused,
+        })
+    }
+
+    /// Open a new connection to this server and add it to the pool.
+    async fn establish(
+        &self,
+        config: ConnectionConfig,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> Result<ConnectedClient<P>, (NetError, Option<Protocol>)> {
+        debug!(config = ?self.config, "connecting");
 
         let protocol = config.protocol.to_protocol();
         if cx.opportunistic_encryption.is_enabled() && protocol.is_encrypted() {
@@ -343,7 +383,7 @@ impl<P: ConnectionProvider> NameServer<P> {
         };
         let handle_fut = self
             .connection_provider
-            .new_connection(self.config.ip, config, cx)
+            .new_connection(self.config.ip, &config, cx)
             .map_err(handle_failure)?;
         let handle = Box::pin(handle_fut).await.map_err(handle_failure)?;
 
@@ -355,7 +395,14 @@ impl<P: ConnectionProvider> NameServer<P> {
 
         // Store the new connection (with lock)
         let state = ConnectionState::new(handle.clone(), meta.clone(), protocol);
-        self.connections.lock().await.push(state);
+        let mut connections = self.connections.lock().await;
+        // Status is shared by every connection using this protocol, so a failure
+        // recorded on an older connection would hide this one from later queries.
+        if meta.status() == Status::Failed {
+            connections.retain(|conn| conn.protocol != protocol);
+            meta.set_status(Status::Init);
+        }
+        connections.push(state);
         Ok(ConnectedClient {
             handle,
             meta: meta.clone(),
@@ -653,11 +700,56 @@ enum ConnectionReuse {
 }
 
 /// A connection selected by [`NameServer::connected_mut_client`] for sending a request.
+#[derive(Clone)]
 struct ConnectedClient<P: ConnectionProvider> {
     handle: P::Conn,
     meta: Arc<ConnectionMeta>,
     protocol: Protocol,
     reuse: ConnectionReuse,
+}
+
+/// A connection establishment that concurrent queries can join while it is in flight.
+#[expect(clippy::type_complexity)]
+struct Connecting<P: ConnectionProvider>(
+    WeakShared<BoxFuture<'static, Result<ConnectedClient<P>, (NetError, Option<Protocol>)>>>,
+);
+
+impl<P: ConnectionProvider> Connecting<P> {
+    /// Starts establishing a connection to `server` with `config`.
+    ///
+    /// Returns a handle for later queries to join along with the establishment itself.
+    #[expect(clippy::type_complexity)]
+    fn new(
+        server: &Arc<NameServer<P>>,
+        config: &ConnectionConfig,
+        policy: ConnectionPolicy,
+        cx: &Arc<PoolContext>,
+    ) -> (
+        Self,
+        Shared<BoxFuture<'static, Result<ConnectedClient<P>, (NetError, Option<Protocol>)>>>,
+    ) {
+        let server = Arc::clone(server);
+        let config = config.clone();
+        let cx = Arc::clone(cx);
+        let establishment = async move { server.establish(config, policy, &cx).await }
+            .boxed()
+            .shared();
+        let handle = establishment
+            .downgrade()
+            .expect("a new establishment has not completed");
+        (Self(handle), establishment)
+    }
+
+    /// Returns the establishment if it is still in flight.
+    #[expect(clippy::type_complexity)]
+    fn upgrade(
+        &self,
+    ) -> Option<Shared<BoxFuture<'static, Result<ConnectedClient<P>, (NetError, Option<Protocol>)>>>>
+    {
+        self.0
+            .upgrade()
+            .filter(|establishment| establishment.peek().is_none())
+    }
 }
 
 struct ConnectionState<P: ConnectionProvider> {
@@ -2093,12 +2185,12 @@ mod opportunistic_enc_tests {
         cx: Arc<PoolContext>,
         provider: &MockProvider,
     ) -> Result<(), NetError> {
-        let name_server = NameServer::new(
+        let name_server = Arc::new(NameServer::new(
             [],
             NameServerConfig::opportunistic_encryption(ns_ip),
             &ResolverOpts::default(),
             provider.clone(),
-        );
+        ));
 
         match name_server
             .connected_mut_client(ConnectionPolicy::default(), &cx)
@@ -2618,7 +2710,185 @@ mod reconnect_tests {
     }
 }
 
-#[cfg(all(test, any(feature = "metrics", feature = "__tls")))]
+#[cfg(test)]
+mod single_flight_tests {
+    use std::collections::VecDeque;
+    use std::future::{Future, poll_fn};
+    use std::io;
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::task::Poll;
+
+    use futures_util::future::join_all;
+    use parking_lot::Mutex as SyncMutex;
+    use test_support::subscribe;
+
+    use super::mock_provider::MockProvider;
+    use super::{ConnectionPolicy, ConnectionReuse, NameServer, Status};
+    use crate::config::{NameServerConfig, ResolverOpts};
+    use crate::connection_provider::TlsConfig;
+    use crate::name_server_pool::PoolContext;
+    use crate::net::NetError;
+    use crate::net::xfer::Protocol;
+    use crate::proto::op::{DnsRequest, DnsRequestOptions, Query};
+    use crate::proto::rr::{Name, RecordType};
+
+    #[tokio::test]
+    async fn concurrent_queries_share_one_establishment() {
+        subscribe();
+
+        let provider = MockProvider {
+            defer_connection: true,
+            ..MockProvider::default()
+        };
+        let (ns, cx) = name_server(NameServerConfig::udp(IP), provider.clone());
+
+        let responses =
+            join_all((0..8).map(|_| ns.clone().send(query(), ConnectionPolicy::default(), &cx)))
+                .await;
+        for response in responses {
+            response.expect("every query resolves from the shared establishment");
+        }
+
+        assert_eq!(provider.new_connection_calls().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn different_effective_configs_do_not_share_establishment() {
+        subscribe();
+
+        let provider = MockProvider {
+            defer_connection: true,
+            ..MockProvider::default()
+        };
+        let (ns, cx) = name_server(NameServerConfig::udp_and_tcp(IP), provider.clone());
+
+        let mut waiter_a = Box::pin(ns.connected_mut_client(ConnectionPolicy::default(), &cx));
+        let waiter_a_state = poll_once(waiter_a.as_mut()).await;
+
+        let mut waiter_b =
+            Box::pin(ns.connected_mut_client(ConnectionPolicy { disable_udp: true }, &cx));
+        let waiter_b_state = poll_once(waiter_b.as_mut()).await;
+
+        let protocols = provider
+            .new_connection_calls()
+            .into_iter()
+            .map(|(_, config)| config.to_protocol())
+            .collect::<Vec<_>>();
+        assert_eq!(protocols.as_slice(), &[Protocol::Udp, Protocol::Tcp]);
+        assert!(waiter_a_state.is_pending());
+        assert!(waiter_b_state.is_pending());
+    }
+
+    #[tokio::test]
+    async fn completed_failure_is_not_shared_with_new_waiter() {
+        subscribe();
+
+        let provider = MockProvider {
+            new_connection_error: Some(NetError::Timeout),
+            defer_connection: true,
+            ..MockProvider::default()
+        };
+        let (ns, cx) = name_server(NameServerConfig::udp(IP), provider.clone());
+
+        let mut waiter_a = Box::pin(ns.connected_mut_client(ConnectionPolicy::default(), &cx));
+        assert!(poll_once(waiter_a.as_mut()).await.is_pending());
+
+        let mut waiter_b = Box::pin(ns.connected_mut_client(ConnectionPolicy::default(), &cx));
+        assert!(matches!(
+            poll_once(waiter_b.as_mut()).await,
+            Poll::Ready(Err(_))
+        ));
+
+        let mut waiter_c = Box::pin(ns.connected_mut_client(ConnectionPolicy::default(), &cx));
+        assert!(poll_once(waiter_c.as_mut()).await.is_pending());
+        assert_eq!(provider.new_connection_calls().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn queries_share_the_reconnect_after_a_closed_connection() {
+        subscribe();
+
+        let provider = MockProvider {
+            defer_connection: true,
+            send_outcomes: Arc::new(SyncMutex::new(VecDeque::from([
+                None,
+                Some(NetError::from(io::Error::from(
+                    io::ErrorKind::ConnectionReset,
+                ))),
+            ]))),
+            ..MockProvider::default()
+        };
+        let (ns, cx) = name_server(NameServerConfig::udp(IP), provider.clone());
+        ns.clone()
+            .send(query(), ConnectionPolicy::default(), &cx)
+            .await
+            .expect("initial query establishes the connection");
+
+        let responses =
+            join_all((0..8).map(|_| ns.clone().send(query(), ConnectionPolicy::default(), &cx)))
+                .await;
+        for response in responses {
+            response.expect("every query resolves on the new connection");
+        }
+
+        assert_eq!(provider.new_connection_calls().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn new_connection_is_reused_after_its_protocol_failed() {
+        subscribe();
+
+        let provider = MockProvider::default();
+        let (ns, cx) = name_server(NameServerConfig::udp(IP), provider.clone());
+        ns.meta(Protocol::Udp).set_status(Status::Failed);
+
+        let fresh = ns
+            .connected_mut_client(ConnectionPolicy::default(), &cx)
+            .await
+            .expect("establishes a new connection");
+        assert!(matches!(fresh.reuse, ConnectionReuse::Fresh));
+        let next = ns
+            .connected_mut_client(ConnectionPolicy::default(), &cx)
+            .await
+            .expect("reuses the new connection");
+        assert!(matches!(next.reuse, ConnectionReuse::Reused));
+
+        assert_eq!(provider.new_connection_calls().len(), 1);
+    }
+
+    fn name_server(
+        config: NameServerConfig,
+        provider: MockProvider,
+    ) -> (Arc<NameServer<MockProvider>>, Arc<PoolContext>) {
+        let options = ResolverOpts::default();
+        let name_server = Arc::new(NameServer::new([], config, &options, provider));
+        let cx = Arc::new(PoolContext::new(
+            options,
+            TlsConfig::new().expect("TLS configuration should be valid"),
+        ));
+        (name_server, cx)
+    }
+
+    fn query() -> DnsRequest {
+        DnsRequest::from_query(
+            Query::new(
+                Name::parse("www.example.com.", None).expect("query name should be valid"),
+                RecordType::A,
+            ),
+            DnsRequestOptions::default(),
+        )
+    }
+
+    async fn poll_once<F: Future>(mut future: Pin<&mut F>) -> Poll<F::Output> {
+        poll_fn(|cx| Poll::Ready(future.as_mut().poll(cx))).await
+    }
+
+    const IP: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1));
+}
+
+#[cfg(test)]
 mod mock_provider {
     use std::collections::VecDeque;
     use std::future::Future;
@@ -2628,6 +2898,7 @@ mod mock_provider {
 
     use futures_util::future;
     use tokio::net::UdpSocket;
+    use tokio::task::yield_now;
 
     use super::*;
     use crate::config::ProtocolConfig;
@@ -2651,6 +2922,8 @@ mod mock_provider {
         /// provider hands out: `Some(err)` fails that send, `None` (or an empty
         /// queue) succeeds.
         pub(super) send_outcomes: Arc<SyncMutex<VecDeque<Option<NetError>>>>,
+        /// Defers a new connection until its future's second poll.
+        pub(super) defer_connection: bool,
     }
 
     impl MockProvider {
@@ -2674,12 +2947,20 @@ mod mock_provider {
                 .lock()
                 .push((ip, config.protocol.clone()));
 
-            Ok(Box::pin(future::ready(match &self.new_connection_error {
+            let defer = self.defer_connection;
+            let connected = match &self.new_connection_error {
                 Some(err) => Err(err.clone()),
                 None => Ok(MockClientHandle {
                     send_outcomes: self.send_outcomes.clone(),
                 }),
-            })))
+            };
+
+            Ok(Box::pin(async move {
+                if defer {
+                    yield_now().await;
+                }
+                connected
+            }))
         }
 
         fn runtime_provider(&self) -> &Self::RuntimeProvider {
@@ -2694,6 +2975,7 @@ mod mock_provider {
                 new_connection_calls: Arc::new(SyncMutex::new(Vec::new())),
                 new_connection_error: None,
                 send_outcomes: Arc::new(SyncMutex::new(VecDeque::new())),
+                defer_connection: false,
             }
         }
     }
