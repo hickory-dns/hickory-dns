@@ -11,6 +11,8 @@ use core::fmt::{Debug, Display};
 
 use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, DecodeError};
 
+pub(crate) mod algorithm;
+
 pub(crate) mod dns_class;
 pub use dns_class::DNSClass;
 

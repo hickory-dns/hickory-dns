@@ -22,8 +22,7 @@ use crate::error::ProtoError;
 use crate::rr::{Name, RData, Record, RecordType, rdata::tsig::TsigAlgorithm};
 use crate::serialize::binary::{BinEncodable, BinEncoder, DecodeError, NameEncoding};
 
-mod algorithm;
-pub use algorithm::Algorithm;
+pub use crate::rr::algorithm::Algorithm;
 
 /// Cryptographic backend implementations of DNSSEC traits.
 pub mod crypto;
