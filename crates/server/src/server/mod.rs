@@ -158,7 +158,7 @@ impl<T: RequestHandler> Server<T> {
         let cx = self.context.clone();
 
         self.join_set.spawn(quic_handler::handle_quic_with_server(
-            QuicServer::with_socket_and_tls_config(socket, tls_config)?,
+            QuicServer::new(socket, tls_config)?,
             handshake_timeout,
             idle_timeout,
             request_timeout,
