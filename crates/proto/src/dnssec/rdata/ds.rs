@@ -148,7 +148,6 @@ impl DS {
     ///    hexadecimal digits.  Whitespace is allowed within the hexadecimal
     ///    text.
     /// ```
-    #[allow(deprecated)]
     pub(crate) fn from_tokens<'i, I: Iterator<Item = &'i str>>(
         mut tokens: I,
     ) -> Result<Self, ParseError> {
@@ -162,18 +161,7 @@ impl DS {
             .next()
             .ok_or_else(|| ParseError::from("digest type not present"))?;
         let tag: u16 = tag_str.parse()?;
-        let algorithm = match algorithm_str {
-            // Mnemonics from Appendix A.1.
-            "RSAMD5" => Algorithm::Unknown(1),
-            "DH" => Algorithm::Unknown(2),
-            "DSA" => Algorithm::Unknown(3),
-            "ECC" => Algorithm::Unknown(4),
-            "RSASHA1" => Algorithm::RSASHA1,
-            "INDIRECT" => Algorithm::Unknown(252),
-            "PRIVATEDNS" => Algorithm::Unknown(253),
-            "PRIVATEOID" => Algorithm::Unknown(254),
-            _ => Algorithm::from_u8(algorithm_str.parse()?),
-        };
+        let algorithm = Algorithm::from_str(algorithm_str)?;
         let digest_type = DigestType::from(u8::from_str(digest_type_str)?);
         let digest_str: String = tokens.collect();
         if digest_str.is_empty() {
@@ -402,6 +390,15 @@ mod tests {
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = DS::read_data(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn algorithm_mnemonic_matches_wire_value() {
+        let mnemonic = DS::from_tokens(["1", "ed448", "2", "AB"].into_iter()).unwrap();
+        let numeric = DS::from_tokens(["1", "16", "2", "AB"].into_iter()).unwrap();
+        assert_eq!(mnemonic, numeric);
+        assert_eq!(mnemonic.algorithm(), Algorithm::ED448);
+        assert!(!mnemonic.algorithm().is_supported());
     }
 
     #[test]

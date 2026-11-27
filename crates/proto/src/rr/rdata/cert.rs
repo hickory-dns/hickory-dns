@@ -23,6 +23,8 @@ use crate::{
     },
 };
 
+pub use crate::rr::algorithm::Algorithm;
+
 /// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398#section-2.1)
 ///
 /// ```text
@@ -198,292 +200,6 @@ impl fmt::Display for CertType {
     }
 }
 
-/// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398#section-2.2)
-///
-/// ```text
-///
-/// [2.2](https://datatracker.ietf.org/doc/html/rfc4398#section-2.2).  Text Representation of CERT RRs
-///
-///    The RDATA portion of a CERT RR has the type field as an unsigned
-///    decimal integer or as a mnemonic symbol as listed in [Section 2.1](https://datatracker.ietf.org/doc/html/rfc4398#section-2.1),
-///    above.
-///
-///    The key tag field is represented as an unsigned decimal integer.
-///
-///    The algorithm field is represented as an unsigned decimal integer or
-///    a mnemonic symbol as listed in [[12](https://datatracker.ietf.org/doc/html/rfc4398#ref-12)].
-///
-/// [12]  Arends, R., Austein, R., Larson, M., Massey, D., and S. Rose,
-/// "Resource Records for the DNS Security Extensions", RFC 4034,
-/// March 2005.
-///
-///
-/// [RFC 4034, Resource Records for the DNS Security Extensions, March 2005][rfc4034]
-/// https://tools.ietf.org/html/rfc4034#appendix-A.1
-///
-/// [A.1](https://datatracker.ietf.org/doc/html/rfc4034#appendix-A.1).  DNSSEC Algorithm Types
-///
-///    The DNSKEY, RRSIG, and DS RRs use an 8-bit number to identify the
-///    security algorithm being used.  These values are stored in the
-///    "Algorithm number" field in the resource record RDATA.
-///
-///    Some algorithms are usable only for zone signing (DNSSEC), some only
-///    for transaction security mechanisms (SIG(0) and TSIG), and some for
-///    both.  Those usable for zone signing may appear in DNSKEY, RRSIG, and
-///    DS RRs.  Those usable for transaction security would be present in
-///    SIG(0) and KEY RRs, as described in [RFC2931].
-///
-///                                 Zone
-///    Value Algorithm [Mnemonic]  Signing  References   Status
-///    ----- -------------------- --------- ----------  ---------
-///      0   reserved
-///      1   RSA/MD5 [RSAMD5]         n      [RFC2537]  NOT RECOMMENDED
-///      2   Diffie-Hellman [DH]      n      [RFC2539]   -
-///      3   DSA/SHA-1 [DSA]          y      [RFC2536]  OPTIONAL
-///      4   Elliptic Curve [ECC]              TBA       -
-///      5   RSA/SHA-1 [RSASHA1]      y      [RFC3110]  MANDATORY
-///    252   Indirect [INDIRECT]      n                  -
-///    253   Private [PRIVATEDNS]     y      see below  OPTIONAL
-///    254   Private [PRIVATEOID]     y      see below  OPTIONAL
-///    255   reserved
-///
-///    6 - 251  Available for assignment by IETF Standards Action.
-///
-/// (RFC Required) Domain Name System Security (DNSSEC) Algorithm Numbers
-/// Created: 2003-11-03, Last Updated: 2024-04-16
-/// https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.txt
-///
-///                                                              Zone
-///     Value  Algorithm [Mnemonic]                            Signing    References
-///     -----  --------------------                           ---------   ----------
-///       6    DSA-NSEC3-SHA1 [DSA-NSEC3-SHA1]                    Y       [RFC5155][proposed standard]
-///       7    RSASHA1-NSEC3-SHA1 [RSASHA1-NSEC3-SHA1]            Y       [RFC5155][proposed standard]
-///       8    RSA/SHA-256 [RSASHA256]                            Y       [RFC5702][proposed standard]
-///       9    reserved
-///      10    RSA/SHA-512 [RSASHA512]                            Y       [RFC5702][proposed standard]
-///      11    reserved
-///      12    GOST R 34.10-2001 [ECC-GOST]                       Y       [RFC5933][proposed standard]
-///      13    ECDSA Curve P-256 with SHA-256 [ECDSAP256SHA256]   Y       [RFC6605][proposed standard]
-///      14    ECDSA Curve P-384 with SHA-384 [ECDSAP384SHA384]   Y       [RFC6605][proposed standard]
-///      15    Ed25519 [ED25519]                                  Y       [RFC8080][proposed standard]
-///      16    Ed448 [ED448]                                      Y       [RFC8080][proposed standard]
-///      17    SM2 signing with SM3 hashing [SM2SM3]              Y       [RFC-cuiling-dnsop-sm2-alg-15][informational]
-///   18-22    Unassigned
-///      23    GOST R 34.10-2012 [ECC-GOST12]                     Y       [RFC9558][informational]
-///  24-122    Unassigned
-/// 123-251    reserved
-/// ```
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-#[non_exhaustive]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum Algorithm {
-    /// 0, 9, 11, 123-251, 255   reserved
-    Reserved(u8),
-
-    /// 1   RSA/MD5 ([RFC 2537](https://tools.ietf.org/html/rfc2537))
-    RSAMD5,
-
-    /// 2   Diffie-Hellman ([RFC 2539](https://tools.ietf.org/html/rfc2539))
-    DH,
-
-    /// 3   DSA/SHA-1 ([RFC 2536](https://tools.ietf.org/html/rfc2536))
-    DSA,
-
-    /// 4   Elliptic Curve
-    ECC,
-
-    /// 5   RSA/SHA-1 ([RFC 3110](https://tools.ietf.org/html/rfc3110))
-    RSASHA1,
-
-    /// 252   Indirect
-    INDIRECT,
-
-    /// 253   Private
-    PRIVATEDNS,
-
-    /// 254   Private
-    PRIVATEOID,
-
-    /// 6    DSA-NSEC3-SHA1 ([RFC 5155](https://tools.ietf.org/html/rfc5155))
-    DSANSEC3SHA1,
-
-    /// 7    RSASHA1-NSEC3-SHA1 (RFC5155)
-    RSASHA1NSEC3SHA1,
-
-    /// 8    RSA/SHA-256 ([RFC 5702](https://tools.ietf.org/html/rfc5702))
-    RSASHA256,
-
-    /// 10    RSA/SHA-512 ([RFC 5702](https://tools.ietf.org/html/rfc5702))
-    RSASHA512,
-
-    /// 12    GOST R 34.10-2001 ([RFC 5933](https://tools.ietf.org/html/rfc5933))
-    ECCGOST,
-
-    /// 13    ECDSA Curve P-256 with SHA-256 ([RFC 6605](https://tools.ietf.org/html/rfc6605))
-    ECDSAP256SHA256,
-
-    /// 14    ECDSA Curve P-384 with SHA-384 ([RFC 6605](https://tools.ietf.org/html/rfc6605))
-    ECDSAP384SHA384,
-
-    /// 15    Ed25519 ([RFC 8080](https://tools.ietf.org/html/rfc8080))
-    ED25519,
-
-    /// 16    Ed448 ([RFC 8080](https://tools.ietf.org/html/rfc8080))
-    ED448,
-
-    /// 17    SM2 signing with SM3 hashing (RFC-cuiling-dnsop-sm2-alg-15)
-    SM2SM3,
-
-    /// 23    GOST R 34.10-2012 ([RFC 9558](https://tools.ietf.org/html/rfc9558))
-    ECCGOST12,
-
-    ///   18-22, 24-122    Unassigned
-    Unassigned(u8),
-}
-
-impl From<u8> for Algorithm {
-    fn from(algorithm: u8) -> Self {
-        match algorithm {
-            0 => Self::Reserved(0),
-            1 => Self::RSAMD5,
-            2 => Self::DH,
-            3 => Self::DSA,
-            4 => Self::ECC,
-            5 => Self::RSASHA1,
-            6 => Self::DSANSEC3SHA1,
-            7 => Self::RSASHA1NSEC3SHA1,
-            8 => Self::RSASHA256,
-            9 => Self::Reserved(9),
-            10 => Self::RSASHA512,
-            11 => Self::Reserved(11),
-            12 => Self::ECCGOST,
-            13 => Self::ECDSAP256SHA256,
-            14 => Self::ECDSAP384SHA384,
-            15 => Self::ED25519,
-            16 => Self::ED448,
-            17 => Self::SM2SM3,
-            18..=22 => Self::Unassigned(algorithm),
-            23 => Self::ECCGOST12,
-            24..=122 => Self::Unassigned(algorithm),
-            252 => Self::INDIRECT,
-            253 => Self::PRIVATEDNS,
-            254 => Self::PRIVATEOID,
-            _ => Self::Unassigned(algorithm),
-        }
-    }
-}
-
-impl From<Algorithm> for u8 {
-    fn from(algorithm: Algorithm) -> Self {
-        match algorithm {
-            Algorithm::Reserved(value) if value == 0 => value,
-            Algorithm::RSAMD5 => 1,
-            Algorithm::DH => 2,
-            Algorithm::DSA => 3,
-            Algorithm::ECC => 4,
-            Algorithm::RSASHA1 => 5,
-            Algorithm::DSANSEC3SHA1 => 6,
-            Algorithm::RSASHA1NSEC3SHA1 => 7,
-            Algorithm::RSASHA256 => 8,
-            Algorithm::Reserved(value) if value == 9 => value,
-            Algorithm::RSASHA512 => 10,
-            Algorithm::Reserved(value) if value == 11 => value,
-            Algorithm::ECCGOST => 12,
-            Algorithm::ECDSAP256SHA256 => 13,
-            Algorithm::ECDSAP384SHA384 => 14,
-            Algorithm::ED25519 => 15,
-            Algorithm::ED448 => 16,
-            Algorithm::SM2SM3 => 17,
-            Algorithm::Unassigned(value) if (18..=22).contains(&value) => value,
-            Algorithm::ECCGOST12 => 23,
-            Algorithm::Unassigned(value) if (24..=122).contains(&value) => value,
-            Algorithm::INDIRECT => 252,
-            Algorithm::PRIVATEDNS => 253,
-            Algorithm::PRIVATEOID => 254,
-            Algorithm::Unassigned(value) => value,
-            Algorithm::Reserved(value) => value,
-        }
-    }
-}
-
-impl<'r> BinDecodable<'r> for Algorithm {
-    // https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    fn read(decoder: &mut BinDecoder<'r>) -> Result<Self, DecodeError> {
-        let algorithm_id = decoder
-            .read_u8()?
-            .unverified(/*Algorithm is verified as safe in processing this*/);
-        Ok(Self::from(algorithm_id))
-    }
-}
-
-impl FromStr for Algorithm {
-    type Err = ParseError;
-
-    /// Parses an algorithm from its decimal value or its DNSSEC mnemonic
-    /// ([RFC 4398 section 2.2](https://datatracker.ietf.org/doc/html/rfc4398#section-2.2))
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(value) = u8::from_str(s) {
-            return Ok(Self::from(value));
-        }
-
-        Ok(match s {
-            s if s.eq_ignore_ascii_case("RSAMD5") => Self::RSAMD5,
-            s if s.eq_ignore_ascii_case("DH") => Self::DH,
-            s if s.eq_ignore_ascii_case("DSA") => Self::DSA,
-            s if s.eq_ignore_ascii_case("ECC") => Self::ECC,
-            s if s.eq_ignore_ascii_case("RSASHA1") => Self::RSASHA1,
-            s if s.eq_ignore_ascii_case("DSA-NSEC3-SHA1") || s.eq_ignore_ascii_case("NSEC3DSA") => {
-                Self::DSANSEC3SHA1
-            }
-            s if s.eq_ignore_ascii_case("RSASHA1-NSEC3-SHA1")
-                || s.eq_ignore_ascii_case("NSEC3RSASHA1") =>
-            {
-                Self::RSASHA1NSEC3SHA1
-            }
-            s if s.eq_ignore_ascii_case("RSASHA256") => Self::RSASHA256,
-            s if s.eq_ignore_ascii_case("RSASHA512") => Self::RSASHA512,
-            s if s.eq_ignore_ascii_case("ECC-GOST") || s.eq_ignore_ascii_case("ECCGOST") => {
-                Self::ECCGOST
-            }
-            s if s.eq_ignore_ascii_case("ECDSAP256SHA256") => Self::ECDSAP256SHA256,
-            s if s.eq_ignore_ascii_case("ECDSAP384SHA384") => Self::ECDSAP384SHA384,
-            s if s.eq_ignore_ascii_case("ED25519") => Self::ED25519,
-            s if s.eq_ignore_ascii_case("ED448") => Self::ED448,
-            s if s.eq_ignore_ascii_case("SM2SM3") => Self::SM2SM3,
-            s if s.eq_ignore_ascii_case("ECC-GOST12") || s.eq_ignore_ascii_case("ECCGOST12") => {
-                Self::ECCGOST12
-            }
-            s if s.eq_ignore_ascii_case("INDIRECT") => Self::INDIRECT,
-            s if s.eq_ignore_ascii_case("PRIVATEDNS") => Self::PRIVATEDNS,
-            s if s.eq_ignore_ascii_case("PRIVATEOID") => Self::PRIVATEOID,
-            _ => return Err(ParseError::from("Invalid digit found in algorithm token")),
-        })
-    }
-}
-
-impl fmt::Display for Algorithm {
-    /// Writes the mnemonic of the algorithm, or its decimal value for algorithms without a
-    /// mnemonic that zone file parsers agree on
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RSAMD5 => f.write_str("RSAMD5"),
-            Self::DH => f.write_str("DH"),
-            Self::DSA => f.write_str("DSA"),
-            Self::RSASHA1 => f.write_str("RSASHA1"),
-            Self::RSASHA256 => f.write_str("RSASHA256"),
-            Self::RSASHA512 => f.write_str("RSASHA512"),
-            Self::ECDSAP256SHA256 => f.write_str("ECDSAP256SHA256"),
-            Self::ECDSAP384SHA384 => f.write_str("ECDSAP384SHA384"),
-            Self::ED25519 => f.write_str("ED25519"),
-            Self::ED448 => f.write_str("ED448"),
-            Self::INDIRECT => f.write_str("INDIRECT"),
-            Self::PRIVATEDNS => f.write_str("PRIVATEDNS"),
-            Self::PRIVATEOID => f.write_str("PRIVATEOID"),
-            _ => write!(f, "{}", u8::from(*self)),
-        }
-    }
-}
-
 /// [RFC 4398, Storing Certificates in DNS, November 1987](https://tools.ietf.org/html/rfc4398)
 ///
 /// ```text
@@ -514,6 +230,7 @@ pub struct CERT {
     pub key_tag: u16,
 
     /// The CERT algorithm
+    #[cfg_attr(feature = "serde", serde(with = "algorithm_serde"))]
     pub algorithm: Algorithm,
 
     /// The CERT record data
@@ -594,7 +311,7 @@ impl BinEncodable for CERT {
         let mut encoder = encoder.with_rdata_behavior(RDataEncoding::Other);
         u16::from(self.cert_type).emit(&mut encoder)?;
         self.key_tag.emit(&mut encoder)?;
-        u8::from(self.algorithm).emit(&mut encoder)?;
+        self.algorithm.emit(&mut encoder)?;
         encoder.emit_slice(&self.cert_data)?;
 
         Ok(())
@@ -689,6 +406,67 @@ impl fmt::Display for CERT {
     }
 }
 
+// CERT's original Serde enum used different variant indices from the DNSSEC enum.
+// Keep that data format independent of the shared algorithm registry.
+#[cfg(feature = "serde")]
+mod algorithm_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::Algorithm;
+
+    macro_rules! cert_variants {
+        ($($variant:ident),+ $(,)?) => {
+            #[derive(Deserialize, Serialize)]
+            #[serde(rename = "Algorithm")]
+            enum Repr {
+                Reserved(u8),
+                $($variant,)+
+                Unassigned(u8),
+            }
+
+            #[allow(deprecated)]
+            impl From<Algorithm> for Repr {
+                fn from(algorithm: Algorithm) -> Self {
+                    match algorithm {
+                        $(Algorithm::$variant => Self::$variant,)+
+                        Algorithm::Unknown(n @ (0 | 9 | 11)) => Self::Reserved(n),
+                        other => Self::Unassigned(u8::from(other)),
+                    }
+                }
+            }
+
+            #[allow(deprecated)]
+            impl From<Repr> for Algorithm {
+                fn from(repr: Repr) -> Self {
+                    match repr {
+                        $(Repr::$variant => Self::$variant,)+
+                        Repr::Reserved(n) | Repr::Unassigned(n) => Self::from(n),
+                    }
+                }
+            }
+        };
+    }
+
+    cert_variants! {
+        RSAMD5, DH, DSA, ECC, RSASHA1, INDIRECT, PRIVATEDNS, PRIVATEOID, DSANSEC3SHA1,
+        RSASHA1NSEC3SHA1, RSASHA256, RSASHA512, ECCGOST, ECDSAP256SHA256, ECDSAP384SHA384,
+        ED25519, ED448, SM2SM3, ECCGOST12,
+    }
+
+    pub(super) fn serialize<S: Serializer>(
+        algorithm: &Algorithm,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        Repr::from(*algorithm).serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Algorithm, D::Error> {
+        Repr::deserialize(deserializer).map(Algorithm::from)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
@@ -739,63 +517,6 @@ mod tests {
         assert_eq!(u16::from(cert_type_experimental_80), 65280);
         assert_eq!(u16::from(cert_type_experimental_90), 65290);
         assert_eq!(u16::from(CertType::Reserved65535), 65535);
-    }
-
-    #[test]
-    fn test_algorithm() {
-        assert_eq!(Algorithm::Reserved(0), Algorithm::from(0));
-        assert_eq!(Algorithm::DH, Algorithm::from(2));
-        assert_eq!(Algorithm::DSA, Algorithm::from(3));
-        assert_eq!(Algorithm::ECC, Algorithm::from(4));
-        assert_eq!(Algorithm::RSASHA1, Algorithm::from(5));
-        assert_eq!(Algorithm::DSANSEC3SHA1, Algorithm::from(6));
-        assert_eq!(Algorithm::RSASHA1NSEC3SHA1, Algorithm::from(7));
-        assert_eq!(Algorithm::RSASHA256, Algorithm::from(8));
-        assert_eq!(Algorithm::Reserved(9), Algorithm::from(9));
-        assert_eq!(Algorithm::RSASHA512, Algorithm::from(10));
-        assert_eq!(Algorithm::Reserved(11), Algorithm::from(11));
-        assert_eq!(Algorithm::ECCGOST, Algorithm::from(12));
-        assert_eq!(Algorithm::ECDSAP256SHA256, Algorithm::from(13));
-        assert_eq!(Algorithm::ECDSAP384SHA384, Algorithm::from(14));
-        assert_eq!(Algorithm::ED25519, Algorithm::from(15));
-        assert_eq!(Algorithm::ED448, Algorithm::from(16));
-        assert_eq!(Algorithm::SM2SM3, Algorithm::from(17));
-        assert_eq!(Algorithm::Unassigned(18), Algorithm::from(18));
-        assert_eq!(Algorithm::Unassigned(20), Algorithm::from(20));
-        assert_eq!(Algorithm::ECCGOST12, Algorithm::from(23));
-        assert_eq!(Algorithm::INDIRECT, Algorithm::from(252));
-        assert_eq!(Algorithm::PRIVATEDNS, Algorithm::from(253));
-        assert_eq!(Algorithm::PRIVATEOID, Algorithm::from(254));
-
-        let algorithm_reserved_0 = Algorithm::Reserved(0);
-        let algorithm_reserved_9 = Algorithm::Reserved(9);
-
-        assert_eq!(u8::from(algorithm_reserved_0), 0);
-        assert_eq!(u8::from(Algorithm::DH), 2);
-
-        assert_eq!(u8::from(Algorithm::DSA), 3);
-        assert_eq!(u8::from(Algorithm::ECC), 4);
-        assert_eq!(u8::from(Algorithm::RSASHA1), 5);
-        assert_eq!(u8::from(Algorithm::DSANSEC3SHA1), 6);
-        assert_eq!(u8::from(Algorithm::RSASHA1NSEC3SHA1), 7);
-        assert_eq!(u8::from(Algorithm::RSASHA256), 8);
-        assert_eq!(u8::from(Algorithm::Reserved(9)), 9);
-        assert_eq!(u8::from(Algorithm::RSASHA512), 10);
-        assert_eq!(u8::from(Algorithm::Reserved(11)), 11);
-        assert_eq!(u8::from(Algorithm::ECCGOST), 12);
-        assert_eq!(u8::from(Algorithm::ECDSAP256SHA256), 13);
-        assert_eq!(u8::from(Algorithm::ECDSAP384SHA384), 14);
-        assert_eq!(u8::from(Algorithm::ED25519), 15);
-        assert_eq!(u8::from(Algorithm::ED448), 16);
-        assert_eq!(u8::from(Algorithm::SM2SM3), 17);
-        assert_eq!(u8::from(Algorithm::Unassigned(18)), 18);
-        assert_eq!(u8::from(Algorithm::Unassigned(20)), 20);
-        assert_eq!(u8::from(Algorithm::ECCGOST12), 23);
-        assert_eq!(u8::from(Algorithm::INDIRECT), 252);
-        assert_eq!(u8::from(Algorithm::PRIVATEDNS), 253);
-        assert_eq!(u8::from(Algorithm::PRIVATEOID), 254);
-
-        assert_eq!(u8::from(algorithm_reserved_9), 9);
     }
 
     #[test]
@@ -947,15 +668,31 @@ mod tests {
         let tokens = ["pgp", "7", "rsasha1", "Q2VydGlm", "aWNhdGUgZGF0YQ=="].into_iter();
         let cert = CERT::from_tokens(tokens).unwrap();
         assert_eq!(cert.cert_type, CertType::PGP);
-        assert_eq!(cert.algorithm, Algorithm::RSASHA1);
+        assert_eq!(u8::from(cert.algorithm), 5);
         assert_eq!(cert.cert_data, b"Certificate data".to_vec());
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn legacy_algorithm_variant_indices() {
+        use serde::de::value::{Error, U32Deserializer};
+
+        for (index, algorithm) in [(1, 1), (6, 252), (11, 8), (19, 23)] {
+            let value = U32Deserializer::<Error>::new(index);
+            assert_eq!(
+                algorithm_serde::deserialize(value).unwrap(),
+                Algorithm::from(algorithm)
+            );
+        }
     }
 
     #[test]
     fn test_display_round_trip() {
         for (cert_type, algorithm, expected) in [
             (0, 0, "0 1 0 AQID"),
+            (1, 7, "PKIX 1 7 AQID"),
             (1, 8, "PKIX 1 RSASHA256 AQID"),
+            (1, 16, "PKIX 1 ED448 AQID"),
             (6, 6, "IPGP 1 6 AQID"),
             (9, 20, "9 1 20 AQID"),
             (253, 13, "URI 1 ECDSAP256SHA256 AQID"),
