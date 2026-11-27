@@ -1218,7 +1218,11 @@ mod tests {
             #[cfg(feature = "__quic")]
             server.register(
                 Quic::new(
-                    UdpSocket::bind(self.quic_addr).await.unwrap(),
+                    UdpSocket::bind(self.quic_addr)
+                        .await
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
                     Arc::new(default_tls_server_config(b"doq", rustls_cert_key()).unwrap()),
                 )
                 .unwrap(),

@@ -9,7 +9,7 @@ use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use rustls::ServerConfig;
-use tokio::{net, task::JoinSet};
+use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::{
@@ -19,13 +19,13 @@ use super::{
 };
 use crate::net::{
     NetError,
-    quic::{DoqErrorCode, QuicServer, QuicStreams},
+    quic::{DoqErrorCode, QuicServer, QuicSocket, QuicStreams},
     xfer::Protocol,
 };
 
 /// Builder and transport implementation for DNS-over-QUIC (DoQ).
 ///
-/// Wraps an already-bound UDP socket and a TLS configuration to accept QUIC connections.
+/// Wraps an already-bound [`QuicSocket`] and a TLS configuration to accept QUIC connections.
 ///
 /// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
 /// should be taken to not make them too low depending on use cases.
@@ -44,10 +44,10 @@ impl Quic {
     /// TLS 1.3 and enable the `doq` ALPN protocol. Timeouts default to
     /// [`DEFAULT_HANDSHAKE_TIMEOUT`], [`DEFAULT_IDLE_TIMEOUT`], and [`DEFAULT_REQUEST_TIMEOUT`].
     ///
-    /// Initializes the QUIC endpoint immediately and requires an active Tokio runtime.
-    pub fn new(socket: net::UdpSocket, tls_config: Arc<ServerConfig>) -> Result<Self, NetError> {
+    /// Initializes the QUIC endpoint immediately.
+    pub fn new(socket: QuicSocket, tls_config: Arc<ServerConfig>) -> Result<Self, NetError> {
         Ok(Self {
-            server: QuicServer::new(socket.try_into()?, tls_config)?,
+            server: QuicServer::new(socket, tls_config)?,
             handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
             idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
             request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),

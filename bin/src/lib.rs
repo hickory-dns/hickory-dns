@@ -733,8 +733,12 @@ impl ServerSetup<'_> {
                 tls_config.key_log = Arc::new(KeyLogFile::new());
             }
 
+            let quic_socket = quic_listener
+                .try_into()
+                .map_err(|err| format!("failed to wrap QUIC socket: {err}"))?;
+
             self.server.register(
-                Quic::new(quic_listener, Arc::new(tls_config))
+                Quic::new(quic_socket, Arc::new(tls_config))
                     .map_err(|err| format!("failed to register QUIC listener: {err}"))?
                     .handshake_timeout(self.handshake_timeout)
                     .idle_timeout(self.idle_timeout)
