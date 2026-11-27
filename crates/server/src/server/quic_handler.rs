@@ -8,112 +8,155 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
-use rustls::server::ResolvesServerCert;
-use tokio::{net, task::JoinSet};
+use rustls::ServerConfig;
+use tokio::task::JoinSet;
 use tracing::{debug, warn};
 
 use super::{
+    DEFAULT_HANDSHAKE_TIMEOUT, DEFAULT_IDLE_TIMEOUT, DEFAULT_REQUEST_TIMEOUT, SealedTransport,
     ServerContext, optional_timeout, reap_tasks, request_handler::RequestHandler,
     sanitize_src_address,
 };
 use crate::net::{
     NetError,
-    quic::{DoqErrorCode, QuicServer, QuicStreams},
+    quic::{DoqErrorCode, QuicServer, QuicSocket, QuicStreams},
     xfer::Protocol,
 };
 
-pub(super) async fn handle_quic(
-    socket: net::UdpSocket,
+/// Builder and transport implementation for DNS-over-QUIC (DoQ).
+///
+/// Wraps an already-bound [`QuicSocket`] and a TLS configuration to accept QUIC connections.
+///
+/// To make the server more resilient to DOS issues, timeouts are enabled by default. Care
+/// should be taken to not make them too low depending on use cases.
+#[derive(Debug)]
+pub struct Quic {
+    server: QuicServer,
     handshake_timeout: Option<Duration>,
     idle_timeout: Option<Duration>,
     request_timeout: Option<Duration>,
-    server_cert_resolver: Arc<dyn ResolvesServerCert>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    debug!(?socket, "registered quic");
-    handle_quic_with_server(
-        QuicServer::with_socket(socket, server_cert_resolver)?,
-        handshake_timeout,
-        idle_timeout,
-        request_timeout,
-        cx,
-    )
-    .await
 }
 
-pub(super) async fn handle_quic_with_server(
-    mut server: QuicServer,
-    handshake_timeout: Option<Duration>,
-    idle_timeout: Option<Duration>,
-    request_timeout: Option<Duration>,
-    cx: Arc<ServerContext<impl RequestHandler>>,
-) -> Result<(), NetError> {
-    let mut inner_join_set = JoinSet::new();
-    loop {
-        let future = cx.shutdown.run_until_cancelled(server.next());
-        let Some(incoming_opt) = future.await else {
-            break; // A graceful shutdown was initiated. Break out of the loop.
-        };
-        let Some(incoming) = incoming_opt else {
-            break; // Connection is closed.
-        };
+impl Quic {
+    /// Constructs a new QUIC transport with the provided [`ServerConfig`].
+    ///
+    /// The `socket` must already be bound to a local address, and `tls_config` must support
+    /// TLS 1.3 and enable the `doq` ALPN protocol. Timeouts default to
+    /// [`DEFAULT_HANDSHAKE_TIMEOUT`], [`DEFAULT_IDLE_TIMEOUT`], and [`DEFAULT_REQUEST_TIMEOUT`].
+    ///
+    /// Initializes the QUIC endpoint immediately.
+    pub fn new(socket: QuicSocket, tls_config: Arc<ServerConfig>) -> Result<Self, NetError> {
+        Ok(Self {
+            server: QuicServer::new(socket, tls_config)?,
+            handshake_timeout: Some(DEFAULT_HANDSHAKE_TIMEOUT),
+            idle_timeout: Some(DEFAULT_IDLE_TIMEOUT),
+            request_timeout: Some(DEFAULT_REQUEST_TIMEOUT),
+        })
+    }
 
-        // If the remote address isn't validated, send a retry packet to request that the client try
-        // connecting again, with address validation.
-        if !incoming.remote_address_validated() {
-            if let Err(error) = incoming.retry() {
-                warn!(%error, "could not send retry packet");
-            }
-            continue;
+    /// Sets the timeout for completing a QUIC handshake; pass `None` to disable it.
+    pub fn handshake_timeout(self, handshake_timeout: Option<Duration>) -> Self {
+        Self {
+            handshake_timeout,
+            ..self
         }
+    }
 
-        // Verify that the source address is safe for responses.
-        let src_addr = incoming.remote_address();
-        if let Err(error) = sanitize_src_address(src_addr) {
-            warn!(
-                %error, %src_addr,
-                "address can not be responded to",
-            );
-            continue;
+    /// Sets the timeout before closing an idle connection; pass `None` to disable it.
+    pub fn idle_timeout(self, idle_timeout: Option<Duration>) -> Self {
+        Self {
+            idle_timeout,
+            ..self
         }
+    }
 
-        let connecting = match incoming.accept() {
-            Ok(connecting) => connecting,
-            Err(error) => {
-                debug!(%error, "error accepting incoming quic connection");
+    /// Sets the timeout for receiving a complete request on a stream; pass `None` to disable it.
+    pub fn request_timeout(self, request_timeout: Option<Duration>) -> Self {
+        Self {
+            request_timeout,
+            ..self
+        }
+    }
+}
+
+impl SealedTransport for Quic {
+    async fn run<H: RequestHandler>(self, cx: Arc<ServerContext<H>>) -> Result<(), NetError> {
+        let Self {
+            mut server,
+            handshake_timeout,
+            idle_timeout,
+            request_timeout,
+        } = self;
+
+        let mut inner_join_set = JoinSet::new();
+        loop {
+            let future = cx.shutdown.run_until_cancelled(server.next());
+            let Some(incoming_opt) = future.await else {
+                break; // A graceful shutdown was initiated. Break out of the loop.
+            };
+            let Some(incoming) = incoming_opt else {
+                break; // Connection is closed.
+            };
+
+            // If the remote address isn't validated, send a retry packet to request that the client try
+            // connecting again, with address validation.
+            if !incoming.remote_address_validated() {
+                if let Err(error) = incoming.retry() {
+                    warn!(%error, "could not send retry packet");
+                }
                 continue;
             }
-        };
 
-        let cx = cx.clone();
-        inner_join_set.spawn(async move {
-            let handshake_future = QuicStreams::new(connecting);
-            let Ok(streams_result) = optional_timeout(handshake_timeout, handshake_future).await
-            else {
-                warn!("quic timeout expired during handshake");
-                return;
-            };
-            let streams = match streams_result {
-                Ok(streams) => streams,
+            // Verify that the source address is safe for responses.
+            let src_addr = incoming.remote_address();
+            if let Err(error) = sanitize_src_address(src_addr) {
+                warn!(
+                    %error, %src_addr,
+                    "address can not be responded to",
+                );
+                continue;
+            }
+
+            let connecting = match incoming.accept() {
+                Ok(connecting) => connecting,
                 Err(error) => {
-                    debug!(%error, "error completing incoming quic connection");
-                    return;
+                    debug!(%error, "error accepting incoming quic connection");
+                    continue;
                 }
             };
 
-            debug!("starting quic stream request from: {src_addr}");
+            let cx = cx.clone();
+            inner_join_set.spawn(async move {
+                let handshake_future = QuicStreams::new(connecting);
+                let Ok(streams_result) =
+                    optional_timeout(handshake_timeout, handshake_future).await
+                else {
+                    warn!("quic timeout expired during handshake");
+                    return;
+                };
+                let streams = match streams_result {
+                    Ok(streams) => streams,
+                    Err(error) => {
+                        debug!(%error, "error completing incoming quic connection");
+                        return;
+                    }
+                };
 
-            let result = quic_handler(streams, src_addr, idle_timeout, request_timeout, cx).await;
+                debug!("starting quic stream request from: {src_addr}");
 
-            if let Err(error) = result {
-                warn!(%error, %src_addr, "quic stream processing failed")
-            }
-        });
+                let result =
+                    quic_handler(streams, src_addr, idle_timeout, request_timeout, cx).await;
 
-        reap_tasks(&mut inner_join_set);
+                if let Err(error) = result {
+                    warn!(%error, %src_addr, "quic stream processing failed")
+                }
+            });
+
+            reap_tasks(&mut inner_join_set);
+        }
+
+        Ok(())
     }
-
-    Ok(())
 }
 
 pub(crate) async fn quic_handler(

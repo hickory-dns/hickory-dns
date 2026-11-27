@@ -12,8 +12,9 @@ use std::println;
 use std::sync::Arc;
 
 use futures_util::StreamExt;
-use rustls::{ClientConfig, KeyLogFile, sign::SingleCertAndKey};
+use rustls::{ClientConfig, KeyLogFile, ServerConfig, sign::SingleCertAndKey, version::TLS13};
 use test_support::{TestCertificates, subscribe};
+use tokio::net::UdpSocket;
 
 use crate::{
     proto::{
@@ -25,7 +26,7 @@ use crate::{
     xfer::DnsRequestSender,
 };
 
-use super::quic_server::QuicServer;
+use super::{quic_server::QuicServer, quic_stream::DOQ_ALPN};
 
 async fn server_responder(mut server: QuicServer) {
     while let Some(incoming) = server.next().await {
@@ -59,13 +60,19 @@ async fn test_quic_stream() {
     let certificates = TestCertificates::generate();
     let certificate_and_key = SingleCertAndKey::from(certificates.certified_key());
 
+    let mut server_config = ServerConfig::builder_with_provider(Arc::new(default_provider()))
+        .with_protocol_versions(&[&TLS13])
+        .unwrap()
+        .with_no_client_auth()
+        .with_cert_resolver(Arc::new(certificate_and_key));
+    server_config.alpn_protocols = vec![DOQ_ALPN.to_vec()];
+
     // All testing is only done on local addresses, construct the server
-    let quic_ns = QuicServer::new(
-        SocketAddr::from(([127, 0, 0, 1], 0)),
-        Arc::new(certificate_and_key),
-    )
-    .await
-    .expect("failed to initialize QuicServer");
+    let socket = UdpSocket::bind(SocketAddr::from(([127, 0, 0, 1], 0)))
+        .await
+        .unwrap();
+    let quic_ns = QuicServer::new(socket.try_into().unwrap(), Arc::new(server_config))
+        .expect("failed to initialize QuicServer");
 
     // kick off the server
     let server_addr = quic_ns.local_addr().expect("no address");
